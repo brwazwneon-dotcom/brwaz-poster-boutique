@@ -38,10 +38,13 @@ function CartPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const buildMessage = () => {
-    const lines = items.map(
-      (i, idx) =>
-        `${idx + 1}. ${i.title} ×${i.qty}\n   ${labelForFrame(i.frameType)} · ${labelForSize(i.size)} · ${labelForColor(i.color)}\n   ${i.price * i.qty} EGP`,
-    );
+    const lines = items.map((i, idx) => {
+      const head = `${idx + 1}. ${i.title} ×${i.qty}\n   ${labelForFrame(i.frameType)} · ${labelForSize(i.size)} · ${labelForColor(i.color)}\n   ${i.price * i.qty} EGP`;
+      if (i.bundle) {
+        return head + "\n   Posters: " + i.bundle.posters.map((p) => p.title).join(", ");
+      }
+      return head;
+    });
     return [
       "New order from BRWAZWNEON (Cash on delivery)",
       "",
@@ -73,8 +76,12 @@ function CartPage() {
         frame_color: labelForColor(i.color),
         size: labelForSize(i.size),
         quantity: i.qty,
-        selected_poster: i.posterId,
-        poster_title: i.title,
+        selected_poster: i.bundle
+          ? i.bundle.posters.map((p) => p.posterId).join(",")
+          : i.posterId,
+        poster_title: i.bundle
+          ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
+          : i.title,
         poster_image: i.image,
         total_price: i.price * i.qty,
         status: "new",
@@ -115,6 +122,19 @@ function CartPage() {
                       <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
                         {labelForFrame(i.frameType)} · {labelForSize(i.size)} · {labelForColor(i.color)}
                       </div>
+                      {i.bundle && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {i.bundle.posters.map((p) => (
+                            <img
+                              key={p.posterId}
+                              src={p.image}
+                              alt={p.title}
+                              title={p.title}
+                              className="h-12 w-9 rounded-sm border border-border object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => remove(i.id)}
