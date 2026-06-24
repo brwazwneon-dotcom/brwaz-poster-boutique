@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart";
-import { CATEGORIES } from "@/lib/categories";
+import { useCategories } from "@/lib/use-categories";
 
 export function SiteHeader() {
   const { count } = useCart();
+  const { data: categories = [] } = useCategories();
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-6">
@@ -12,7 +13,7 @@ export function SiteHeader() {
           BRWAZWNEON
         </Link>
         <nav className="hidden items-center gap-6 text-sm uppercase tracking-widest text-muted-foreground md:flex">
-          {CATEGORIES.slice(0, 5).map((c) => (
+          {categories.slice(0, 5).map((c) => (
             <Link
               key={c.slug}
               to="/category/$slug"
