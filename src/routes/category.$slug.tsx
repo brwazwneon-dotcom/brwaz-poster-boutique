@@ -1,9 +1,9 @@
-import { createFileRoute, notFound, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES, getCategory } from "@/lib/categories";
+import { useCategories, type Category } from "@/lib/use-categories";
 import {
   FRAME_COLORS,
   FRAME_TYPES,
@@ -21,109 +21,139 @@ type Poster = {
   id: string;
   title: string;
   image_url: string;
-  category: string;
+  category_id: string | null;
 };
 
+const PAGE_SIZE = 48;
+
 export const Route = createFileRoute("/category/$slug")({
-  beforeLoad: ({ params }) => {
-    if (!getCategory(params.slug)) throw notFound();
-  },
-  head: ({ params }) => {
-    const c = getCategory(params.slug);
-    const title = c ? `${c.name} Posters — BRWAZWNEON` : "Posters";
-    return {
-      meta: [
-        { title },
-        { name: "description", content: c?.blurb ?? "Premium framed posters." },
-        { property: "og:title", content: title },
-      ],
-    };
-  },
+  head: ({ params }) => ({
+    meta: [
+      { title: `${params.slug.replace(/-/g, " ")} posters — BRWAZWNEON` },
+      { name: "description", content: "Premium framed posters." },
+    ],
+  }),
   component: CategoryPage,
   notFoundComponent: () => (
     <div className="container-page py-24 text-center">
       <h1 className="text-display text-4xl">Category not found</h1>
-      <Link to="/" className="mt-6 inline-block underline">
-        Back home
-      </Link>
+      <Link to="/" className="mt-6 inline-block underline">Back home</Link>
     </div>
   ),
 });
 
 function CategoryPage() {
   const { slug } = Route.useParams();
-  const category = getCategory(slug)!;
-  const [selected, setSelected] = useState<Poster | null>(null);
+  const { data: categories = [] } = useCategories();
 
-  const { data: posters = [], isLoading } = useQuery({
-    queryKey: ["posters", slug],
+  const { data: category, isLoading: catLoading } = useQuery({
+    queryKey: ["category", slug],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("posters")
-        .select("id,title,image_url,category")
-        .eq("category", slug)
-        .order("created_at", { ascending: false });
+        .from("categories")
+        .select("id,name,slug,image,sort_order")
+        .eq("slug", slug)
+        .maybeSingle();
       if (error) throw error;
-      return data as Poster[];
+      return data as Category | null;
     },
   });
+
+  if (!catLoading && !category) throw notFound();
+
+  const [selected, setSelected] = useState<Poster | null>(null);
+
+  const postersQ = useInfiniteQuery({
+    queryKey: ["posters", category?.id ?? slug],
+    enabled: !!category?.id,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const from = (pageParam as number) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("posters")
+        .select("id,title,image_url,category_id")
+        .eq("category_id", category!.id)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      return (data ?? []) as Poster[];
+    },
+    getNextPageParam: (last, pages) =>
+      last.length === PAGE_SIZE ? pages.length : undefined,
+  });
+
+  const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
 
   return (
     <div className="container-page py-12">
       <div className="mb-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
         Collection
       </div>
-      <h1 className="text-display text-4xl sm:text-6xl">{category.name}</h1>
-      <p className="mt-3 max-w-xl text-muted-foreground">{category.blurb}</p>
+      <h1 className="text-display text-4xl sm:text-6xl">
+        {category?.name ?? "…"}
+      </h1>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
         <div>
-          {isLoading ? (
+          {postersQ.isLoading || catLoading ? (
             <div className="py-20 text-center text-sm text-muted-foreground">
               Loading posters…
             </div>
           ) : posters.length === 0 ? (
             <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-              No posters in this category yet. Check back soon — or upload some
-              from the <Link to="/admin" className="underline">admin panel</Link>.
+              No posters in this category yet.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {posters.map((p) => {
-                const active = selected?.id === p.id;
-                return (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {posters.map((p) => {
+                  const active = selected?.id === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelected(p)}
+                      className={cn(
+                        "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-card transition",
+                        active
+                          ? "border-primary ring-2 ring-primary/40"
+                          : "border-transparent hover:border-border",
+                      )}
+                    >
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover grayscale transition group-hover:grayscale-0"
+                      />
+                      {active && (
+                        <span className="absolute left-2 top-2 rounded-sm bg-primary px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
+                          Selected
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {postersQ.hasNextPage && (
+                <div className="mt-8 text-center">
                   <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelected(p)}
-                    className={cn(
-                      "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-card transition",
-                      active
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-transparent hover:border-border",
-                    )}
+                    onClick={() => postersQ.fetchNextPage()}
+                    disabled={postersQ.isFetchingNextPage}
+                    className="rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-50"
                   >
-                    <img
-                      src={p.image_url}
-                      alt={p.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover grayscale transition group-hover:grayscale-0"
-                    />
-                    {active && (
-                      <span className="absolute left-2 top-2 rounded-sm bg-primary px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
-                        Selected
-                      </span>
-                    )}
+                    {postersQ.isFetchingNextPage ? "Loading…" : "Load more"}
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          {selected ? (
-            <Customizer poster={selected} />
+          {selected && category ? (
+            <Customizer poster={selected} category={category} />
           ) : (
             <div className="rounded-sm border border-border bg-card p-8 text-center">
               <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
@@ -131,35 +161,39 @@ function CategoryPage() {
               </div>
               <p className="mt-3 text-lg">Select a poster to customize.</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Tap any image on the left. Choose frame type, size and color.
+                Tap any image to choose frame type, size and color.
               </p>
             </div>
           )}
         </aside>
       </div>
 
-      <div className="mt-16 border-t border-border pt-10">
-        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          More categories
-        </h3>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {CATEGORIES.filter((c) => c.slug !== slug).map((c) => (
-            <Link
-              key={c.slug}
-              to="/category/$slug"
-              params={{ slug: c.slug }}
-              className="rounded-sm border border-border px-4 py-2 text-sm hover:bg-accent"
-            >
-              {c.name}
-            </Link>
-          ))}
+      {categories.length > 1 && (
+        <div className="mt-16 border-t border-border pt-10">
+          <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+            More categories
+          </h3>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {categories
+              .filter((c) => c.slug !== slug)
+              .map((c) => (
+                <Link
+                  key={c.slug}
+                  to="/category/$slug"
+                  params={{ slug: c.slug }}
+                  className="rounded-sm border border-border px-4 py-2 text-sm hover:bg-accent"
+                >
+                  {c.name}
+                </Link>
+              ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function Customizer({ poster }: { poster: Poster }) {
+function Customizer({ poster, category }: { poster: Poster; category: Category }) {
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
@@ -171,7 +205,8 @@ function Customizer({ poster }: { poster: Poster }) {
       posterId: poster.id,
       title: poster.title,
       image: poster.image_url,
-      category: poster.category,
+      categoryId: category.id,
+      categoryName: category.name,
       frameType,
       size,
       color,
@@ -199,17 +234,15 @@ function Customizer({ poster }: { poster: Poster }) {
             Selected
           </div>
           <div className="mt-1 truncate text-lg font-semibold">{poster.title}</div>
-          <div className="mt-3 text-display text-3xl">{price} <span className="text-base text-muted-foreground">EGP</span></div>
+          <div className="mt-3 text-display text-3xl">
+            {price} <span className="text-base text-muted-foreground">EGP</span>
+          </div>
         </div>
       </div>
 
       <OptionGroup label="Frame Type">
         {FRAME_TYPES.map((f) => (
-          <OptionButton
-            key={f.id}
-            active={frameType === f.id}
-            onClick={() => setFrameType(f.id)}
-          >
+          <OptionButton key={f.id} active={frameType === f.id} onClick={() => setFrameType(f.id)}>
             {f.label}
           </OptionButton>
         ))}
@@ -217,11 +250,7 @@ function Customizer({ poster }: { poster: Poster }) {
 
       <OptionGroup label="Size">
         {SIZES.map((s) => (
-          <OptionButton
-            key={s.id}
-            active={size === s.id}
-            onClick={() => setSize(s.id)}
-          >
+          <OptionButton key={s.id} active={size === s.id} onClick={() => setSize(s.id)}>
             {s.label}
           </OptionButton>
         ))}
@@ -272,9 +301,7 @@ function Customizer({ poster }: { poster: Poster }) {
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-5">
-      <div className="mb-2 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-        {label}
-      </div>
+      <div className="mb-2 text-xs uppercase tracking-[0.3em] text-muted-foreground">{label}</div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );

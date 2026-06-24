@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { CATEGORIES } from "@/lib/categories";
+import { useCategories } from "@/lib/use-categories";
 
 export function SiteFooter() {
+  const { data: categories = [] } = useCategories();
   return (
     <footer className="mt-24 border-t border-border bg-background">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
@@ -15,7 +16,7 @@ export function SiteFooter() {
         <div>
           <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Shop</h4>
           <ul className="space-y-2 text-sm">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <li key={c.slug}>
                 <Link to="/category/$slug" params={{ slug: c.slug }} className="hover:underline">
                   {c.name}

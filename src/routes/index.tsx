@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { CATEGORIES } from "@/lib/categories";
+import { useCategories } from "@/lib/use-categories";
 import hero from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/")({
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { data: categories = [] } = useCategories();
   return (
     <div>
       <section className="relative isolate overflow-hidden border-b border-border">
@@ -64,23 +65,33 @@ function Index() {
           </p>
         </div>
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <Link
               key={c.slug}
               to="/category/$slug"
               params={{ slug: c.slug }}
               className="group relative flex aspect-[4/3] flex-col justify-end overflow-hidden bg-card p-8 transition-colors hover:bg-accent"
             >
+              {c.image && (
+                <img
+                  src={c.image}
+                  alt={c.name}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover opacity-30 grayscale transition group-hover:opacity-50"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent" />
+              <div className="relative">
               <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                 Collection
               </div>
               <div className="text-display mt-2 text-3xl transition-transform group-hover:translate-x-1">
                 {c.name}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{c.blurb}</p>
               <span className="mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-widest">
                 Explore →
               </span>
+              </div>
             </Link>
           ))}
         </div>

@@ -8,6 +8,7 @@ import {
   labelForSize,
 } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
+import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus } from "lucide-react";
 
 export const Route = createFileRoute("/cart")({
@@ -20,11 +21,21 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
+const GOVERNORATES = [
+  "Cairo", "Giza", "Alexandria", "Qalyubia", "Sharqia", "Dakahlia",
+  "Beheira", "Kafr El Sheikh", "Gharbia", "Monufia", "Damietta",
+  "Port Said", "Ismailia", "Suez", "Faiyum", "Beni Suef", "Minya",
+  "Asyut", "Sohag", "Qena", "Luxor", "Aswan", "Red Sea", "New Valley",
+  "Matrouh", "North Sinai", "South Sinai",
+];
+
 function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [governorate, setGovernorate] = useState("");
   const [address, setAddress] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const buildMessage = () => {
     const lines = items.map(
@@ -32,11 +43,12 @@ function CartPage() {
         `${idx + 1}. ${i.title} ×${i.qty}\n   ${labelForFrame(i.frameType)} · ${labelForSize(i.size)} · ${labelForColor(i.color)}\n   ${i.price * i.qty} EGP`,
     );
     return [
-      "New order from BRWAZWNEON website (Cash on delivery)",
+      "New order from BRWAZWNEON (Cash on delivery)",
       "",
-      `Name: ${name || "—"}`,
-      `Phone: ${phone || "—"}`,
-      `Address: ${address || "—"}`,
+      `Name: ${name}`,
+      `Phone: ${phone}`,
+      `Governorate: ${governorate}`,
+      `Address: ${address}`,
       "",
       "Items:",
       ...lines,
@@ -45,16 +57,40 @@ function CartPage() {
     ].join("\n");
   };
 
-  const handleOrder = () => {
-    if (items.length === 0) {
-      toast.error("Your cart is empty");
-      return;
+  const handleOrder = async () => {
+    if (items.length === 0) return toast.error("Your cart is empty");
+    if (!name || !phone || !governorate || !address)
+      return toast.error("Please fill in all delivery fields");
+
+    setSubmitting(true);
+    try {
+      const rows = items.map((i) => ({
+        customer_name: name,
+        phone,
+        governorate,
+        address,
+        frame_type: labelForFrame(i.frameType),
+        frame_color: labelForColor(i.color),
+        size: labelForSize(i.size),
+        quantity: i.qty,
+        selected_poster: i.posterId,
+        poster_title: i.title,
+        poster_image: i.image,
+        total_price: i.price * i.qty,
+        status: "new",
+      }));
+      const { error } = await supabase.from("orders").insert(rows);
+      if (error) throw error;
+
+      toast.success("Order placed! Opening WhatsApp…");
+      window.open(whatsappLink(buildMessage()), "_blank");
+      clear();
+      setName(""); setPhone(""); setGovernorate(""); setAddress("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to place order");
+    } finally {
+      setSubmitting(false);
     }
-    if (!name || !phone || !address) {
-      toast.error("Please fill in name, phone and address");
-      return;
-    }
-    window.open(whatsappLink(buildMessage()), "_blank");
   };
 
   return (
@@ -64,30 +100,20 @@ function CartPage() {
       {items.length === 0 ? (
         <div className="mt-12 rounded-sm border border-dashed border-border p-16 text-center">
           <p className="text-muted-foreground">Your cart is empty.</p>
-          <Link to="/" className="mt-4 inline-block underline">
-            Browse collections
-          </Link>
+          <Link to="/" className="mt-4 inline-block underline">Browse collections</Link>
         </div>
       ) : (
         <div className="mt-12 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-3">
             {items.map((i) => (
-              <div
-                key={i.id}
-                className="flex gap-4 rounded-sm border border-border bg-card p-4"
-              >
-                <img
-                  src={i.image}
-                  alt={i.title}
-                  className="h-28 w-20 rounded-sm object-cover"
-                />
+              <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
+                <img src={i.image} alt={i.title} className="h-28 w-20 rounded-sm object-cover" />
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{i.title}</div>
                       <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                        {labelForFrame(i.frameType)} · {labelForSize(i.size)} ·{" "}
-                        {labelForColor(i.color)}
+                        {labelForFrame(i.frameType)} · {labelForSize(i.size)} · {labelForColor(i.color)}
                       </div>
                     </div>
                     <button
@@ -100,17 +126,11 @@ function CartPage() {
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="inline-flex items-center rounded-sm border border-border">
-                      <button
-                        className="p-2 hover:bg-accent"
-                        onClick={() => setQty(i.id, i.qty - 1)}
-                      >
+                      <button className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty - 1)}>
                         <Minus className="h-3 w-3" />
                       </button>
                       <span className="w-8 text-center text-sm">{i.qty}</span>
-                      <button
-                        className="p-2 hover:bg-accent"
-                        onClick={() => setQty(i.id, i.qty + 1)}
-                      >
+                      <button className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty + 1)}>
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>
@@ -138,6 +158,21 @@ function CartPage() {
               <div className="mt-5 space-y-3">
                 <Field label="Full name" value={name} onChange={setName} />
                 <Field label="Phone" value={phone} onChange={setPhone} type="tel" />
+                <label className="block">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Governorate
+                  </span>
+                  <select
+                    value={governorate}
+                    onChange={(e) => setGovernorate(e.target.value)}
+                    className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="">Select governorate…</option>
+                    {GOVERNORATES.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </label>
                 <Field label="Address" value={address} onChange={setAddress} textarea />
               </div>
               <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
@@ -148,12 +183,13 @@ function CartPage() {
               </div>
               <button
                 onClick={handleOrder}
-                className="mt-5 w-full rounded-sm bg-primary px-4 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+                disabled={submitting}
+                className="mt-5 w-full rounded-sm bg-primary px-4 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                Order via WhatsApp
+                {submitting ? "Placing order…" : "Place order · WhatsApp"}
               </button>
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                You'll be redirected to WhatsApp to confirm.
+                Your order is saved and WhatsApp opens to confirm.
               </p>
             </div>
           </aside>
@@ -164,17 +200,10 @@ function CartPage() {
 }
 
 function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  textarea = false,
+  label, value, onChange, type = "text", textarea = false,
 }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  textarea?: boolean;
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; textarea?: boolean;
 }) {
   const props = {
     value,
@@ -185,9 +214,7 @@ function Field({
   };
   return (
     <label className="block">
-      <span className="text-xs uppercase tracking-widest text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
       {textarea ? <textarea rows={3} {...props} /> : <input type={type} {...props} />}
     </label>
   );

@@ -14,29 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          image: string | null
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image?: string | null
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image?: string | null
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          address: string
+          created_at: string
+          customer_name: string
+          frame_color: string
+          frame_type: string
+          governorate: string
+          id: string
+          notes: string | null
+          phone: string
+          poster_image: string | null
+          poster_title: string | null
+          quantity: number
+          selected_poster: string | null
+          size: string
+          status: string
+          total_price: number
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          customer_name: string
+          frame_color: string
+          frame_type: string
+          governorate: string
+          id?: string
+          notes?: string | null
+          phone: string
+          poster_image?: string | null
+          poster_title?: string | null
+          quantity?: number
+          selected_poster?: string | null
+          size: string
+          status?: string
+          total_price: number
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          customer_name?: string
+          frame_color?: string
+          frame_type?: string
+          governorate?: string
+          id?: string
+          notes?: string | null
+          phone?: string
+          poster_image?: string | null
+          poster_title?: string | null
+          quantity?: number
+          selected_poster?: string | null
+          size?: string
+          status?: string
+          total_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_selected_poster_fkey"
+            columns: ["selected_poster"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posters: {
         Row: {
-          category: string
+          category_id: string | null
           created_at: string
           id: string
           image_url: string
           title: string
+          updated_at: string
         }
         Insert: {
-          category: string
+          category_id?: string | null
           created_at?: string
           id?: string
           image_url: string
           title?: string
+          updated_at?: string
         }
         Update: {
-          category?: string
+          category_id?: string | null
           created_at?: string
           id?: string
           image_url?: string
           title?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posters_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

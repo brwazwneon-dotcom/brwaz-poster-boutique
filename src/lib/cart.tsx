@@ -13,7 +13,8 @@ export type CartItem = {
   posterId: string;
   title: string;
   image: string;
-  category: string;
+  categoryId: string | null;
+  categoryName: string;
   frameType: FrameTypeId;
   size: SizeId;
   color: FrameColorId;
