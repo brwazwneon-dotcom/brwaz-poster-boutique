@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories, type Category } from "@/lib/use-categories";
@@ -16,6 +16,7 @@ import {
 import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
+import { Check, X } from "lucide-react";
 
 type Poster = {
   id: string;
@@ -61,7 +62,7 @@ function CategoryPage() {
 
   if (!catLoading && !category) throw notFound();
 
-  const [selected, setSelected] = useState<Poster | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const postersQ = useInfiniteQuery({
     queryKey: ["posters", category?.id ?? slug],
@@ -84,15 +85,31 @@ function CategoryPage() {
   });
 
   const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
+  const selectedPosters = useMemo(
+    () => selectedIds
+      .map((id) => posters.find((p) => p.id === id))
+      .filter(Boolean) as Poster[],
+    [selectedIds, posters],
+  );
+
+  const toggle = (p: Poster) =>
+    setSelectedIds((prev) =>
+      prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
+    );
 
   return (
     <div className="container-page py-12">
       <div className="mb-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
         Collection
       </div>
-      <h1 className="text-display text-4xl sm:text-6xl">
-        {category?.name ?? "…"}
-      </h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-display text-4xl sm:text-6xl">
+          {category?.name ?? "…"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Tap any poster to select. Select multiple to add a matching set.
+        </p>
+      </div>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
         <div>
@@ -106,18 +123,19 @@ function CategoryPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {posters.map((p) => {
-                  const active = selected?.id === p.id;
+                  const active = selectedIds.includes(p.id);
+                  const idx = selectedIds.indexOf(p.id);
                   return (
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => setSelected(p)}
+                      onClick={() => toggle(p)}
                       className={cn(
-                        "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-card transition",
+                        "group relative aspect-[3/4] overflow-hidden rounded-sm border-2 bg-card transition",
                         active
-                          ? "border-primary ring-2 ring-primary/40"
+                          ? "border-primary ring-4 ring-primary/30"
                           : "border-transparent hover:border-border",
                       )}
                     >
@@ -125,13 +143,19 @@ function CategoryPage() {
                         src={p.image_url}
                         alt={p.title}
                         loading="lazy"
-                        className="h-full w-full object-cover grayscale transition group-hover:grayscale-0"
+                        className={cn(
+                          "h-full w-full object-cover transition",
+                          active ? "scale-[1.02]" : "grayscale group-hover:grayscale-0",
+                        )}
                       />
                       {active && (
-                        <span className="absolute left-2 top-2 rounded-sm bg-primary px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
-                          Selected
+                        <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                          {idx + 1}
                         </span>
                       )}
+                      <span className="absolute inset-x-0 bottom-0 truncate bg-background/80 px-2 py-1 text-left text-[10px] uppercase tracking-widest">
+                        {p.title}
+                      </span>
                     </button>
                   );
                 })}
@@ -152,17 +176,30 @@ function CategoryPage() {
         </div>
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          {selected && category ? (
-            <Customizer poster={selected} category={category} />
+          {selectedPosters.length > 0 && category ? (
+            <Customizer
+              posters={selectedPosters}
+              category={category}
+              onRemove={(id) =>
+                setSelectedIds((prev) => prev.filter((x) => x !== id))
+              }
+              onClear={() => setSelectedIds([])}
+            />
           ) : (
             <div className="rounded-sm border border-border bg-card p-8 text-center">
               <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                 Step 1
               </div>
-              <p className="mt-3 text-lg">Select a poster to customize.</p>
+              <p className="mt-3 text-lg">Select one or more posters.</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Tap any image to choose frame type, size and color.
+                Tap images to add them, then pick your frame, size and color.
               </p>
+              <Link
+                to="/offers"
+                className="mt-6 inline-flex rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+              >
+                Or grab a bundle offer →
+              </Link>
             </div>
           )}
         </aside>
@@ -193,50 +230,83 @@ function CategoryPage() {
   );
 }
 
-function Customizer({ poster, category }: { poster: Poster; category: Category }) {
+function Customizer({
+  posters,
+  category,
+  onRemove,
+  onClear,
+}: {
+  posters: Poster[];
+  category: Category;
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}) {
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
   const { add } = useCart();
-  const price = calcPrice(size, frameType);
+  const unit = calcPrice(size, frameType);
+  const total = unit * posters.length;
 
   const handleAdd = () => {
-    add({
-      posterId: poster.id,
-      title: poster.title,
-      image: poster.image_url,
-      categoryId: category.id,
-      categoryName: category.name,
-      frameType,
-      size,
-      color,
-      price,
+    posters.forEach((poster) => {
+      add({
+        posterId: poster.id,
+        title: poster.title,
+        image: poster.image_url,
+        categoryId: category.id,
+        categoryName: category.name,
+        frameType,
+        size,
+        color,
+        price: unit,
+      });
     });
-    toast.success("Added to cart");
+    toast.success(`Added ${posters.length} poster${posters.length > 1 ? "s" : ""} to cart`);
+    onClear();
   };
 
-  const waMsg = `Hi BRWAZWNEON, I'd like to order:\n• ${poster.title}\n  Frame: ${
-    FRAME_TYPES.find((f) => f.id === frameType)?.label
-  }\n  Size: ${SIZES.find((s) => s.id === size)?.label}\n  Color: ${
-    FRAME_COLORS.find((c) => c.id === color)?.label
-  }\n  Price: ${price} EGP`;
+  const waMsg =
+    `Hi BRWAZWNEON, I'd like to order:\n` +
+    posters.map((p, i) => `${i + 1}. ${p.title}`).join("\n") +
+    `\nFrame: ${FRAME_TYPES.find((f) => f.id === frameType)?.label}` +
+    `\nSize: ${SIZES.find((s) => s.id === size)?.label}` +
+    `\nColor: ${FRAME_COLORS.find((c) => c.id === color)?.label}` +
+    `\nTotal: ${total} EGP`;
 
   return (
     <div className="rounded-sm border border-border bg-card p-6">
-      <div className="flex gap-4">
-        <img
-          src={poster.image_url}
-          alt={poster.title}
-          className="h-32 w-24 rounded-sm object-cover"
-        />
-        <div className="min-w-0">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            Selected
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          {posters.length} selected
+        </div>
+        <button
+          onClick={onClear}
+          className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+        >
+          Clear all
+        </button>
+      </div>
+      <div className="mt-3 grid grid-cols-5 gap-2">
+        {posters.map((p) => (
+          <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
+            <img src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+            <button
+              onClick={() => onRemove(p.id)}
+              aria-label={`Remove ${p.title}`}
+              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </div>
-          <div className="mt-1 truncate text-lg font-semibold">{poster.title}</div>
-          <div className="mt-3 text-display text-3xl">
-            {price} <span className="text-base text-muted-foreground">EGP</span>
-          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
+        <div className="text-display text-3xl">
+          {total} <span className="text-base text-muted-foreground">EGP</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {unit} EGP × {posters.length}
         </div>
       </div>
 
@@ -281,9 +351,9 @@ function Customizer({ poster, category }: { poster: Poster; category: Category }
       <div className="mt-6 grid grid-cols-2 gap-2">
         <button
           onClick={handleAdd}
-          className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+          className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-2"
         >
-          Add to cart
+          <Check className="h-4 w-4" /> Add {posters.length} to cart
         </button>
         <a
           href={whatsappLink(waMsg)}
@@ -291,7 +361,7 @@ function Customizer({ poster, category }: { poster: Poster; category: Category }
           rel="noreferrer"
           className="rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
         >
-          Order on WhatsApp
+          WhatsApp order
         </a>
       </div>
     </div>
