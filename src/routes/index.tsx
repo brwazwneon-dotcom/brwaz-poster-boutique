@@ -123,7 +123,7 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image,categories!inner(slug)")
+        .select("id,title,image_url,categories!inner(slug)")
         .eq("categories.slug", slug)
         .order("created_at", { ascending: false })
         .limit(6);
@@ -167,7 +167,7 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
                 <img
-                  src={p.image}
+                  src={p.image_url}
                   alt={p.title}
                   loading="lazy"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
