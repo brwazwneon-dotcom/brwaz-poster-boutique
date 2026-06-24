@@ -122,6 +122,19 @@ function CartPage() {
                       <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
                         {labelForFrame(i.frameType)} · {labelForSize(i.size)} · {labelForColor(i.color)}
                       </div>
+                      {i.bundle && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {i.bundle.posters.map((p) => (
+                            <img
+                              key={p.posterId}
+                              src={p.image}
+                              alt={p.title}
+                              title={p.title}
+                              className="h-12 w-9 rounded-sm border border-border object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => remove(i.id)}
