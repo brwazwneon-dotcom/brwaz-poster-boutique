@@ -8,6 +8,8 @@ import {
 } from "react";
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 
+export type BundlePoster = { posterId: string; title: string; image: string };
+
 export type CartItem = {
   id: string; // unique line id
   posterId: string;
@@ -20,6 +22,11 @@ export type CartItem = {
   color: FrameColorId;
   price: number;
   qty: number;
+  bundle?: {
+    key: "bundle-6-20x30" | "bundle-4-30x40";
+    label: string;
+    posters: BundlePoster[];
+  };
 };
 
 type CartCtx = {
