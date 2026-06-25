@@ -109,6 +109,54 @@ export type Database = {
           },
         ]
       }
+      photo_orders: {
+        Row: {
+          address: string
+          created_at: string
+          customer_name: string
+          governorate: string
+          id: string
+          phone: string
+          photo_urls: Json
+          quantity: number
+          size: string
+          status: string
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          customer_name: string
+          governorate: string
+          id?: string
+          phone: string
+          photo_urls?: Json
+          quantity: number
+          size: string
+          status?: string
+          total_price: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          customer_name?: string
+          governorate?: string
+          id?: string
+          phone?: string
+          photo_urls?: Json
+          quantity?: number
+          size?: string
+          status?: string
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       posters: {
         Row: {
           category_id: string | null
