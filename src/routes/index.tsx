@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories } from "@/lib/use-categories";
 import hero from "@/assets/hero.jpg";
+import { HomeSlider } from "@/components/HomeSlider";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -24,6 +25,8 @@ function Index() {
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   return (
     <div className="bg-background text-foreground">
+      {/* HOMEPAGE SLIDER (renders only when admin has uploaded slides) */}
+      <HomeSlider />
       {/* HERO */}
       <section className="relative isolate overflow-hidden border-b border-border">
         <img

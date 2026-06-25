@@ -10,6 +10,7 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus } from "lucide-react";
+import { useSiteSettings, computeShipping } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -31,6 +32,11 @@ const GOVERNORATES = [
 
 function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
+  const settings = useSiteSettings();
+  const subtotal = total;
+  const shipping = computeShipping(subtotal, settings);
+  const grand = subtotal + shipping;
+  const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
@@ -56,7 +62,9 @@ function CartPage() {
       "Items:",
       ...lines,
       "",
-      `Total: ${total} EGP`,
+      `Subtotal: ${subtotal} EGP`,
+      `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
+      `Total: ${grand} EGP`,
     ].join("\n");
   };
 
@@ -67,6 +75,7 @@ function CartPage() {
 
     setSubmitting(true);
     try {
+      const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const rows = items.map((i) => ({
         customer_name: name,
         phone,
@@ -83,7 +92,9 @@ function CartPage() {
           ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
           : i.title,
         poster_image: i.image,
-        total_price: i.price * i.qty,
+        subtotal: i.price * i.qty,
+        shipping_cost: shippingPerItem,
+        total_price: i.price * i.qty + shippingPerItem,
         status: "new",
       }));
       const { error } = await supabase.from("orders").insert(rows);
