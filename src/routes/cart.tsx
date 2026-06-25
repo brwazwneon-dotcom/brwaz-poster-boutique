@@ -206,11 +206,28 @@ function CartPage() {
                 </label>
                 <Field label="Address" value={address} onChange={setAddress} textarea />
               </div>
-              <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-display text-3xl">
-                  {total} <span className="text-base text-muted-foreground">EGP</span>
-                </span>
+              <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{subtotal} EGP</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">🚚 Shipping</span>
+                  <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>
+                </div>
+                {remainingForFree > 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Add {remainingForFree} EGP more for free shipping.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-foreground">🎉 Free shipping unlocked.</p>
+                )}
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="text-display text-3xl">
+                    {grand} <span className="text-base text-muted-foreground">EGP</span>
+                  </span>
+                </div>
               </div>
               <button
                 onClick={handleOrder}
