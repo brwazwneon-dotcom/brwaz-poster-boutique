@@ -114,6 +114,9 @@ function CartPage() {
   return (
     <div className="container-page py-16">
       <h1 className="text-display text-5xl sm:text-7xl">Cart</h1>
+      <p className="mt-3 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+        🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over {settings.freeShippingThreshold} EGP
+      </p>
 
       {items.length === 0 ? (
         <div className="mt-12 rounded-sm border border-dashed border-border p-16 text-center">
