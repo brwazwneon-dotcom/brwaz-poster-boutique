@@ -54,13 +54,16 @@ export type Database = {
           governorate: string
           id: string
           notes: string | null
+          order_number: string | null
           phone: string
           poster_image: string | null
           poster_title: string | null
           quantity: number
           selected_poster: string | null
+          shipping_cost: number
           size: string
           status: string
+          subtotal: number | null
           total_price: number
         }
         Insert: {
@@ -72,13 +75,16 @@ export type Database = {
           governorate: string
           id?: string
           notes?: string | null
+          order_number?: string | null
           phone: string
           poster_image?: string | null
           poster_title?: string | null
           quantity?: number
           selected_poster?: string | null
+          shipping_cost?: number
           size: string
           status?: string
+          subtotal?: number | null
           total_price: number
         }
         Update: {
@@ -90,13 +96,16 @@ export type Database = {
           governorate?: string
           id?: string
           notes?: string | null
+          order_number?: string | null
           phone?: string
           poster_image?: string | null
           poster_title?: string | null
           quantity?: number
           selected_poster?: string | null
+          shipping_cost?: number
           size?: string
           status?: string
+          subtotal?: number | null
           total_price?: number
         }
         Relationships: [
@@ -116,9 +125,11 @@ export type Database = {
           customer_name: string
           governorate: string
           id: string
+          order_number: string | null
           phone: string
           photo_urls: Json
           quantity: number
+          shipping_cost: number
           size: string
           status: string
           total_price: number
@@ -131,9 +142,11 @@ export type Database = {
           customer_name: string
           governorate: string
           id?: string
+          order_number?: string | null
           phone: string
           photo_urls?: Json
           quantity: number
+          shipping_cost?: number
           size: string
           status?: string
           total_price: number
@@ -146,9 +159,11 @@ export type Database = {
           customer_name?: string
           governorate?: string
           id?: string
+          order_number?: string | null
           phone?: string
           photo_urls?: Json
           quantity?: number
+          shipping_cost?: number
           size?: string
           status?: string
           total_price?: number
@@ -191,6 +206,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      slider_images: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          image_url: string
+          link_url: string | null
+          sort_order: number
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url: string
+          link_url?: string | null
+          sort_order?: number
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string
+          link_url?: string | null
+          sort_order?: number
+          title?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
