@@ -10,6 +10,7 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus } from "lucide-react";
+import { useSiteSettings, computeShipping } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -31,6 +32,11 @@ const GOVERNORATES = [
 
 function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
+  const settings = useSiteSettings();
+  const subtotal = total;
+  const shipping = computeShipping(subtotal, settings);
+  const grand = subtotal + shipping;
+  const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
@@ -56,7 +62,9 @@ function CartPage() {
       "Items:",
       ...lines,
       "",
-      `Total: ${total} EGP`,
+      `Subtotal: ${subtotal} EGP`,
+      `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
+      `Total: ${grand} EGP`,
     ].join("\n");
   };
 
@@ -67,6 +75,7 @@ function CartPage() {
 
     setSubmitting(true);
     try {
+      const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const rows = items.map((i) => ({
         customer_name: name,
         phone,
@@ -83,7 +92,9 @@ function CartPage() {
           ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
           : i.title,
         poster_image: i.image,
-        total_price: i.price * i.qty,
+        subtotal: i.price * i.qty,
+        shipping_cost: shippingPerItem,
+        total_price: i.price * i.qty + shippingPerItem,
         status: "new",
       }));
       const { error } = await supabase.from("orders").insert(rows);
@@ -103,6 +114,9 @@ function CartPage() {
   return (
     <div className="container-page py-16">
       <h1 className="text-display text-5xl sm:text-7xl">Cart</h1>
+      <p className="mt-3 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+        🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over {settings.freeShippingThreshold} EGP
+      </p>
 
       {items.length === 0 ? (
         <div className="mt-12 rounded-sm border border-dashed border-border p-16 text-center">
@@ -195,11 +209,28 @@ function CartPage() {
                 </label>
                 <Field label="Address" value={address} onChange={setAddress} textarea />
               </div>
-              <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-display text-3xl">
-                  {total} <span className="text-base text-muted-foreground">EGP</span>
-                </span>
+              <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{subtotal} EGP</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">🚚 Shipping</span>
+                  <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>
+                </div>
+                {remainingForFree > 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Add {remainingForFree} EGP more for free shipping.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-foreground">🎉 Free shipping unlocked.</p>
+                )}
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="text-display text-3xl">
+                    {grand} <span className="text-base text-muted-foreground">EGP</span>
+                  </span>
+                </div>
               </div>
               <button
                 onClick={handleOrder}

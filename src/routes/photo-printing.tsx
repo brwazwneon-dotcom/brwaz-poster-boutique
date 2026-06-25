@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
+import { useSiteSettings, computeShipping } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/photo-printing")({
   head: () => ({
@@ -54,7 +55,10 @@ function PhotoPrintingPage() {
 
   const size = SIZES.find((s) => s.id === sizeId)!;
   const qty = pics.length;
-  const total = qty * size.price;
+  const subtotal = qty * size.price;
+  const settings = useSiteSettings();
+  const shipping = computeShipping(subtotal, settings);
+  const total = subtotal + shipping;
   const remaining = Math.max(0, MIN_QTY - qty);
 
   const addFiles = (files: FileList | null) => {
@@ -118,6 +122,7 @@ function PhotoPrintingPage() {
         quantity: qty,
         unit_price: size.price,
         total_price: total,
+        shipping_cost: shipping,
         photo_urls: urls,
       });
       if (insErr) throw insErr;
@@ -157,6 +162,9 @@ function PhotoPrintingPage() {
           <p className="mt-4 max-w-xl text-muted-foreground">
             Upload your photos, pick a size, and we deliver high-resolution Fuji
             prints to your door. Cash on delivery across Egypt.
+          </p>
+          <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
+            🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over {settings.freeShippingThreshold} EGP
           </p>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
