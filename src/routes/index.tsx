@@ -51,15 +51,45 @@ function Index() {
               params={{ slug: "movies" }}
               className="rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
             >
-              Shop collection
+              Shop Posters
             </Link>
             <Link
-              to="/offers"
+              to="/photo-printing"
               className="rounded-sm border border-border px-8 py-4 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
             >
-              Special offers
+              Print Your Photos
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* TRUST STATEMENT */}
+      <section className="border-b border-border bg-card">
+        <div className="container-page py-6 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-foreground sm:text-sm">
+            <span className="mr-2">⭐</span>
+            Over 7 Million Photos Printed — And We're Still Creating Memories With You.
+          </p>
+        </div>
+      </section>
+
+      {/* BENEFITS BAR */}
+      <section className="border-b border-border bg-background">
+        <div className="container-page py-5">
+          <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
+            {[
+              "Premium PVC Frames",
+              "Wooden Portraits",
+              "Photo Printing",
+              "Cash On Delivery",
+              "Shipping Across Egypt",
+            ].map((b) => (
+              <li key={b} className="flex items-center gap-2">
+                <span className="text-foreground">✓</span>
+                {b}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
