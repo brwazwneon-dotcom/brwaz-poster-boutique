@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders";
+type Tab = "posters" | "categories" | "orders" | "slider" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders"] as Tab[]).map((t) => (
+        {(["posters", "categories", "orders", "slider", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -113,6 +114,8 @@ function AdminPage() {
         {tab === "posters" && <PostersTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
+        {tab === "slider" && <SliderTab />}
+        {tab === "settings" && <SettingsTab />}
       </div>
     </div>
   );
