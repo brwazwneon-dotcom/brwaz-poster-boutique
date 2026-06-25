@@ -31,6 +31,13 @@ export function SiteHeader() {
           >
             Offers
           </Link>
+          <Link
+            to="/photo-printing"
+            className="transition-colors hover:text-foreground"
+            activeProps={{ className: "text-foreground" }}
+          >
+            Photo Printing
+          </Link>
         </nav>
         <Link
           to="/cart"
