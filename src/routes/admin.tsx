@@ -642,6 +642,7 @@ function EditCategoryModal({
 
 type Order = {
   id: string;
+  order_number: string | null;
   customer_name: string;
   phone: string;
   governorate: string;
@@ -653,30 +654,54 @@ type Order = {
   poster_title: string | null;
   poster_image: string | null;
   total_price: number;
+  shipping_cost: number | null;
   status: string;
   created_at: string;
 };
 
-const STATUSES = ["new", "confirmed", "shipped", "delivered", "cancelled"];
+const STATUSES = ["new", "processing", "printed", "shipped", "delivered", "cancelled"];
 
 function OrdersTab() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [govFilter, setGovFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [viewing, setViewing] = useState<Order | null>(null);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders", statusFilter],
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,status,created_at")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,status,created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as Order[];
     },
   });
+
+  const governorates = Array.from(new Set(orders.map((o) => o.governorate).filter(Boolean))).sort();
+  const filtered = orders.filter((o) => {
+    if (govFilter !== "all" && o.governorate !== govFilter) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (o.order_number ?? "").toLowerCase().includes(q) ||
+      o.customer_name.toLowerCase().includes(q) ||
+      o.phone.toLowerCase().includes(q)
+    );
+  });
+
+  const stats = {
+    total: orders.length,
+    revenue: orders.reduce((s, o) => s + Number(o.total_price || 0), 0),
+    newCount: orders.filter((o) => o.status === "new").length,
+    processing: orders.filter((o) => o.status === "processing").length,
+    delivered: orders.filter((o) => o.status === "delivered").length,
+  };
 
   const setStatus = async (o: Order, status: string) => {
     const { error } = await supabase.from("orders").update({ status }).eq("id", o.id);
@@ -693,8 +718,65 @@ function OrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
+  const exportExcel = () => {
+    const rows = filtered.map((o) => ({
+      "Order Number": o.order_number ?? o.id.slice(0, 8),
+      "Date": new Date(o.created_at).toLocaleString(),
+      "Customer": o.customer_name,
+      "Phone": o.phone,
+      "Governorate": o.governorate,
+      "Address": o.address,
+      "Poster": o.poster_title ?? "",
+      "Frame Type": o.frame_type,
+      "Frame Color": o.frame_color,
+      "Size": o.size,
+      "Quantity": o.quantity,
+      "Shipping": Number(o.shipping_cost ?? 0),
+      "Total": Number(o.total_price ?? 0),
+      "Status": o.status,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `brwazwneon-orders-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   return (
     <div>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Total orders" value={stats.total} />
+        <StatCard label="Revenue" value={`${Math.round(stats.revenue)} EGP`} />
+        <StatCard label="New" value={stats.newCount} />
+        <StatCard label="Processing" value={stats.processing} />
+        <StatCard label="Delivered" value={stats.delivered} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search order #, name, phone…"
+            className="w-64 rounded-sm border border-border bg-background py-2 pl-8 pr-3 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <select
+          value={govFilter}
+          onChange={(e) => setGovFilter(e.target.value)}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">All governorates</option>
+          {governorates.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <button
+          onClick={exportExcel}
+          className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <Download className="h-4 w-4" /> Export Excel
+        </button>
+      </div>
+
       <div className="mb-4 flex flex-wrap gap-2">
         <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
           All
@@ -708,9 +790,9 @@ function OrdersTab() {
 
       {isLoading ? (
         <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>
-      ) : orders.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-          No orders yet.
+          No orders match.
         </div>
       ) : (
         <div className="overflow-hidden rounded-sm border border-border">
@@ -718,6 +800,7 @@ function OrdersTab() {
             <table className="w-full text-sm">
               <thead className="bg-muted text-xs uppercase tracking-widest text-muted-foreground">
                 <tr>
+                  <th className="px-3 py-3 text-left">Order #</th>
                   <th className="px-3 py-3 text-left">When</th>
                   <th className="px-3 py-3 text-left">Customer</th>
                   <th className="px-3 py-3 text-left">Address</th>
@@ -729,8 +812,9 @@ function OrdersTab() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {filtered.map((o) => (
                   <tr key={o.id} className="border-t border-border align-top">
+                    <td className="px-3 py-3 font-mono text-xs">{o.order_number ?? "—"}</td>
                     <td className="px-3 py-3 text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleString()}
                     </td>
@@ -765,13 +849,14 @@ function OrdersTab() {
                       </select>
                     </td>
                     <td className="px-3 py-3">
-                      <button
-                        onClick={() => remove(o)}
-                        className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -780,6 +865,294 @@ function OrdersTab() {
           </div>
         </div>
       )}
+
+      {viewing && (
+        <Modal title={`Order ${viewing.order_number ?? viewing.id.slice(0, 8)}`} onClose={() => setViewing(null)}>
+          <div className="space-y-2 text-sm">
+            <Row k="Date" v={new Date(viewing.created_at).toLocaleString()} />
+            <Row k="Customer" v={viewing.customer_name} />
+            <Row k="Phone" v={viewing.phone} />
+            <Row k="Governorate" v={viewing.governorate} />
+            <Row k="Address" v={viewing.address} />
+            <Row k="Poster" v={viewing.poster_title ?? "—"} />
+            <Row k="Frame" v={`${viewing.frame_type} · ${viewing.size} · ${viewing.frame_color}`} />
+            <Row k="Quantity" v={String(viewing.quantity)} />
+            <Row k="Shipping" v={`${viewing.shipping_cost ?? 0} EGP`} />
+            <Row k="Total" v={`${viewing.total_price} EGP`} />
+            <Row k="Status" v={viewing.status} />
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-sm border border-border bg-card p-4">
+      <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">{label}</div>
+      <div className="text-display mt-2 text-2xl">{value}</div>
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-border py-1.5">
+      <span className="text-xs uppercase tracking-widest text-muted-foreground">{k}</span>
+      <span className="text-right">{v}</span>
+    </div>
+  );
+}
+
+/* ---------- SLIDER ---------- */
+
+type Slide = {
+  id: string;
+  image_url: string;
+  title: string | null;
+  link_url: string | null;
+  sort_order: number;
+  enabled: boolean;
+};
+
+function SliderTab() {
+  const qc = useQueryClient();
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: slides = [], isLoading } = useQuery({
+    queryKey: ["admin-slider"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("slider_images")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Slide[];
+    },
+  });
+
+  const upload = async () => {
+    if (!files || files.length === 0) return toast.error("Choose images");
+    setUploading(true);
+    try {
+      let order = (slides[slides.length - 1]?.sort_order ?? 0) + 1;
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("slider")
+          .upload(path, file, { contentType: file.type });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("slider").getPublicUrl(path);
+        const { error } = await supabase.from("slider_images").insert({
+          image_url: pub.publicUrl,
+          sort_order: order++,
+          enabled: true,
+        });
+        if (error) throw error;
+      }
+      toast.success("Uploaded");
+      setFiles(null);
+      const input = document.getElementById("slider-files") as HTMLInputElement | null;
+      if (input) input.value = "";
+      qc.invalidateQueries({ queryKey: ["admin-slider"] });
+      qc.invalidateQueries({ queryKey: ["slider"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const update = async (id: string, patch: Partial<Slide>) => {
+    const { error } = await supabase.from("slider_images").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-slider"] });
+    qc.invalidateQueries({ queryKey: ["slider"] });
+  };
+
+  const remove = async (s: Slide) => {
+    if (!confirm("Delete this slide?")) return;
+    const { error } = await supabase.from("slider_images").delete().eq("id", s.id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["admin-slider"] });
+    qc.invalidateQueries({ queryKey: ["slider"] });
+  };
+
+  const move = async (s: Slide, dir: -1 | 1) => {
+    const idx = slides.findIndex((x) => x.id === s.id);
+    const other = slides[idx + dir];
+    if (!other) return;
+    await update(s.id, { sort_order: other.sort_order });
+    await update(other.id, { sort_order: s.sort_order });
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-6">
+        <input
+          id="slider-files"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => setFiles(e.target.files)}
+          className="text-sm text-muted-foreground"
+        />
+        <button
+          onClick={upload}
+          disabled={uploading}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
+          <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : "Upload slides"}
+        </button>
+        <p className="ml-auto text-xs text-muted-foreground">
+          Auto-slide every 4s · arrows + dots · enable/disable + reorder below
+        </p>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : slides.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No slides yet. Upload your first banner.
+          </div>
+        ) : (
+          slides.map((s, i) => (
+            <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-sm border border-border bg-card p-3">
+              <img src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
+              <input
+                defaultValue={s.title ?? ""}
+                placeholder="Title (optional)"
+                onBlur={(e) => e.target.value !== (s.title ?? "") && update(s.id, { title: e.target.value || null })}
+                className="w-48 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                defaultValue={s.link_url ?? ""}
+                placeholder="Link URL (optional)"
+                onBlur={(e) => e.target.value !== (s.link_url ?? "") && update(s.id, { link_url: e.target.value || null })}
+                className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={s.enabled}
+                  onChange={(e) => update(s.id, { enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+              <div className="ml-auto flex gap-1">
+                <button onClick={() => move(s, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move up">
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => move(s, 1)} disabled={i === slides.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move down">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => remove(s)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- SETTINGS ---------- */
+
+function SettingsTab() {
+  const qc = useQueryClient();
+  const [fee, setFee] = useState<string>("");
+  const [threshold, setThreshold] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("key,value");
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      return {
+        fee: Number(map.get("shipping_fee") ?? 89),
+        threshold: Number(map.get("free_shipping_threshold") ?? 1600),
+      };
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      setFee(String(data.fee));
+      setThreshold(String(data.threshold));
+    }
+  }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const f = Number(fee);
+      const t = Number(threshold);
+      if (!Number.isFinite(f) || f < 0) throw new Error("Invalid shipping fee");
+      if (!Number.isFinite(t) || t < 0) throw new Error("Invalid threshold");
+      const { error: e1 } = await supabase
+        .from("site_settings")
+        .upsert({ key: "shipping_fee", value: f, updated_at: new Date().toISOString() });
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from("site_settings")
+        .upsert({ key: "free_shipping_threshold", value: t, updated_at: new Date().toISOString() });
+      if (e2) throw e2;
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      qc.invalidateQueries({ queryKey: ["site-settings"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="max-w-xl rounded-sm border border-border bg-card p-6">
+      <h3 className="text-display text-2xl">Shipping</h3>
+      <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+        Applied across cart, checkout & photo printing
+      </p>
+      <div className="mt-5 space-y-3">
+        <label className="block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Shipping fee (EGP)</span>
+          <input
+            value={fee}
+            onChange={(e) => setFee(e.target.value)}
+            inputMode="numeric"
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Free shipping threshold (EGP)</span>
+          <input
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            inputMode="numeric"
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
     </div>
   );
 }
