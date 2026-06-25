@@ -163,6 +163,9 @@ function PhotoPrintingPage() {
             Upload your photos, pick a size, and we deliver high-resolution Fuji
             prints to your door. Cash on delivery across Egypt.
           </p>
+          <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
+            🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over {settings.freeShippingThreshold} EGP
+          </p>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
               "Premium Fuji Quality",
