@@ -140,6 +140,9 @@ function PostersTab() {
   const [categoryId, setCategoryId] = useState<string>("");
   const [files, setFiles] = useState<FileList | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [upProgress, setUpProgress] = useState<{ done: number; total: number; failed: number }>({
+    done: 0, total: 0, failed: 0,
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-posters", filter, page],
@@ -161,26 +164,48 @@ function PostersTab() {
     if (!files || files.length === 0) return toast.error("Choose at least one image");
     if (!categoryId) return toast.error("Pick a category");
     setUploading(true);
+    const list = Array.from(files);
+    setUpProgress({ done: 0, total: list.length, failed: 0 });
     let success = 0;
+    let failed = 0;
     try {
       const cat = categories.find((c) => c.id === categoryId);
-      for (const file of Array.from(files)) {
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${cat?.slug ?? "misc"}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("posters")
-          .upload(path, file, { contentType: file.type });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
-        const { error: insErr } = await supabase.from("posters").insert({
-          title: title || file.name.replace(/\.[^.]+$/, ""),
-          category_id: categoryId,
-          image_url: pub.publicUrl,
-        });
-        if (insErr) throw insErr;
-        success++;
-      }
-      toast.success(`Uploaded ${success} poster${success === 1 ? "" : "s"}`);
+      const CONCURRENCY = 6;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < list.length) {
+          const i = cursor++;
+          const file = list[i];
+          try {
+            const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+            const path = `${cat?.slug ?? "misc"}/${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage
+              .from("posters")
+              .upload(path, file, { contentType: file.type });
+            if (upErr) throw upErr;
+            const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
+            const baseName = file.name.replace(/\.[^.]+$/, "");
+            const finalTitle = title ? `${title} ${baseName}` : baseName;
+            const { error: insErr } = await supabase.from("posters").insert({
+              title: finalTitle,
+              category_id: categoryId,
+              image_url: pub.publicUrl,
+            });
+            if (insErr) throw insErr;
+            success++;
+          } catch (err) {
+            failed++;
+            console.error("Upload failed for", file.name, err);
+          } finally {
+            setUpProgress({ done: success + failed, total: list.length, failed });
+          }
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker),
+      );
+      if (failed > 0) toast.error(`${failed} upload${failed === 1 ? "" : "s"} failed`);
+      if (success > 0) toast.success(`Uploaded ${success} poster${success === 1 ? "" : "s"}`);
       setTitle("");
       setFiles(null);
       const input = document.getElementById("poster-files") as HTMLInputElement | null;
@@ -242,9 +267,20 @@ function PostersTab() {
           className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           <Upload className="h-4 w-4" />
-          {uploading ? "Uploading…" : "Upload"}
+          {uploading
+            ? `Uploading ${upProgress.done}/${upProgress.total}`
+            : `Upload${files && files.length ? ` (${files.length})` : ""}`}
         </button>
       </form>
+
+      {uploading && upProgress.total > 0 && (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${Math.round((upProgress.done / upProgress.total) * 100)}%` }}
+          />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
