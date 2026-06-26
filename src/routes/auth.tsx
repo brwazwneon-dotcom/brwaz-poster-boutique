@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const ensureAdmin = useServerFn(ensureBrandAdminRole);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,6 +45,7 @@ function AuthPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await ensureAdmin();
         toast.success("Welcome back");
         navigate({ to: "/admin" });
       }
