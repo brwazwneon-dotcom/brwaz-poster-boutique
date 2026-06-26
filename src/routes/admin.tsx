@@ -70,9 +70,8 @@ function AdminPage() {
         <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-8 text-center">
           <h1 className="text-display text-3xl">No admin access</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your account ({userId?.slice(0, 8)}…) isn't an admin yet. Ask the
-            site owner to grant the <code>admin</code> role to your user in the
-            <code> user_roles</code> table.
+            Your account ({userId?.slice(0, 8)}…) is not authorized for the admin dashboard.
+            Sign in with the BRWAZWNEON owner email to continue.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <button onClick={signOut} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent">
