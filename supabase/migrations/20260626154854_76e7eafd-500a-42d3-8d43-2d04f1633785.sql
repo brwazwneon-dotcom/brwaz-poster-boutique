@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.grant_admin_for_brand_email() FROM PUBLIC, anon, authenticated;
