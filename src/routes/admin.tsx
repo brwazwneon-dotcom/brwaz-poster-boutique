@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
 import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
@@ -22,6 +24,7 @@ type Tab = "posters" | "categories" | "orders" | "slider" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
+  const ensureAdmin = useServerFn(ensureBrandAdminRole);
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -35,6 +38,12 @@ function AdminPage() {
         return;
       }
       setUserId(data.session.user.id);
+      const ensured = await ensureAdmin();
+      if (ensured.isAdmin) {
+        setIsAdmin(true);
+        setReady(true);
+        return;
+      }
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
@@ -44,7 +53,7 @@ function AdminPage() {
       setIsAdmin(!!roleData);
       setReady(true);
     })();
-  }, [navigate]);
+  }, [ensureAdmin, navigate]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -61,9 +70,8 @@ function AdminPage() {
         <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-8 text-center">
           <h1 className="text-display text-3xl">No admin access</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your account ({userId?.slice(0, 8)}…) isn't an admin yet. Ask the
-            site owner to grant the <code>admin</code> role to your user in the
-            <code> user_roles</code> table.
+            Your account ({userId?.slice(0, 8)}…) is not authorized for the admin dashboard.
+            Sign in with the BRWAZWNEON owner email to continue.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <button onClick={signOut} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent">
