@@ -13,9 +13,9 @@ const schema = z.object({
 
 export const Route = createFileRoute("/search")({
   validateSearch: zodValidator(schema),
-  head: ({ search }) => ({
+  head: () => ({
     meta: [
-      { title: search.q ? `Search "${search.q}" — BRWAZWNEON` : "Search — BRWAZWNEON" },
+      { title: "Search — BRWAZWNEON" },
       { name: "robots", content: "noindex" },
     ],
   }),
