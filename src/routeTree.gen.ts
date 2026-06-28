@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as CartRouteImport } from './routes/cart'
@@ -17,6 +18,11 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
   id: '/photo-printing',
   path: '/photo-printing',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/cart': typeof CartRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
+  '/search': typeof SearchRoute
   '/category/$slug': typeof CategorySlugRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/cart': typeof CartRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
+  '/search': typeof SearchRoute
   '/category/$slug': typeof CategorySlugRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/cart': typeof CartRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
+  '/search': typeof SearchRoute
   '/category/$slug': typeof CategorySlugRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/offers'
     | '/photo-printing'
+    | '/search'
     | '/category/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/offers'
     | '/photo-printing'
+    | '/search'
     | '/category/$slug'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/offers'
     | '/photo-printing'
+    | '/search'
     | '/category/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -118,11 +130,19 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   OffersRoute: typeof OffersRoute
   PhotoPrintingRoute: typeof PhotoPrintingRoute
+  SearchRoute: typeof SearchRoute
   CategorySlugRoute: typeof CategorySlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/photo-printing': {
       id: '/photo-printing'
       path: '/photo-printing'
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   OffersRoute: OffersRoute,
   PhotoPrintingRoute: PhotoPrintingRoute,
+  SearchRoute: SearchRoute,
   CategorySlugRoute: CategorySlugRoute,
 }
 export const routeTree = rootRouteImport
