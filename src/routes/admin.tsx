@@ -785,6 +785,19 @@ function EditCategoryModal({
           />
         </label>
         <label className="block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Parent category (for subcategories)</span>
+          <select
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">— None (top-level) —</option>
+            {allCats.filter((c) => c.id !== category?.id).map((c) => (
+              <option key={c.id} value={c.id}>{indentCat(c, allCats)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Sort order</span>
           <input
             type="number"
