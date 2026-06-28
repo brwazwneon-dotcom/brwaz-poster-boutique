@@ -23,9 +23,18 @@ type Poster = {
   title: string;
   image_url: string;
   category_id: string | null;
+  tags?: string[] | null;
 };
 
 const PAGE_SIZE = 48;
+
+type SortKey = "newest" | "popular" | "bestselling" | "az";
+const SORTS: { id: SortKey; label: string; col: string; asc: boolean }[] = [
+  { id: "newest", label: "Newest", col: "created_at", asc: false },
+  { id: "popular", label: "Most Popular", col: "views_count", asc: false },
+  { id: "bestselling", label: "Best Selling", col: "sales_count", asc: false },
+  { id: "az", label: "Alphabetically", col: "title", asc: true },
+];
 
 export const Route = createFileRoute("/category/$slug")({
   head: ({ params }) => ({
