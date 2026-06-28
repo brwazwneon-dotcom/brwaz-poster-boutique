@@ -153,7 +153,10 @@ function PostersTab() {
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [files, setFiles] = useState<FileList | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [upProgress, setUpProgress] = useState<{ done: number; total: number; failed: number }>({
     done: 0, total: 0, failed: 0,
@@ -164,7 +167,7 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,category_id", { count: "exact" })
+        .select("id,title,image_url,category_id,tags,featured,hidden", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
