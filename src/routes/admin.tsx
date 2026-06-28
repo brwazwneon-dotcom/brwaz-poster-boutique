@@ -136,6 +136,10 @@ type Poster = {
   title: string;
   image_url: string;
   category_id: string | null;
+  tags?: string[] | null;
+  featured?: boolean | null;
+  hidden?: boolean | null;
+  description?: string | null;
 };
 
 const PAGE_SIZE = 60;
