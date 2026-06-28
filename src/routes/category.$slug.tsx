@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCategories, type Category } from "@/lib/use-categories";
+import { useCategories, descendantIds, type Category } from "@/lib/use-categories";
 import {
   FRAME_COLORS,
   FRAME_TYPES,
@@ -23,9 +23,18 @@ type Poster = {
   title: string;
   image_url: string;
   category_id: string | null;
+  tags?: string[] | null;
 };
 
 const PAGE_SIZE = 48;
+
+type SortKey = "newest" | "popular" | "bestselling" | "az";
+const SORTS: { id: SortKey; label: string; col: string; asc: boolean }[] = [
+  { id: "newest", label: "Newest", col: "created_at", asc: false },
+  { id: "popular", label: "Most Popular", col: "views_count", asc: false },
+  { id: "bestselling", label: "Best Selling", col: "sales_count", asc: false },
+  { id: "az", label: "Alphabetically", col: "title", asc: true },
+];
 
 export const Route = createFileRoute("/category/$slug")({
   head: ({ params }) => ({
@@ -52,7 +61,7 @@ function CategoryPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order")
+        .select("id,name,slug,image,sort_order,parent_id,description")
         .eq("slug", slug)
         .maybeSingle();
       if (error) throw error;
@@ -63,19 +72,31 @@ function CategoryPage() {
   if (!catLoading && !category) throw notFound();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sort, setSort] = useState<SortKey>("newest");
+
+  const includedCategoryIds = useMemo(
+    () => (category ? descendantIds(categories, category.id) : []),
+    [categories, category],
+  );
+  const subcategories = useMemo(
+    () => (category ? categories.filter((c) => c.parent_id === category.id) : []),
+    [categories, category],
+  );
 
   const postersQ = useInfiniteQuery({
-    queryKey: ["posters", category?.id ?? slug],
+    queryKey: ["posters", category?.id ?? slug, sort, includedCategoryIds.join(",")],
     enabled: !!category?.id,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const from = (pageParam as number) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
+      const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id")
-        .eq("category_id", category!.id)
-        .order("created_at", { ascending: false })
+        .select("id,title,image_url,category_id,tags")
+        .in("category_id", includedCategoryIds)
+        .eq("hidden", false)
+        .order(sortDef.col, { ascending: sortDef.asc })
         .range(from, to);
       if (error) throw error;
       return (data ?? []) as Poster[];
@@ -109,6 +130,39 @@ function CategoryPage() {
         <p className="text-sm text-muted-foreground">
           Tap any poster to select. Select multiple to add a matching set.
         </p>
+      </div>
+
+      {subcategories.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {subcategories.map((c) => (
+            <Link
+              key={c.id}
+              to="/category/$slug"
+              params={{ slug: c.slug }}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Sort by</span>
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSort(s.id)}
+            className={cn(
+              "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
+              sort === s.id
+                ? "border-primary bg-accent text-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">

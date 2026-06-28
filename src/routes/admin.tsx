@@ -136,6 +136,10 @@ type Poster = {
   title: string;
   image_url: string;
   category_id: string | null;
+  tags?: string[] | null;
+  featured?: boolean | null;
+  hidden?: boolean | null;
+  description?: string | null;
 };
 
 const PAGE_SIZE = 60;
@@ -149,7 +153,10 @@ function PostersTab() {
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [files, setFiles] = useState<FileList | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [upProgress, setUpProgress] = useState<{ done: number; total: number; failed: number }>({
     done: 0, total: 0, failed: 0,
@@ -160,7 +167,7 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,category_id", { count: "exact" })
+        .select("id,title,image_url,category_id,tags,featured,hidden", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
@@ -197,10 +204,15 @@ function PostersTab() {
             const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
             const baseName = file.name.replace(/\.[^.]+$/, "");
             const finalTitle = title ? `${title} ${baseName}` : baseName;
+            const tags = tagsInput
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean);
             const { error: insErr } = await supabase.from("posters").insert({
               title: finalTitle,
               category_id: categoryId,
               image_url: pub.publicUrl,
+              tags,
             });
             if (insErr) throw insErr;
             success++;
@@ -239,13 +251,64 @@ function PostersTab() {
     qc.invalidateQueries({ queryKey: ["posters"] });
   };
 
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const selectAllOnPage = () => {
+    const ids = data?.rows.map((r) => r.id) ?? [];
+    setSelected(new Set(ids));
+  };
+
+  const clearSelected = () => setSelected(new Set());
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} posters?`)) return;
+    const { error } = await supabase.from("posters").delete().in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${selected.size} posters`);
+    clearSelected();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
+  const bulkMove = async () => {
+    if (selected.size === 0 || !bulkCategory) return;
+    const { error } = await supabase
+      .from("posters")
+      .update({ category_id: bulkCategory })
+      .in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Moved ${selected.size} posters`);
+    clearSelected();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
+  const bulkToggle = async (patch: Partial<Poster>) => {
+    if (selected.size === 0) return;
+    const { error } = await supabase
+      .from("posters")
+      .update(patch as never)
+      .in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Updated ${selected.size}`);
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE));
 
   return (
     <div>
       <form
         onSubmit={upload}
-        className="grid gap-3 rounded-sm border border-border bg-card p-6 md:grid-cols-[1fr_1fr_1.2fr_auto]"
+        className="grid gap-3 rounded-sm border border-border bg-card p-6 md:grid-cols-[1fr_1fr_1fr_1.2fr_auto]"
       >
         <input
           type="text"
@@ -261,9 +324,16 @@ function PostersTab() {
         >
           <option value="">Select category…</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
           ))}
         </select>
+        <input
+          type="text"
+          placeholder="Tags (comma separated)"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+        />
         <input
           id="poster-files"
           type="file"
@@ -300,7 +370,7 @@ function PostersTab() {
           </FilterPill>
           {categories.map((c) => (
             <FilterPill key={c.id} active={filter === c.id} onClick={() => { setFilter(c.id); setPage(0); }}>
-              {c.name}
+              {indentCat(c, categories)}
             </FilterPill>
           ))}
         </div>
@@ -309,6 +379,47 @@ function PostersTab() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-sm border border-primary bg-accent/40 p-3">
+          <span className="text-xs uppercase tracking-widest">
+            {selected.size} selected
+          </span>
+          <button onClick={selectAllOnPage} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+            Select page
+          </button>
+          <button onClick={clearSelected} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select
+              value={bulkCategory}
+              onChange={(e) => setBulkCategory(e.target.value)}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="">Move to category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
+              ))}
+            </select>
+            <button onClick={bulkMove} disabled={!bulkCategory} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background disabled:opacity-40">
+              Move
+            </button>
+            <button onClick={() => bulkToggle({ featured: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Feature
+            </button>
+            <button onClick={() => bulkToggle({ hidden: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Hide
+            </button>
+            <button onClick={() => bulkToggle({ hidden: false })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Show
+            </button>
+            <button onClick={bulkDelete} className="rounded-sm bg-destructive px-3 py-1.5 text-[10px] uppercase tracking-widest text-destructive-foreground hover:opacity-90">
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {isLoading ? (
           <div className="col-span-full py-16 text-center text-sm text-muted-foreground">Loading…</div>
@@ -316,7 +427,19 @@ function PostersTab() {
           <div className="col-span-full py-16 text-center text-sm text-muted-foreground">No posters.</div>
         ) : (
           data?.rows.map((p) => (
-            <div key={p.id} className="group overflow-hidden rounded-sm border border-border bg-card">
+            <div key={p.id} className={cn("group relative overflow-hidden rounded-sm border bg-card", selected.has(p.id) ? "border-primary ring-2 ring-primary/40" : "border-border")}>
+              <label className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-background/90 px-2 py-1 text-[10px] uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={selected.has(p.id)}
+                  onChange={() => toggleSelected(p.id)}
+                />
+                Select
+              </label>
+              <div className={cn("absolute right-2 top-2 z-10 flex flex-col items-end gap-1")}>
+                {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
+                {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
+              </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <img src={p.image_url} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
               </div>
@@ -403,13 +526,24 @@ function EditPosterModal({
 }) {
   const [title, setTitle] = useState(poster.title);
   const [categoryId, setCategoryId] = useState(poster.category_id ?? "");
+  const [tags, setTags] = useState((poster.tags ?? []).join(", "));
+  const [description, setDescription] = useState(poster.description ?? "");
+  const [featured, setFeatured] = useState(!!poster.featured);
+  const [hidden, setHidden] = useState(!!poster.hidden);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
     const { error } = await supabase
       .from("posters")
-      .update({ title, category_id: categoryId || null })
+      .update({
+        title,
+        category_id: categoryId || null,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        description: description || null,
+        featured,
+        hidden,
+      })
       .eq("id", poster.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -439,10 +573,38 @@ function EditPosterModal({
             >
               <option value="">— Unassigned —</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Tags (comma separated)</span>
+            <input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="Messi, Barcelona, GOAT"
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Description / SEO</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <div className="flex gap-4 text-xs uppercase tracking-widest">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              Featured
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+              Hidden
+            </label>
+          </div>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
@@ -501,7 +663,7 @@ function CategoriesTab() {
             </div>
             <div className="flex items-center justify-between gap-2 p-4">
               <div>
-                <div className="font-semibold">{c.name}</div>
+                <div className="font-semibold">{indentCat(c, categories)}</div>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   /{c.slug}
                 </div>
@@ -545,6 +707,17 @@ function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function indentCat(c: Category, all: Category[]): string {
+  let depth = 0;
+  let cur: Category | undefined = c;
+  while (cur?.parent_id) {
+    cur = all.find((x) => x.id === cur!.parent_id);
+    depth++;
+    if (depth > 8) break;
+  }
+  return `${"— ".repeat(depth)}${c.name}`;
+}
+
 function EditCategoryModal({
   category, onClose, onSaved,
 }: { category: Category | null; onClose: () => void; onSaved: () => void }) {
@@ -553,8 +726,10 @@ function EditCategoryModal({
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [imageUrl, setImageUrl] = useState(category?.image ?? "");
   const [sortOrder, setSortOrder] = useState<number>(category?.sort_order ?? 0);
+  const [parentId, setParentId] = useState<string>(category?.parent_id ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const { data: allCats = [] } = useCategories();
 
   const save = async () => {
     if (!name.trim()) return toast.error("Name required");
@@ -575,6 +750,7 @@ function EditCategoryModal({
         slug: (slug || slugify(name)).trim(),
         image: finalImage || null,
         sort_order: sortOrder,
+        parent_id: parentId || null,
       };
       const { error } = isNew
         ? await supabase.from("categories").insert(payload)
@@ -607,6 +783,19 @@ function EditCategoryModal({
             onChange={(e) => setSlug(slugify(e.target.value))}
             className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
+        </label>
+        <label className="block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Parent category (for subcategories)</span>
+          <select
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">— None (top-level) —</option>
+            {allCats.filter((c) => c.id !== category?.id).map((c) => (
+              <option key={c.id} value={c.id}>{indentCat(c, allCats)}</option>
+            ))}
+          </select>
         </label>
         <label className="block">
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Sort order</span>
