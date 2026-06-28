@@ -251,6 +251,57 @@ function PostersTab() {
     qc.invalidateQueries({ queryKey: ["posters"] });
   };
 
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const selectAllOnPage = () => {
+    const ids = data?.rows.map((r) => r.id) ?? [];
+    setSelected(new Set(ids));
+  };
+
+  const clearSelected = () => setSelected(new Set());
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} posters?`)) return;
+    const { error } = await supabase.from("posters").delete().in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${selected.size} posters`);
+    clearSelected();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
+  const bulkMove = async () => {
+    if (selected.size === 0 || !bulkCategory) return;
+    const { error } = await supabase
+      .from("posters")
+      .update({ category_id: bulkCategory })
+      .in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Moved ${selected.size} posters`);
+    clearSelected();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
+  const bulkToggle = async (patch: Partial<Poster>) => {
+    if (selected.size === 0) return;
+    const { error } = await supabase
+      .from("posters")
+      .update(patch as never)
+      .in("id", Array.from(selected));
+    if (error) return toast.error(error.message);
+    toast.success(`Updated ${selected.size}`);
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+  };
+
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE));
 
   return (
