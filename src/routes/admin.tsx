@@ -726,8 +726,10 @@ function EditCategoryModal({
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [imageUrl, setImageUrl] = useState(category?.image ?? "");
   const [sortOrder, setSortOrder] = useState<number>(category?.sort_order ?? 0);
+  const [parentId, setParentId] = useState<string>(category?.parent_id ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const { data: allCats = [] } = useCategories();
 
   const save = async () => {
     if (!name.trim()) return toast.error("Name required");
@@ -748,6 +750,7 @@ function EditCategoryModal({
         slug: (slug || slugify(name)).trim(),
         image: finalImage || null,
         sort_order: sortOrder,
+        parent_id: parentId || null,
       };
       const { error } = isNew
         ? await supabase.from("categories").insert(payload)
