@@ -663,7 +663,7 @@ function CategoriesTab() {
             </div>
             <div className="flex items-center justify-between gap-2 p-4">
               <div>
-                <div className="font-semibold">{c.name}</div>
+                <div className="font-semibold">{indentCat(c, categories)}</div>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   /{c.slug}
                 </div>
