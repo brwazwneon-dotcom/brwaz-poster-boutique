@@ -526,13 +526,24 @@ function EditPosterModal({
 }) {
   const [title, setTitle] = useState(poster.title);
   const [categoryId, setCategoryId] = useState(poster.category_id ?? "");
+  const [tags, setTags] = useState((poster.tags ?? []).join(", "));
+  const [description, setDescription] = useState(poster.description ?? "");
+  const [featured, setFeatured] = useState(!!poster.featured);
+  const [hidden, setHidden] = useState(!!poster.hidden);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
     const { error } = await supabase
       .from("posters")
-      .update({ title, category_id: categoryId || null })
+      .update({
+        title,
+        category_id: categoryId || null,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        description: description || null,
+        featured,
+        hidden,
+      })
       .eq("id", poster.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -562,10 +573,38 @@ function EditPosterModal({
             >
               <option value="">— Unassigned —</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Tags (comma separated)</span>
+            <input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="Messi, Barcelona, GOAT"
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Description / SEO</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <div className="flex gap-4 text-xs uppercase tracking-widest">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              Featured
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+              Hidden
+            </label>
+          </div>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
