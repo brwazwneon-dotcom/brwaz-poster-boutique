@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCategories, type Category } from "@/lib/use-categories";
+import { useCategories, descendantIds, type Category } from "@/lib/use-categories";
 import {
   FRAME_COLORS,
   FRAME_TYPES,
