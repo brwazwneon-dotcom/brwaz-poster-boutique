@@ -204,10 +204,15 @@ function PostersTab() {
             const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
             const baseName = file.name.replace(/\.[^.]+$/, "");
             const finalTitle = title ? `${title} ${baseName}` : baseName;
+            const tags = tagsInput
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean);
             const { error: insErr } = await supabase.from("posters").insert({
               title: finalTitle,
               category_id: categoryId,
               image_url: pub.publicUrl,
+              tags,
             });
             if (insErr) throw insErr;
             success++;
