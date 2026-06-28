@@ -370,7 +370,7 @@ function PostersTab() {
           </FilterPill>
           {categories.map((c) => (
             <FilterPill key={c.id} active={filter === c.id} onClick={() => { setFilter(c.id); setPage(0); }}>
-              {c.name}
+              {indentCat(c, categories)}
             </FilterPill>
           ))}
         </div>
@@ -378,6 +378,47 @@ function PostersTab() {
           Page {page + 1} / {totalPages}
         </div>
       </div>
+
+      {selected.size > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-sm border border-primary bg-accent/40 p-3">
+          <span className="text-xs uppercase tracking-widest">
+            {selected.size} selected
+          </span>
+          <button onClick={selectAllOnPage} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+            Select page
+          </button>
+          <button onClick={clearSelected} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select
+              value={bulkCategory}
+              onChange={(e) => setBulkCategory(e.target.value)}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="">Move to category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
+              ))}
+            </select>
+            <button onClick={bulkMove} disabled={!bulkCategory} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background disabled:opacity-40">
+              Move
+            </button>
+            <button onClick={() => bulkToggle({ featured: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Feature
+            </button>
+            <button onClick={() => bulkToggle({ hidden: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Hide
+            </button>
+            <button onClick={() => bulkToggle({ hidden: false })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+              Show
+            </button>
+            <button onClick={bulkDelete} className="rounded-sm bg-destructive px-3 py-1.5 text-[10px] uppercase tracking-widest text-destructive-foreground hover:opacity-90">
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {isLoading ? (
