@@ -427,7 +427,19 @@ function PostersTab() {
           <div className="col-span-full py-16 text-center text-sm text-muted-foreground">No posters.</div>
         ) : (
           data?.rows.map((p) => (
-            <div key={p.id} className="group overflow-hidden rounded-sm border border-border bg-card">
+            <div key={p.id} className={cn("group relative overflow-hidden rounded-sm border bg-card", selected.has(p.id) ? "border-primary ring-2 ring-primary/40" : "border-border")}>
+              <label className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-background/90 px-2 py-1 text-[10px] uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={selected.has(p.id)}
+                  onChange={() => toggleSelected(p.id)}
+                />
+                Select
+              </label>
+              <div className={cn("absolute right-2 top-2 z-10 flex flex-col items-end gap-1")}>
+                {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
+                {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
+              </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <img src={p.image_url} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
               </div>
