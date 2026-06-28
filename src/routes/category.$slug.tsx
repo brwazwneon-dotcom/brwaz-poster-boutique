@@ -132,6 +132,39 @@ function CategoryPage() {
         </p>
       </div>
 
+      {subcategories.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {subcategories.map((c) => (
+            <Link
+              key={c.id}
+              to="/category/$slug"
+              params={{ slug: c.slug }}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Sort by</span>
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSort(s.id)}
+            className={cn(
+              "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
+              sort === s.id
+                ? "border-primary bg-accent text-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
         <div>
           {postersQ.isLoading || catLoading ? (
