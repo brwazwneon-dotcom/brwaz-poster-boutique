@@ -17,32 +17,46 @@ export type Database = {
       categories: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           image: string | null
           name: string
+          parent_id: string | null
           slug: string
           sort_order: number
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           image?: string | null
           name: string
+          parent_id?: string | null
           slug: string
           sort_order?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           image?: string | null
           name?: string
+          parent_id?: string | null
           slug?: string
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
@@ -176,26 +190,56 @@ export type Database = {
         Row: {
           category_id: string | null
           created_at: string
+          description: string | null
+          featured: boolean
+          hidden: boolean
           id: string
           image_url: string
+          price: number | null
+          sales_count: number
+          seo_description: string | null
+          seo_title: string | null
+          sort_order: number
+          tags: string[]
           title: string
           updated_at: string
+          views_count: number
         }
         Insert: {
           category_id?: string | null
           created_at?: string
+          description?: string | null
+          featured?: boolean
+          hidden?: boolean
           id?: string
           image_url: string
+          price?: number | null
+          sales_count?: number
+          seo_description?: string | null
+          seo_title?: string | null
+          sort_order?: number
+          tags?: string[]
           title?: string
           updated_at?: string
+          views_count?: number
         }
         Update: {
           category_id?: string | null
           created_at?: string
+          description?: string | null
+          featured?: boolean
+          hidden?: boolean
           id?: string
           image_url?: string
+          price?: number | null
+          sales_count?: number
+          seo_description?: string | null
+          seo_title?: string | null
+          sort_order?: number
+          tags?: string[]
           title?: string
           updated_at?: string
+          views_count?: number
         }
         Relationships: [
           {
@@ -281,7 +325,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "user"
