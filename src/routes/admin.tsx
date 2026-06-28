@@ -564,6 +564,17 @@ function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function indentCat(c: Category, all: Category[]): string {
+  let depth = 0;
+  let cur: Category | undefined = c;
+  while (cur?.parent_id) {
+    cur = all.find((x) => x.id === cur!.parent_id);
+    depth++;
+    if (depth > 8) break;
+  }
+  return `${"— ".repeat(depth)}${c.name}`;
+}
+
 function EditCategoryModal({
   category, onClose, onSaved,
 }: { category: Category | null; onClose: () => void; onSaved: () => void }) {
