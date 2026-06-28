@@ -257,7 +257,7 @@ function PostersTab() {
     <div>
       <form
         onSubmit={upload}
-        className="grid gap-3 rounded-sm border border-border bg-card p-6 md:grid-cols-[1fr_1fr_1.2fr_auto]"
+        className="grid gap-3 rounded-sm border border-border bg-card p-6 md:grid-cols-[1fr_1fr_1fr_1.2fr_auto]"
       >
         <input
           type="text"
@@ -273,9 +273,16 @@ function PostersTab() {
         >
           <option value="">Select category…</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
           ))}
         </select>
+        <input
+          type="text"
+          placeholder="Tags (comma separated)"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+        />
         <input
           id="poster-files"
           type="file"
