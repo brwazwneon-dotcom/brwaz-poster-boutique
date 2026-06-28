@@ -61,7 +61,7 @@ function CategoryPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order")
+        .select("id,name,slug,image,sort_order,parent_id,description")
         .eq("slug", slug)
         .maybeSingle();
       if (error) throw error;
@@ -72,19 +72,31 @@ function CategoryPage() {
   if (!catLoading && !category) throw notFound();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sort, setSort] = useState<SortKey>("newest");
+
+  const includedCategoryIds = useMemo(
+    () => (category ? descendantIds(categories, category.id) : []),
+    [categories, category],
+  );
+  const subcategories = useMemo(
+    () => (category ? categories.filter((c) => c.parent_id === category.id) : []),
+    [categories, category],
+  );
 
   const postersQ = useInfiniteQuery({
-    queryKey: ["posters", category?.id ?? slug],
+    queryKey: ["posters", category?.id ?? slug, sort, includedCategoryIds.join(",")],
     enabled: !!category?.id,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const from = (pageParam as number) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
+      const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id")
-        .eq("category_id", category!.id)
-        .order("created_at", { ascending: false })
+        .select("id,title,image_url,category_id,tags")
+        .in("category_id", includedCategoryIds)
+        .eq("hidden", false)
+        .order(sortDef.col, { ascending: sortDef.asc })
         .range(from, to);
       if (error) throw error;
       return (data ?? []) as Poster[];
