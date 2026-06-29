@@ -122,7 +122,7 @@ function SearchPage() {
                 className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
               >
                 <div className="aspect-[3/4] overflow-hidden">
-                  <img
+                  <SafeImage
                     src={p.image_url}
                     alt={p.title}
                     loading="lazy"

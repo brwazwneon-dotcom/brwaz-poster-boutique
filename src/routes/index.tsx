@@ -200,7 +200,7 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
                 params={{ slug }}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
-                <img
+                <SafeImage
                   src={p.image_url}
                   alt={p.title}
                   loading="lazy"

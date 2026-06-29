@@ -194,7 +194,7 @@ function CategoryPage() {
                           : "border-transparent hover:border-border",
                       )}
                     >
-                      <img
+                      <SafeImage
                         src={p.image_url}
                         alt={p.title}
                         loading="lazy"
