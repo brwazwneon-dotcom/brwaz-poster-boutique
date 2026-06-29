@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SafeImage } from "@/components/SafeImage";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
