@@ -15,6 +15,7 @@ import {
   extractStoragePath,
   signStoragePath,
 } from "@/lib/storage-url";
+import { SafeImage } from "@/components/SafeImage";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
