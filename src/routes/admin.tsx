@@ -9,6 +9,13 @@ import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
 import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
 import * as XLSX from "xlsx";
+import {
+  IMAGE_FALLBACK,
+  uploadAndSign,
+  extractStoragePath,
+  signStoragePath,
+} from "@/lib/storage-url";
+import { SafeImage } from "@/components/SafeImage";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -197,11 +204,7 @@ function PostersTab() {
           try {
             const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
             const path = `${cat?.slug ?? "misc"}/${crypto.randomUUID()}.${ext}`;
-            const { error: upErr } = await supabase.storage
-              .from("posters")
-              .upload(path, file, { contentType: file.type });
-            if (upErr) throw upErr;
-            const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
+            const signedUrl = await uploadAndSign("posters", path, file);
             const baseName = file.name.replace(/\.[^.]+$/, "");
             const finalTitle = title ? `${title} ${baseName}` : baseName;
             const tags = tagsInput
@@ -211,7 +214,7 @@ function PostersTab() {
             const { error: insErr } = await supabase.from("posters").insert({
               title: finalTitle,
               category_id: categoryId,
-              image_url: pub.publicUrl,
+              image_url: signedUrl,
               tags,
             });
             if (insErr) throw insErr;
@@ -304,6 +307,54 @@ function PostersTab() {
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE));
 
+  const [repairing, setRepairing] = useState(false);
+  const repairImageUrls = async () => {
+    if (repairing) return;
+    setRepairing(true);
+    let fixed = 0;
+    let failed = 0;
+    try {
+      // Fetch in chunks to handle 5000+ posters.
+      const CHUNK = 1000;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await supabase
+          .from("posters")
+          .select("id,image_url")
+          .range(from, from + CHUNK - 1);
+        if (error) throw error;
+        if (!rows || rows.length === 0) break;
+        for (const r of rows) {
+          const path = extractStoragePath(r.image_url ?? "", "posters");
+          if (!path) continue;
+          try {
+            const signed = await signStoragePath("posters", path);
+            if (signed !== r.image_url) {
+              const { error: upErr } = await supabase
+                .from("posters")
+                .update({ image_url: signed })
+                .eq("id", r.id);
+              if (upErr) throw upErr;
+              fixed++;
+            }
+          } catch (e) {
+            failed++;
+            console.error("repair failed for", r.id, e);
+          }
+        }
+        if (rows.length < CHUNK) break;
+        from += CHUNK;
+      }
+      toast.success(`Repaired ${fixed} poster${fixed === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+      qc.invalidateQueries({ queryKey: ["admin-posters"] });
+      qc.invalidateQueries({ queryKey: ["posters"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Repair failed");
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   return (
     <div>
       <form
@@ -374,8 +425,18 @@ function PostersTab() {
             </FilterPill>
           ))}
         </div>
-        <div className="text-xs text-muted-foreground">
-          Page {page + 1} / {totalPages}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={repairImageUrls}
+            disabled={repairing}
+            className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-50"
+            title="Regenerate signed URLs for posters whose images don't load"
+          >
+            {repairing ? "Repairing…" : "Repair image URLs"}
+          </button>
+          <div className="text-xs text-muted-foreground">
+            Page {page + 1} / {totalPages}
+          </div>
         </div>
       </div>
 
@@ -441,7 +502,18 @@ function PostersTab() {
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
               </div>
               <div className="aspect-[2/3] overflow-hidden">
-                <img src={p.image_url} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
+                <img
+                  src={p.image_url}
+                  alt={p.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.fallback) return;
+                    img.dataset.fallback = "1";
+                    img.src = IMAGE_FALLBACK;
+                  }}
+                />
               </div>
               <div className="flex items-center justify-between gap-2 p-3">
                 <div className="min-w-0">
@@ -554,7 +626,7 @@ function EditPosterModal({
   return (
     <Modal onClose={onClose} title="Edit poster">
       <div className="flex gap-4">
-        <img src={poster.image_url} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
+        <SafeImage src={poster.image_url} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
         <div className="flex-1 space-y-3">
           <label className="block">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Title</span>
@@ -654,7 +726,7 @@ function CategoriesTab() {
           <div key={c.id} className="overflow-hidden rounded-sm border border-border bg-card">
             <div className="aspect-[16/9] overflow-hidden bg-muted">
               {c.image ? (
-                <img src={c.image} alt={c.name} className="h-full w-full object-cover" />
+                <SafeImage src={c.image} alt={c.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs uppercase tracking-widest text-muted-foreground">
                   No cover
@@ -739,11 +811,7 @@ function EditCategoryModal({
       if (file) {
         const ext = file.name.split(".").pop() ?? "jpg";
         const path = `_categories/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("posters")
-          .upload(path, file, { contentType: file.type });
-        if (upErr) throw upErr;
-        finalImage = supabase.storage.from("posters").getPublicUrl(path).data.publicUrl;
+        finalImage = await uploadAndSign("posters", path, file);
       }
       const payload = {
         name: name.trim(),
@@ -815,7 +883,7 @@ function EditCategoryModal({
             className="mt-1 w-full text-sm text-muted-foreground"
           />
           {imageUrl && !file && (
-            <img src={imageUrl} alt="" className="mt-2 h-24 w-40 rounded-sm object-cover" />
+            <SafeImage src={imageUrl} alt="" className="mt-2 h-24 w-40 rounded-sm object-cover" />
           )}
         </label>
       </div>
@@ -1026,7 +1094,7 @@ function OrdersTab() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
                         {o.poster_image && (
-                          <img src={o.poster_image} alt="" className="h-12 w-9 rounded-sm object-cover" />
+                          <SafeImage src={o.poster_image} alt="" className="h-12 w-9 rounded-sm object-cover" />
                         )}
                         <span className="text-xs">{o.poster_title ?? "—"}</span>
                       </div>
@@ -1138,13 +1206,9 @@ function SliderTab() {
       for (const file of Array.from(files)) {
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
         const path = `${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("slider")
-          .upload(path, file, { contentType: file.type });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("slider").getPublicUrl(path);
+        const signedUrl = await uploadAndSign("slider", path, file);
         const { error } = await supabase.from("slider_images").insert({
-          image_url: pub.publicUrl,
+          image_url: signedUrl,
           sort_order: order++,
           enabled: true,
         });
@@ -1220,7 +1284,7 @@ function SliderTab() {
         ) : (
           slides.map((s, i) => (
             <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-sm border border-border bg-card p-3">
-              <img src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
+              <SafeImage src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
               <input
                 defaultValue={s.title ?? ""}
                 placeholder="Title (optional)"

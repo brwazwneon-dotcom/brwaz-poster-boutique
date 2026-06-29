@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -37,7 +38,7 @@ export function HomeSlider() {
       <div className="relative h-[40vh] min-h-[260px] w-full sm:h-[55vh] md:h-[65vh]">
         {slides.map((s, i) => {
           const inner = (
-            <img
+            <SafeImage
               src={s.image_url}
               alt={s.title ?? ""}
               className="h-full w-full object-cover"

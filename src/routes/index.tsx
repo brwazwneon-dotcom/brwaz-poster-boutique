@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SafeImage } from "@/components/SafeImage";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -199,7 +200,7 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
                 params={{ slug }}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
-                <img
+                <SafeImage
                   src={p.image_url}
                   alt={p.title}
                   loading="lazy"

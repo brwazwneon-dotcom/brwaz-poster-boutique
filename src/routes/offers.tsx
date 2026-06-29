@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SafeImage } from "@/components/SafeImage";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -258,7 +259,7 @@ function BundleBuilder({
                         : "border-transparent hover:border-border",
                     )}
                   >
-                    <img
+                    <SafeImage
                       src={p.image_url}
                       alt={p.title}
                       loading="lazy"
@@ -335,7 +336,7 @@ function BundleBuilder({
                 >
                   {p && (
                     <>
-                      <img src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                      <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
                       <button
                         onClick={() =>
                           setSelectedIds((prev) => prev.filter((x) => x !== id))

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { SafeImage } from "@/components/SafeImage";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -193,7 +194,7 @@ function CategoryPage() {
                           : "border-transparent hover:border-border",
                       )}
                     >
-                      <img
+                      <SafeImage
                         src={p.image_url}
                         alt={p.title}
                         loading="lazy"
@@ -344,7 +345,7 @@ function Customizer({
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
-            <img src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+            <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
             <button
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.title}`}

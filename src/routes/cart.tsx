@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SafeImage } from "@/components/SafeImage";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -128,7 +129,7 @@ function CartPage() {
           <div className="space-y-3">
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
-                <img src={i.image} alt={i.title} className="h-28 w-20 rounded-sm object-cover" />
+                <SafeImage src={i.image} alt={i.title} className="h-28 w-20 rounded-sm object-cover" />
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -139,7 +140,7 @@ function CartPage() {
                       {i.bundle && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {i.bundle.posters.map((p) => (
-                            <img
+                            <SafeImage
                               key={p.posterId}
                               src={p.image}
                               alt={p.title}
