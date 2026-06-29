@@ -9,6 +9,12 @@ import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
 import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
 import * as XLSX from "xlsx";
+import {
+  IMAGE_FALLBACK,
+  uploadAndSign,
+  extractStoragePath,
+  signStoragePath,
+} from "@/lib/storage-url";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -197,11 +203,7 @@ function PostersTab() {
           try {
             const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
             const path = `${cat?.slug ?? "misc"}/${crypto.randomUUID()}.${ext}`;
-            const { error: upErr } = await supabase.storage
-              .from("posters")
-              .upload(path, file, { contentType: file.type });
-            if (upErr) throw upErr;
-            const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
+            const signedUrl = await uploadAndSign("posters", path, file);
             const baseName = file.name.replace(/\.[^.]+$/, "");
             const finalTitle = title ? `${title} ${baseName}` : baseName;
             const tags = tagsInput
@@ -211,7 +213,7 @@ function PostersTab() {
             const { error: insErr } = await supabase.from("posters").insert({
               title: finalTitle,
               category_id: categoryId,
-              image_url: pub.publicUrl,
+              image_url: signedUrl,
               tags,
             });
             if (insErr) throw insErr;
