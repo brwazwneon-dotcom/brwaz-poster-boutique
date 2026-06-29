@@ -336,7 +336,7 @@ function BundleBuilder({
                 >
                   {p && (
                     <>
-                      <img src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                      <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
                       <button
                         onClick={() =>
                           setSelectedIds((prev) => prev.filter((x) => x !== id))
