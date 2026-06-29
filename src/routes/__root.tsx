@@ -85,9 +85,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "BRWAZWNEON — Premium Framed Posters" },
       { name: "description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
       { property: "og:title", content: "BRWAZWNEON — Premium Framed Posters" },
-      { property: "og:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt." },
+      { property: "og:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "BRWAZWNEON — Premium Framed Posters" },
+      { name: "twitter:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6efe3779-cc28-496a-9e5a-83bca2411747/id-preview-c66ecc4f--f058d43d-0089-4221-9256-8bd2e9d26c3d.lovable.app-1782734562408.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6efe3779-cc28-496a-9e5a-83bca2411747/id-preview-c66ecc4f--f058d43d-0089-4221-9256-8bd2e9d26c3d.lovable.app-1782734562408.png" },
     ],
     links: [
       {
