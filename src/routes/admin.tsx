@@ -306,6 +306,54 @@ function PostersTab() {
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE));
 
+  const [repairing, setRepairing] = useState(false);
+  const repairImageUrls = async () => {
+    if (repairing) return;
+    setRepairing(true);
+    let fixed = 0;
+    let failed = 0;
+    try {
+      // Fetch in chunks to handle 5000+ posters.
+      const CHUNK = 1000;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await supabase
+          .from("posters")
+          .select("id,image_url")
+          .range(from, from + CHUNK - 1);
+        if (error) throw error;
+        if (!rows || rows.length === 0) break;
+        for (const r of rows) {
+          const path = extractStoragePath(r.image_url ?? "", "posters");
+          if (!path) continue;
+          try {
+            const signed = await signStoragePath("posters", path);
+            if (signed !== r.image_url) {
+              const { error: upErr } = await supabase
+                .from("posters")
+                .update({ image_url: signed })
+                .eq("id", r.id);
+              if (upErr) throw upErr;
+              fixed++;
+            }
+          } catch (e) {
+            failed++;
+            console.error("repair failed for", r.id, e);
+          }
+        }
+        if (rows.length < CHUNK) break;
+        from += CHUNK;
+      }
+      toast.success(`Repaired ${fixed} poster${fixed === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+      qc.invalidateQueries({ queryKey: ["admin-posters"] });
+      qc.invalidateQueries({ queryKey: ["posters"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Repair failed");
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   return (
     <div>
       <form
@@ -376,8 +424,18 @@ function PostersTab() {
             </FilterPill>
           ))}
         </div>
-        <div className="text-xs text-muted-foreground">
-          Page {page + 1} / {totalPages}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={repairImageUrls}
+            disabled={repairing}
+            className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-50"
+            title="Regenerate signed URLs for posters whose images don't load"
+          >
+            {repairing ? "Repairing…" : "Repair image URLs"}
+          </button>
+          <div className="text-xs text-muted-foreground">
+            Page {page + 1} / {totalPages}
+          </div>
         </div>
       </div>
 
@@ -443,7 +501,18 @@ function PostersTab() {
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
               </div>
               <div className="aspect-[2/3] overflow-hidden">
-                <img src={p.image_url} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
+                <img
+                  src={p.image_url}
+                  alt={p.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.fallback) return;
+                    img.dataset.fallback = "1";
+                    img.src = IMAGE_FALLBACK;
+                  }}
+                />
               </div>
               <div className="flex items-center justify-between gap-2 p-3">
                 <div className="min-w-0">
