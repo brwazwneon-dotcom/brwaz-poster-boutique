@@ -1136,13 +1136,9 @@ function SliderTab() {
       for (const file of Array.from(files)) {
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
         const path = `${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("slider")
-          .upload(path, file, { contentType: file.type });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("slider").getPublicUrl(path);
+        const signedUrl = await uploadAndSign("slider", path, file);
         const { error } = await supabase.from("slider_images").insert({
-          image_url: pub.publicUrl,
+          image_url: signedUrl,
           sort_order: order++,
           enabled: true,
         });
