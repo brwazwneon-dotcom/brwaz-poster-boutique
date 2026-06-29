@@ -741,11 +741,7 @@ function EditCategoryModal({
       if (file) {
         const ext = file.name.split(".").pop() ?? "jpg";
         const path = `_categories/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("posters")
-          .upload(path, file, { contentType: file.type });
-        if (upErr) throw upErr;
-        finalImage = supabase.storage.from("posters").getPublicUrl(path).data.publicUrl;
+        finalImage = await uploadAndSign("posters", path, file);
       }
       const payload = {
         name: name.trim(),
