@@ -625,7 +625,7 @@ function EditPosterModal({
   return (
     <Modal onClose={onClose} title="Edit poster">
       <div className="flex gap-4">
-        <img src={poster.image_url} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
+        <SafeImage src={poster.image_url} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
         <div className="flex-1 space-y-3">
           <label className="block">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Title</span>
@@ -725,7 +725,7 @@ function CategoriesTab() {
           <div key={c.id} className="overflow-hidden rounded-sm border border-border bg-card">
             <div className="aspect-[16/9] overflow-hidden bg-muted">
               {c.image ? (
-                <img src={c.image} alt={c.name} className="h-full w-full object-cover" />
+                <SafeImage src={c.image} alt={c.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs uppercase tracking-widest text-muted-foreground">
                   No cover
@@ -882,7 +882,7 @@ function EditCategoryModal({
             className="mt-1 w-full text-sm text-muted-foreground"
           />
           {imageUrl && !file && (
-            <img src={imageUrl} alt="" className="mt-2 h-24 w-40 rounded-sm object-cover" />
+            <SafeImage src={imageUrl} alt="" className="mt-2 h-24 w-40 rounded-sm object-cover" />
           )}
         </label>
       </div>
@@ -1093,7 +1093,7 @@ function OrdersTab() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
                         {o.poster_image && (
-                          <img src={o.poster_image} alt="" className="h-12 w-9 rounded-sm object-cover" />
+                          <SafeImage src={o.poster_image} alt="" className="h-12 w-9 rounded-sm object-cover" />
                         )}
                         <span className="text-xs">{o.poster_title ?? "—"}</span>
                       </div>
@@ -1283,7 +1283,7 @@ function SliderTab() {
         ) : (
           slides.map((s, i) => (
             <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-sm border border-border bg-card p-3">
-              <img src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
+              <SafeImage src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
               <input
                 defaultValue={s.title ?? ""}
                 placeholder="Title (optional)"
