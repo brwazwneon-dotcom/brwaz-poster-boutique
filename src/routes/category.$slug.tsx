@@ -415,6 +415,16 @@ function Customizer({
           loading="eager"
         />
       </div>
+      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+          {(primary.sales_count ?? 0) > 0 && (
+            <span>✔ {formatCount(primary.sales_count)} customers purchased this design</span>
+          )}
+          {(primary.views_count ?? 0) > 0 && (
+            <span>👁 {formatCount(primary.views_count)} views</span>
+          )}
+        </div>
+      ) : null}
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
