@@ -60,11 +60,16 @@ export function FramePreview({
   const tx = (s.offsetX ?? 0) * 100;
   const ty = (s.offsetY ?? 0) * 100;
   const scale = Math.max(0.1, s.zoom || 1);
-  const sx = Math.max(0.1, s.stretchX || 1) * scale;
-  const sy = Math.max(0.1, s.stretchY || 1) * scale;
-  const rotate = s.rotate || 0;
+  // Combine per-poster edit settings with admin calibration for this frame template.
+  const adminScale = Math.max(0.1, m.scale ?? 1);
+  const sx = Math.max(0.1, s.stretchX || 1) * scale * adminScale;
+  const sy = Math.max(0.1, s.stretchY || 1) * scale * adminScale;
+  const rotate = (s.rotate || 0) + (m.rotate ?? 0);
+  const skewX = m.skewX ?? 0;
+  const skewY = m.skewY ?? 0;
   const objectFit = s.fit === "fit" ? "contain" : "cover";
-  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotate(${rotate}deg) scale(${sx}, ${sy})`;
+  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
+  const borderRadius = `${m.borderRadius ?? 0}%`;
 
   return (
     <div
@@ -84,6 +89,7 @@ export function FramePreview({
           left: `${m.left}%`,
           width: `${m.width}%`,
           height: `${m.height}%`,
+          borderRadius,
         }}
       >
         <SafeImage
