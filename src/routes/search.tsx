@@ -7,11 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { Search as SearchIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useCategories } from "@/lib/use-categories";
 import { trackEvent } from "@/lib/meta-pixel";
 import { logSearchQuery } from "@/lib/analytics";
+import { SearchBox, pushRecentSearch } from "@/components/SearchBox";
 
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
@@ -33,6 +32,8 @@ type PosterRow = {
   title: string;
   image_url: string;
   category_id: string | null;
+  category_slug: string | null;
+  category_name: string | null;
   tags: string[] | null;
   badge?: string | null;
 };
@@ -41,16 +42,13 @@ function SearchPage() {
   const { q } = Route.useSearch();
   const navigate = useNavigate({ from: "/search" });
   const [input, setInput] = useState(q);
-  const { data: categories = [] } = useCategories();
 
-  // sync input with URL
   useEffect(() => setInput(q), [q]);
 
-  // debounce URL update for typing
   useEffect(() => {
     const t = setTimeout(() => {
       if (input !== q) navigate({ search: { q: input }, replace: true });
-    }, 200);
+    }, 180);
     return () => clearTimeout(t);
   }, [input, q, navigate]);
 
@@ -59,39 +57,17 @@ function SearchPage() {
     if (term.length < 2) return;
     const t = setTimeout(() => {
       try { trackEvent("Search", { search_string: term }); } catch { /* noop */ }
+      pushRecentSearch(term);
     }, 400);
     return () => clearTimeout(t);
   }, [term]);
+
   const { data, isFetching } = useQuery({
     queryKey: ["search-posters", term],
     enabled: term.length >= 1,
-    staleTime: 30_000,
+    staleTime: 60_000,
     queryFn: async () => {
-      // Match by category slug/name too: prefilter category ids client-side
-      const lower = term.toLowerCase();
-      const matchedCategoryIds = categories
-        .filter(
-          (c) =>
-            c.name.toLowerCase().includes(lower) ||
-            c.slug.toLowerCase().includes(lower),
-        )
-        .map((c) => c.id);
-
-      const orParts: string[] = [
-        `title.ilike.%${term}%`,
-        `tags.cs.{${term}}`,
-        `description.ilike.%${term}%`,
-      ];
-      if (matchedCategoryIds.length) {
-        orParts.push(`category_id.in.(${matchedCategoryIds.join(",")})`);
-      }
-
-      const { data, error } = await supabase
-        .from("posters")
-        .select("id,title,image_url,category_id,tags,badge")
-        .eq("hidden", false)
-        .or(orParts.join(","))
-        .limit(120);
+      const { data, error } = await supabase.rpc("search_posters", { q: term, lim: 120 });
       if (error) throw error;
       return (data ?? []) as PosterRow[];
     },
@@ -113,14 +89,12 @@ function SearchPage() {
       <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Search</div>
       <h1 className="text-display mt-1 text-4xl sm:text-5xl">Find your poster</h1>
 
-      <div className="relative mt-6 max-w-2xl">
-        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
+      <div className="mt-6 max-w-2xl">
+        <SearchBox
+          variant="page"
           autoFocus
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Messi, Marvel, BMW, One Piece…"
-          className="w-full rounded-sm border border-border bg-card py-4 pl-11 pr-4 text-base outline-none focus:border-primary"
+          initialValue={input}
+          onChange={setInput}
         />
       </div>
 
@@ -134,13 +108,11 @@ function SearchPage() {
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {results.map((p) => {
-            const cat = categories.find((c) => c.id === p.category_id);
-            return (
+          {results.map((p) => (
               <Link
                 key={p.id}
                 to="/category/$slug"
-                params={{ slug: cat?.slug ?? "" }}
+                params={{ slug: p.category_slug ?? "" }}
                 className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
               >
                 <div className="relative aspect-[3/4] overflow-hidden">
@@ -158,12 +130,11 @@ function SearchPage() {
                 <div className="p-2">
                   <div className="truncate text-xs">{p.title}</div>
                   <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {cat?.name ?? "—"}
+                    {p.category_name ?? "—"}
                   </div>
                 </div>
               </Link>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>
