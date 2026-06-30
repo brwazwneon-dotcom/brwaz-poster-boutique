@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Search as SearchIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories } from "@/lib/use-categories";
+import { trackEvent } from "@/lib/meta-pixel";
 
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
@@ -53,6 +54,13 @@ function SearchPage() {
   }, [input, q, navigate]);
 
   const term = q.trim();
+  useEffect(() => {
+    if (term.length < 2) return;
+    const t = setTimeout(() => {
+      try { trackEvent("Search", { search_string: term }); } catch { /* noop */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [term]);
   const { data, isFetching } = useQuery({
     queryKey: ["search-posters", term],
     enabled: term.length >= 1,
