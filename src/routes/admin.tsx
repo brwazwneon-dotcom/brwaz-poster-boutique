@@ -1683,9 +1683,21 @@ function FramePreviewPreviewWithOverride({
           left: `${mockup.left}%`,
           width: `${mockup.width}%`,
           height: `${mockup.height}%`,
+          overflow: "hidden",
+          borderRadius: `${mockup.borderRadius ?? 0}%`,
         }}
       >
-        <img src={SAMPLE_POSTER} alt="" className="h-full w-full object-cover" />
+        <img
+          src={SAMPLE_POSTER}
+          alt=""
+          className="h-full w-full object-cover select-none"
+          draggable={false}
+          style={{
+            transform: `rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
+            transformOrigin: "center center",
+            willChange: "transform",
+          }}
+        />
       </div>
       {mockup.image && (
         <img
