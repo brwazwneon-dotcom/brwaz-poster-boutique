@@ -1477,7 +1477,7 @@ function MockupEditor({
     try {
       const { error } = await supabase.from("site_settings").upsert({
         key: MOCKUP_KEYS[variant],
-        value: m as unknown as Record<string, unknown>,
+        value: { ...m } as never,
         updated_at: new Date().toISOString(),
       });
       if (error) throw error;
