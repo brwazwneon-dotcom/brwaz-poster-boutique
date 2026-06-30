@@ -16,6 +16,7 @@ import {
   signStoragePath,
 } from "@/lib/storage-url";
 import { SafeImage } from "@/components/SafeImage";
+import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -357,62 +358,12 @@ function PostersTab() {
 
   return (
     <div>
-      <form
-        onSubmit={upload}
-        className="grid gap-3 rounded-sm border border-border bg-card p-6 md:grid-cols-[1fr_1fr_1fr_1.2fr_auto]"
-      >
-        <input
-          type="text"
-          placeholder="Title prefix (optional)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-        />
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className="rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-        >
-          <option value="">Select category…</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="Tags (comma separated)"
-          value={tagsInput}
-          onChange={(e) => setTagsInput(e.target.value)}
-          className="rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-        />
-        <input
-          id="poster-files"
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => setFiles(e.target.files)}
-          className="text-sm text-muted-foreground"
-        />
-        <button
-          type="submit"
-          disabled={uploading}
-          className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          <Upload className="h-4 w-4" />
-          {uploading
-            ? `Uploading ${upProgress.done}/${upProgress.total}`
-            : `Upload${files && files.length ? ` (${files.length})` : ""}`}
-        </button>
-      </form>
-
-      {uploading && upProgress.total > 0 && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${Math.round((upProgress.done / upProgress.total) * 100)}%` }}
-          />
-        </div>
-      )}
+      <BulkPosterUploader
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["admin-posters"] });
+          qc.invalidateQueries({ queryKey: ["posters"] });
+        }}
+      />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
