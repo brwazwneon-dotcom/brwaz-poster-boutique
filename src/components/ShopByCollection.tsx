@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
@@ -74,9 +73,9 @@ export function ShopByCollection() {
         {/* Mobile: swipeable cards. Desktop: grid */}
         <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4">
           {cards.map((c) => (
-            <Link
+            <a
               key={c.id}
-              to={c.link}
+              href={c.link}
               className="group relative block aspect-[4/5] min-w-[78%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:min-w-0"
             >
               {c.image ? (
@@ -101,7 +100,7 @@ export function ShopByCollection() {
                   Shop now →
                 </span>
               </div>
-            </Link>
+            </a>
           ))}
         </div>
       </div>
