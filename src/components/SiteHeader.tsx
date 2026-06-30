@@ -1,12 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, Search } from "lucide-react";
+import { ShoppingBag, Search, Heart } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
+import { useWishlist } from "@/lib/wishlist";
 import { useRootCategories } from "@/lib/use-categories";
 import { LOGO_URL } from "@/lib/site";
 
 export function SiteHeader() {
   const { count } = useCart();
+  const { count: wishCount } = useWishlist();
   const { data: categories = [] } = useRootCategories();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
@@ -81,6 +83,19 @@ export function SiteHeader() {
           className="inline-flex items-center justify-center rounded-sm border border-border p-2 md:hidden"
         >
           <Search className="h-4 w-4" />
+        </Link>
+        <Link
+          to="/wishlist"
+          aria-label="Wishlist"
+          className="relative inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <Heart className="h-4 w-4" />
+          <span className="hidden sm:inline">Wishlist</span>
+          {wishCount > 0 && (
+            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {wishCount}
+            </span>
+          )}
         </Link>
         <Link
           to="/cart"
