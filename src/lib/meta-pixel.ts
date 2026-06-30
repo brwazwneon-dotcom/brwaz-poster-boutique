@@ -180,20 +180,20 @@ function scheduleFlush() {
 }
 
 /** Fire-and-forget: enqueues an event to be flushed on the next idle tick. */
+const STANDARD_NAMES: readonly StandardEvent[] = [
+  "PageView", "ViewContent", "Search", "AddToWishlist", "AddToCart",
+  "InitiateCheckout", "Purchase", "Lead", "Contact", "CompleteRegistration",
+];
+
 export function enqueueEvent(
   name: StandardEvent | CustomEvent,
   params: Record<string, unknown> = {},
   userData?: Partial<UserData>,
 ) {
-  const isStd = META_TO_GA.hasOwnProperty(name) || (STANDARD_NAMES as readonly string[]).includes(name);
+  const isStd = (STANDARD_NAMES as readonly string[]).includes(name);
   queue.push({ kind: isStd ? "std" : "custom", name, params, userData });
   scheduleFlush();
 }
-
-const STANDARD_NAMES: readonly StandardEvent[] = [
-  "PageView", "ViewContent", "Search", "AddToWishlist", "AddToCart",
-  "InitiateCheckout", "Purchase", "Lead", "Contact", "CompleteRegistration",
-];
 
 /** Send a custom Meta event (fbq trackCustom) + mirror to CAPI for retargeting. */
 export function trackCustom(
