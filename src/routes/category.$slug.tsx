@@ -19,6 +19,8 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
+import { FrameEditor } from "@/components/FrameEditor";
+import { DEFAULT_EDIT_SETTINGS, type EditSettings } from "@/lib/poster-edit";
 
 type Poster = {
   id: string;
@@ -300,9 +302,13 @@ function Customizer({
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
+  const [edits, setEdits] = useState<Record<string, EditSettings>>({});
   const { add } = useCart();
   const unit = calcPrice(size, frameType);
   const total = unit * posters.length;
+
+  const primary = posters[0];
+  const primaryEdit = edits[primary.id] ?? DEFAULT_EDIT_SETTINGS;
 
   const handleAdd = () => {
     posters.forEach((poster) => {
@@ -316,6 +322,7 @@ function Customizer({
         size,
         color,
         price: unit,
+        editSettings: edits[poster.id] ?? DEFAULT_EDIT_SETTINGS,
       });
     });
     toast.success(`Added ${posters.length} poster${posters.length > 1 ? "s" : ""} to cart`);
@@ -344,12 +351,13 @@ function Customizer({
         </button>
       </div>
       <div className="mt-4 mx-auto w-full max-w-[260px]">
-        <FramePreview
-          posterUrl={posters[0].image_url}
-          title={posters[0].title}
+        <FrameEditor
+          posterUrl={primary.image_url}
+          title={primary.title}
           frameType={frameType}
           color={color}
-          loading="eager"
+          value={primaryEdit}
+          onChange={(v) => setEdits((m) => ({ ...m, [primary.id]: v }))}
         />
       </div>
       <div className="mt-3 grid grid-cols-5 gap-2">
@@ -360,6 +368,7 @@ function Customizer({
               title={p.title}
               frameType={frameType}
               color={color}
+              editSettings={edits[p.id]}
               bare
               className="h-full w-full"
             />
