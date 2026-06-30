@@ -18,6 +18,7 @@ import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
+import { FramePreview } from "@/components/FramePreview";
 
 type Poster = {
   id: string;
