@@ -24,6 +24,10 @@ import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
+import { PosterGallery } from "@/components/PosterGallery";
+import { FrameComparison } from "@/components/FrameComparison";
+import { BeforeAfter } from "@/components/BeforeAfter";
+import { POSTER_BADGES } from "@/lib/poster-badges";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
@@ -44,10 +48,11 @@ type Poster = {
 const PAGE_SIZE = 48;
 
 type SortKey = "newest" | "popular" | "bestselling" | "az";
-const SORTS: { id: SortKey; label: string; col: string; asc: boolean }[] = [
+type SortDef = { id: SortKey; label: string; col: string; asc: boolean };
+const SORTS: SortDef[] = [
   { id: "newest", label: "Newest", col: "created_at", asc: false },
-  { id: "popular", label: "Most Popular", col: "views_count", asc: false },
   { id: "bestselling", label: "Best Selling", col: "sales_count", asc: false },
+  { id: "popular", label: "Most Viewed", col: "views_count", asc: false },
   { id: "az", label: "Alphabetically", col: "title", asc: true },
 ];
 
@@ -91,6 +96,7 @@ function CategoryPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
+  const [badgeFilter, setBadgeFilter] = useState<string>("");
   const { record } = useRecentlyViewed();
 
   const includedCategoryIds = useMemo(
@@ -125,6 +131,10 @@ function CategoryPage() {
   });
 
   const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
+  const filteredPosters = useMemo(
+    () => (badgeFilter ? posters.filter((p) => p.badge === badgeFilter) : posters),
+    [posters, badgeFilter],
+  );
   const selectedPosters = useMemo(
     () => selectedIds
       .map((id) => posters.find((p) => p.id === id))
@@ -197,20 +207,45 @@ function CategoryPage() {
         ))}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Badge</span>
+        <button
+          onClick={() => setBadgeFilter("")}
+          className={cn(
+            "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
+            !badgeFilter ? "border-primary bg-accent" : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          All
+        </button>
+        {POSTER_BADGES.map((b) => (
+          <button
+            key={b.id}
+            onClick={() => setBadgeFilter(b.id)}
+            className={cn(
+              "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
+              badgeFilter === b.id ? "border-primary bg-accent" : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
         <div>
           {postersQ.isLoading || catLoading ? (
             <div className="py-20 text-center text-sm text-muted-foreground">
               Loading posters…
             </div>
-          ) : posters.length === 0 ? (
+          ) : filteredPosters.length === 0 ? (
             <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
               No posters in this category yet.
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {posters.map((p) => {
+                {filteredPosters.map((p) => {
                   const active = selectedIds.includes(p.id);
                   const idx = selectedIds.indexOf(p.id);
                   return (
