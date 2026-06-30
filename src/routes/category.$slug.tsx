@@ -346,7 +346,14 @@ function Customizer({
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
-            <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+            <FramePreview
+              posterUrl={p.image_url}
+              title={p.title}
+              frameType={frameType}
+              color={color}
+              bare
+              className="h-full w-full"
+            />
             <button
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.title}`}
