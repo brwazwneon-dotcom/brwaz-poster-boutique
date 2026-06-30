@@ -12,8 +12,11 @@ import {
   Eye, Heart, PlusCircle, MapPin, Activity, Upload, Tag, Image as ImgIcon,
   Star, AlertTriangle, Smartphone, Monitor, Tablet, Facebook, Instagram,
   Globe, MessageCircle, RefreshCcw, ArrowRight, ImagePlus, Frame,
+  Truck, Package, Sparkles, FileDown, Bell, AlertCircle, Lightbulb,
+  TrendingDown, Repeat, Banknote, Settings as SettingsIcon,
 } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type PosterRow = { id: string; title: string; image_url: string } & Record<string, number>;
 type CategoryRow = { id: string; name: string; slug: string; sales: number; views: number };
@@ -32,31 +35,54 @@ type ReviewRow = {
   governorate: string | null; created_at: string; status: string;
 };
 type CustomRow = { id: string; customer_name: string | null; total_price: number; image_count: number; created_at: string };
+type PhotoRow = { id: string; customer_name: string | null; total_price: number; quantity: number; created_at: string };
+type CityRow = { city: string; orders: number; revenue: number };
+type SizeRow = { size: string; orders: number; revenue: number };
+type ReturningRow = { name: string; phone: string | null; gov: string | null; orders: number; spent: number };
+type SearchEmptyRow = { q: string; c: number };
+type ProfitCosts = {
+  product_cost?: number; packaging_cost?: number;
+  shipping_cost?: number; advertising_cost?: number;
+};
 
 type Dashboard = {
   visitors_today: number; visitors_month: number; visitors_total: number;
   orders_today: number; revenue_today: number; revenue_week: number; revenue_month: number;
   orders_total: number; revenue_total: number;
-  orders_pending: number; orders_completed: number; orders_cancelled: number;
+  orders_pending: number; orders_processing: number; orders_printed: number;
+  orders_shipped: number; orders_delivered: number;
+  orders_completed: number; orders_cancelled: number;
+  orders_range: number; revenue_range: number; visitors_range: number;
+  range: { from: string; to: string; days: number };
+  customers: { total_customers: number; returning_customers: number; new_customers: number };
+  top_returning: ReturningRow[];
   chart_14d: ChartRow[];
+  chart_range: ChartRow[];
   top_selling: (PosterRow & { sales_count: number })[];
   top_viewed: (PosterRow & { views_count: number })[];
   top_cart: (PosterRow & { cart_adds_count: number })[];
   top_wishlisted: (PosterRow & { wishlist_count: number })[];
+  lowest_performing: (PosterRow & { views_count: number; sales_count: number })[];
   top_categories: CategoryRow[];
+  top_subcategories: CategoryRow[];
+  top_sizes: SizeRow[];
   top_searches: SearchRow[];
+  no_result_searches: SearchEmptyRow[];
   top_governorates: GovRow[];
+  top_cities: CityRow[];
   devices: DeviceRow[];
   sources: SourceRow[];
   recent_orders: OrderRow[];
   recent_customers: CustomerRow[];
   recent_reviews: ReviewRow[];
   recent_custom: CustomRow[];
+  recent_photo: PhotoRow[];
   conversions: {
     photo_printing: number; custom_design: number; wooden_portrait: number;
     frame_orders: number; black_frame: number; white_frame: number; offers: number;
   };
   health: { posters_missing_image: number; posters_hidden: number; reviews_pending: number };
+  profit_costs: ProfitCosts;
 };
 
 type AdminTab =
