@@ -96,9 +96,14 @@ export function Slider({
       onTouchMove={(e) => move(e.touches[0].clientX)}
     >
       <SafeImage src={after} alt={title ? `${title} after` : "After"} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-      <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${pos}%` }}>
-        <SafeImage src={before} alt={title ? `${title} before` : "Before"} className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} style={{ width: ref.current?.clientWidth }} />
-      </div>
+      <SafeImage
+        src={before}
+        alt={title ? `${title} before` : "Before"}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        draggable={false}
+        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
+      />
       <div
         className="absolute inset-y-0 w-0.5 bg-primary"
         style={{ left: `calc(${pos}% - 1px)` }}
