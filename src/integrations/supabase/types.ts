@@ -58,6 +58,72 @@ export type Database = {
           },
         ]
       }
+      custom_design_orders: {
+        Row: {
+          address: string
+          created_at: string
+          customer_name: string
+          frame_color: string
+          frame_type: string
+          governorate: string
+          id: string
+          image_paths: string[]
+          image_urls: string[]
+          notes: string | null
+          order_number: string | null
+          phone: string
+          quantity: number
+          shipping_cost: number
+          size: string
+          status: string
+          subtotal: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          customer_name: string
+          frame_color: string
+          frame_type: string
+          governorate: string
+          id?: string
+          image_paths?: string[]
+          image_urls?: string[]
+          notes?: string | null
+          order_number?: string | null
+          phone: string
+          quantity?: number
+          shipping_cost?: number
+          size: string
+          status?: string
+          subtotal: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          customer_name?: string
+          frame_color?: string
+          frame_type?: string
+          governorate?: string
+          id?: string
+          image_paths?: string[]
+          image_urls?: string[]
+          notes?: string | null
+          order_number?: string | null
+          phone?: string
+          quantity?: number
+          shipping_cost?: number
+          size?: string
+          status?: string
+          subtotal?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           address: string
