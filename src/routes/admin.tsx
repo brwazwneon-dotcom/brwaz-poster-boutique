@@ -23,6 +23,7 @@ import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
+import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
   normalizeEditSettings,
