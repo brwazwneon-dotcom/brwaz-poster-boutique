@@ -1372,6 +1372,237 @@ function SettingsTab() {
   );
 }
 
+/* ---------- FRAME MOCKUPS ---------- */
+
+function MockupsTab() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-frame-mockups"],
+    queryFn: async (): Promise<FrameMockups> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key,value")
+        .in("key", Object.values(MOCKUP_KEYS));
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const parse = (raw: unknown, fb: FrameMockup): FrameMockup => {
+        if (!raw || typeof raw !== "object") return fb;
+        const v = raw as Partial<FrameMockup>;
+        return {
+          image: typeof v.image === "string" ? v.image : fb.image,
+          top: Number(v.top ?? fb.top),
+          left: Number(v.left ?? fb.left),
+          width: Number(v.width ?? fb.width),
+          height: Number(v.height ?? fb.height),
+        };
+      };
+      return {
+        black: parse(map.get(MOCKUP_KEYS.black), { image: "", top: 8, left: 8, width: 84, height: 84 }),
+        white: parse(map.get(MOCKUP_KEYS.white), { image: "", top: 8, left: 8, width: 84, height: 84 }),
+        wood:  parse(map.get(MOCKUP_KEYS.wood),  { image: "", top: 10, left: 10, width: 80, height: 80 }),
+      };
+    },
+  });
+
+  if (isLoading || !data)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  const onSaved = () => {
+    qc.invalidateQueries({ queryKey: ["admin-frame-mockups"] });
+    qc.invalidateQueries({ queryKey: ["frame-mockups"] });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-sm border border-border bg-card p-6">
+        <h3 className="text-display text-2xl">Frame Mockups</h3>
+        <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+          Upload each mockup once. The website auto-composites every poster inside it.
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Use a transparent-center PNG. Set the printable area as % of the mockup canvas
+          (top, left, width, height) so the poster sits exactly inside the frame opening.
+        </p>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <MockupEditor label="Black Frame" variant="black" mockup={data.black} onSaved={onSaved} />
+        <MockupEditor label="White Frame" variant="white" mockup={data.white} onSaved={onSaved} />
+        <MockupEditor label="Wooden Portrait" variant="wood" mockup={data.wood} onSaved={onSaved} />
+      </div>
+    </div>
+  );
+}
+
+const SAMPLE_POSTER =
+  "https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?auto=format&fit=crop&w=600&q=70";
+
+function MockupEditor({
+  label,
+  variant,
+  mockup,
+  onSaved,
+}: {
+  label: string;
+  variant: keyof FrameMockups;
+  mockup: FrameMockup;
+  onSaved: () => void;
+}) {
+  const [m, setM] = useState<FrameMockup>(mockup);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const set = (k: keyof FrameMockup, v: string) => {
+    if (k === "image") return setM({ ...m, image: v });
+    const n = Number(v);
+    setM({ ...m, [k]: Number.isFinite(n) ? n : 0 });
+  };
+
+  const onUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `frames/${variant}-${Date.now()}.${ext}`;
+      const url = await uploadAndSign("categories", path, file);
+      setM((prev) => ({ ...prev, image: url }));
+      toast.success("Mockup uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: MOCKUP_KEYS[variant],
+        value: m as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(`${label} saved`);
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-sm border border-border bg-card p-5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-display text-xl">{label}</h4>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{variant}</span>
+      </div>
+
+      <div className="mt-4 mx-auto w-full max-w-[220px]">
+        <FramePreviewPreviewWithOverride mockup={m} variant={variant} />
+      </div>
+
+      <label className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent">
+        <Upload className="h-4 w-4" />
+        {uploading ? "Uploading…" : "Upload mockup PNG"}
+        <input
+          type="file"
+          accept="image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onUpload(f);
+            e.target.value = "";
+          }}
+        />
+      </label>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <NumField label="Top %"    value={m.top}    onChange={(v) => set("top", v)} />
+        <NumField label="Left %"   value={m.left}   onChange={(v) => set("left", v)} />
+        <NumField label="Width %"  value={m.width}  onChange={(v) => set("width", v)} />
+        <NumField label="Height %" value={m.height} onChange={(v) => set("height", v)} />
+      </div>
+
+      <button
+        onClick={save}
+        disabled={saving}
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+      >
+        <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+      </button>
+    </div>
+  );
+}
+
+function NumField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <input
+        value={String(value)}
+        inputMode="decimal"
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
+      />
+    </label>
+  );
+}
+
+/** Local preview that uses the in-progress mockup config (not the saved one). */
+function FramePreviewPreviewWithOverride({
+  mockup,
+  variant,
+}: {
+  mockup: FrameMockup;
+  variant: keyof FrameMockups;
+}) {
+  const matte =
+    variant === "white" ? "#f3f3f0" : variant === "wood" ? "#3a2515" : "#0a0a0a";
+  return (
+    <div
+      className="relative isolate aspect-[2/3] w-full overflow-hidden drop-shadow-[0_18px_25px_rgba(0,0,0,0.5)]"
+      style={{ backgroundColor: matte }}
+    >
+      <div
+        className="absolute"
+        style={{
+          top: `${mockup.top}%`,
+          left: `${mockup.left}%`,
+          width: `${mockup.width}%`,
+          height: `${mockup.height}%`,
+        }}
+      >
+        <img src={SAMPLE_POSTER} alt="" className="h-full w-full object-cover" />
+      </div>
+      {mockup.image && (
+        <img
+          src={mockup.image}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+        />
+      )}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(115deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 22%, rgba(255,255,255,0) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.07) 100%)",
+          mixBlendMode: "screen",
+        }}
+      />
+    </div>
+  );
+}
+
 /* ---------- MODAL ---------- */
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
