@@ -6,6 +6,8 @@ import { FramePreview } from "@/components/FramePreview";
 import { useCart } from "@/lib/cart";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { useCategories, descendantIds } from "@/lib/use-categories";
+import { PosterBadge } from "@/components/PosterBadge";
+import { formatCount } from "@/lib/poster-badges";
 
 type RelatedPoster = {
   id: string;
@@ -14,6 +16,8 @@ type RelatedPoster = {
   category_id: string | null;
   tags: string[] | null;
   edit_settings?: unknown;
+  badge?: string | null;
+  sales_count?: number | null;
 };
 
 const STOPWORDS = new Set([
@@ -66,7 +70,7 @@ export function RelatedPosters({
       if (tags.length > 0 && results.size < 8) {
         const { data } = await supabase
           .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings")
+          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
           .eq("hidden", false)
           .neq("id", poster.id)
           .overlaps("tags", tags)
@@ -82,7 +86,7 @@ export function RelatedPosters({
           .join(",");
         const { data } = await supabase
           .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings")
+          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
           .eq("hidden", false)
           .neq("id", poster.id)
           .or(orExpr)
@@ -94,7 +98,7 @@ export function RelatedPosters({
       if (catIds.length > 0 && results.size < 8) {
         const { data } = await supabase
           .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings")
+          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
           .eq("hidden", false)
           .neq("id", poster.id)
           .in("category_id", catIds)
@@ -135,6 +139,7 @@ export function RelatedPosters({
                 params={categorySlug ? { slug: categorySlug } : undefined}
                 className="block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
+                <PosterBadge badge={p.badge} />
                 <FramePreview
                   posterUrl={p.image_url}
                   title={p.title}
@@ -154,6 +159,11 @@ export function RelatedPosters({
                 <div className="text-xs text-muted-foreground">
                   From <span className="text-foreground">{unit}</span> EGP
                 </div>
+                {p.sales_count != null && p.sales_count > 0 && (
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                    ✔ {formatCount(p.sales_count)} purchased
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex gap-2">
                 <Link
