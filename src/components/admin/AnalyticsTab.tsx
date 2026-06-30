@@ -1000,7 +1000,9 @@ function ProfitPanel({ data, onSaved }: { data: Dashboard; onSaved: () => void }
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("site_settings").upsert({ key: "profit_costs", value: costs as unknown as object }, { onConflict: "key" });
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: "profit_costs", value: costs as unknown as never }, { onConflict: "key" });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Profit costs saved");
