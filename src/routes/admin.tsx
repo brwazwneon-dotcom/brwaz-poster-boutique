@@ -17,6 +17,14 @@ import {
 } from "@/lib/storage-url";
 import { SafeImage } from "@/components/SafeImage";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
+import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import {
+  DEFAULT_EDIT_SETTINGS,
+  loadImage,
+  normalizeEditSettings,
+  renderEditToBlob,
+  type EditSettings,
+} from "@/lib/poster-edit";
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/admin")({
@@ -145,11 +153,13 @@ type Poster = {
   id: string;
   title: string;
   image_url: string;
+  original_url?: string | null;
   category_id: string | null;
   tags?: string[] | null;
   featured?: boolean | null;
   hidden?: boolean | null;
   description?: string | null;
+  edit_settings?: unknown;
 };
 
 const PAGE_SIZE = 60;
@@ -177,7 +187,7 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,featured,hidden", { count: "exact" })
+        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
