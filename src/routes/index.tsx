@@ -10,6 +10,7 @@ import hero from "@/assets/hero.jpg";
 import { HomeSlider } from "@/components/HomeSlider";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { CustomerReviews } from "@/components/CustomerReviews";
+import { BeforeAfter } from "@/components/BeforeAfter";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -146,6 +147,7 @@ function Index() {
 
       {/* RECENTLY VIEWED */}
       <RecentlyViewed />
+      <BeforeAfter location="homepage" />
       <CustomerReviews />
     </div>
   );
