@@ -207,7 +207,8 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
           })),
         },
       });
-      const patch: Record<string, unknown> = {
+      type PosterUpdate = Parameters<ReturnType<typeof supabase.from<"posters">>["update"]>[0];
+      const patch: PosterUpdate = {
         title: meta.title,
         description: meta.description || null,
         seo_title: meta.seo_title || null,
