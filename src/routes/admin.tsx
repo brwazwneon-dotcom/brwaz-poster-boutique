@@ -3215,3 +3215,243 @@ function ToggleRow({
     </label>
   );
 }
+
+/* ---------- EXPORTS ---------- */
+
+function ExportsTab() {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  function toCSV(rows: Record<string, unknown>[]): string {
+    if (!rows.length) return "";
+    const headers = Object.keys(rows[0]);
+    const esc = (v: unknown) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    return [headers.join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join("\n");
+  }
+
+  function downloadBlob(filename: string, mime: string, content: BlobPart) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function fetchAll<T>(table: string, columns = "*"): Promise<T[]> {
+    const out: T[] = [];
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from(table as never)
+        .select(columns)
+        .range(from, from + pageSize - 1) as { data: T[] | null; error: unknown };
+      if (error) throw error;
+      const chunk = data ?? [];
+      out.push(...chunk);
+      if (chunk.length < pageSize) break;
+    }
+    return out;
+  }
+
+  function exportAs(rows: Record<string, unknown>[], base: string, kind: "xlsx" | "csv", sheet = "Sheet1") {
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (kind === "csv") {
+      downloadBlob(`${base}-${stamp}.csv`, "text/csv;charset=utf-8", "\uFEFF" + toCSV(rows));
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheet);
+    XLSX.writeFile(wb, `${base}-${stamp}.xlsx`);
+  }
+
+  type RawOrder = {
+    id: string; order_number?: string | null; created_at: string;
+    customer_name: string; phone: string; governorate: string; address: string;
+    poster_title?: string | null; frame_type: string; frame_color: string;
+    size: string; quantity: number; shipping_cost?: number | null;
+    packaging_fee?: number | null; total_price?: number | null; status: string;
+  };
+  type RawVisit = {
+    visitor_id: string; session_id: string; path: string;
+    referrer: string | null; source: string | null; device: string | null;
+    user_agent: string | null; created_at: string;
+  };
+
+  async function loadOrderRows() {
+    const orders = await fetchAll<RawOrder>("orders");
+    return orders.map((o) => ({
+      "Order Number": o.order_number ?? o.id.slice(0, 8),
+      "Date": new Date(o.created_at).toISOString(),
+      "Customer": o.customer_name,
+      "Phone": o.phone,
+      "Governorate": o.governorate,
+      "Address": o.address,
+      "Poster": o.poster_title ?? "",
+      "Frame Type": o.frame_type,
+      "Frame Color": o.frame_color,
+      "Size": o.size,
+      "Quantity": o.quantity,
+      "Shipping": Number(o.shipping_cost ?? 0),
+      "Packaging": Number(o.packaging_fee ?? 0),
+      "Total": Number(o.total_price ?? 0),
+      "Status": o.status,
+    }));
+  }
+
+  async function loadCustomerRows() {
+    const orders = await fetchAll<RawOrder>("orders");
+    const map = new Map<string, {
+      name: string; phone: string; governorate: string; address: string;
+      orders: number; revenue: number; first: string; last: string;
+    }>();
+    for (const o of orders) {
+      const key = (o.phone || o.customer_name).trim().toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.orders += 1;
+        existing.revenue += Number(o.total_price ?? 0);
+        if (o.created_at < existing.first) existing.first = o.created_at;
+        if (o.created_at > existing.last) existing.last = o.created_at;
+      } else {
+        map.set(key, {
+          name: o.customer_name, phone: o.phone, governorate: o.governorate, address: o.address,
+          orders: 1, revenue: Number(o.total_price ?? 0),
+          first: o.created_at, last: o.created_at,
+        });
+      }
+    }
+    return Array.from(map.values()).map((c) => ({
+      "Customer": c.name,
+      "Phone": c.phone,
+      "Governorate": c.governorate,
+      "Address": c.address,
+      "Orders": c.orders,
+      "Total Revenue (EGP)": Math.round(c.revenue),
+      "First Order": new Date(c.first).toISOString(),
+      "Last Order": new Date(c.last).toISOString(),
+    }));
+  }
+
+  async function loadVisitorRows() {
+    const visits = await fetchAll<RawVisit>("analytics_visits");
+    return visits.map((v) => ({
+      "Visitor": v.visitor_id,
+      "Session": v.session_id,
+      "Path": v.path,
+      "Source": v.source ?? "",
+      "Device": v.device ?? "",
+      "Referrer": v.referrer ?? "",
+      "User Agent": v.user_agent ?? "",
+      "Date": new Date(v.created_at).toISOString(),
+    }));
+  }
+
+  async function loadAnalyticsRows() {
+    const visits = await fetchAll<RawVisit>("analytics_visits");
+    const byDay = new Map<string, { visits: number; visitors: Set<string>; sources: Map<string, number> }>();
+    for (const v of visits) {
+      const day = v.created_at.slice(0, 10);
+      const slot = byDay.get(day) ?? { visits: 0, visitors: new Set(), sources: new Map() };
+      slot.visits += 1;
+      slot.visitors.add(v.visitor_id);
+      const src = v.source ?? "direct";
+      slot.sources.set(src, (slot.sources.get(src) ?? 0) + 1);
+      byDay.set(day, slot);
+    }
+    return Array.from(byDay.entries())
+      .sort((a, b) => a[0] < b[0] ? 1 : -1)
+      .map(([day, s]) => ({
+        "Date": day,
+        "Visits": s.visits,
+        "Unique Visitors": s.visitors.size,
+        "Top Source": Array.from(s.sources.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "",
+      }));
+  }
+
+  async function loadRevenueRows() {
+    const orders = await fetchAll<RawOrder>("orders");
+    const byDay = new Map<string, { orders: number; revenue: number; shipping: number; packaging: number }>();
+    for (const o of orders) {
+      const day = o.created_at.slice(0, 10);
+      const slot = byDay.get(day) ?? { orders: 0, revenue: 0, shipping: 0, packaging: 0 };
+      slot.orders += 1;
+      slot.revenue += Number(o.total_price ?? 0);
+      slot.shipping += Number(o.shipping_cost ?? 0);
+      slot.packaging += Number(o.packaging_fee ?? 0);
+      byDay.set(day, slot);
+    }
+    return Array.from(byDay.entries())
+      .sort((a, b) => a[0] < b[0] ? 1 : -1)
+      .map(([day, s]) => ({
+        "Date": day,
+        "Orders": s.orders,
+        "Revenue (EGP)": Math.round(s.revenue),
+        "Shipping (EGP)": Math.round(s.shipping),
+        "Packaging (EGP)": Math.round(s.packaging),
+        "AOV (EGP)": s.orders ? Math.round(s.revenue / s.orders) : 0,
+      }));
+  }
+
+  async function run(key: string, loader: () => Promise<Record<string, unknown>[]>, base: string, kind: "xlsx" | "csv", sheet: string) {
+    if (busy) return;
+    setBusy(`${key}-${kind}`);
+    try {
+      const rows = await loader();
+      if (!rows.length) { toast.error("Nothing to export yet."); return; }
+      exportAs(rows, base, kind, sheet);
+      toast.success(`Exported ${rows.length} ${sheet.toLowerCase()} rows.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const groups: Array<{ key: string; title: string; desc: string; base: string; sheet: string; loader: () => Promise<Record<string, unknown>[]> }> = [
+    { key: "orders", title: "Orders", desc: "All orders with customer, frame, totals and status.", base: "brwazwneon-orders", sheet: "Orders", loader: loadOrderRows },
+    { key: "customers", title: "Customers", desc: "Unique customers aggregated from orders (orders, revenue, dates).", base: "brwazwneon-customers", sheet: "Customers", loader: loadCustomerRows },
+    { key: "visitors", title: "Visitors", desc: "Raw visitor sessions from on-site analytics.", base: "brwazwneon-visitors", sheet: "Visitors", loader: loadVisitorRows },
+    { key: "analytics", title: "Analytics", desc: "Daily visits, unique visitors and top traffic source.", base: "brwazwneon-analytics", sheet: "Analytics", loader: loadAnalyticsRows },
+    { key: "revenue", title: "Revenue", desc: "Daily revenue, shipping, packaging and AOV.", base: "brwazwneon-revenue", sheet: "Revenue", loader: loadRevenueRows },
+  ];
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-display text-2xl">Exports</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Download orders, customers, visitors, analytics and revenue as Excel or CSV.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {groups.map((g) => (
+          <div key={g.key} className="rounded-sm border border-border bg-card p-5">
+            <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{g.title}</div>
+            <p className="mt-2 text-sm text-foreground/80">{g.desc}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                disabled={!!busy}
+                onClick={() => run(g.key, g.loader, g.base, "xlsx", g.sheet)}
+                className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+              >
+                {busy === `${g.key}-xlsx` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Excel
+              </button>
+              <button
+                disabled={!!busy}
+                onClick={() => run(g.key, g.loader, g.base, "csv", g.sheet)}
+                className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent disabled:opacity-50"
+              >
+                {busy === `${g.key}-csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                CSV
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
