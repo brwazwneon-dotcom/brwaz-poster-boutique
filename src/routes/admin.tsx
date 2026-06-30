@@ -168,6 +168,8 @@ type Poster = {
   featured?: boolean | null;
   hidden?: boolean | null;
   description?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   edit_settings?: unknown;
   badge?: string | null;
   sales_count?: number | null;
