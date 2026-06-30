@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
+import { FRAME_COLORS, FRAME_TYPES } from "@/lib/poster-options";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -129,7 +131,15 @@ function CartPage() {
           <div className="space-y-3">
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
-                <SafeImage src={i.image} alt={i.title} className="h-28 w-20 rounded-sm object-cover" />
+                <div className="w-20 shrink-0">
+                  <FramePreview
+                    posterUrl={i.image}
+                    title={i.title}
+                    frameType={i.frameType}
+                    color={i.color}
+                    bare
+                  />
+                </div>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
