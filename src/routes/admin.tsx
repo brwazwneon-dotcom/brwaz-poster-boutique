@@ -1621,6 +1621,11 @@ function MockupEditor({
         <NumField label="Left %"   value={m.left}   onChange={(v) => set("left", v)} />
         <NumField label="Width %"  value={m.width}  onChange={(v) => set("width", v)} />
         <NumField label="Height %" value={m.height} onChange={(v) => set("height", v)} />
+        <NumField label="Rotate °" value={m.rotate ?? 0} onChange={(v) => set("rotate", v)} />
+        <NumField label="Skew X °" value={m.skewX ?? 0}  onChange={(v) => set("skewX", v)} />
+        <NumField label="Skew Y °" value={m.skewY ?? 0}  onChange={(v) => set("skewY", v)} />
+        <NumField label="Radius %" value={m.borderRadius ?? 0} onChange={(v) => set("borderRadius", v)} />
+        <NumField label="Scale"    value={m.scale ?? 1}  onChange={(v) => set("scale", v)} />
       </div>
 
       <button
