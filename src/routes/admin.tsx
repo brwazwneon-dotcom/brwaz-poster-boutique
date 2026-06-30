@@ -469,6 +469,7 @@ function PostersTab() {
               <div className={cn("absolute right-2 top-2 z-10 flex flex-col items-end gap-1")}>
                 {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
+                {p.badge && <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">{p.badge}</span>}
               </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <FramePreview
@@ -486,6 +487,9 @@ function PostersTab() {
                   <div className="truncate text-sm">{p.title}</div>
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     {categories.find((c) => c.id === p.category_id)?.name ?? "—"}
+                  </div>
+                  <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    ✔ {p.sales_count ?? 0} · 👁 {p.views_count ?? 0}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
