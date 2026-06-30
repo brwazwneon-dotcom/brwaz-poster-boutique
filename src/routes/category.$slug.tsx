@@ -305,6 +305,15 @@ function Customizer({
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
+  const handleFrameType = (next: FrameTypeId) => {
+    setFrameType(next);
+    if (next === "wood") {
+      setColor("wood");
+      setSize("30x40");
+    } else if (color === "wood") {
+      setColor("black");
+    }
+  };
   const { add } = useCart();
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
@@ -396,7 +405,7 @@ function Customizer({
 
       <OptionGroup label="Frame Type">
         {FRAME_TYPES.map((f) => (
-          <OptionButton key={f.id} active={frameType === f.id} onClick={() => setFrameType(f.id)}>
+          <OptionButton key={f.id} active={frameType === f.id} onClick={() => handleFrameType(f.id)}>
             {f.label}
           </OptionButton>
         ))}
@@ -410,8 +419,9 @@ function Customizer({
         ))}
       </OptionGroup>
 
+      {frameType !== "wood" && (
       <OptionGroup label="Frame Color">
-        {FRAME_COLORS.map((c) => (
+        {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
           <button
             key={c.id}
             type="button"
@@ -431,6 +441,7 @@ function Customizer({
           </button>
         ))}
       </OptionGroup>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-2">
         <button
