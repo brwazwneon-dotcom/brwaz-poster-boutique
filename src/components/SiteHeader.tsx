@@ -37,17 +37,28 @@ export function SiteHeader() {
           />
         </form>
         <nav className="hidden items-center gap-5 text-xs uppercase tracking-widest text-muted-foreground lg:flex">
-          {categories.slice(0, 5).map((c) => (
-            <Link
-              key={c.slug}
-              to="/category/$slug"
-              params={{ slug: c.slug }}
-              className="transition-colors hover:text-foreground"
-              activeProps={{ className: "text-foreground" }}
-            >
-              {c.name}
-            </Link>
-          ))}
+          {categories.slice(0, 5).map((c) =>
+            c.slug === "custom" ? (
+              <Link
+                key={c.slug}
+                to="/custom-design"
+                className="transition-colors hover:text-foreground"
+                activeProps={{ className: "text-foreground" }}
+              >
+                {c.name}
+              </Link>
+            ) : (
+              <Link
+                key={c.slug}
+                to="/category/$slug"
+                params={{ slug: c.slug }}
+                className="transition-colors hover:text-foreground"
+                activeProps={{ className: "text-foreground" }}
+              >
+                {c.name}
+              </Link>
+            ),
+          )}
           <Link
             to="/offers"
             className="transition-colors hover:text-foreground"

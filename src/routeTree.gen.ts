@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
 import { Route as OffersRouteImport } from './routes/offers'
+import { Route as CustomDesignRouteImport } from './routes/custom-design'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -31,6 +32,11 @@ const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
 const OffersRoute = OffersRouteImport.update({
   id: '/offers',
   path: '/offers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomDesignRoute = CustomDesignRouteImport.update({
+  id: '/custom-design',
+  path: '/custom-design',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
+  '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
+  '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
+  '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/cart'
+    | '/custom-design'
     | '/offers'
     | '/photo-printing'
     | '/search'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/cart'
+    | '/custom-design'
     | '/offers'
     | '/photo-printing'
     | '/search'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/cart'
+    | '/custom-design'
     | '/offers'
     | '/photo-printing'
     | '/search'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   CartRoute: typeof CartRoute
+  CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   SearchRoute: typeof SearchRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/offers'
       fullPath: '/offers'
       preLoaderRoute: typeof OffersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/custom-design': {
+      id: '/custom-design'
+      path: '/custom-design'
+      fullPath: '/custom-design'
+      preLoaderRoute: typeof CustomDesignRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   CartRoute: CartRoute,
+  CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
   PhotoPrintingRoute: PhotoPrintingRoute,
   SearchRoute: SearchRoute,
