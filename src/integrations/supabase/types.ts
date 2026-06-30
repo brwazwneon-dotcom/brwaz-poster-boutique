@@ -395,6 +395,35 @@ export type Database = {
         }
         Relationships: []
       }
+      wishlists: {
+        Row: {
+          created_at: string
+          id: string
+          poster_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          poster_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          poster_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlists_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

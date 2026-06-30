@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
+import { WishlistHeart } from "@/components/WishlistHeart";
 import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -122,7 +123,8 @@ function SearchPage() {
                 params={{ slug: cat?.slug ?? "" }}
                 className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
               >
-                <div className="aspect-[3/4] overflow-hidden">
+                <div className="relative aspect-[3/4] overflow-hidden">
+                  <WishlistHeart posterId={p.id} />
                   <FramePreview
                     posterUrl={p.image_url}
                     title={p.title}

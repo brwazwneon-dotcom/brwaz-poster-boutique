@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "@/lib/cart";
+import { WishlistProvider } from "@/lib/wishlist";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
@@ -132,15 +133,17 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <CartProvider>
-        <div className="flex min-h-screen flex-col">
+        <WishlistProvider>
+          <div className="flex min-h-screen flex-col">
           <SiteHeader />
           <main className="flex-1">
             <Outlet />
           </main>
           <SiteFooter />
-        </div>
-        <WhatsAppButton />
-        <Toaster richColors position="top-center" />
+          </div>
+          <WhatsAppButton />
+          <Toaster richColors position="top-center" />
+        </WishlistProvider>
       </CartProvider>
     </QueryClientProvider>
   );

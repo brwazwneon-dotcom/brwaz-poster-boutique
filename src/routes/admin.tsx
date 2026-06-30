@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   IMAGE_FALLBACK,
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "settings";
+type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "wishlists" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -120,7 +120,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders", "custom", "slider", "mockups", "settings"] as Tab[]).map((t) => (
+        {(["posters", "categories", "orders", "custom", "slider", "mockups", "wishlists", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -143,6 +143,7 @@ function AdminPage() {
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "slider" && <SliderTab />}
         {tab === "mockups" && <MockupsTab />}
+        {tab === "wishlists" && <WishlistsTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>
@@ -2070,6 +2071,119 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+/* ---------- WISHLISTS ---------- */
+
+type WishStat = {
+  poster_id: string;
+  count: number;
+  title: string;
+  image_url: string;
+  category_id: string | null;
+};
+
+function WishlistsTab() {
+  const { data: categories = [] } = useCategories();
+  const { data: stats = [], isLoading } = useQuery({
+    queryKey: ["wishlist-stats"],
+    queryFn: async (): Promise<WishStat[]> => {
+      const { data: rows, error } = await supabase
+        .from("wishlists")
+        .select("poster_id");
+      if (error) throw error;
+      const counts = new Map<string, number>();
+      for (const r of rows ?? []) {
+        const id = (r as { poster_id: string }).poster_id;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+      if (top.length === 0) return [];
+      const ids = top.map(([id]) => id);
+      const { data: posters, error: pErr } = await supabase
+        .from("posters")
+        .select("id,title,image_url,category_id")
+        .in("id", ids);
+      if (pErr) throw pErr;
+      const byId = new Map((posters ?? []).map((p) => [p.id as string, p]));
+      return top
+        .map(([poster_id, count]) => {
+          const p = byId.get(poster_id);
+          if (!p) return null;
+          return {
+            poster_id,
+            count,
+            title: p.title as string,
+            image_url: p.image_url as string,
+            category_id: (p.category_id as string | null) ?? null,
+          };
+        })
+        .filter(Boolean) as WishStat[];
+    },
+  });
+
+  return (
+    <div>
+      <div className="mb-6">
+        <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Dashboard</div>
+        <h2 className="text-display text-3xl flex items-center gap-2">
+          <Heart className="h-6 w-6 text-red-500" /> Most Wishlisted Posters
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Top 20 posters customers have saved to their wishlists.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+      ) : stats.length === 0 ? (
+        <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+          No wishlist activity yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-sm border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30 text-xs uppercase tracking-widest text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3 text-left">#</th>
+                <th className="px-3 py-3 text-left">Poster</th>
+                <th className="px-3 py-3 text-left">Category</th>
+                <th className="px-3 py-3 text-right">Wishlist count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map((s, i) => {
+                const cat = categories.find((c) => c.id === s.category_id);
+                return (
+                  <tr key={s.poster_id} className="border-t border-border">
+                    <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <SafeImage
+                          src={s.image_url}
+                          alt={s.title}
+                          loading="lazy"
+                          className="h-12 w-9 rounded-sm object-cover"
+                        />
+                        <span className="truncate">{s.title}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{cat?.name ?? "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-500">
+                        <Heart className="h-3 w-3 fill-red-500" /> {s.count}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
