@@ -25,6 +25,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { PosterGallery } from "@/components/PosterGallery";
+import { trackEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { POSTER_BADGES } from "@/lib/poster-badges";
@@ -153,6 +154,15 @@ function CategoryPage() {
         category_name: category.name,
       });
       trackPosterView(p.id);
+      try {
+        trackEvent("ViewContent", {
+          content_ids: [p.id],
+          content_name: p.title,
+          content_type: "product",
+          content_category: category.name,
+          currency: "EGP",
+        });
+      } catch { /* noop */ }
     }
     setSelectedIds((prev) =>
       prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
+import { trackEvent, setUserData } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -40,6 +41,8 @@ function AuthPage() {
           options: { emailRedirectTo: `${window.location.origin}/admin` },
         });
         if (error) throw error;
+        setUserData({ email });
+        try { trackEvent("CompleteRegistration", { status: "signup" }, { email }); } catch { /* noop */ }
         toast.success("Account created. You can sign in.");
         setMode("signin");
       } else {

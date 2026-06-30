@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "./meta-pixel";
 
 type Ctx = {
   ids: Set<string>;
@@ -119,6 +120,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       if (adding) next.add(posterId);
       else next.delete(posterId);
       persist(next);
+      if (adding) {
+        try { trackEvent("AddToWishlist", { content_ids: [posterId], content_type: "product", currency: "EGP" }); } catch { /* noop */ }
+      }
       if (userId) {
         try {
           if (adding) {

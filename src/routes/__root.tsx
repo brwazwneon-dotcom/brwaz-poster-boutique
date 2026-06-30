@@ -18,6 +18,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { Toaster } from "@/components/ui/sonner";
+import { MarketingBoot } from "@/components/MarketingBoot";
 
 function NotFoundComponent() {
   return (
@@ -145,6 +146,7 @@ function RootComponent() {
             </div>
             <WhatsAppButton />
             <Toaster richColors position="top-center" />
+            <MarketingBoot />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>

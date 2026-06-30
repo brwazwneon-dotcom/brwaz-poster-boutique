@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
+import { trackEvent } from "./meta-pixel";
 
 export type BundlePoster = { posterId: string; title: string; image: string };
 
@@ -66,10 +67,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => ({
       items,
       add: (item) =>
-        setItems((prev) => [
+        setItems((prev) => {
+          try {
+            trackEvent("AddToCart", {
+              content_ids: item.bundle
+                ? item.bundle.posters.map((p) => p.posterId)
+                : [item.posterId],
+              content_name: item.title,
+              content_type: "product",
+              content_category: item.categoryName,
+              value: item.price,
+              currency: "EGP",
+            });
+          } catch { /* noop */ }
+          return [
           ...prev,
           { ...item, id: crypto.randomUUID(), qty: 1 },
-        ]),
+          ];
+        }),
       remove: (id) => setItems((prev) => prev.filter((i) => i.id !== id)),
       setQty: (id, qty) =>
         setItems((prev) =>
