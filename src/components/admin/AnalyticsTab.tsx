@@ -337,12 +337,42 @@ export function AnalyticsTab({ onNavigate }: { onNavigate?: (tab: AdminTab) => v
             <span className="uppercase tracking-widest">Online now</span>
           </div>
           <button
+            onClick={() => exportDashboardPdf(data)}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            <FileDown className="h-3.5 w-3.5" /> Export PDF
+          </button>
+          <button
             onClick={() => refetch()}
             className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
           >
             <RefreshCcw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+        <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Range</span>
+        {([
+          ["today","Today"],["yesterday","Yesterday"],["7d","7d"],["30d","30d"],["90d","90d"],["custom","Custom"],
+        ] as const).map(([k,l]) => (
+          <button
+            key={k}
+            onClick={() => setPreset(k)}
+            className={`rounded-sm border px-2 py-1 text-[11px] uppercase tracking-widest ${preset===k ? "border-primary bg-primary/15 text-primary" : "border-border hover:bg-accent"}`}
+          >{l}</button>
+        ))}
+        {preset === "custom" && (
+          <div className="flex items-center gap-2">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-sm border border-border bg-background px-2 py-1 text-xs" />
+            <span className="text-xs text-muted-foreground">→</span>
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-sm border border-border bg-background px-2 py-1 text-xs" />
+          </div>
+        )}
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          {fmtNum(data.orders_range)} orders · {fmtEGP(data.revenue_range)} · {fmtNum(data.visitors_range)} visitors
+        </span>
       </div>
 
       {/* Quick actions */}
