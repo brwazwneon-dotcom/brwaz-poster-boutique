@@ -25,7 +25,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { PosterGallery } from "@/components/PosterGallery";
-import { trackEvent } from "@/lib/meta-pixel";
+import { trackEvent, enqueueEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { POSTER_BADGES } from "@/lib/poster-badges";
@@ -99,6 +99,16 @@ function CategoryPage() {
   const [sort, setSort] = useState<SortKey>("newest");
   const [badgeFilter, setBadgeFilter] = useState<string>("");
   const { record } = useRecentlyViewed();
+
+  // Retargeting: fire ViewCategory once per category mount.
+  useEffect(() => {
+    if (!category) return;
+    enqueueEvent("ViewCategory", {
+      category_id: category.id,
+      category_slug: category.slug,
+      category_name: category.name,
+    });
+  }, [category?.id]);
 
   const includedCategoryIds = useMemo(
     () => (category ? descendantIds(categories, category.id) : []),
