@@ -12,7 +12,7 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus } from "lucide-react";
-import { useSiteSettings, computeShipping } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -35,9 +35,12 @@ const GOVERNORATES = [
 function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
   const settings = useSiteSettings();
+  const pricing = usePricing();
   const subtotal = total;
+  const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
+  const packagingFee = bundleQty * pricing.packagingFee;
   const shipping = computeShipping(subtotal, settings);
-  const grand = subtotal + shipping;
+  const grand = subtotal + packagingFee + shipping;
   const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -65,6 +68,7 @@ function CartPage() {
       ...lines,
       "",
       `Subtotal: ${subtotal} EGP`,
+      ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
       `Total: ${grand} EGP`,
     ].join("\n");
@@ -78,7 +82,9 @@ function CartPage() {
     setSubmitting(true);
     try {
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
-      const rows = items.map((i) => ({
+      const rows = items.map((i) => {
+        const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
+        return ({
         customer_name: name,
         phone,
         governorate,
@@ -95,10 +101,12 @@ function CartPage() {
           : i.title,
         poster_image: i.image,
         subtotal: i.price * i.qty,
+        packaging_fee: linePackaging,
         shipping_cost: shippingPerItem,
-        total_price: i.price * i.qty + shippingPerItem,
+        total_price: i.price * i.qty + linePackaging + shippingPerItem,
         status: "new",
-      }));
+      });
+      });
       const { error } = await supabase.from("orders").insert(rows);
       if (error) throw error;
 
@@ -225,6 +233,12 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
+                {packagingFee > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">📦 Packaging Fee</span>
+                    <span>{packagingFee} EGP</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">🚚 Shipping</span>
                   <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>

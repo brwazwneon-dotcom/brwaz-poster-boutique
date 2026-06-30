@@ -69,6 +69,7 @@ export type Database = {
           id: string
           notes: string | null
           order_number: string | null
+          packaging_fee: number
           phone: string
           poster_image: string | null
           poster_title: string | null
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string | null
+          packaging_fee?: number
           phone: string
           poster_image?: string | null
           poster_title?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string | null
+          packaging_fee?: number
           phone?: string
           poster_image?: string | null
           poster_title?: string | null

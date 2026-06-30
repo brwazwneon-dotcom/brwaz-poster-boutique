@@ -47,6 +47,7 @@ export type Pricing = {
   customDesignFee: number;
   photo: Record<"10x15" | "13x18" | "15x20", number>;
   offers: { bundle6_20x30: number; bundle4_30x40: number };
+  packagingFee: number;
   shippingFee: number;
   freeShippingThreshold: number;
 };
@@ -59,6 +60,7 @@ export const PRICING_DEFAULTS: Pricing = {
   customDesignFee: 20,
   photo: { "10x15": 10, "13x18": 15, "15x20": 20 },
   offers: { bundle6_20x30: 790, bundle4_30x40: 890 },
+  packagingFee: 20,
   shippingFee: 89,
   freeShippingThreshold: 1600,
 };
@@ -76,6 +78,7 @@ export const PRICING_KEYS = {
   photo_15x20: ["photo", "15x20"],
   offer_6_20x30: ["offers", "bundle6_20x30"],
   offer_4_30x40: ["offers", "bundle4_30x40"],
+  packaging_fee: ["packagingFee"],
   shipping_fee: ["shippingFee"],
   free_shipping_threshold: ["freeShippingThreshold"],
 } as const;
@@ -120,6 +123,7 @@ export function usePricing(): Pricing {
           bundle6_20x30: num("offer_6_20x30", d.offers.bundle6_20x30),
           bundle4_30x40: num("offer_4_30x40", d.offers.bundle4_30x40),
         },
+        packagingFee: num("packaging_fee", d.packagingFee),
         shippingFee: num("shipping_fee", d.shippingFee),
         freeShippingThreshold: num("free_shipping_threshold", d.freeShippingThreshold),
       };

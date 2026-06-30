@@ -931,6 +931,7 @@ type Order = {
   poster_image: string | null;
   total_price: number;
   shipping_cost: number | null;
+  packaging_fee: number | null;
   status: string;
   created_at: string;
 };
@@ -949,7 +950,7 @@ function OrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,status,created_at")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
@@ -1008,6 +1009,7 @@ function OrdersTab() {
       "Size": o.size,
       "Quantity": o.quantity,
       "Shipping": Number(o.shipping_cost ?? 0),
+      "Packaging": Number(o.packaging_fee ?? 0),
       "Total": Number(o.total_price ?? 0),
       "Status": o.status,
     }));
@@ -1154,6 +1156,7 @@ function OrdersTab() {
             <Row k="Frame" v={`${viewing.frame_type} · ${viewing.size} · ${viewing.frame_color}`} />
             <Row k="Quantity" v={String(viewing.quantity)} />
             <Row k="Shipping" v={`${viewing.shipping_cost ?? 0} EGP`} />
+            <Row k="Packaging Fee" v={`${viewing.packaging_fee ?? 0} EGP`} />
             <Row k="Total" v={`${viewing.total_price} EGP`} />
             <Row k="Status" v={viewing.status} />
           </div>
@@ -1450,6 +1453,7 @@ function SettingsTab() {
       <Section title="Special Offers">
         <PriceField k="offer_6_20x30" label="6 Frames 20 × 30" />
         <PriceField k="offer_4_30x40" label="4 Frames 30 × 40" />
+        <PriceField k="packaging_fee" label="Packaging fee (per bundle)" />
       </Section>
 
       <Section title="Shipping">
