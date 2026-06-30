@@ -163,6 +163,9 @@ type Poster = {
   hidden?: boolean | null;
   description?: string | null;
   edit_settings?: unknown;
+  badge?: string | null;
+  sales_count?: number | null;
+  views_count?: number | null;
 };
 
 const PAGE_SIZE = 60;
@@ -190,7 +193,7 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings", { count: "exact" })
+        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings,badge,sales_count,views_count", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
