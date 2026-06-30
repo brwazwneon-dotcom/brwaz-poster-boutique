@@ -163,6 +163,24 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_secrets: {
+        Row: {
+          id: number
+          meta_capi_access_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          meta_capi_access_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          meta_capi_access_token?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           address: string
