@@ -136,6 +136,7 @@ function CartPage() {
                     title={i.title}
                     frameType={i.frameType}
                     color={i.color}
+                    editSettings={i.editSettings}
                     bare
                   />
                 </div>

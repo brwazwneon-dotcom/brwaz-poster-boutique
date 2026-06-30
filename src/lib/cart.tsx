@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
+import type { EditSettings } from "./poster-edit";
 
 export type BundlePoster = { posterId: string; title: string; image: string };
 
@@ -27,6 +28,7 @@ export type CartItem = {
     label: string;
     posters: BundlePoster[];
   };
+  editSettings?: EditSettings;
 };
 
 type CartCtx = {

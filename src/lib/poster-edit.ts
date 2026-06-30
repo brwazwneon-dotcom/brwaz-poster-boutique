@@ -23,6 +23,8 @@ export type EditSettings = {
   /** Stretch multipliers. 1 = no stretch. */
   stretchX: number;
   stretchY: number;
+  /** Rotation in degrees. 0 = none. */
+  rotate: number;
   extendMode: ExtendMode;
   /** Target output ratio width / height. Defaults to 2/3 (poster). */
   ratio: number;
@@ -37,6 +39,7 @@ export const DEFAULT_EDIT_SETTINGS: EditSettings = {
   offsetY: 0,
   stretchX: 1,
   stretchY: 1,
+  rotate: 0,
   extendMode: "blur",
   ratio: 2 / 3,
   v: 1,
@@ -57,6 +60,7 @@ export function normalizeEditSettings(raw: unknown): EditSettings {
     offsetY: num(v.offsetY, 0),
     stretchX: num(v.stretchX, 1),
     stretchY: num(v.stretchY, 1),
+    rotate: num(v.rotate, 0),
     extendMode:
       v.extendMode === "none" || v.extendMode === "blur" || v.extendMode === "edge" || v.extendMode === "mirror"
         ? v.extendMode
@@ -76,6 +80,7 @@ export function isDefaultEdit(s: EditSettings): boolean {
     s.offsetY === 0 &&
     s.stretchX === 1 &&
     s.stretchY === 1 &&
+    (s.rotate ?? 0) === 0 &&
     s.extendMode === d.extendMode &&
     Math.abs(s.ratio - d.ratio) < 1e-6
   );
