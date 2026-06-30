@@ -113,6 +113,24 @@ function fmtTime(d: string) {
   } catch { return d; }
 }
 
+function computeRange(preset: "today" | "yesterday" | "7d" | "30d" | "90d" | "custom", cFrom: string, cTo: string): { from: string; to: string } {
+  const now = new Date();
+  const dayStart = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+  const todayStart = dayStart(now);
+  const tomorrow = new Date(todayStart.getTime() + 86400000);
+  if (preset === "today") return { from: todayStart.toISOString(), to: tomorrow.toISOString() };
+  if (preset === "yesterday") {
+    const y = new Date(todayStart.getTime() - 86400000);
+    return { from: y.toISOString(), to: todayStart.toISOString() };
+  }
+  if (preset === "custom" && cFrom && cTo) {
+    return { from: new Date(cFrom).toISOString(), to: new Date(new Date(cTo).getTime() + 86400000).toISOString() };
+  }
+  const days = preset === "7d" ? 7 : preset === "90d" ? 90 : 30;
+  const from = new Date(todayStart.getTime() - (days - 1) * 86400000);
+  return { from: from.toISOString(), to: tomorrow.toISOString() };
+}
+
 /* ------------------------------- Cards ------------------------------- */
 
 function KpiCard({
