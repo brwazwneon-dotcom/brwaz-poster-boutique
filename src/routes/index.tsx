@@ -9,6 +9,7 @@ import { useCategories } from "@/lib/use-categories";
 import hero from "@/assets/hero.jpg";
 import { HomeSlider } from "@/components/HomeSlider";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
+import { CustomerReviews } from "@/components/CustomerReviews";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -145,6 +146,7 @@ function Index() {
 
       {/* RECENTLY VIEWED */}
       <RecentlyViewed />
+      <CustomerReviews />
     </div>
   );
 }
