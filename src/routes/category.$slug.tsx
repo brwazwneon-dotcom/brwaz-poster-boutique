@@ -365,6 +365,8 @@ function CategoryPage() {
         categoryName={category?.name}
       />
     )}
+    {selectedPosters[0] && <FrameComparison />}
+    {selectedPosters[0] && <BeforeAfter location="product" />}
     <RecentlyViewed />
     <CustomerReviews posterId={selectedPosters[0]?.id} />
     </>
