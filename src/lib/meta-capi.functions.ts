@@ -9,18 +9,9 @@ const UserDataSchema = z.object({
 }).default({});
 
 const InputSchema = z.object({
-  event_name: z.enum([
-    "PageView",
-    "ViewContent",
-    "Search",
-    "AddToWishlist",
-    "AddToCart",
-    "InitiateCheckout",
-    "Purchase",
-    "Lead",
-    "Contact",
-    "CompleteRegistration",
-  ]),
+  // Accept standard + custom event names so retargeting audiences
+  // (ViewCategory, PhotoPrintingCustomer, CustomDesignCustomer, …) flow through.
+  event_name: z.string().min(1).max(64).regex(/^[A-Za-z0-9_]+$/),
   event_id: z.string().min(1).max(128),
   event_source_url: z.string().url().optional(),
   custom_data: z.record(z.string(), z.unknown()).default({}),
