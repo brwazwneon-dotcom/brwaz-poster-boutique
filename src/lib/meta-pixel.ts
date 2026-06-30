@@ -141,3 +141,85 @@ const META_TO_GA: Partial<Record<StandardEvent, GAEventName>> = {
 };
 
 export { lastConfig as _lastMarketingConfig };
+
+/* ---------- Custom events + background queue ---------- */
+
+/**
+ * Custom Meta events used for retargeting / lookalike audiences.
+ * fbq supports trackCustom for these alongside the standard list.
+ */
+export type CustomEvent =
+  | "ViewCategory"
+  | "PhotoPrintingCustomer"
+  | "CustomDesignCustomer";
+
+type QueuedEvent = {
+  kind: "std" | "custom";
+  name: string;
+  params: Record<string, unknown>;
+  userData?: Partial<UserData>;
+};
+
+const queue: QueuedEvent[] = [];
+let flushScheduled = false;
+
+function scheduleFlush() {
+  if (flushScheduled || typeof window === "undefined") return;
+  flushScheduled = true;
+  const run = () => {
+    flushScheduled = false;
+    const batch = queue.splice(0, queue.length);
+    for (const e of batch) {
+      if (e.kind === "std") trackEvent(e.name as StandardEvent, e.params, e.userData);
+      else trackCustom(e.name, e.params, e.userData);
+    }
+  };
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+  if (typeof ric === "function") ric(run, { timeout: 1500 });
+  else setTimeout(run, 200);
+}
+
+/** Fire-and-forget: enqueues an event to be flushed on the next idle tick. */
+export function enqueueEvent(
+  name: StandardEvent | CustomEvent,
+  params: Record<string, unknown> = {},
+  userData?: Partial<UserData>,
+) {
+  const isStd = META_TO_GA.hasOwnProperty(name) || (STANDARD_NAMES as readonly string[]).includes(name);
+  queue.push({ kind: isStd ? "std" : "custom", name, params, userData });
+  scheduleFlush();
+}
+
+const STANDARD_NAMES: readonly StandardEvent[] = [
+  "PageView", "ViewContent", "Search", "AddToWishlist", "AddToCart",
+  "InitiateCheckout", "Purchase", "Lead", "Contact", "CompleteRegistration",
+];
+
+/** Send a custom Meta event (fbq trackCustom) + mirror to CAPI for retargeting. */
+export function trackCustom(
+  name: string,
+  params: Record<string, unknown> = {},
+  userData?: Partial<UserData>,
+) {
+  const cfg = lastConfig;
+  if (!cfg) return;
+  const event_id = newEventId();
+  const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
+
+  if (cfg.pixelEnabled && typeof window !== "undefined") {
+    try { window.fbq?.("trackCustom", name, params, { eventID: event_id }); } catch { /* noop */ }
+  }
+  if (cfg.capiEnabled) {
+    const event_source_url = typeof window !== "undefined" ? window.location.href : undefined;
+    sendCapiEvent({
+      data: {
+        event_name: name,
+        event_id,
+        event_source_url,
+        custom_data: params as Record<string, unknown>,
+        user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
+        client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+      },
+    }).catch(() => { /* best-effort */ });
+  }
+}
