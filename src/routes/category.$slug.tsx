@@ -18,6 +18,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
+import { WishlistHeart } from "@/components/WishlistHeart";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 
@@ -200,6 +201,7 @@ function CategoryPage() {
                           : "border-transparent hover:border-border",
                       )}
                     >
+                        <WishlistHeart posterId={p.id} />
                       <FramePreview
                         posterUrl={p.image_url}
                         title={p.title}
