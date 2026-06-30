@@ -195,6 +195,7 @@ export type Database = {
           hidden: boolean
           id: string
           image_url: string
+          original_url: string | null
           price: number | null
           sales_count: number
           seo_description: string | null
@@ -213,6 +214,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url: string
+          original_url?: string | null
           price?: number | null
           sales_count?: number
           seo_description?: string | null
@@ -231,6 +233,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url?: string
+          original_url?: string | null
           price?: number | null
           sales_count?: number
           seo_description?: string | null
