@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { RecentlyViewed } from "@/components/RecentlyViewed";
+import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 
@@ -81,6 +83,7 @@ function CategoryPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
+  const { record } = useRecentlyViewed();
 
   const includedCategoryIds = useMemo(
     () => (category ? descendantIds(categories, category.id) : []),
@@ -121,10 +124,21 @@ function CategoryPage() {
     [selectedIds, posters],
   );
 
-  const toggle = (p: Poster) =>
+  const toggle = (p: Poster) => {
+    if (category) {
+      record({
+        id: p.id,
+        title: p.title,
+        image_url: p.image_url,
+        category_id: p.category_id,
+        category_slug: category.slug,
+        category_name: category.name,
+      });
+    }
     setSelectedIds((prev) =>
       prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
     );
+  };
 
   return (
     <div className="container-page py-12">
