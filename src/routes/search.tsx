@@ -123,7 +123,8 @@ function SearchPage() {
                 params={{ slug: cat?.slug ?? "" }}
                 className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
               >
-                <div className="aspect-[3/4] overflow-hidden">
+                <div className="relative aspect-[3/4] overflow-hidden">
+                  <WishlistHeart posterId={p.id} />
                   <FramePreview
                     posterUrl={p.image_url}
                     title={p.title}
