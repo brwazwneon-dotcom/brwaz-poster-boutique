@@ -2858,8 +2858,8 @@ function CollectionsTab() {
     setSaving(true);
     try {
       const { error } = await supabase.from("site_settings").upsert([
-        { key: "home_collections", value: list as unknown as object },
-        { key: "home_collections_visible", value: visible as unknown as object },
+        { key: "home_collections", value: list as never },
+        { key: "home_collections_visible", value: visible as never },
       ]);
       if (error) throw error;
       toast.success("Saved");
