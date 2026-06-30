@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders" | "slider" | "mockups" | "settings";
+type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -120,7 +120,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders", "slider", "mockups", "settings"] as Tab[]).map((t) => (
+        {(["posters", "categories", "orders", "custom", "slider", "mockups", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -140,6 +140,7 @@ function AdminPage() {
         {tab === "posters" && <PostersTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
+        {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "slider" && <SliderTab />}
         {tab === "mockups" && <MockupsTab />}
         {tab === "settings" && <SettingsTab />}
