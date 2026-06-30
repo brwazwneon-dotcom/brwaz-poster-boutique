@@ -255,6 +255,41 @@ export type Database = {
         }
         Relationships: []
       }
+      poster_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          kind: string | null
+          poster_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          kind?: string | null
+          poster_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          kind?: string | null
+          poster_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poster_images_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posters: {
         Row: {
           badge: string | null
@@ -348,6 +383,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "recently_viewed_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          approved: boolean
+          created_at: string
+          customer_name: string
+          featured: boolean
+          governorate: string | null
+          id: string
+          photo_url: string | null
+          poster_id: string | null
+          rating: number
+          review_text: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          approved?: boolean
+          created_at?: string
+          customer_name: string
+          featured?: boolean
+          governorate?: string | null
+          id?: string
+          photo_url?: string | null
+          poster_id?: string | null
+          rating: number
+          review_text?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          approved?: boolean
+          created_at?: string
+          customer_name?: string
+          featured?: boolean
+          governorate?: string | null
+          id?: string
+          photo_url?: string | null
+          poster_id?: string | null
+          rating?: number
+          review_text?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_poster_id_fkey"
             columns: ["poster_id"]
             isOneToOne: false
             referencedRelation: "posters"
