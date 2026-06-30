@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      before_after: {
+        Row: {
+          active: boolean
+          after_url: string
+          before_url: string
+          created_at: string
+          description: string | null
+          id: string
+          location: string
+          sort_order: number
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          after_url: string
+          before_url: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          after_url?: string
+          before_url?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -260,7 +299,9 @@ export type Database = {
           created_at: string
           id: string
           image_url: string
+          is_default: boolean
           kind: string | null
+          label: string | null
           poster_id: string
           sort_order: number
         }
@@ -268,7 +309,9 @@ export type Database = {
           created_at?: string
           id?: string
           image_url: string
+          is_default?: boolean
           kind?: string | null
+          label?: string | null
           poster_id: string
           sort_order?: number
         }
@@ -276,7 +319,9 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string
+          is_default?: boolean
           kind?: string | null
+          label?: string | null
           poster_id?: string
           sort_order?: number
         }

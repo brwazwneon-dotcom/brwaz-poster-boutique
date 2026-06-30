@@ -20,6 +20,8 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
+import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
 import {
   loadImage,
   normalizeEditSettings,
@@ -39,7 +41,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "wishlists" | "reviews" | "settings";
+type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "wishlists" | "reviews" | "before-after" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -121,7 +123,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders", "custom", "slider", "mockups", "wishlists", "reviews", "settings"] as Tab[]).map((t) => (
+        {(["posters", "categories", "orders", "custom", "slider", "mockups", "wishlists", "reviews", "before-after", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -146,6 +148,7 @@ function AdminPage() {
         {tab === "mockups" && <MockupsTab />}
         {tab === "wishlists" && <WishlistsTab />}
         {tab === "reviews" && <ReviewsTab />}
+        {tab === "before-after" && <BeforeAfterTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>
@@ -764,6 +767,9 @@ function EditPosterModal({
           saving={artSaving}
         />
       )}
+      <div className="mt-6">
+        <PosterImagesManager posterId={poster.id} />
+      </div>
     </Modal>
   );
 }
