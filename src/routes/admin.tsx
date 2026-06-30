@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   IMAGE_FALLBACK,
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "settings";
+type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "mockups" | "wishlists" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -120,7 +120,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders", "custom", "slider", "mockups", "settings"] as Tab[]).map((t) => (
+        {(["posters", "categories", "orders", "custom", "slider", "mockups", "wishlists", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -143,6 +143,7 @@ function AdminPage() {
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "slider" && <SliderTab />}
         {tab === "mockups" && <MockupsTab />}
+        {tab === "wishlists" && <WishlistsTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>
