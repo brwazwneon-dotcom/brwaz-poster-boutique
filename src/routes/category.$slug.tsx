@@ -24,6 +24,7 @@ import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
+import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 
