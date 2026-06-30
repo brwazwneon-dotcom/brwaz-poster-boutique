@@ -465,17 +465,14 @@ function PostersTab() {
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
               </div>
               <div className="aspect-[2/3] overflow-hidden">
-                <img
-                  src={p.image_url}
-                  alt={p.title}
+                <FramePreview
+                  posterUrl={p.image_url}
+                  title={p.title}
+                  editSettings={p.edit_settings}
+                  aspectClassName="aspect-[2/3]"
+                  bare
                   loading="lazy"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (img.dataset.fallback) return;
-                    img.dataset.fallback = "1";
-                    img.src = IMAGE_FALLBACK;
-                  }}
+                  className="h-full w-full"
                 />
               </div>
               <div className="flex items-center justify-between gap-2 p-3">
