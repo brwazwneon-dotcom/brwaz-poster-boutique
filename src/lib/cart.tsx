@@ -9,6 +9,7 @@ import {
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
 import { trackEvent } from "./meta-pixel";
+import { trackPosterCartAdd } from "./poster-tracking";
 
 export type BundlePoster = { posterId: string; title: string; image: string };
 
@@ -79,6 +80,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
               value: item.price,
               currency: "EGP",
             });
+          } catch { /* noop */ }
+          try {
+            const ids = item.bundle
+              ? item.bundle.posters.map((p) => p.posterId)
+              : (item.posterId ? [item.posterId] : []);
+            if (ids.length) trackPosterCartAdd(ids, 1);
           } catch { /* noop */ }
           return [
           ...prev,
