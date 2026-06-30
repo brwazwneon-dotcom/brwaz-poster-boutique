@@ -16,6 +16,7 @@ import {
   signStoragePath,
 } from "@/lib/storage-url";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import {
