@@ -153,6 +153,16 @@ function CategoryPage() {
         category_name: category.name,
       });
       trackPosterView(p.id);
+      try {
+        const { trackEvent } = require("@/lib/meta-pixel");
+        trackEvent("ViewContent", {
+          content_ids: [p.id],
+          content_name: p.title,
+          content_type: "product",
+          content_category: category.name,
+          currency: "EGP",
+        });
+      } catch { /* noop */ }
     }
     setSelectedIds((prev) =>
       prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
