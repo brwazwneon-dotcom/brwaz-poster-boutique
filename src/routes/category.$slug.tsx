@@ -141,6 +141,7 @@ function CategoryPage() {
   };
 
   return (
+    <>
     <div className="container-page py-12">
       <div className="mb-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
         Collection
@@ -307,6 +308,8 @@ function CategoryPage() {
         </div>
       )}
     </div>
+    <RecentlyViewed />
+    </>
   );
 }
 
