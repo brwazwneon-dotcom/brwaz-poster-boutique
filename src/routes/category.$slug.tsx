@@ -25,6 +25,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { PosterGallery } from "@/components/PosterGallery";
+import { trackEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { POSTER_BADGES } from "@/lib/poster-badges";
@@ -154,7 +155,6 @@ function CategoryPage() {
       });
       trackPosterView(p.id);
       try {
-        const { trackEvent } = require("@/lib/meta-pixel");
         trackEvent("ViewContent", {
           content_ids: [p.id],
           content_name: p.title,
