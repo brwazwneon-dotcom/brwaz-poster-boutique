@@ -26,6 +26,7 @@ export function useHomeCollections() {
   return useQuery({
     queryKey: ["home-collections"],
     staleTime: 60_000,
+    initialData: { visible: true, cards: DEFAULT_COLLECTIONS },
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_settings")
