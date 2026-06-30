@@ -1621,6 +1621,11 @@ function MockupEditor({
         <NumField label="Left %"   value={m.left}   onChange={(v) => set("left", v)} />
         <NumField label="Width %"  value={m.width}  onChange={(v) => set("width", v)} />
         <NumField label="Height %" value={m.height} onChange={(v) => set("height", v)} />
+        <NumField label="Rotate °" value={m.rotate ?? 0} onChange={(v) => set("rotate", v)} />
+        <NumField label="Skew X °" value={m.skewX ?? 0}  onChange={(v) => set("skewX", v)} />
+        <NumField label="Skew Y °" value={m.skewY ?? 0}  onChange={(v) => set("skewY", v)} />
+        <NumField label="Radius %" value={m.borderRadius ?? 0} onChange={(v) => set("borderRadius", v)} />
+        <NumField label="Scale"    value={m.scale ?? 1}  onChange={(v) => set("scale", v)} />
       </div>
 
       <button
@@ -1678,9 +1683,21 @@ function FramePreviewPreviewWithOverride({
           left: `${mockup.left}%`,
           width: `${mockup.width}%`,
           height: `${mockup.height}%`,
+          overflow: "hidden",
+          borderRadius: `${mockup.borderRadius ?? 0}%`,
         }}
       >
-        <img src={SAMPLE_POSTER} alt="" className="h-full w-full object-cover" />
+        <img
+          src={SAMPLE_POSTER}
+          alt=""
+          className="h-full w-full object-cover select-none"
+          draggable={false}
+          style={{
+            transform: `rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
+            transformOrigin: "center center",
+            willChange: "transform",
+          }}
+        />
       </div>
       {mockup.image && (
         <img
