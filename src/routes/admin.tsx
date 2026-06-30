@@ -17,6 +17,8 @@ import {
 } from "@/lib/storage-url";
 import { SafeImage } from "@/components/SafeImage";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
+import { FramePreview } from "@/components/FramePreview";
+import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
