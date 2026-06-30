@@ -134,6 +134,16 @@ function PhotoPrintingPage() {
         photo_urls: urls,
       });
       if (insErr) throw insErr;
+      try {
+        const { gaEvent } = await import("@/lib/ga4");
+        gaEvent("photo_printing", {
+          currency: "EGP",
+          value: total,
+          quantity: qty,
+          size: size.label,
+          unit_price: size.price,
+        });
+      } catch { /* noop */ }
 
       const msg = [
         "New Photo Printing order",
