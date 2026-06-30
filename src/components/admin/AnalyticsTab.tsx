@@ -229,12 +229,19 @@ const SOURCE_ICONS: Record<string, ReactNode> = {
 export function AnalyticsTab({ onNavigate }: { onNavigate?: (tab: AdminTab) => void }) {
   const goto = (t: AdminTab) => () => onNavigate?.(t);
 
+  type RangePreset = "today" | "yesterday" | "7d" | "30d" | "90d" | "custom";
+  const [preset, setPreset] = useState<RangePreset>("30d");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  const { from, to } = useMemo(() => computeRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["admin-dashboard"],
+    queryKey: ["admin-dashboard", from, to],
     staleTime: 60_000,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_dashboard");
+      const { data, error } = await supabase.rpc("admin_dashboard", { p_from: from, p_to: to });
       if (error) throw error;
       return data as unknown as Dashboard;
     },
