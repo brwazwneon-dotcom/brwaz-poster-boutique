@@ -142,6 +142,16 @@ export type FrameMockup = {
   left: number;
   width: number;
   height: number;
+  /** Tilt angle in degrees applied to the artwork (matches frame board tilt). */
+  rotate?: number;
+  /** Perspective/skew in degrees on X axis. */
+  skewX?: number;
+  /** Perspective/skew in degrees on Y axis. */
+  skewY?: number;
+  /** Border radius of the printable area in % of its shorter side. */
+  borderRadius?: number;
+  /** Extra scale multiplier on the artwork. */
+  scale?: number;
 };
 
 export type FrameMockups = {
@@ -151,9 +161,9 @@ export type FrameMockups = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: "", top: 8, left: 8, width: 84, height: 84 },
-  white: { image: "", top: 8, left: 8, width: 84, height: 84 },
-  wood:  { image: "", top: 10, left: 10, width: 80, height: 80 },
+  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
+  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
+  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
@@ -165,12 +175,21 @@ const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
 function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
   if (!raw || typeof raw !== "object") return fallback;
   const v = raw as Partial<FrameMockup>;
+  const numOr = (x: unknown, fb: number) => {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : fb;
+  };
   return {
     image: typeof v.image === "string" ? v.image : fallback.image,
-    top: Number.isFinite(Number(v.top)) ? Number(v.top) : fallback.top,
-    left: Number.isFinite(Number(v.left)) ? Number(v.left) : fallback.left,
-    width: Number.isFinite(Number(v.width)) ? Number(v.width) : fallback.width,
-    height: Number.isFinite(Number(v.height)) ? Number(v.height) : fallback.height,
+    top: numOr(v.top, fallback.top),
+    left: numOr(v.left, fallback.left),
+    width: numOr(v.width, fallback.width),
+    height: numOr(v.height, fallback.height),
+    rotate: numOr(v.rotate, fallback.rotate ?? 0),
+    skewX: numOr(v.skewX, fallback.skewX ?? 0),
+    skewY: numOr(v.skewY, fallback.skewY ?? 0),
+    borderRadius: numOr(v.borderRadius, fallback.borderRadius ?? 0),
+    scale: numOr(v.scale, fallback.scale ?? 1),
   };
 }
 
