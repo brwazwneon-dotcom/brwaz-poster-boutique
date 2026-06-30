@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
+import { WishlistHeart } from "@/components/WishlistHeart";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
