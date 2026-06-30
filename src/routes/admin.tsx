@@ -1341,47 +1341,54 @@ function SliderTab() {
 
 function SettingsTab() {
   const qc = useQueryClient();
-  const [fee, setFee] = useState<string>("");
-  const [threshold, setThreshold] = useState<string>("");
+  const keys = Object.keys(PRICING_KEYS) as (keyof typeof PRICING_KEYS)[];
+  const [vals, setVals] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-settings"],
+    queryKey: ["admin-pricing"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("site_settings").select("key,value");
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key,value")
+        .in("key", keys as string[]);
       if (error) throw error;
       const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
-      return {
-        fee: Number(map.get("shipping_fee") ?? 89),
-        threshold: Number(map.get("free_shipping_threshold") ?? 1600),
+      const defaultFor = (k: keyof typeof PRICING_KEYS): number => {
+        const path = PRICING_KEYS[k];
+        let cur: unknown = PRICING_DEFAULTS;
+        for (const seg of path as readonly string[]) cur = (cur as Record<string, unknown>)[seg];
+        return Number(cur);
       };
+      const out: Record<string, string> = {};
+      for (const k of keys) {
+        const v = map.get(k);
+        const n = typeof v === "number" ? v : Number(v);
+        out[k] = String(Number.isFinite(n) ? n : defaultFor(k));
+      }
+      return out;
     },
   });
 
   useEffect(() => {
-    if (data) {
-      setFee(String(data.fee));
-      setThreshold(String(data.threshold));
-    }
+    if (data) setVals(data);
   }, [data]);
+
+  const setVal = (k: string, v: string) => setVals((m) => ({ ...m, [k]: v }));
 
   const save = async () => {
     setSaving(true);
     try {
-      const f = Number(fee);
-      const t = Number(threshold);
-      if (!Number.isFinite(f) || f < 0) throw new Error("Invalid shipping fee");
-      if (!Number.isFinite(t) || t < 0) throw new Error("Invalid threshold");
-      const { error: e1 } = await supabase
-        .from("site_settings")
-        .upsert({ key: "shipping_fee", value: f, updated_at: new Date().toISOString() });
-      if (e1) throw e1;
-      const { error: e2 } = await supabase
-        .from("site_settings")
-        .upsert({ key: "free_shipping_threshold", value: t, updated_at: new Date().toISOString() });
-      if (e2) throw e2;
-      toast.success("Saved");
-      qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      const rows = keys.map((k) => {
+        const n = Number(vals[k]);
+        if (!Number.isFinite(n) || n < 0) throw new Error(`Invalid value for ${k}`);
+        return { key: k as string, value: n, updated_at: new Date().toISOString() };
+      });
+      const { error } = await supabase.from("site_settings").upsert(rows);
+      if (error) throw error;
+      toast.success("Pricing saved");
+      qc.invalidateQueries({ queryKey: ["admin-pricing"] });
+      qc.invalidateQueries({ queryKey: ["pricing"] });
       qc.invalidateQueries({ queryKey: ["site-settings"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -1392,39 +1399,73 @@ function SettingsTab() {
 
   if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
-  return (
-    <div className="max-w-xl rounded-sm border border-border bg-card p-6">
-      <h3 className="text-display text-2xl">Shipping</h3>
-      <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-        Applied across cart, checkout & photo printing
-      </p>
-      <div className="mt-5 space-y-3">
-        <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Shipping fee (EGP)</span>
-          <input
-            value={fee}
-            onChange={(e) => setFee(e.target.value)}
-            inputMode="numeric"
-            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Free shipping threshold (EGP)</span>
-          <input
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-            inputMode="numeric"
-            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
+  const PriceField = ({ k, label }: { k: keyof typeof PRICING_KEYS; label: string }) => (
+    <label className="block">
+      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <div className="mt-1 flex items-center rounded-sm border border-border bg-background">
+        <input
+          value={vals[k] ?? ""}
+          onChange={(e) => setVal(k, e.target.value)}
+          inputMode="numeric"
+          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+        />
+        <span className="pr-3 text-[10px] uppercase tracking-widest text-muted-foreground">EGP</span>
       </div>
-      <div className="mt-6 flex justify-end">
+    </label>
+  );
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="rounded-sm border border-border bg-card p-6">
+      <h3 className="text-display text-xl">{title}</h3>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">{children}</div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-4xl space-y-5">
+      <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
+        Every price below drives the live website. Changes apply instantly across product pages, cart, checkout, offers and photo printing.
+      </div>
+
+      <Section title="PVC Frame Prices">
+        <PriceField k="frame_pvc_20x30" label="20 × 30" />
+        <PriceField k="frame_pvc_30x40" label="30 × 40" />
+        <PriceField k="frame_pvc_40x50" label="40 × 50" />
+      </Section>
+
+      <Section title="Wooden Portrait Prices">
+        <PriceField k="frame_wood_20x30" label="20 × 30" />
+        <PriceField k="frame_wood_30x40" label="30 × 40" />
+        <PriceField k="frame_wood_40x50" label="40 × 50" />
+      </Section>
+
+      <Section title="Custom Design">
+        <PriceField k="custom_design_fee" label="Extra fee" />
+      </Section>
+
+      <Section title="Photo Printing">
+        <PriceField k="photo_10x15" label="10 × 15 / photo" />
+        <PriceField k="photo_13x18" label="13 × 18 / photo" />
+        <PriceField k="photo_15x20" label="15 × 20 / photo" />
+      </Section>
+
+      <Section title="Special Offers">
+        <PriceField k="offer_6_20x30" label="6 Frames 20 × 30" />
+        <PriceField k="offer_4_30x40" label="4 Frames 30 × 40" />
+      </Section>
+
+      <Section title="Shipping">
+        <PriceField k="shipping_fee" label="Shipping fee" />
+        <PriceField k="free_shipping_threshold" label="Free shipping above" />
+      </Section>
+
+      <div className="flex justify-end">
         <button
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
         >
-          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save all pricing"}
         </button>
       </div>
     </div>
