@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
 import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -122,11 +123,13 @@ function SearchPage() {
                 className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
               >
                 <div className="aspect-[3/4] overflow-hidden">
-                  <SafeImage
-                    src={p.image_url}
-                    alt={p.title}
+                  <FramePreview
+                    posterUrl={p.image_url}
+                    title={p.title}
+                    aspectClassName="aspect-[3/4]"
+                    bare
                     loading="lazy"
-                    className="h-full w-full object-cover grayscale transition group-hover:grayscale-0"
+                    className="h-full w-full"
                   />
                 </div>
                 <div className="p-2">
