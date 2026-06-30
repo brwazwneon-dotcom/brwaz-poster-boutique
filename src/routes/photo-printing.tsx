@@ -5,6 +5,7 @@ import { Upload, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
 import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
+import { BeforeAfter } from "@/components/BeforeAfter";
 
 export const Route = createFileRoute("/photo-printing")({
   head: () => ({
@@ -378,6 +379,7 @@ function PhotoPrintingPage() {
           </div>
         </div>
       </section>
+      <BeforeAfter location="photo-printing" />
     </div>
   );
 }
