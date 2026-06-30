@@ -20,6 +20,7 @@ import {
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
+import { AiPosterUpload } from "@/components/admin/AiPosterUpload";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "categories" | "orders" | "custom" | "slider" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -126,7 +127,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "categories", "orders", "custom", "slider", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -145,6 +146,7 @@ function AdminPage() {
       <div className="mt-8">
         {tab === "analytics" && <AnalyticsTab onNavigate={setTab} />}
         {tab === "posters" && <PostersTab />}
+        {tab === "ai-upload" && <AiPosterUpload />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
         {tab === "custom" && <CustomDesignOrdersTab />}
