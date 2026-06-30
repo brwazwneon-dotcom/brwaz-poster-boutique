@@ -18,6 +18,7 @@ import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
+import { FramePreview } from "@/components/FramePreview";
 
 type Poster = {
   id: string;
@@ -342,10 +343,26 @@ function Customizer({
           Clear all
         </button>
       </div>
+      <div className="mt-4 mx-auto w-full max-w-[260px]">
+        <FramePreview
+          posterUrl={posters[0].image_url}
+          title={posters[0].title}
+          frameType={frameType}
+          color={color}
+          loading="eager"
+        />
+      </div>
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
-            <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+            <FramePreview
+              posterUrl={p.image_url}
+              title={p.title}
+              frameType={frameType}
+              color={color}
+              bare
+              className="h-full w-full"
+            />
             <button
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.title}`}
