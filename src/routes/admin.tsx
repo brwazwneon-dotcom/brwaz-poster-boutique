@@ -572,6 +572,9 @@ function EditPosterModal({
   const [description, setDescription] = useState(poster.description ?? "");
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
+  const [badge, setBadge] = useState<string>(poster.badge ?? "");
+  const [purchaseCount, setPurchaseCount] = useState<string>(String(poster.sales_count ?? 0));
+  const [viewCount, setViewCount] = useState<string>(String(poster.views_count ?? 0));
   const [saving, setSaving] = useState(false);
   const [editArt, setEditArt] = useState(false);
   const [artSaving, setArtSaving] = useState(false);
@@ -591,6 +594,9 @@ function EditPosterModal({
         description: description || null,
         featured,
         hidden,
+        badge: badge || null,
+        sales_count: Math.max(0, Number(purchaseCount) || 0),
+        views_count: Math.max(0, Number(viewCount) || 0),
       })
       .eq("id", poster.id);
     setSaving(false);
