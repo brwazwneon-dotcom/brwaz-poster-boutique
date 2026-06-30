@@ -61,9 +61,22 @@ export function FramePreview({
       style={{ backgroundColor: matte }}
       title={title}
     >
-      {/* Poster artwork — placed inside the printable area */}
+      {/* Frame mockup photo as background */}
+      {m.image && (
+        <img
+          src={m.image}
+          alt=""
+          loading={loading}
+          decoding="async"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+          draggable={false}
+        />
+      )}
+
+      {/* Poster artwork — placed inside the printable area, on top of the frame */}
       <div
-        className="absolute"
+        className="absolute overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
         style={{
           top: `${m.top}%`,
           left: `${m.left}%`,
@@ -77,33 +90,19 @@ export function FramePreview({
           loading={loading}
           className="h-full w-full object-cover"
         />
+        {/* Glass reflection across the print area */}
+        {!bare && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 22%, rgba(255,255,255,0) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.08) 100%)",
+              mixBlendMode: "screen",
+            }}
+          />
+        )}
       </div>
-
-      {/* Frame mockup overlay (PNG with transparent printable area) */}
-      {m.image && (
-        <img
-          src={m.image}
-          alt=""
-          loading={loading}
-          decoding="async"
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-contain select-none"
-          draggable={false}
-        />
-      )}
-
-      {/* Glass reflection */}
-      {!bare && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(115deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 22%, rgba(255,255,255,0) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.07) 100%)",
-            mixBlendMode: "screen",
-          }}
-        />
-      )}
     </div>
   );
 }
