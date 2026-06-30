@@ -730,6 +730,37 @@ function EditPosterModal({
               className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Title</span>
+              <input
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                maxLength={70}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Description</span>
+              <input
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                maxLength={200}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={runAi}
+              disabled={aiBusy}
+              className="inline-flex items-center gap-2 rounded-sm border border-primary/60 bg-primary/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiBusy ? "Generating…" : (description || seoTitle ? "Regenerate with AI" : "Generate with AI")}
+            </button>
+          </div>
           <div className="flex gap-4 text-xs uppercase tracking-widest">
             <label className="inline-flex items-center gap-2">
               <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
