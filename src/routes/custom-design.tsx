@@ -270,6 +270,15 @@ function CustomDesignPage() {
           size: labelForSize(size),
           frame_color: labelForColor(color),
         });
+        const { enqueueEvent } = await import("@/lib/meta-pixel");
+        enqueueEvent("CustomDesignCustomer", {
+          currency: "EGP",
+          value: total,
+          quantity: pics.length,
+          frame_type: labelForFrame(frameType),
+          size: labelForSize(size),
+          order_id: orderId,
+        }, { phone: phone.trim(), city: governorate, country: "EG" });
       } catch { /* noop */ }
 
       const orderNumber = inserted?.order_number ?? orderId.slice(0, 8);
