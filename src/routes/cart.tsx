@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
-import { FRAME_COLORS, FRAME_TYPES } from "@/lib/poster-options";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
