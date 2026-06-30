@@ -202,6 +202,7 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
                 params={{ slug }}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
+                <WishlistHeart posterId={p.id} />
                 <FramePreview
                   posterUrl={p.image_url}
                   title={p.title}
