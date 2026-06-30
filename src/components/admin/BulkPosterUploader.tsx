@@ -494,7 +494,7 @@ function ItemTile({
         item.status === "optimizing" && "border-primary/60",
         item.status === "pending" && "border-border",
       )}
-      title={item.error ?? item.file.name}
+      title={item.aiError ?? item.aiTitle ?? item.error ?? item.file.name}
     >
       <div className="aspect-square bg-muted">
         <img src={item.preview} alt="" className="h-full w-full object-cover" />
@@ -516,7 +516,7 @@ function ItemTile({
         </button>
       )}
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-background/85 px-1.5 py-1 text-[10px]">
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.status} ai={item.ai} />
         {!disabled && item.status !== "done" && (
           <button
             type="button"
@@ -532,8 +532,29 @@ function ItemTile({
   );
 }
 
-function StatusBadge({ status }: { status: ItemStatus }) {
+function StatusBadge({ status, ai }: { status: ItemStatus; ai?: AiStatus }) {
   if (status === "done") {
+    if (ai === "pending") {
+      return (
+        <span className="inline-flex items-center gap-1 text-primary/80">
+          <Sparkles className="h-3 w-3 animate-pulse" /> AI…
+        </span>
+      );
+    }
+    if (ai === "generated") {
+      return (
+        <span className="inline-flex items-center gap-1 text-emerald-500">
+          <Sparkles className="h-3 w-3" /> Generated
+        </span>
+      );
+    }
+    if (ai === "failed") {
+      return (
+        <span className="inline-flex items-center gap-1 text-amber-500">
+          <AlertCircle className="h-3 w-3" /> Needs Review
+        </span>
+      );
+    }
     return (
       <span className="inline-flex items-center gap-1 text-emerald-500">
         <CheckCircle2 className="h-3 w-3" /> Done
