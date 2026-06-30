@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -58,6 +58,9 @@ export const Route = createFileRoute("/category/$slug")({
 
 function CategoryPage() {
   const { slug } = Route.useParams();
+  if (slug === "custom") {
+    return <Navigate to="/custom-design" replace />;
+  }
   const { data: categories = [] } = useCategories();
 
   const { data: category, isLoading: catLoading } = useQuery({
