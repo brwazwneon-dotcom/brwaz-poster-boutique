@@ -11,6 +11,7 @@ import { Search as SearchIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories } from "@/lib/use-categories";
 import { trackEvent } from "@/lib/meta-pixel";
+import { logSearchQuery } from "@/lib/analytics";
 
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
@@ -97,6 +98,15 @@ function SearchPage() {
   });
 
   const results = data ?? [];
+
+  // Log search query once per stable term (after results return).
+  useEffect(() => {
+    if (term.length < 2 || isFetching) return;
+    const t = setTimeout(() => {
+      try { logSearchQuery(term, results.length); } catch { /* noop */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [term, isFetching, results.length]);
 
   return (
     <div className="container-page py-12">

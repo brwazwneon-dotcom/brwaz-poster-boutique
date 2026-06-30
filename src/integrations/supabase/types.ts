@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_poster_events: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          event_type: string
+          id: string
+          poster_id: string | null
+          session_id: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          event_type: string
+          id?: string
+          poster_id?: string | null
+          session_id?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          event_type?: string
+          id?: string
+          poster_id?: string | null
+          session_id?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_poster_events_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_visits: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string
+          device: string | null
+          governorate: string | null
+          id: string
+          path: string | null
+          referrer: string | null
+          session_id: string
+          source: string | null
+          user_agent: string | null
+          visitor_id: string
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          governorate?: string | null
+          id?: string
+          path?: string | null
+          referrer?: string | null
+          session_id: string
+          source?: string | null
+          user_agent?: string | null
+          visitor_id: string
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          governorate?: string | null
+          id?: string
+          path?: string | null
+          referrer?: string | null
+          session_id?: string
+          source?: string | null
+          user_agent?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       before_after: {
         Row: {
           active: boolean
@@ -356,6 +439,7 @@ export type Database = {
       posters: {
         Row: {
           badge: string | null
+          cart_adds_count: number
           category_id: string | null
           created_at: string
           description: string | null
@@ -364,6 +448,7 @@ export type Database = {
           hidden: boolean
           id: string
           image_url: string
+          last_viewed_at: string | null
           original_url: string | null
           price: number | null
           sales_count: number
@@ -372,11 +457,14 @@ export type Database = {
           sort_order: number
           tags: string[]
           title: string
+          total_view_seconds: number
+          unique_views_count: number
           updated_at: string
           views_count: number
         }
         Insert: {
           badge?: string | null
+          cart_adds_count?: number
           category_id?: string | null
           created_at?: string
           description?: string | null
@@ -385,6 +473,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url: string
+          last_viewed_at?: string | null
           original_url?: string | null
           price?: number | null
           sales_count?: number
@@ -393,11 +482,14 @@ export type Database = {
           sort_order?: number
           tags?: string[]
           title?: string
+          total_view_seconds?: number
+          unique_views_count?: number
           updated_at?: string
           views_count?: number
         }
         Update: {
           badge?: string | null
+          cart_adds_count?: number
           category_id?: string | null
           created_at?: string
           description?: string | null
@@ -406,6 +498,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url?: string
+          last_viewed_at?: string | null
           original_url?: string | null
           price?: number | null
           sales_count?: number
@@ -414,6 +507,8 @@ export type Database = {
           sort_order?: number
           tags?: string[]
           title?: string
+          total_view_seconds?: number
+          unique_views_count?: number
           updated_at?: string
           views_count?: number
         }
@@ -505,6 +600,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      search_queries: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          results_count: number
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          results_count?: number
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          results_count?: number
+          visitor_id?: string | null
+        }
+        Relationships: []
       }
       site_settings: {
         Row: {
@@ -609,8 +728,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_poster_view_seconds: {
+        Args: { p_id: string; p_seconds: number }
+        Returns: undefined
+      }
+      admin_dashboard: { Args: never; Returns: Json }
+      increment_poster_cart_adds: {
+        Args: { p_ids: string[]; p_qty: number }
+        Returns: undefined
+      }
       increment_poster_sales: {
         Args: { p_ids: string[]; p_qty: number }
+        Returns: undefined
+      }
+      increment_poster_unique_views: {
+        Args: { p_id: string }
         Returns: undefined
       }
       increment_poster_views: { Args: { p_id: string }; Returns: undefined }

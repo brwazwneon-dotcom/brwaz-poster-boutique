@@ -3,6 +3,7 @@ import { useRouterState } from "@tanstack/react-router";
 import { useMarketingConfig } from "@/lib/use-marketing";
 import { setMarketingConfig, trackEvent } from "@/lib/meta-pixel";
 import { setGA4Config, gaPageView } from "@/lib/ga4";
+import { trackVisit } from "@/lib/analytics";
 
 /**
  * Loads the Meta Pixel based on admin settings and fires PageView on every
@@ -19,11 +20,14 @@ export function MarketingBoot() {
   }, [cfg.pixelId, cfg.pixelEnabled, cfg.capiEnabled, cfg.advancedMatchingEnabled, cfg.ga4MeasurementId, cfg.ga4Enabled]);
 
   useEffect(() => {
-    if (!cfg.pixelEnabled && !cfg.capiEnabled && !cfg.ga4Enabled) return;
     if (lastPath.current === pathname) return;
     lastPath.current = pathname;
-    trackEvent("PageView");
-    gaPageView(pathname);
+    // Always record internal analytics regardless of Pixel/GA toggles.
+    try { trackVisit(pathname); } catch { /* noop */ }
+    if (cfg.pixelEnabled || cfg.capiEnabled || cfg.ga4Enabled) {
+      trackEvent("PageView");
+      gaPageView(pathname);
+    }
   }, [pathname, cfg.pixelEnabled, cfg.capiEnabled, cfg.ga4Enabled]);
 
   return null;
