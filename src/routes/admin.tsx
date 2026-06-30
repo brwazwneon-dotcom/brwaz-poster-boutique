@@ -576,6 +576,9 @@ function EditPosterModal({
   const [categoryId, setCategoryId] = useState(poster.category_id ?? "");
   const [tags, setTags] = useState((poster.tags ?? []).join(", "));
   const [description, setDescription] = useState(poster.description ?? "");
+  const [seoTitle, setSeoTitle] = useState(poster.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(poster.seo_description ?? "");
+  const [aiBusy, setAiBusy] = useState(false);
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
   const [badge, setBadge] = useState<string>(poster.badge ?? "");
@@ -598,6 +601,8 @@ function EditPosterModal({
         category_id: categoryId || null,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         description: description || null,
+        seo_title: seoTitle || null,
+        seo_description: seoDescription || null,
         featured,
         hidden,
         badge: badge || null,
@@ -609,6 +614,39 @@ function EditPosterModal({
     if (error) return toast.error(error.message);
     toast.success("Saved");
     onSaved();
+  };
+
+  const runAi = async () => {
+    setAiBusy(true);
+    try {
+      const meta = await generatePosterMeta({
+        data: {
+          imageUrl: currentImageUrl,
+          filename: poster.title,
+          categories: categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            parent_id: c.parent_id ?? null,
+          })),
+        },
+      });
+      setTitle(meta.title);
+      setDescription(meta.description);
+      setSeoTitle(meta.seo_title);
+      setSeoDescription(meta.seo_description);
+      if (meta.tags.length) {
+        const existing = tags.split(",").map((t) => t.trim()).filter(Boolean);
+        setTags(Array.from(new Set([...existing, ...meta.tags])).join(", "));
+      }
+      if (meta.subcategory_id) setCategoryId(meta.subcategory_id);
+      else if (meta.category_id && !categoryId) setCategoryId(meta.category_id);
+      toast.success("AI generated — review and Save");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "AI failed");
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   const saveArtwork = async (s: EditSettings) => {
