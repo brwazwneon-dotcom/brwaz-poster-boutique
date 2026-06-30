@@ -694,6 +694,51 @@ function EditPosterModal({
               Hidden
             </label>
           </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Badge</span>
+              <select
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              >
+                <option value="">— None —</option>
+                {POSTER_BADGES.map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Purchase count</span>
+              <input
+                type="number"
+                min={0}
+                value={purchaseCount}
+                onChange={(e) => setPurchaseCount(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">View count</span>
+              <div className="mt-1 flex gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={viewCount}
+                  onChange={(e) => setViewCount(e.target.value)}
+                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setViewCount("0")}
+                  className="rounded-sm border border-border px-2 text-[10px] uppercase tracking-widest hover:bg-accent"
+                  title="Reset views"
+                >
+                  Reset
+                </button>
+              </div>
+            </label>
+          </div>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
