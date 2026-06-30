@@ -19,9 +19,12 @@ import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { PosterBadge } from "@/components/PosterBadge";
+import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
+import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 
@@ -32,6 +35,9 @@ type Poster = {
   category_id: string | null;
   tags?: string[] | null;
   edit_settings?: unknown;
+  badge?: string | null;
+  sales_count?: number | null;
+  views_count?: number | null;
 };
 
 const PAGE_SIZE = 48;
@@ -105,7 +111,7 @@ function CategoryPage() {
       const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,edit_settings")
+        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count")
         .in("category_id", includedCategoryIds)
         .eq("hidden", false)
         .order(sortDef.col, { ascending: sortDef.asc })
@@ -135,6 +141,7 @@ function CategoryPage() {
         category_slug: category.slug,
         category_name: category.name,
       });
+      trackPosterView(p.id);
     }
     setSelectedIds((prev) =>
       prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
@@ -218,6 +225,7 @@ function CategoryPage() {
                       )}
                     >
                         <WishlistHeart posterId={p.id} />
+                        <PosterBadge badge={p.badge} />
                       <FramePreview
                         posterUrl={p.image_url}
                         title={p.title}
@@ -238,6 +246,11 @@ function CategoryPage() {
                       <span className="absolute inset-x-0 bottom-0 truncate bg-background/80 px-2 py-1 text-left text-[10px] uppercase tracking-widest">
                         {p.title}
                       </span>
+                      {(p.sales_count ?? 0) > 0 && (
+                        <span className="pointer-events-none absolute bottom-7 right-2 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
+                          ✔ {formatCount(p.sales_count)} sold
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -402,6 +415,16 @@ function Customizer({
           loading="eager"
         />
       </div>
+      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+          {(primary.sales_count ?? 0) > 0 && (
+            <span>✔ {formatCount(primary.sales_count)} customers purchased this design</span>
+          )}
+          {(primary.views_count ?? 0) > 0 && (
+            <span>👁 {formatCount(primary.views_count)} views</span>
+          )}
+        </div>
+      ) : null}
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">

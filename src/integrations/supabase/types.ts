@@ -257,6 +257,7 @@ export type Database = {
       }
       posters: {
         Row: {
+          badge: string | null
           category_id: string | null
           created_at: string
           description: string | null
@@ -277,6 +278,7 @@ export type Database = {
           views_count: number
         }
         Insert: {
+          badge?: string | null
           category_id?: string | null
           created_at?: string
           description?: string | null
@@ -297,6 +299,7 @@ export type Database = {
           views_count?: number
         }
         Update: {
+          badge?: string | null
           category_id?: string | null
           created_at?: string
           description?: string | null
@@ -455,7 +458,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_poster_sales: {
+        Args: { p_ids: string[]; p_qty: number }
+        Returns: undefined
+      }
+      increment_poster_views: { Args: { p_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
+import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -163,6 +164,9 @@ type Poster = {
   hidden?: boolean | null;
   description?: string | null;
   edit_settings?: unknown;
+  badge?: string | null;
+  sales_count?: number | null;
+  views_count?: number | null;
 };
 
 const PAGE_SIZE = 60;
@@ -190,7 +194,7 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings", { count: "exact" })
+        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings,badge,sales_count,views_count", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
@@ -466,6 +470,7 @@ function PostersTab() {
               <div className={cn("absolute right-2 top-2 z-10 flex flex-col items-end gap-1")}>
                 {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
+                {p.badge && <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">{p.badge}</span>}
               </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <FramePreview
@@ -483,6 +488,9 @@ function PostersTab() {
                   <div className="truncate text-sm">{p.title}</div>
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     {categories.find((c) => c.id === p.category_id)?.name ?? "—"}
+                  </div>
+                  <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    ✔ {p.sales_count ?? 0} · 👁 {p.views_count ?? 0}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
@@ -565,6 +573,9 @@ function EditPosterModal({
   const [description, setDescription] = useState(poster.description ?? "");
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
+  const [badge, setBadge] = useState<string>(poster.badge ?? "");
+  const [purchaseCount, setPurchaseCount] = useState<string>(String(poster.sales_count ?? 0));
+  const [viewCount, setViewCount] = useState<string>(String(poster.views_count ?? 0));
   const [saving, setSaving] = useState(false);
   const [editArt, setEditArt] = useState(false);
   const [artSaving, setArtSaving] = useState(false);
@@ -584,6 +595,9 @@ function EditPosterModal({
         description: description || null,
         featured,
         hidden,
+        badge: badge || null,
+        sales_count: Math.max(0, Number(purchaseCount) || 0),
+        views_count: Math.max(0, Number(viewCount) || 0),
       })
       .eq("id", poster.id);
     setSaving(false);
@@ -679,6 +693,51 @@ function EditPosterModal({
             <label className="inline-flex items-center gap-2">
               <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
               Hidden
+            </label>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Badge</span>
+              <select
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              >
+                <option value="">— None —</option>
+                {POSTER_BADGES.map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Purchase count</span>
+              <input
+                type="number"
+                min={0}
+                value={purchaseCount}
+                onChange={(e) => setPurchaseCount(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">View count</span>
+              <div className="mt-1 flex gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={viewCount}
+                  onChange={(e) => setViewCount(e.target.value)}
+                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setViewCount("0")}
+                  className="rounded-sm border border-border px-2 text-[10px] uppercase tracking-widest hover:bg-accent"
+                  title="Reset views"
+                >
+                  Reset
+                </button>
+              </div>
             </label>
           </div>
         </div>

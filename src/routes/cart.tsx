@@ -110,6 +110,36 @@ function CartPage() {
       const { error } = await supabase.from("orders").insert(rows);
       if (error) throw error;
 
+      // Bump purchase counts for posters in this order (non-blocking).
+      try {
+        const { trackPosterSales } = await import("@/lib/poster-tracking");
+        const ids: string[] = [];
+        const qtyById = new Map<string, number>();
+        for (const i of items) {
+          if (i.bundle) {
+            for (const p of i.bundle.posters) {
+              qtyById.set(p.posterId, (qtyById.get(p.posterId) ?? 0) + i.qty);
+              ids.push(p.posterId);
+            }
+          } else if (i.posterId) {
+            qtyById.set(i.posterId, (qtyById.get(i.posterId) ?? 0) + i.qty);
+            ids.push(i.posterId);
+          }
+        }
+        // One RPC per quantity bucket to keep numbers correct.
+        const byQty = new Map<number, string[]>();
+        for (const [pid, q] of qtyById) {
+          const arr = byQty.get(q) ?? [];
+          arr.push(pid);
+          byQty.set(q, arr);
+        }
+        await Promise.all(
+          Array.from(byQty.entries()).map(([q, pids]) => trackPosterSales(pids, q)),
+        );
+      } catch (e) {
+        console.warn("sales tracking failed", e);
+      }
+
       toast.success("Order placed! Opening WhatsApp…");
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
