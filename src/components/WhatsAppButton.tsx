@@ -1,4 +1,5 @@
 import { whatsappLink } from "@/lib/whatsapp";
+import { trackEvent } from "@/lib/meta-pixel";
 
 export function WhatsAppButton() {
   return (
@@ -7,6 +8,12 @@ export function WhatsAppButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
+      onClick={() => {
+        try {
+          trackEvent("Contact", { method: "whatsapp" });
+          trackEvent("Lead", { method: "whatsapp" });
+        } catch { /* noop */ }
+      }}
       className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition hover:scale-105 hover:shadow-[0_12px_28px_rgba(37,211,102,0.45)] sm:bottom-8 sm:right-8 sm:h-16 sm:w-16"
     >
       <svg viewBox="0 0 32 32" className="h-7 w-7 sm:h-8 sm:w-8" fill="currentColor" aria-hidden="true">
