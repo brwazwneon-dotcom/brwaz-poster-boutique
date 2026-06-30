@@ -143,6 +143,14 @@ function PhotoPrintingPage() {
           size: size.label,
           unit_price: size.price,
         });
+        const { enqueueEvent } = await import("@/lib/meta-pixel");
+        enqueueEvent("PhotoPrintingCustomer", {
+          currency: "EGP",
+          value: total,
+          quantity: qty,
+          size: size.label,
+          order_id: orderId,
+        }, { phone: phone.trim(), city: governorate, country: "EG" });
       } catch { /* noop */ }
 
       const msg = [
