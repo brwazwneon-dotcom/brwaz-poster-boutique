@@ -732,6 +732,7 @@ export type Database = {
         Args: { p_id: string; p_seconds: number }
         Returns: undefined
       }
+      admin_dashboard: { Args: never; Returns: Json }
       increment_poster_cart_adds: {
         Args: { p_ids: string[]; p_qty: number }
         Returns: undefined
