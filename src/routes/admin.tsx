@@ -3013,6 +3013,8 @@ function MarketingTab() {
           "meta_pixel_enabled",
           "meta_capi_enabled",
           "meta_advanced_matching_enabled",
+          "ga4_measurement_id",
+          "ga4_enabled",
         ]);
       if (error) throw error;
       const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
@@ -3022,6 +3024,8 @@ function MarketingTab() {
         pixelEnabled: bool("meta_pixel_enabled"),
         capiEnabled: bool("meta_capi_enabled"),
         advancedMatching: bool("meta_advanced_matching_enabled"),
+        ga4Id: String(map.get("ga4_measurement_id") ?? "").trim(),
+        ga4Enabled: bool("ga4_enabled"),
       };
     },
   });
@@ -3043,6 +3047,8 @@ function MarketingTab() {
   const [capiEnabled, setCapiEnabled] = useState(false);
   const [advancedMatching, setAdvancedMatching] = useState(false);
   const [token, setToken] = useState("");
+  const [ga4Id, setGa4Id] = useState("");
+  const [ga4Enabled, setGa4Enabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -3051,18 +3057,22 @@ function MarketingTab() {
       setPixelEnabled(settingsQ.data.pixelEnabled);
       setCapiEnabled(settingsQ.data.capiEnabled);
       setAdvancedMatching(settingsQ.data.advancedMatching);
+      setGa4Id(settingsQ.data.ga4Id);
+      setGa4Enabled(settingsQ.data.ga4Enabled);
     }
   }, [settingsQ.data]);
   useEffect(() => { if (secretQ.data !== undefined) setToken(secretQ.data); }, [secretQ.data]);
 
   const pixelIdValid = pixelId === "" || /^\d{6,20}$/.test(pixelId);
   const tokenValid = token === "" || /^[A-Za-z0-9_\-|]{20,}$/.test(token);
+  const ga4IdValid = ga4Id === "" || /^G-[A-Z0-9]{6,}$/.test(ga4Id);
 
   const onSave = async () => {
     if (pixelEnabled && !pixelIdValid) return toast.error("Pixel ID must be 6–20 digits");
     if (capiEnabled && !pixelId) return toast.error("Set a Pixel ID before enabling Conversion API");
     if (capiEnabled && !token) return toast.error("Conversion API requires an access token");
     if (!tokenValid) return toast.error("Access token format looks invalid");
+    if (ga4Enabled && !ga4IdValid) return toast.error("GA4 Measurement ID must look like G-XXXXXXXX");
 
     setSaving(true);
     try {
@@ -3071,6 +3081,8 @@ function MarketingTab() {
         { key: "meta_pixel_enabled", value: pixelEnabled as never },
         { key: "meta_capi_enabled", value: capiEnabled as never },
         { key: "meta_advanced_matching_enabled", value: advancedMatching as never },
+        { key: "ga4_measurement_id", value: ga4Id as never },
+        { key: "ga4_enabled", value: ga4Enabled as never },
       ];
       const { error: e1 } = await supabase
         .from("site_settings")
@@ -3118,6 +3130,29 @@ function MarketingTab() {
           )}
         </label>
         <ToggleRow label="Enable Pixel (browser tracking)" value={pixelEnabled} onChange={setPixelEnabled} />
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6">
+        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Google Analytics 4</h3>
+        <label className="mt-4 block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Measurement ID</span>
+          <input
+            value={ga4Id}
+            onChange={(e) => setGa4Id(e.target.value.toUpperCase().trim())}
+            placeholder="G-XXXXXXXXXX"
+            className={cn(
+              "mt-1 w-full rounded-sm border bg-background px-3 py-2 font-mono text-sm outline-none",
+              ga4IdValid ? "border-border focus:border-primary" : "border-destructive",
+            )}
+          />
+          {!ga4IdValid && (
+            <span className="mt-1 block text-xs text-destructive">Must look like G-XXXXXXXX.</span>
+          )}
+        </label>
+        <ToggleRow label="Enable Google Analytics 4" value={ga4Enabled} onChange={setGa4Enabled} />
+        <p className="mt-3 text-xs text-muted-foreground">
+          Tracks page_view, search, view_item, add_to_cart, add_to_wishlist, begin_checkout, purchase, photo_printing, and custom_design.
+        </p>
       </div>
 
       <div className="rounded-sm border border-border bg-card p-6">

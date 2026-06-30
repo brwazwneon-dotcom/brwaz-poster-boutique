@@ -260,6 +260,17 @@ function CustomDesignPage() {
         .select("order_number")
         .single();
       if (insErr) throw insErr;
+      try {
+        const { gaEvent } = await import("@/lib/ga4");
+        gaEvent("custom_design", {
+          currency: "EGP",
+          value: total,
+          quantity: pics.length,
+          frame_type: labelForFrame(frameType),
+          size: labelForSize(size),
+          frame_color: labelForColor(color),
+        });
+      } catch { /* noop */ }
 
       const orderNumber = inserted?.order_number ?? orderId.slice(0, 8);
       const msg = [

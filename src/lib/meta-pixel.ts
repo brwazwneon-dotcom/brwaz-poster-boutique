@@ -6,6 +6,7 @@
  */
 import { sendCapiEvent } from "./meta-capi.functions";
 import type { MarketingConfig } from "./use-marketing";
+import { gaEvent, type GAEventName } from "./ga4";
 
 declare global {
   interface Window {
@@ -123,6 +124,20 @@ export function trackEvent(
       },
     }).catch(() => { /* CAPI is best-effort; pixel covers fallback */ });
   }
+
+  // 3) Mirror to GA4 (page_view handled separately by router).
+  const ga = META_TO_GA[name];
+  if (ga && name !== "PageView") gaEvent(ga, params);
 }
+
+const META_TO_GA: Partial<Record<StandardEvent, GAEventName>> = {
+  ViewContent: "view_item",
+  Search: "search",
+  AddToCart: "add_to_cart",
+  AddToWishlist: "add_to_wishlist",
+  InitiateCheckout: "begin_checkout",
+  Purchase: "purchase",
+  Contact: "contact",
+};
 
 export { lastConfig as _lastMarketingConfig };
