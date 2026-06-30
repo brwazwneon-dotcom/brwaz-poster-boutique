@@ -143,7 +143,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8">
-        {tab === "analytics" && <AnalyticsTab />}
+        {tab === "analytics" && <AnalyticsTab onNavigate={setTab} />}
         {tab === "posters" && <PostersTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
