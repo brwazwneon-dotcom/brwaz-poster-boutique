@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
-import { useSiteSettings, computeShipping } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/photo-printing")({
   head: () => ({
@@ -25,11 +25,12 @@ export const Route = createFileRoute("/photo-printing")({
   component: PhotoPrintingPage,
 });
 
-const SIZES = [
-  { id: "10x15", label: "10 × 15 cm", price: 10 },
-  { id: "13x18", label: "13 × 18 cm", price: 15 },
-  { id: "15x20", label: "15 × 20 cm", price: 20 },
-] as const;
+type PhotoSizeId = "10x15" | "13x18" | "15x20";
+const SIZE_LABELS: Record<PhotoSizeId, string> = {
+  "10x15": "10 × 15 cm",
+  "13x18": "13 × 18 cm",
+  "15x20": "15 × 20 cm",
+};
 
 const MIN_QTY = 20;
 
@@ -44,7 +45,13 @@ const GOVERNORATES = [
 type Pic = { id: string; file: File; preview: string };
 
 function PhotoPrintingPage() {
-  const [sizeId, setSizeId] = useState<(typeof SIZES)[number]["id"]>("10x15");
+  const pricing = usePricing();
+  const SIZES = (["10x15", "13x18", "15x20"] as const).map((id) => ({
+    id,
+    label: SIZE_LABELS[id],
+    price: pricing.photo[id],
+  }));
+  const [sizeId, setSizeId] = useState<PhotoSizeId>("10x15");
   const [pics, setPics] = useState<Pic[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
