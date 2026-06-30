@@ -1176,6 +1176,333 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+/* ---------- CUSTOM DESIGN ORDERS ---------- */
+
+type CustomOrder = {
+  id: string;
+  order_number: string | null;
+  customer_name: string;
+  phone: string;
+  governorate: string;
+  address: string;
+  frame_type: string;
+  frame_color: string;
+  size: string;
+  quantity: number;
+  image_paths: string[];
+  unit_price: number;
+  subtotal: number;
+  shipping_cost: number;
+  total_price: number;
+  notes: string | null;
+  status: string;
+  created_at: string;
+};
+
+function CustomDesignOrdersTab() {
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [govFilter, setGovFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [viewing, setViewing] = useState<CustomOrder | null>(null);
+
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["admin-custom-orders", statusFilter],
+    queryFn: async () => {
+      let q = supabase
+        .from("custom_design_orders")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,image_paths,unit_price,subtotal,shipping_cost,total_price,notes,status,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (statusFilter !== "all") q = q.eq("status", statusFilter);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as CustomOrder[];
+    },
+  });
+
+  const governorates = Array.from(new Set(orders.map((o) => o.governorate).filter(Boolean))).sort();
+  const filtered = orders.filter((o) => {
+    if (govFilter !== "all" && o.governorate !== govFilter) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (o.order_number ?? "").toLowerCase().includes(q) ||
+      o.customer_name.toLowerCase().includes(q) ||
+      o.phone.toLowerCase().includes(q)
+    );
+  });
+
+  const stats = {
+    total: orders.length,
+    revenue: orders.reduce((s, o) => s + Number(o.total_price || 0), 0),
+    newCount: orders.filter((o) => o.status === "new").length,
+    images: orders.reduce((s, o) => s + (o.image_paths?.length ?? 0), 0),
+  };
+
+  const setStatus = async (o: CustomOrder, status: string) => {
+    const { error } = await supabase.from("custom_design_orders").update({ status }).eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Updated");
+    qc.invalidateQueries({ queryKey: ["admin-custom-orders"] });
+  };
+
+  const remove = async (o: CustomOrder) => {
+    if (!confirm("Delete this custom design order?")) return;
+    const { error } = await supabase.from("custom_design_orders").delete().eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["admin-custom-orders"] });
+  };
+
+  const exportExcel = () => {
+    const rows = filtered.map((o) => ({
+      "Order Number": o.order_number ?? o.id.slice(0, 8),
+      "Date": new Date(o.created_at).toLocaleString(),
+      "Customer": o.customer_name,
+      "Phone": o.phone,
+      "Governorate": o.governorate,
+      "Address": o.address,
+      "Frame Type": o.frame_type,
+      "Frame Color": o.frame_color,
+      "Size": o.size,
+      "Images": o.image_paths?.length ?? 0,
+      "Unit Price": Number(o.unit_price ?? 0),
+      "Subtotal": Number(o.subtotal ?? 0),
+      "Shipping": Number(o.shipping_cost ?? 0),
+      "Total": Number(o.total_price ?? 0),
+      "Status": o.status,
+      "Notes": o.notes ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CustomDesign");
+    XLSX.writeFile(wb, `brwazwneon-custom-design-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  return (
+    <div>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Total orders" value={stats.total} />
+        <StatCard label="Revenue" value={`${Math.round(stats.revenue)} EGP`} />
+        <StatCard label="New" value={stats.newCount} />
+        <StatCard label="Images uploaded" value={stats.images} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search order #, name, phone…"
+            className="w-64 rounded-sm border border-border bg-background py-2 pl-8 pr-3 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <select
+          value={govFilter}
+          onChange={(e) => setGovFilter(e.target.value)}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">All governorates</option>
+          {governorates.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <button
+          onClick={exportExcel}
+          className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <Download className="h-4 w-4" /> Export Excel
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>All</FilterPill>
+        {STATUSES.map((s) => (
+          <FilterPill key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>{s}</FilterPill>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+          No custom design orders yet.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-sm border border-border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-xs uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-3 text-left">Order #</th>
+                  <th className="px-3 py-3 text-left">When</th>
+                  <th className="px-3 py-3 text-left">Customer</th>
+                  <th className="px-3 py-3 text-left">Address</th>
+                  <th className="px-3 py-3 text-left">Spec</th>
+                  <th className="px-3 py-3 text-left">Images</th>
+                  <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3 text-left">Status</th>
+                  <th className="px-3 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((o) => (
+                  <tr key={o.id} className="border-t border-border align-top">
+                    <td className="px-3 py-3 font-mono text-xs">{o.order_number ?? "—"}</td>
+                    <td className="px-3 py-3 text-xs text-muted-foreground">
+                      {new Date(o.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-medium">{o.customer_name}</div>
+                      <div className="text-xs text-muted-foreground">{o.phone}</div>
+                    </td>
+                    <td className="px-3 py-3 text-xs">
+                      <div>{o.governorate}</div>
+                      <div className="text-muted-foreground">{o.address}</div>
+                    </td>
+                    <td className="px-3 py-3 text-xs">
+                      <div>{o.frame_type}</div>
+                      <div className="text-muted-foreground">{o.size} · {o.frame_color}</div>
+                    </td>
+                    <td className="px-3 py-3 text-xs">{o.image_paths?.length ?? 0}</td>
+                    <td className="px-3 py-3 text-right font-semibold">{o.total_price} EGP</td>
+                    <td className="px-3 py-3">
+                      <select
+                        value={o.status}
+                        onChange={(e) => setStatus(o, e.target.value)}
+                        className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                      >
+                        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {viewing && (
+        <CustomOrderModal order={viewing} onClose={() => setViewing(null)} />
+      )}
+    </div>
+  );
+}
+
+function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () => void }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const paths = order.image_paths ?? [];
+      if (paths.length === 0) {
+        if (!cancelled) { setUrls([]); setLoading(false); }
+        return;
+      }
+      const out: string[] = [];
+      // sign in batches of 50
+      for (let i = 0; i < paths.length; i += 50) {
+        const batch = paths.slice(i, i + 50);
+        const { data, error } = await supabase.storage
+          .from("custom-designs")
+          .createSignedUrls(batch, 60 * 60 * 24);
+        if (error) { toast.error(error.message); break; }
+        for (const d of data ?? []) out.push(d.signedUrl ?? "");
+      }
+      if (!cancelled) { setUrls(out); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [order.id, order.image_paths]);
+
+  const downloadOne = async (path: string) => {
+    const { data, error } = await supabase.storage.from("custom-designs").download(path);
+    if (error || !data) return toast.error(error?.message ?? "Download failed");
+    const blobUrl = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = path.split("/").pop() ?? "image";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
+
+  const downloadAll = async () => {
+    for (const p of order.image_paths ?? []) {
+      // eslint-disable-next-line no-await-in-loop
+      await downloadOne(p);
+    }
+  };
+
+  return (
+    <Modal title={`Custom order ${order.order_number ?? order.id.slice(0, 8)}`} onClose={onClose}>
+      <div className="space-y-2 text-sm">
+        <Row k="Date" v={new Date(order.created_at).toLocaleString()} />
+        <Row k="Customer" v={order.customer_name} />
+        <Row k="Phone" v={order.phone} />
+        <Row k="Governorate" v={order.governorate} />
+        <Row k="Address" v={order.address} />
+        <Row k="Frame" v={`${order.frame_type} · ${order.size} · ${order.frame_color}`} />
+        <Row k="Images" v={String(order.image_paths?.length ?? 0)} />
+        <Row k="Unit price" v={`${order.unit_price} EGP`} />
+        <Row k="Subtotal" v={`${order.subtotal} EGP`} />
+        <Row k="Shipping" v={`${order.shipping_cost ?? 0} EGP`} />
+        <Row k="Total" v={`${order.total_price} EGP`} />
+        <Row k="Status" v={order.status} />
+        {order.notes && <Row k="Notes" v={order.notes} />}
+      </div>
+
+      <div className="mt-5 flex items-center justify-between">
+        <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Uploaded photos</h4>
+        <button
+          onClick={downloadAll}
+          disabled={loading || urls.length === 0}
+          className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent disabled:opacity-50"
+        >
+          <Download className="h-3.5 w-3.5" /> Download all
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="mt-4 py-8 text-center text-sm text-muted-foreground">Loading images…</div>
+      ) : urls.length === 0 ? (
+        <div className="mt-4 py-8 text-center text-sm text-muted-foreground">No images.</div>
+      ) : (
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {urls.map((url, i) => (
+            <div key={i} className="group relative aspect-square overflow-hidden rounded-sm border border-border bg-muted">
+              <a href={url} target="_blank" rel="noreferrer">
+                <SafeImage src={url} alt="" className="h-full w-full object-cover" />
+              </a>
+              <button
+                onClick={() => downloadOne(order.image_paths[i])}
+                className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 transition group-hover:opacity-100"
+                aria-label="Download"
+                title="Download original"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <div className="absolute left-1 top-1 rounded-full bg-background/80 px-1.5 py-0.5 text-[10px]">#{i + 1}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex justify-between gap-4 border-b border-border py-1.5">
