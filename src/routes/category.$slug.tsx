@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories, descendantIds, type Category } from "@/lib/use-categories";
