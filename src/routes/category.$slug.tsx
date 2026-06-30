@@ -23,6 +23,7 @@ import { PosterBadge } from "@/components/PosterBadge";
 import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
+import { CustomerReviews } from "@/components/CustomerReviews";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
@@ -330,6 +331,7 @@ function CategoryPage() {
       />
     )}
     <RecentlyViewed />
+    <CustomerReviews posterId={selectedPosters[0]?.id} />
     </>
   );
 }
