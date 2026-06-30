@@ -2247,3 +2247,448 @@ function WishlistsTab() {
     </div>
   );
 }
+
+/* ---------- REVIEWS ---------- */
+
+type ReviewRow = {
+  id: string;
+  customer_name: string;
+  governorate: string | null;
+  rating: number;
+  review_text: string | null;
+  photo_url: string | null;
+  poster_id: string | null;
+  approved: boolean;
+  featured: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+type StatusFilter = "all" | "approved" | "hidden" | "highlighted";
+
+function ReviewsTab() {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState<number | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<ReviewRow | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const { data: reviews = [], isLoading } = useQuery({
+    queryKey: ["admin-reviews"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .order("featured", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ReviewRow[];
+    },
+  });
+
+  const { data: posters = [] } = useQuery({
+    queryKey: ["admin-reviews-posters"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("posters")
+        .select("id,title")
+        .order("title")
+        .limit(1000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const filtered = reviews.filter((r) => {
+    if (search && !r.customer_name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (ratingFilter !== "all" && r.rating !== ratingFilter) return false;
+    if (statusFilter === "approved" && !r.approved) return false;
+    if (statusFilter === "hidden" && r.approved) return false;
+    if (statusFilter === "highlighted" && !r.featured) return false;
+    return true;
+  });
+
+  async function update(id: string, patch: Partial<ReviewRow>) {
+    const { error } = await supabase.from("reviews").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+    qc.invalidateQueries({ queryKey: ["reviews"] });
+  }
+
+  async function remove(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} review(s)?`)) return;
+    const { error } = await supabase.from("reviews").delete().in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${ids.length} review(s)`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+    qc.invalidateQueries({ queryKey: ["reviews"] });
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-display text-2xl">Customer Reviews</h2>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            {filtered.length} of {reviews.length} review(s)
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => { setEditing(null); setShowForm(true); }}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add Review
+          </button>
+          {selected.size > 0 && (
+            <button
+              onClick={() => remove(Array.from(selected))}
+              className="inline-flex items-center gap-2 rounded-sm border border-destructive px-4 py-2 text-xs font-semibold uppercase tracking-widest text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" /> Delete {selected.size}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* FILTERS */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by customer name"
+            className="w-64 rounded-sm border border-border bg-background px-3 py-2 pl-9 text-sm"
+          />
+        </div>
+        <select
+          value={ratingFilter}
+          onChange={(e) => setRatingFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">All ratings</option>
+          {[5, 4, 3, 2, 1].map((r) => (
+            <option key={r} value={r}>{r} ★</option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">All statuses</option>
+          <option value="approved">Approved</option>
+          <option value="hidden">Hidden</option>
+          <option value="highlighted">Highlighted</option>
+        </select>
+      </div>
+
+      {/* TABLE */}
+      <div className="overflow-x-auto rounded-sm border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/30 text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="p-3 w-8">
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && filtered.every((r) => selected.has(r.id))}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelected(new Set(filtered.map((r) => r.id)));
+                    else setSelected(new Set());
+                  }}
+                />
+              </th>
+              <th className="p-3">Photo</th>
+              <th className="p-3">Customer</th>
+              <th className="p-3">Rating</th>
+              <th className="p-3">Review</th>
+              <th className="p-3">Status</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && (
+              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading…</td></tr>
+            )}
+            {!isLoading && filtered.length === 0 && (
+              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No reviews match these filters.</td></tr>
+            )}
+            {filtered.map((r) => (
+              <tr key={r.id} className="border-t border-border align-top">
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(r.id)}
+                    onChange={() => toggleSelect(r.id)}
+                  />
+                </td>
+                <td className="p-3">
+                  {r.photo_url ? (
+                    <SafeImage src={r.photo_url} alt="" className="h-14 w-14 object-cover" />
+                  ) : (
+                    <div className="h-14 w-14 bg-muted" />
+                  )}
+                </td>
+                <td className="p-3">
+                  <div className="font-semibold">{r.customer_name}</div>
+                  <div className="text-xs text-muted-foreground">{r.governorate ?? "—"}</div>
+                </td>
+                <td className="p-3 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    {r.rating} <Star className="h-3 w-3 fill-primary text-primary" />
+                  </span>
+                </td>
+                <td className="p-3 max-w-md">
+                  <div className="line-clamp-2 text-xs text-foreground/80">{r.review_text}</div>
+                </td>
+                <td className="p-3 space-y-1 text-[10px] uppercase tracking-widest">
+                  <div className={r.approved ? "text-green-500" : "text-muted-foreground"}>
+                    {r.approved ? "Approved" : "Hidden"}
+                  </div>
+                  {r.featured && <div className="text-primary">⭐ Featured</div>}
+                </td>
+                <td className="p-3 text-right">
+                  <div className="inline-flex flex-wrap justify-end gap-1">
+                    <button
+                      onClick={() => update(r.id, { approved: !r.approved })}
+                      className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
+                      title={r.approved ? "Hide" : "Approve"}
+                    >
+                      {r.approved ? "Hide" : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => update(r.id, { featured: !r.featured })}
+                      className={cn(
+                        "rounded-sm border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent",
+                        r.featured ? "border-primary text-primary" : "border-border",
+                      )}
+                      title="Toggle highlight"
+                    >
+                      {r.featured ? "Unhighlight" : "Highlight"}
+                    </button>
+                    <button
+                      onClick={() => { setEditing(r); setShowForm(true); }}
+                      className="rounded-sm border border-border p-1 hover:bg-accent"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => remove([r.id])}
+                      className="rounded-sm border border-destructive p-1 text-destructive hover:bg-destructive/10"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && (
+        <ReviewForm
+          initial={editing}
+          posters={posters as { id: string; title: string }[]}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+            qc.invalidateQueries({ queryKey: ["reviews"] });
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReviewForm({
+  initial,
+  posters,
+  onClose,
+  onSaved,
+}: {
+  initial: ReviewRow | null;
+  posters: { id: string; title: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [customerName, setCustomerName] = useState(initial?.customer_name ?? "");
+  const [governorate, setGovernorate] = useState(initial?.governorate ?? "");
+  const [rating, setRating] = useState(initial?.rating ?? 5);
+  const [reviewText, setReviewText] = useState(initial?.review_text ?? "");
+  const [posterId, setPosterId] = useState(initial?.poster_id ?? "");
+  const [approved, setApproved] = useState(initial?.approved ?? true);
+  const [featured, setFeatured] = useState(initial?.featured ?? false);
+  const [photoUrl, setPhotoUrl] = useState(initial?.photo_url ?? "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!customerName.trim()) return toast.error("Customer name required");
+    setSaving(true);
+    try {
+      let finalPhoto = photoUrl;
+      if (photoFile) {
+        const ext = photoFile.name.split(".").pop() || "jpg";
+        const path = `${crypto.randomUUID()}.${ext}`;
+        finalPhoto = await uploadAndSign("reviews", path, photoFile);
+      }
+      const payload = {
+        customer_name: customerName.trim(),
+        governorate: governorate.trim() || null,
+        rating: Math.max(1, Math.min(5, rating)),
+        review_text: reviewText.trim() || null,
+        poster_id: posterId || null,
+        approved,
+        featured,
+        photo_url: finalPhoto || null,
+      };
+      if (initial) {
+        const { error } = await supabase.from("reviews").update(payload).eq("id", initial.id);
+        if (error) throw error;
+        toast.success("Review updated");
+      } else {
+        const { error } = await supabase.from("reviews").insert(payload);
+        if (error) throw error;
+        toast.success("Review added");
+      }
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-2xl space-y-4 rounded-sm border border-border bg-background p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-display text-2xl">{initial ? "Edit" : "Add"} Review</h3>
+          <button onClick={onClose} className="rounded-sm border border-border p-2 hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs uppercase tracking-widest space-y-1">
+            <span>Customer name *</span>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm normal-case"
+            />
+          </label>
+          <label className="text-xs uppercase tracking-widest space-y-1">
+            <span>Governorate</span>
+            <input
+              value={governorate}
+              onChange={(e) => setGovernorate(e.target.value)}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm normal-case"
+            />
+          </label>
+          <label className="text-xs uppercase tracking-widest space-y-1">
+            <span>Rating</span>
+            <select
+              value={rating}
+              onChange={(e) => setRating(Number(e.target.value))}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} ★</option>)}
+            </select>
+          </label>
+          <label className="text-xs uppercase tracking-widest space-y-1">
+            <span>Related poster</span>
+            <select
+              value={posterId}
+              onChange={(e) => setPosterId(e.target.value)}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm normal-case"
+            >
+              <option value="">— None —</option>
+              {posters.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="block text-xs uppercase tracking-widest space-y-1">
+          <span>Review text</span>
+          <textarea
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            rows={4}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm normal-case"
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs uppercase tracking-widest space-y-1">
+            <span>Customer photo</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              className="w-full text-xs"
+            />
+            {(photoFile || photoUrl) && (
+              <div className="mt-2 flex items-center gap-2">
+                <SafeImage
+                  src={photoFile ? URL.createObjectURL(photoFile) : photoUrl}
+                  alt=""
+                  className="h-16 w-16 object-cover"
+                />
+                {photoUrl && !photoFile && (
+                  <button
+                    type="button"
+                    onClick={() => setPhotoUrl("")}
+                    className="text-[10px] uppercase tracking-widest text-destructive"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            )}
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+              <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
+              Approved (visible on site)
+            </label>
+            <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              ⭐ Highlight as Featured
+            </label>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
