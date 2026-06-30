@@ -191,6 +191,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string | null
+          edit_settings: Json
           featured: boolean
           hidden: boolean
           id: string
@@ -210,6 +211,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          edit_settings?: Json
           featured?: boolean
           hidden?: boolean
           id?: string
@@ -229,6 +231,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          edit_settings?: Json
           featured?: boolean
           hidden?: boolean
           id?: string

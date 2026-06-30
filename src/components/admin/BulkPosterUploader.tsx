@@ -1,10 +1,18 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
 import { useCategories, type Category } from "@/lib/use-categories";
+import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import {
+  DEFAULT_EDIT_SETTINGS,
+  isDefaultEdit,
+  loadImage,
+  renderEditToBlob,
+  type EditSettings,
+} from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
 
 type ItemStatus = "pending" | "optimizing" | "uploading" | "done" | "failed";
@@ -16,6 +24,7 @@ type UploadItem = {
   status: ItemStatus;
   error?: string;
   posterId?: string;
+  edit?: EditSettings;
 };
 
 const CONCURRENCY = 4;
@@ -29,6 +38,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [running, setRunning] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const mainCategories = useMemo(
@@ -103,7 +113,18 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
         if (!current) continue;
         try {
           update(id, { status: "optimizing", error: undefined });
-          const optimized = await optimizeImage(current.file, { maxDim: 2000, quality: 0.85 });
+          // If admin edited this image, render edits to a flattened JPEG and
+          // optimize that; otherwise optimize the source directly.
+          let toOptimize: File = current.file;
+          if (current.edit && !isDefaultEdit(current.edit)) {
+            const img = await loadImage(current.preview);
+            // Render at a sensible print resolution (2:3 ratio @ ~2000px tall).
+            const outH = 2400;
+            const outW = Math.round(outH * current.edit.ratio);
+            const blob = await renderEditToBlob(img, current.edit, outW, outH, 0.92);
+            toOptimize = new File([blob], current.file.name.replace(/\.[^.]+$/, "") + "-edited.jpg", { type: "image/jpeg" });
+          }
+          const optimized = await optimizeImage(toOptimize, { maxDim: 2000, quality: 0.85 });
 
           update(id, { status: "uploading" });
           const uid = crypto.randomUUID();
@@ -129,6 +150,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
               image_url: webUrl,
               original_url: originalUrl,
               tags,
+              edit_settings: (current.edit ?? {}) as never,
             })
             .select("id")
             .single();
@@ -349,18 +371,42 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
 
           <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {items.map((it) => (
-              <ItemTile key={it.id} item={it} onRemove={() => removeItem(it.id)} disabled={running} />
+              <ItemTile
+                key={it.id}
+                item={it}
+                onRemove={() => removeItem(it.id)}
+                onEdit={() => setEditingId(it.id)}
+                disabled={running}
+              />
             ))}
           </div>
         </>
       )}
+
+      {editingId && (() => {
+        const it = items.find((x) => x.id === editingId);
+        if (!it) return null;
+        return (
+          <PosterImageEditor
+            source={it.file}
+            initial={it.edit}
+            onCancel={() => setEditingId(null)}
+            onSave={(s) => {
+              update(it.id, { edit: s });
+              setEditingId(null);
+              toast.success("Edits saved — applied on upload");
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
 
 function ItemTile({
-  item, onRemove, disabled,
-}: { item: UploadItem; onRemove: () => void; disabled: boolean }) {
+  item, onRemove, onEdit, disabled,
+}: { item: UploadItem; onRemove: () => void; onEdit: () => void; disabled: boolean }) {
+  const edited = !!item.edit && !isDefaultEdit({ ...DEFAULT_EDIT_SETTINGS, ...item.edit });
   return (
     <div
       className={cn(
@@ -376,6 +422,22 @@ function ItemTile({
       <div className="aspect-square bg-muted">
         <img src={item.preview} alt="" className="h-full w-full object-cover" />
       </div>
+      {edited && (
+        <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">
+          Edited
+        </span>
+      )}
+      {!disabled && item.status !== "done" && item.status !== "uploading" && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="absolute right-1 top-1 rounded-sm bg-background/80 p-1 text-foreground opacity-0 transition group-hover:opacity-100"
+          aria-label="Edit image"
+          title="Edit image"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-background/85 px-1.5 py-1 text-[10px]">
         <StatusBadge status={item.status} />
         {!disabled && item.status !== "done" && (

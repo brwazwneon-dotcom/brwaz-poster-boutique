@@ -1,0 +1,1 @@
+ALTER TABLE public.posters ADD COLUMN IF NOT EXISTS edit_settings jsonb NOT NULL DEFAULT '{}'::jsonb;
