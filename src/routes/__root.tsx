@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "@/lib/cart";
 import { WishlistProvider } from "@/lib/wishlist";
+import { RecentlyViewedProvider } from "@/lib/recently-viewed";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
@@ -134,15 +135,17 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <WishlistProvider>
-          <div className="flex min-h-screen flex-col">
+          <RecentlyViewedProvider>
+            <div className="flex min-h-screen flex-col">
           <SiteHeader />
           <main className="flex-1">
             <Outlet />
           </main>
           <SiteFooter />
-          </div>
-          <WhatsAppButton />
-          <Toaster richColors position="top-center" />
+            </div>
+            <WhatsAppButton />
+            <Toaster richColors position="top-center" />
+          </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
     </QueryClientProvider>

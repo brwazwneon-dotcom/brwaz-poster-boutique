@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCategories } from "@/lib/use-categories";
 import hero from "@/assets/hero.jpg";
 import { HomeSlider } from "@/components/HomeSlider";
+import { RecentlyViewed } from "@/components/RecentlyViewed";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -141,6 +142,9 @@ function Index() {
           </div>
         </div>
       </section>
+
+      {/* RECENTLY VIEWED */}
+      <RecentlyViewed />
     </div>
   );
 }
