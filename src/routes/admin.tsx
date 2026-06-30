@@ -566,6 +566,12 @@ function EditPosterModal({
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
   const [saving, setSaving] = useState(false);
+  const [editArt, setEditArt] = useState(false);
+  const [artSaving, setArtSaving] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState(poster.image_url);
+  const [currentEdit, setCurrentEdit] = useState<EditSettings>(() => normalizeEditSettings(poster.edit_settings));
+  // Prefer the untouched original for re-editing; fall back to current image.
+  const editorSource = poster.original_url || currentImageUrl;
 
   const save = async () => {
     setSaving(true);
@@ -586,10 +592,45 @@ function EditPosterModal({
     onSaved();
   };
 
+  const saveArtwork = async (s: EditSettings) => {
+    setArtSaving(true);
+    try {
+      const img = await loadImage(editorSource);
+      const outH = 2400;
+      const outW = Math.round(outH * s.ratio);
+      const blob = await renderEditToBlob(img, s, outW, outH, 0.92);
+      const file = new File([blob], `${poster.id}-edited.jpg`, { type: "image/jpeg" });
+      const path = `edits/${poster.id}/${Date.now()}.jpg`;
+      const newUrl = await uploadAndSign("posters", path, file);
+      const { error } = await supabase
+        .from("posters")
+        .update({ image_url: newUrl, edit_settings: s as never })
+        .eq("id", poster.id);
+      if (error) throw error;
+      setCurrentImageUrl(newUrl);
+      setCurrentEdit(s);
+      setEditArt(false);
+      toast.success("Artwork updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save artwork");
+    } finally {
+      setArtSaving(false);
+    }
+  };
+
   return (
     <Modal onClose={onClose} title="Edit poster">
       <div className="flex gap-4">
-        <SafeImage src={poster.image_url} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
+        <div className="flex flex-col items-center gap-2">
+          <SafeImage src={currentImageUrl} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
+          <button
+            type="button"
+            onClick={() => setEditArt(true)}
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
+          >
+            <Pencil className="h-3 w-3" /> Edit artwork
+          </button>
+        </div>
         <div className="flex-1 space-y-3">
           <label className="block">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Title</span>
@@ -654,6 +695,15 @@ function EditPosterModal({
           <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
         </button>
       </div>
+      {editArt && (
+        <PosterImageEditor
+          source={editorSource}
+          initial={currentEdit}
+          onCancel={() => setEditArt(false)}
+          onSave={saveArtwork}
+          saving={artSaving}
+        />
+      )}
     </Modal>
   );
 }
