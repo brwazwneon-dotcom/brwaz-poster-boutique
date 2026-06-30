@@ -599,6 +599,159 @@ export function AnalyticsTab({ onNavigate }: { onNavigate?: (tab: AdminTab) => v
         <KpiCard label="White Frame Orders" value={fmtNum(data.conversions.white_frame)} icon={<Frame className="h-4 w-4" />} />
       </div>
 
+      {/* Customer KPIs + order status grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <KpiCard label="Total Customers" value={fmtNum(data.customers?.total_customers ?? 0)} icon={<Users className="h-4 w-4" />} accent="info" />
+        <KpiCard label="Returning Customers" value={fmtNum(data.customers?.returning_customers ?? 0)} icon={<Repeat className="h-4 w-4" />} accent="success" />
+        <KpiCard label="New Customers (30d)" value={fmtNum(data.customers?.new_customers ?? 0)} icon={<Sparkles className="h-4 w-4" />} accent="success" />
+        <KpiCard label="Weekly Revenue" value={fmtEGP(data.revenue_week)} icon={<Calendar className="h-4 w-4" />} accent="success" />
+        <KpiCard label="Total Revenue" value={fmtEGP(data.revenue_total)} icon={<Banknote className="h-4 w-4" />} accent="success" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <KpiCard label="Pending" value={fmtNum(data.orders_pending)} icon={<Clock className="h-4 w-4" />} accent="warning" onClick={goto("orders")} />
+        <KpiCard label="Processing" value={fmtNum(data.orders_processing ?? 0)} icon={<Activity className="h-4 w-4" />} accent="info" onClick={goto("orders")} />
+        <KpiCard label="Printed" value={fmtNum(data.orders_printed ?? 0)} icon={<Package className="h-4 w-4" />} accent="info" onClick={goto("orders")} />
+        <KpiCard label="Shipped" value={fmtNum(data.orders_shipped ?? 0)} icon={<Truck className="h-4 w-4" />} accent="info" onClick={goto("orders")} />
+        <KpiCard label="Delivered" value={fmtNum(data.orders_delivered ?? 0)} icon={<CheckCircle2 className="h-4 w-4" />} accent="success" onClick={goto("orders")} />
+        <KpiCard label="Completed" value={fmtNum(data.orders_completed)} icon={<CheckCircle2 className="h-4 w-4" />} accent="success" onClick={goto("orders")} />
+        <KpiCard label="Cancelled" value={fmtNum(data.orders_cancelled)} icon={<XCircle className="h-4 w-4" />} accent="danger" onClick={goto("orders")} />
+      </div>
+
+      {/* AI Business Insights */}
+      <Panel title="AI Business Insights" icon={<Lightbulb className="h-4 w-4 text-amber-300" />}>
+        {insights.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Insights will appear once you have more sales data.</div>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {insights.map((s, i) => (
+              <li key={i} className="rounded-sm border border-border/60 bg-background/40 p-3 text-xs leading-relaxed">
+                <span className="mr-2 inline-flex items-center rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">Insight</span>
+                {s}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {/* Profit analytics */}
+      <ProfitPanel data={data} onSaved={refetch} />
+
+      {/* Extra performers + lowest + sizes */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Panel title="Top Selling Sizes" icon={<Package className="h-4 w-4 text-muted-foreground" />}>
+          {(data.top_sizes ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">No size data yet.</div>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data.top_sizes ?? []).map((s) => (
+                <li key={s.size} className="flex items-center justify-between py-2">
+                  <span className="font-medium">{s.size}</span>
+                  <span className="text-[11px] text-muted-foreground">{fmtNum(s.orders)} orders · {fmtEGP(s.revenue)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel title="Top Sub Categories" icon={<FolderTree className="h-4 w-4 text-muted-foreground" />}>
+          {(data.top_subcategories ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">No sub-category sales yet.</div>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data.top_subcategories ?? []).slice(0, 8).map((c) => (
+                <li key={c.id} className="flex items-center justify-between py-2">
+                  <Link to="/category/$slug" params={{ slug: c.slug }} className="truncate hover:text-primary">{c.name}</Link>
+                  <span className="text-[11px] text-muted-foreground">{fmtNum(c.sales)} sold</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel title="Lowest Performing" icon={<TrendingDown className="h-4 w-4 text-rose-300" />}>
+          {(data.lowest_performing ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">All posters are converting — nice.</div>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data.lowest_performing ?? []).slice(0, 6).map((p) => (
+                <li key={p.id} className="flex items-center gap-3 py-2">
+                  <SafeImage src={p.image_url} alt={p.title} className="h-10 w-8 rounded-sm border border-border object-cover" loading="lazy" />
+                  <span className="flex-1 truncate">{p.title}</span>
+                  <span className="rounded-sm bg-rose-500/15 px-2 py-0.5 text-[11px] text-rose-200">{fmtNum(p.views_count)} views · 0 sales</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
+      {/* Top cities + returning customers + no-result searches */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Panel title="Top Cities" icon={<MapPin className="h-4 w-4 text-muted-foreground" />}>
+          {(data.top_cities ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">No order locations yet.</div>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data.top_cities ?? []).slice(0, 8).map((c) => (
+                <li key={c.city} className="flex items-center justify-between py-2">
+                  <span className="truncate">{c.city}</span>
+                  <span className="text-[11px] text-muted-foreground">{fmtNum(c.orders)} · {fmtEGP(c.revenue)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel title="Most Returning Customers" icon={<Repeat className="h-4 w-4 text-muted-foreground" />}>
+          {(data.top_returning ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">No returning customers yet.</div>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data.top_returning ?? []).map((c, i) => (
+                <li key={i} className="flex items-center justify-between py-2">
+                  <div className="min-w-0">
+                    <div className="truncate">{c.name}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">{c.phone ?? "—"} · {c.gov ?? "—"}</div>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{fmtNum(c.orders)}× · {fmtEGP(c.spent)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel title="Searches with No Results" icon={<AlertCircle className="h-4 w-4 text-amber-300" />}>
+          {(data.no_result_searches ?? []).length === 0 ? (
+            <div className="text-xs text-muted-foreground">Every search returned results 👌</div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {(data.no_result_searches ?? []).map((s) => (
+                <span key={s.q} className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-200">
+                  {s.q} <span className="opacity-70">×{s.c}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {/* Live activity feed */}
+      <Panel
+        title="Live Activity"
+        icon={<Bell className="h-4 w-4 text-emerald-300" />}
+        action={<span className="text-[10px] uppercase tracking-widest text-muted-foreground">Auto-refreshing</span>}
+      >
+        <ul className="divide-y divide-border/60 text-sm">
+          {buildLiveFeed(data).slice(0, 12).map((a, i) => (
+            <li key={i} className="flex items-center gap-3 py-2">
+              <span className={`grid h-7 w-7 place-items-center rounded-full ${a.tone}`}>{a.icon}</span>
+              <span className="flex-1 truncate">{a.text}</span>
+              <span className="text-[10px] text-muted-foreground">{fmtTime(a.at)}</span>
+            </li>
+          ))}
+          {buildLiveFeed(data).length === 0 && (
+            <li className="py-2 text-xs text-muted-foreground">Activity will appear here as it happens.</li>
+          )}
+        </ul>
+      </Panel>
+
       {/* Recent feeds */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
