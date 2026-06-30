@@ -23,6 +23,7 @@ import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
+import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "posters" | "categories" | "orders" | "custom" | "slider" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "settings";
+type Tab = "analytics" | "posters" | "categories" | "orders" | "custom" | "slider" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ function AdminPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("posters");
+  const [tab, setTab] = useState<Tab>("analytics");
 
   useEffect(() => {
     (async () => {
@@ -125,7 +126,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["posters", "categories", "orders", "custom", "slider", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "categories", "orders", "custom", "slider", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -142,6 +143,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8">
+        {tab === "analytics" && <AnalyticsTab />}
         {tab === "posters" && <PostersTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
