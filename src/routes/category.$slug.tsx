@@ -445,13 +445,13 @@ function Customizer({
         </button>
       </div>
       <div className="mt-4 mx-auto w-full max-w-[260px]">
-        <FramePreview
+        <PosterGallery
+          posterId={primary.id}
           posterUrl={primary.image_url}
           title={primary.title}
           frameType={frameType}
           color={color}
           editSettings={primary.edit_settings}
-          loading="eager"
         />
       </div>
       {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
