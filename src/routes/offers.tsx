@@ -10,6 +10,7 @@ import { useCategories } from "@/lib/use-categories";
 import { FRAME_COLORS, FRAME_TYPES, type FrameColorId, type FrameTypeId, type SizeId } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
+import { usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/offers")({
   head: () => ({
@@ -22,24 +23,22 @@ export const Route = createFileRoute("/offers")({
   component: OffersPage,
 });
 
-const BUNDLES = [
-  {
-    key: "bundle-6-20x30" as const,
-    title: "6 Frames Bundle",
-    sizeLabel: "20 × 30 cm",
-    size: "20x30" as SizeId,
-    count: 6,
-    price: 790,
-  },
-  {
-    key: "bundle-4-30x40" as const,
-    title: "4 Frames Bundle",
-    sizeLabel: "30 × 40 cm",
-    size: "30x40" as SizeId,
-    count: 4,
-    price: 890,
-  },
-];
+type Bundle = {
+  key: "bundle-6-20x30" | "bundle-4-30x40";
+  title: string;
+  sizeLabel: string;
+  size: SizeId;
+  count: number;
+  price: number;
+};
+
+function useBundles(): Bundle[] {
+  const pricing = usePricing();
+  return [
+    { key: "bundle-6-20x30", title: "6 Frames Bundle", sizeLabel: "20 × 30 cm", size: "20x30", count: 6, price: pricing.offers.bundle6_20x30 },
+    { key: "bundle-4-30x40", title: "4 Frames Bundle", sizeLabel: "30 × 40 cm", size: "30x40", count: 4, price: pricing.offers.bundle4_30x40 },
+  ];
+}
 
 type Poster = {
   id: string;
@@ -51,8 +50,9 @@ type Poster = {
 const PAGE_SIZE = 48;
 
 function OffersPage() {
-  const [bundleKey, setBundleKey] = useState<(typeof BUNDLES)[number]["key"] | null>(null);
-  const bundle = BUNDLES.find((b) => b.key === bundleKey) ?? null;
+  const bundles = useBundles();
+  const [bundleKey, setBundleKey] = useState<Bundle["key"] | null>(null);
+  const bundle = bundles.find((b) => b.key === bundleKey) ?? null;
 
   return (
     <div className="container-page py-16">
@@ -66,7 +66,7 @@ function OffersPage() {
       </p>
 
       <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
-        {BUNDLES.map((b) => {
+        {bundles.map((b) => {
           const active = bundleKey === b.key;
           return (
             <button
@@ -108,7 +108,7 @@ function OffersPage() {
 function BundleBuilder({
   bundle,
 }: {
-  bundle: (typeof BUNDLES)[number];
+  bundle: Bundle;
 }) {
   const { data: categories = [] } = useCategories();
   const [categoryId, setCategoryId] = useState<string | "all">("all");

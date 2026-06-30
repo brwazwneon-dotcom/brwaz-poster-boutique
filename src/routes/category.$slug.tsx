@@ -9,7 +9,6 @@ import {
   FRAME_COLORS,
   FRAME_TYPES,
   SIZES,
-  calcPrice,
   type FrameColorId,
   type FrameTypeId,
   type SizeId,
@@ -19,8 +18,8 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
-import { FrameEditor } from "@/components/FrameEditor";
-import { DEFAULT_EDIT_SETTINGS, type EditSettings } from "@/lib/poster-edit";
+import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
+import { usePricing, priceForFrame } from "@/lib/use-settings";
 
 type Poster = {
   id: string;
@@ -28,6 +27,7 @@ type Poster = {
   image_url: string;
   category_id: string | null;
   tags?: string[] | null;
+  edit_settings?: unknown;
 };
 
 const PAGE_SIZE = 48;
@@ -97,7 +97,7 @@ function CategoryPage() {
       const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags")
+        .select("id,title,image_url,category_id,tags,edit_settings")
         .in("category_id", includedCategoryIds)
         .eq("hidden", false)
         .order(sortDef.col, { ascending: sortDef.asc })
@@ -302,13 +302,13 @@ function Customizer({
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
-  const [edits, setEdits] = useState<Record<string, EditSettings>>({});
   const { add } = useCart();
-  const unit = calcPrice(size, frameType);
+  const pricing = usePricing();
+  const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
+  const unit = priceForFrame(pricing, frameType, size) + (isCustom ? pricing.customDesignFee : 0);
   const total = unit * posters.length;
 
   const primary = posters[0];
-  const primaryEdit = edits[primary.id] ?? DEFAULT_EDIT_SETTINGS;
 
   const handleAdd = () => {
     posters.forEach((poster) => {
@@ -322,7 +322,7 @@ function Customizer({
         size,
         color,
         price: unit,
-        editSettings: edits[poster.id] ?? DEFAULT_EDIT_SETTINGS,
+        editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
       });
     });
     toast.success(`Added ${posters.length} poster${posters.length > 1 ? "s" : ""} to cart`);
@@ -351,13 +351,13 @@ function Customizer({
         </button>
       </div>
       <div className="mt-4 mx-auto w-full max-w-[260px]">
-        <FrameEditor
+        <FramePreview
           posterUrl={primary.image_url}
           title={primary.title}
           frameType={frameType}
           color={color}
-          value={primaryEdit}
-          onChange={(v) => setEdits((m) => ({ ...m, [primary.id]: v }))}
+          editSettings={primary.edit_settings}
+          loading="eager"
         />
       </div>
       <div className="mt-3 grid grid-cols-5 gap-2">
@@ -368,7 +368,7 @@ function Customizer({
               title={p.title}
               frameType={frameType}
               color={color}
-              editSettings={edits[p.id]}
+              editSettings={p.edit_settings}
               bare
               className="h-full w-full"
             />

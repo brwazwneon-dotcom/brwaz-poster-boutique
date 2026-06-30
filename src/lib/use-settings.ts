@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { FrameTypeId, SizeId } from "@/lib/poster-options";
 
 export type SiteSettings = {
   shippingFee: number;
@@ -37,6 +38,102 @@ export function useSiteSettings() {
 
 export function computeShipping(subtotal: number, s: SiteSettings) {
   return subtotal >= s.freeShippingThreshold ? 0 : s.shippingFee;
+}
+
+/* -------------------- Admin-managed pricing -------------------- */
+
+export type Pricing = {
+  frame: Record<FrameTypeId, Record<SizeId, number>>;
+  customDesignFee: number;
+  photo: Record<"10x15" | "13x18" | "15x20", number>;
+  offers: { bundle6_20x30: number; bundle4_30x40: number };
+  shippingFee: number;
+  freeShippingThreshold: number;
+};
+
+export const PRICING_DEFAULTS: Pricing = {
+  frame: {
+    pvc:  { "20x30": 150, "30x40": 250, "40x50": 350 },
+    wood: { "20x30": 200, "30x40": 300, "40x50": 400 },
+  },
+  customDesignFee: 20,
+  photo: { "10x15": 10, "13x18": 15, "15x20": 20 },
+  offers: { bundle6_20x30: 790, bundle4_30x40: 890 },
+  shippingFee: 89,
+  freeShippingThreshold: 1600,
+};
+
+export const PRICING_KEYS = {
+  frame_pvc_20x30: ["frame", "pvc", "20x30"],
+  frame_pvc_30x40: ["frame", "pvc", "30x40"],
+  frame_pvc_40x50: ["frame", "pvc", "40x50"],
+  frame_wood_20x30: ["frame", "wood", "20x30"],
+  frame_wood_30x40: ["frame", "wood", "30x40"],
+  frame_wood_40x50: ["frame", "wood", "40x50"],
+  custom_design_fee: ["customDesignFee"],
+  photo_10x15: ["photo", "10x15"],
+  photo_13x18: ["photo", "13x18"],
+  photo_15x20: ["photo", "15x20"],
+  offer_6_20x30: ["offers", "bundle6_20x30"],
+  offer_4_30x40: ["offers", "bundle4_30x40"],
+  shipping_fee: ["shippingFee"],
+  free_shipping_threshold: ["freeShippingThreshold"],
+} as const;
+
+export function usePricing(): Pricing {
+  const q = useQuery({
+    queryKey: ["pricing"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Pricing> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key,value")
+        .in("key", Object.keys(PRICING_KEYS));
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const num = (k: keyof typeof PRICING_KEYS, fallback: number) => {
+        const v = map.get(k);
+        const n = typeof v === "number" ? v : Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const d = PRICING_DEFAULTS;
+      return {
+        frame: {
+          pvc: {
+            "20x30": num("frame_pvc_20x30", d.frame.pvc["20x30"]),
+            "30x40": num("frame_pvc_30x40", d.frame.pvc["30x40"]),
+            "40x50": num("frame_pvc_40x50", d.frame.pvc["40x50"]),
+          },
+          wood: {
+            "20x30": num("frame_wood_20x30", d.frame.wood["20x30"]),
+            "30x40": num("frame_wood_30x40", d.frame.wood["30x40"]),
+            "40x50": num("frame_wood_40x50", d.frame.wood["40x50"]),
+          },
+        },
+        customDesignFee: num("custom_design_fee", d.customDesignFee),
+        photo: {
+          "10x15": num("photo_10x15", d.photo["10x15"]),
+          "13x18": num("photo_13x18", d.photo["13x18"]),
+          "15x20": num("photo_15x20", d.photo["15x20"]),
+        },
+        offers: {
+          bundle6_20x30: num("offer_6_20x30", d.offers.bundle6_20x30),
+          bundle4_30x40: num("offer_4_30x40", d.offers.bundle4_30x40),
+        },
+        shippingFee: num("shipping_fee", d.shippingFee),
+        freeShippingThreshold: num("free_shipping_threshold", d.freeShippingThreshold),
+      };
+    },
+  });
+  return q.data ?? PRICING_DEFAULTS;
+}
+
+export function priceForFrame(
+  pricing: Pricing,
+  frameType: FrameTypeId,
+  size: SizeId,
+): number {
+  return pricing.frame[frameType]?.[size] ?? 0;
 }
 
 export type FrameMockup = {
