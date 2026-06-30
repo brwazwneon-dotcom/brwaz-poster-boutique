@@ -13,6 +13,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
+import { trackEvent, setUserData } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -80,6 +81,19 @@ function CartPage() {
       return toast.error("Please fill in all delivery fields");
 
     setSubmitting(true);
+    const contentIds = items.flatMap((i) =>
+      i.bundle ? i.bundle.posters.map((p) => p.posterId) : [i.posterId],
+    );
+    setUserData({ phone, city: governorate, country: "EG" });
+    try {
+      trackEvent("InitiateCheckout", {
+        content_ids: contentIds,
+        contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
+        num_items: items.reduce((s, i) => s + i.qty, 0),
+        value: grand,
+        currency: "EGP",
+      }, { phone, city: governorate, country: "EG" });
+    } catch { /* noop */ }
     try {
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const rows = items.map((i) => {
@@ -109,6 +123,23 @@ function CartPage() {
       });
       const { error } = await supabase.from("orders").insert(rows);
       if (error) throw error;
+
+      // Purchase event — once order is persisted.
+      try {
+        trackEvent("Purchase", {
+          content_ids: contentIds,
+          contents: items.map((i) => ({
+            id: i.posterId,
+            quantity: i.qty,
+            item_price: i.price,
+          })),
+          content_type: "product",
+          num_items: items.reduce((s, i) => s + i.qty, 0),
+          value: grand,
+          currency: "EGP",
+          order_id: `BRW-${Date.now()}`,
+        }, { phone, city: governorate, country: "EG" });
+      } catch { /* noop */ }
 
       // Bump purchase counts for posters in this order (non-blocking).
       try {
