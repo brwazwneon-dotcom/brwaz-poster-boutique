@@ -317,6 +317,8 @@ export function AnalyticsTab({ onNavigate }: { onNavigate?: (tab: AdminTab) => v
     day: fmtShort(d.day), orders: d.orders, revenue: Number(d.revenue), visitors: d.visitors,
   }));
 
+  const insights = buildInsights(data);
+
   return (
     <div className="space-y-8">
       {/* Header */}
