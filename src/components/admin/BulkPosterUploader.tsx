@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil } from "lucide-react";
+import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -14,8 +14,10 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
+import { generatePosterMeta } from "@/lib/poster-ai.functions";
 
 type ItemStatus = "pending" | "optimizing" | "uploading" | "done" | "failed";
+type AiStatus = "idle" | "pending" | "generated" | "needs_review" | "failed";
 
 type UploadItem = {
   id: string;
@@ -25,6 +27,9 @@ type UploadItem = {
   error?: string;
   posterId?: string;
   edit?: EditSettings;
+  ai?: AiStatus;
+  aiError?: string;
+  aiTitle?: string;
 };
 
 const CONCURRENCY = 4;
@@ -49,6 +54,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
     () => categories.filter((c) => c.parent_id === mainCategoryId),
     [categories, mainCategoryId],
   );
+  const [aiEnabled, setAiEnabled] = useState(true);
 
   const effectiveCategoryId = subCategoryId || mainCategoryId;
   const effectiveCategory = categories.find((c) => c.id === effectiveCategoryId);
@@ -156,7 +162,12 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
             .single();
           if (insErr) throw insErr;
 
-          update(id, { status: "done", posterId: inserted?.id });
+          update(id, { status: "done", posterId: inserted?.id, ai: aiEnabled ? "pending" : "idle" });
+
+          if (aiEnabled && inserted?.id) {
+            // Fire-and-forget AI generation; do not block other uploads.
+            void runAiForPoster(id, inserted.id, webUrl, current.file.name);
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Upload failed";
           console.error("Upload failed", current.file.name, err);
@@ -175,6 +186,62 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
     const fail = final.filter((i) => ids.includes(i.id) && i.status === "failed").length;
     if (ok > 0) toast.success(`Uploaded ${ok} poster${ok === 1 ? "" : "s"}`);
     if (fail > 0) toast.error(`${fail} failed — click Retry to try again`);
+  };
+
+  const runAiForPoster = async (
+    itemId: string,
+    posterId: string,
+    imageUrl: string,
+    filename: string,
+  ) => {
+    try {
+      const meta = await generatePosterMeta({
+        data: {
+          imageUrl,
+          filename,
+          categories: categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            parent_id: c.parent_id ?? null,
+          })),
+        },
+      });
+      const patch: {
+        title: string;
+        description: string | null;
+        seo_title: string | null;
+        seo_description: string | null;
+        tags?: string[];
+        category_id?: string;
+      } = {
+        title: meta.title,
+        description: meta.description || null,
+        seo_title: meta.seo_title || null,
+        seo_description: meta.seo_description || null,
+      };
+      if (meta.tags.length > 0) {
+        // Merge AI tags with admin-entered ones, dedup.
+        const adminTags = tagsInput
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+        patch.tags = Array.from(new Set([...adminTags, ...meta.tags]));
+      }
+      // Only override category if admin didn't pick a sub and AI found one
+      if (meta.subcategory_id && !subCategoryId) {
+        patch.category_id = meta.subcategory_id;
+      } else if (meta.category_id && !effectiveCategoryId) {
+        patch.category_id = meta.category_id;
+      }
+      const { error } = await supabase.from("posters").update(patch).eq("id", posterId);
+      if (error) throw error;
+      update(itemId, { ai: "generated", aiTitle: meta.title });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "AI failed";
+      console.warn("AI gen failed", filename, msg);
+      update(itemId, { ai: "failed", aiError: msg });
+    }
   };
 
   // Keep a ref to items so workers always read the latest state.
@@ -269,6 +336,16 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
           />
         </label>
       </div>
+
+      <label className="mt-3 inline-flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={aiEnabled}
+          onChange={(e) => setAiEnabled(e.target.checked)}
+        />
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        Auto-generate Title, Description, SEO &amp; Tags with AI after upload
+      </label>
 
       <div
         onDragOver={(e) => {
@@ -417,7 +494,7 @@ function ItemTile({
         item.status === "optimizing" && "border-primary/60",
         item.status === "pending" && "border-border",
       )}
-      title={item.error ?? item.file.name}
+      title={item.aiError ?? item.aiTitle ?? item.error ?? item.file.name}
     >
       <div className="aspect-square bg-muted">
         <img src={item.preview} alt="" className="h-full w-full object-cover" />
@@ -439,7 +516,7 @@ function ItemTile({
         </button>
       )}
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-background/85 px-1.5 py-1 text-[10px]">
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.status} ai={item.ai} />
         {!disabled && item.status !== "done" && (
           <button
             type="button"
@@ -455,8 +532,29 @@ function ItemTile({
   );
 }
 
-function StatusBadge({ status }: { status: ItemStatus }) {
+function StatusBadge({ status, ai }: { status: ItemStatus; ai?: AiStatus }) {
   if (status === "done") {
+    if (ai === "pending") {
+      return (
+        <span className="inline-flex items-center gap-1 text-primary/80">
+          <Sparkles className="h-3 w-3 animate-pulse" /> AI…
+        </span>
+      );
+    }
+    if (ai === "generated") {
+      return (
+        <span className="inline-flex items-center gap-1 text-emerald-500">
+          <Sparkles className="h-3 w-3" /> Generated
+        </span>
+      );
+    }
+    if (ai === "failed") {
+      return (
+        <span className="inline-flex items-center gap-1 text-amber-500">
+          <AlertCircle className="h-3 w-3" /> Needs Review
+        </span>
+      );
+    }
     return (
       <span className="inline-flex items-center gap-1 text-emerald-500">
         <CheckCircle2 className="h-3 w-3" /> Done

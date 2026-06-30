@@ -8,7 +8,8 @@ import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2 } from "lucide-react";
+import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import * as XLSX from "xlsx";
 import {
   IMAGE_FALLBACK,
@@ -167,6 +168,8 @@ type Poster = {
   featured?: boolean | null;
   hidden?: boolean | null;
   description?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   edit_settings?: unknown;
   badge?: string | null;
   sales_count?: number | null;
@@ -575,6 +578,9 @@ function EditPosterModal({
   const [categoryId, setCategoryId] = useState(poster.category_id ?? "");
   const [tags, setTags] = useState((poster.tags ?? []).join(", "));
   const [description, setDescription] = useState(poster.description ?? "");
+  const [seoTitle, setSeoTitle] = useState(poster.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(poster.seo_description ?? "");
+  const [aiBusy, setAiBusy] = useState(false);
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
   const [badge, setBadge] = useState<string>(poster.badge ?? "");
@@ -597,6 +603,8 @@ function EditPosterModal({
         category_id: categoryId || null,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         description: description || null,
+        seo_title: seoTitle || null,
+        seo_description: seoDescription || null,
         featured,
         hidden,
         badge: badge || null,
@@ -608,6 +616,39 @@ function EditPosterModal({
     if (error) return toast.error(error.message);
     toast.success("Saved");
     onSaved();
+  };
+
+  const runAi = async () => {
+    setAiBusy(true);
+    try {
+      const meta = await generatePosterMeta({
+        data: {
+          imageUrl: currentImageUrl,
+          filename: poster.title,
+          categories: categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            parent_id: c.parent_id ?? null,
+          })),
+        },
+      });
+      setTitle(meta.title);
+      setDescription(meta.description);
+      setSeoTitle(meta.seo_title);
+      setSeoDescription(meta.seo_description);
+      if (meta.tags.length) {
+        const existing = tags.split(",").map((t) => t.trim()).filter(Boolean);
+        setTags(Array.from(new Set([...existing, ...meta.tags])).join(", "));
+      }
+      if (meta.subcategory_id) setCategoryId(meta.subcategory_id);
+      else if (meta.category_id && !categoryId) setCategoryId(meta.category_id);
+      toast.success("AI generated — review and Save");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "AI failed");
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   const saveArtwork = async (s: EditSettings) => {
@@ -689,6 +730,37 @@ function EditPosterModal({
               className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Title</span>
+              <input
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                maxLength={70}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Description</span>
+              <input
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                maxLength={200}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={runAi}
+              disabled={aiBusy}
+              className="inline-flex items-center gap-2 rounded-sm border border-primary/60 bg-primary/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiBusy ? "Generating…" : (description || seoTitle ? "Regenerate with AI" : "Generate with AI")}
+            </button>
+          </div>
           <div className="flex gap-4 text-xs uppercase tracking-widest">
             <label className="inline-flex items-center gap-2">
               <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
