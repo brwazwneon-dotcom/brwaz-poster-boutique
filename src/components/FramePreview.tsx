@@ -1,6 +1,7 @@
 import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { SafeImage } from "@/components/SafeImage";
+import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,6 +27,8 @@ type Props = {
   /** When true, no glass reflection / shadow (used for tiny thumbs). */
   bare?: boolean;
   loading?: "lazy" | "eager";
+  /** Persisted edit settings (drag/zoom/rotate/stretch). Applied via CSS only. */
+  editSettings?: unknown;
 };
 
 /**
@@ -42,6 +45,7 @@ export function FramePreview({
   className,
   bare,
   loading = "lazy",
+  editSettings,
 }: Props) {
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
@@ -50,6 +54,17 @@ export function FramePreview({
   // Swatch fallback so the matte/frame still reads when no mockup image is set.
   const matte =
     key === "white" ? "#f3f3f0" : key === "wood" ? "#3a2515" : "#0a0a0a";
+
+  const s: EditSettings = normalizeEditSettings(editSettings);
+  // Translate as % so it scales with the printable area size.
+  const tx = (s.offsetX ?? 0) * 100;
+  const ty = (s.offsetY ?? 0) * 100;
+  const scale = Math.max(0.1, s.zoom || 1);
+  const sx = Math.max(0.1, s.stretchX || 1) * scale;
+  const sy = Math.max(0.1, s.stretchY || 1) * scale;
+  const rotate = s.rotate || 0;
+  const objectFit = s.fit === "fit" ? "contain" : "cover";
+  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotate(${rotate}deg) scale(${sx}, ${sy})`;
 
   return (
     <div
@@ -61,20 +76,7 @@ export function FramePreview({
       style={{ backgroundColor: matte }}
       title={title}
     >
-      {/* Frame mockup photo as background */}
-      {m.image && (
-        <img
-          src={m.image}
-          alt=""
-          loading={loading}
-          decoding="async"
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
-          draggable={false}
-        />
-      )}
-
-      {/* Poster artwork — placed inside the printable area, on top of the frame */}
+      {/* Poster artwork — clipped to the printable area, *behind* the frame PNG */}
       <div
         className="absolute overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
         style={{
@@ -88,7 +90,15 @@ export function FramePreview({
           src={posterUrl}
           alt={title ?? ""}
           loading={loading}
-          className="h-full w-full object-cover"
+          className="h-full w-full select-none"
+          draggable={false}
+          style={{
+            objectFit,
+            transform: posterTransform,
+            transformOrigin: "center center",
+            willChange: "transform",
+            backfaceVisibility: "hidden",
+          }}
         />
         {/* Glass reflection across the print area */}
         {!bare && (
@@ -103,6 +113,19 @@ export function FramePreview({
           />
         )}
       </div>
+
+      {/* Transparent PNG frame overlay — sits on top of the artwork like a clipping mask */}
+      {m.image && (
+        <img
+          src={m.image}
+          alt=""
+          loading={loading}
+          decoding="async"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-fill select-none"
+          draggable={false}
+        />
+      )}
     </div>
   );
 }
