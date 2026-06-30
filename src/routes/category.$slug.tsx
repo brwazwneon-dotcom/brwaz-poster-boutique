@@ -20,6 +20,7 @@ import { Check, X } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
+import { RelatedPosters } from "@/components/RelatedPosters";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
@@ -308,6 +309,13 @@ function CategoryPage() {
         </div>
       )}
     </div>
+    {selectedPosters[0] && (
+      <RelatedPosters
+        poster={selectedPosters[0]}
+        categorySlug={category?.slug}
+        categoryName={category?.name}
+      />
+    )}
     <RecentlyViewed />
     </>
   );
