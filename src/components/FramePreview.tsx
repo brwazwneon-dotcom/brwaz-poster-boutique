@@ -21,9 +21,11 @@ export function pickMockupKey(
 type Props = {
   posterUrl: string;
   title?: string;
-  frameType: FrameTypeId;
-  color: FrameColorId;
+  frameType?: FrameTypeId;
+  color?: FrameColorId;
   className?: string;
+  /** Tailwind aspect class for the outer wrapper. Defaults to 2/3. */
+  aspectClassName?: string;
   /** When true, no glass reflection / shadow (used for tiny thumbs). */
   bare?: boolean;
   loading?: "lazy" | "eager";
@@ -40,9 +42,10 @@ type Props = {
 export function FramePreview({
   posterUrl,
   title,
-  frameType,
-  color,
+  frameType = "pvc",
+  color = "black",
   className,
+  aspectClassName = "aspect-[2/3]",
   bare,
   loading = "lazy",
   editSettings,
@@ -74,7 +77,8 @@ export function FramePreview({
   return (
     <div
       className={cn(
-        "relative isolate aspect-[2/3] w-full overflow-hidden",
+        "relative isolate w-full overflow-hidden",
+        aspectClassName,
         !bare && "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
         className,
       )}

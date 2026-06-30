@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -200,11 +201,13 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
                 params={{ slug }}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
               >
-                <SafeImage
-                  src={p.image_url}
-                  alt={p.title}
+                <FramePreview
+                  posterUrl={p.image_url}
+                  title={p.title}
+                  aspectClassName="aspect-[3/4]"
+                  bare
                   loading="lazy"
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  className="h-full w-full transition duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-x-0 bottom-0 translate-y-full bg-background/90 px-3 py-2 text-[10px] uppercase tracking-widest transition group-hover:translate-y-0">
                   {p.title}

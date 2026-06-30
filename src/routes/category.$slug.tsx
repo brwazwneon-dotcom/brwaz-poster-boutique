@@ -197,13 +197,16 @@ function CategoryPage() {
                           : "border-transparent hover:border-border",
                       )}
                     >
-                      <SafeImage
-                        src={p.image_url}
-                        alt={p.title}
+                      <FramePreview
+                        posterUrl={p.image_url}
+                        title={p.title}
+                        editSettings={p.edit_settings}
+                        aspectClassName="aspect-[3/4]"
+                        bare
                         loading="lazy"
                         className={cn(
-                          "h-full w-full object-cover transition",
-                          active ? "scale-[1.02]" : "grayscale group-hover:grayscale-0",
+                          "h-full w-full transition",
+                          active && "scale-[1.02]",
                         )}
                       />
                       {active && (
