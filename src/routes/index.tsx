@@ -11,6 +11,7 @@ import { HomeSlider } from "@/components/HomeSlider";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { BeforeAfter } from "@/components/BeforeAfter";
+import { ShopByCollection } from "@/components/ShopByCollection";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -101,6 +102,9 @@ function Index() {
           </ul>
         </div>
       </section>
+
+      {/* SHOP BY COLLECTION */}
+      <ShopByCollection />
 
       {/* CATEGORY SECTIONS */}
       {FEATURED_SLUGS.map((slug, i) => {
