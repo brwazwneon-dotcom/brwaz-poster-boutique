@@ -343,6 +343,15 @@ function Customizer({
           Clear all
         </button>
       </div>
+      <div className="mt-4 mx-auto w-full max-w-[260px]">
+        <FramePreview
+          posterUrl={posters[0].image_url}
+          title={posters[0].title}
+          frameType={frameType}
+          color={color}
+          loading="eager"
+        />
+      </div>
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
