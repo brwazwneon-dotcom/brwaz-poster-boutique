@@ -2997,3 +2997,183 @@ function CollectionsTab() {
     </div>
   );
 }
+
+/* ============================ Marketing tab ============================ */
+
+function MarketingTab() {
+  const qc = useQueryClient();
+  const settingsQ = useQuery({
+    queryKey: ["admin-marketing-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key,value")
+        .in("key", [
+          "meta_pixel_id",
+          "meta_pixel_enabled",
+          "meta_capi_enabled",
+          "meta_advanced_matching_enabled",
+        ]);
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const bool = (k: string) => map.get(k) === true || map.get(k) === "true";
+      return {
+        pixelId: String(map.get("meta_pixel_id") ?? "").trim(),
+        pixelEnabled: bool("meta_pixel_enabled"),
+        capiEnabled: bool("meta_capi_enabled"),
+        advancedMatching: bool("meta_advanced_matching_enabled"),
+      };
+    },
+  });
+  const secretQ = useQuery({
+    queryKey: ["admin-marketing-secret"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("marketing_secrets")
+        .select("meta_capi_access_token")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.meta_capi_access_token ?? "";
+    },
+  });
+
+  const [pixelId, setPixelId] = useState("");
+  const [pixelEnabled, setPixelEnabled] = useState(false);
+  const [capiEnabled, setCapiEnabled] = useState(false);
+  const [advancedMatching, setAdvancedMatching] = useState(false);
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settingsQ.data) {
+      setPixelId(settingsQ.data.pixelId);
+      setPixelEnabled(settingsQ.data.pixelEnabled);
+      setCapiEnabled(settingsQ.data.capiEnabled);
+      setAdvancedMatching(settingsQ.data.advancedMatching);
+    }
+  }, [settingsQ.data]);
+  useEffect(() => { if (secretQ.data !== undefined) setToken(secretQ.data); }, [secretQ.data]);
+
+  const pixelIdValid = pixelId === "" || /^\d{6,20}$/.test(pixelId);
+  const tokenValid = token === "" || /^[A-Za-z0-9_\-|]{20,}$/.test(token);
+
+  const onSave = async () => {
+    if (pixelEnabled && !pixelIdValid) return toast.error("Pixel ID must be 6–20 digits");
+    if (capiEnabled && !pixelId) return toast.error("Set a Pixel ID before enabling Conversion API");
+    if (capiEnabled && !token) return toast.error("Conversion API requires an access token");
+    if (!tokenValid) return toast.error("Access token format looks invalid");
+
+    setSaving(true);
+    try {
+      const upserts = [
+        { key: "meta_pixel_id", value: pixelId as never },
+        { key: "meta_pixel_enabled", value: pixelEnabled as never },
+        { key: "meta_capi_enabled", value: capiEnabled as never },
+        { key: "meta_advanced_matching_enabled", value: advancedMatching as never },
+      ];
+      const { error: e1 } = await supabase
+        .from("site_settings")
+        .upsert(upserts, { onConflict: "key" });
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from("marketing_secrets")
+        .upsert({ id: 1, meta_capi_access_token: token || null, updated_at: new Date().toISOString() });
+      if (e2) throw e2;
+      toast.success("Marketing settings saved");
+      qc.invalidateQueries({ queryKey: ["admin-marketing-settings"] });
+      qc.invalidateQueries({ queryKey: ["admin-marketing-secret"] });
+      qc.invalidateQueries({ queryKey: ["marketing-config"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-display text-3xl">Marketing & Tracking</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure Meta Pixel + Conversion API. Events automatically deduplicate via shared event IDs.
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6">
+        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Meta Pixel</h3>
+        <label className="mt-4 block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Pixel ID</span>
+          <input
+            value={pixelId}
+            onChange={(e) => setPixelId(e.target.value.replace(/[^\d]/g, ""))}
+            placeholder="e.g. 123456789012345"
+            className={cn(
+              "mt-1 w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none",
+              pixelIdValid ? "border-border focus:border-primary" : "border-destructive",
+            )}
+          />
+          {!pixelIdValid && (
+            <span className="mt-1 block text-xs text-destructive">Must be 6–20 digits.</span>
+          )}
+        </label>
+        <ToggleRow label="Enable Pixel (browser tracking)" value={pixelEnabled} onChange={setPixelEnabled} />
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6">
+        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Conversion API (server-side)</h3>
+        <label className="mt-4 block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Access Token</span>
+          <input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value.trim())}
+            placeholder="EAAB…"
+            className={cn(
+              "mt-1 w-full rounded-sm border bg-background px-3 py-2 font-mono text-xs outline-none",
+              tokenValid ? "border-border focus:border-primary" : "border-destructive",
+            )}
+          />
+          {!tokenValid && (
+            <span className="mt-1 block text-xs text-destructive">Token format looks invalid.</span>
+          )}
+        </label>
+        <ToggleRow label="Enable Conversion API" value={capiEnabled} onChange={setCapiEnabled} />
+        <ToggleRow
+          label="Enable Advanced Matching (hashed email/phone/city/country)"
+          value={advancedMatching}
+          onChange={setAdvancedMatching}
+        />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-sm bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save settings"}
+        </button>
+        <span className="text-xs text-muted-foreground">
+          Token is admin-only — never exposed to the website.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label, value, onChange,
+}: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-sm border border-border bg-background px-3 py-2">
+      <span className="text-sm">{label}</span>
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4"
+      />
+    </label>
+  );
+}
