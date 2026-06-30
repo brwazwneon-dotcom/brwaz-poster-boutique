@@ -326,6 +326,32 @@ export type Database = {
           },
         ]
       }
+      recently_viewed: {
+        Row: {
+          poster_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          poster_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          poster_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recently_viewed_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           key: string
