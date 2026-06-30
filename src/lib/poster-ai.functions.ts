@@ -14,6 +14,9 @@ export type GeneratedPosterMeta = {
   description: string;
   seo_title: string;
   seo_description: string;
+  alt_text: string;
+  slug: string;
+  badge: string | null;
   tags: string[];
   category_id: string | null;
   subcategory_id: string | null;
@@ -55,6 +58,9 @@ Return JSON with this exact shape:
   "description": "1-2 sentence customer-facing description for a wall poster product page",
   "seo_title": "SEO title under 60 chars including main keyword + 'Poster'",
   "seo_description": "SEO meta description under 160 chars",
+  "alt_text": "concise accessibility alt text describing the poster image, under 120 chars",
+  "slug": "kebab-case url slug for this poster, lowercase letters, numbers and dashes only, under 60 chars",
+  "badge": "one of: best-seller, new, trending, limited, exclusive — or null if none clearly applies",
   "tags": ["5 to 10 short relevant tags"],
   "category_id": "<id or null>",
   "subcategory_id": "<id or null>"
@@ -110,12 +116,25 @@ No markdown, no commentary.`;
       typeof parsed.subcategory_id === "string" && validIds.has(parsed.subcategory_id)
         ? parsed.subcategory_id
         : null;
+    const allowedBadges = new Set(["best-seller", "new", "trending", "limited", "exclusive"]);
+    const badge =
+      typeof parsed.badge === "string" && allowedBadges.has(parsed.badge) ? parsed.badge : null;
+    const slugify = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+    const title = String(parsed.title ?? "").slice(0, 120) || (data.filename ?? "Untitled Poster");
 
     return {
-      title: String(parsed.title ?? "").slice(0, 120) || (data.filename ?? "Untitled Poster"),
+      title,
       description: String(parsed.description ?? "").slice(0, 500),
       seo_title: String(parsed.seo_title ?? "").slice(0, 70),
       seo_description: String(parsed.seo_description ?? "").slice(0, 200),
+      alt_text: String(parsed.alt_text ?? "").slice(0, 160) || title,
+      slug: (typeof parsed.slug === "string" && parsed.slug ? slugify(parsed.slug) : slugify(title)),
+      badge,
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.map((t) => String(t)).filter(Boolean).slice(0, 15)
         : [],
