@@ -2772,3 +2772,227 @@ function ReviewForm({
     </div>
   );
 }
+
+/* ---------- COLLECTIONS (Shop By Collection homepage section) ---------- */
+
+function CollectionsTab() {
+  const qc = useQueryClient();
+  const [cards, setCards] = useState<CollectionCard[] | null>(null);
+  const [visible, setVisible] = useState<boolean>(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-home-collections"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key,value")
+        .in("key", ["home_collections", "home_collections_visible"]);
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const raw = map.get("home_collections");
+      const v = map.get("home_collections_visible");
+      const list: CollectionCard[] = Array.isArray(raw) && raw.length > 0
+        ? (raw as CollectionCard[]).map((c, i) => ({
+            id: c.id ?? String(i),
+            title: c.title ?? "",
+            subtitle: c.subtitle ?? "",
+            image: c.image ?? "",
+            link: c.link ?? "/",
+            enabled: c.enabled !== false,
+          }))
+        : DEFAULT_COLLECTIONS;
+      return { cards: list, visible: v === undefined ? true : !!v };
+    },
+  });
+
+  useEffect(() => {
+    if (data && cards === null) {
+      setCards(data.cards);
+      setVisible(data.visible);
+    }
+  }, [data, cards]);
+
+  const list = cards ?? [];
+  const update = (idx: number, patch: Partial<CollectionCard>) => {
+    setCards((prev) => (prev ?? []).map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  };
+  const move = (idx: number, dir: -1 | 1) => {
+    setCards((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      const j = idx + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+  };
+  const remove = (idx: number) => {
+    if (!confirm("Remove this card?")) return;
+    setCards((prev) => (prev ?? []).filter((_, i) => i !== idx));
+  };
+  const add = () => {
+    setCards((prev) => [
+      ...(prev ?? []),
+      { id: crypto.randomUUID(), title: "New Collection", subtitle: "", image: "", link: "/", enabled: true },
+    ]);
+  };
+  const uploadImage = async (idx: number, file: File) => {
+    const card = list[idx];
+    if (!card) return;
+    setUploadingId(card.id);
+    try {
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+      const path = `collections/${crypto.randomUUID()}.${ext}`;
+      const signedUrl = await uploadAndSign("slider", path, file);
+      update(idx, { image: signedUrl });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert([
+        { key: "home_collections", value: list as unknown as object },
+        { key: "home_collections_visible", value: visible as unknown as object },
+      ]);
+      if (error) throw error;
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["home-collections"] });
+      qc.invalidateQueries({ queryKey: ["admin-home-collections"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading || cards === null) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-6">
+        <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+          <input
+            type="checkbox"
+            checked={visible}
+            onChange={(e) => setVisible(e.target.checked)}
+          />
+          Show section on homepage
+        </label>
+        <button
+          onClick={add}
+          className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <Plus className="h-4 w-4" /> Add card
+        </button>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {list.map((c, i) => (
+          <div key={c.id} className="flex flex-wrap items-start gap-4 rounded-sm border border-border bg-card p-3">
+            <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+              {c.image ? (
+                <SafeImage src={c.image} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-muted-foreground">No image</div>
+              )}
+            </div>
+            <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+              <input
+                value={c.title}
+                onChange={(e) => update(i, { title: e.target.value })}
+                placeholder="Title"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                value={c.subtitle}
+                onChange={(e) => update(i, { subtitle: e.target.value })}
+                placeholder="Subtitle"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                value={c.link}
+                onChange={(e) => update(i, { link: e.target.value })}
+                placeholder="Link (e.g. /category/football)"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
+                  <Upload className="h-3 w-3" />
+                  {uploadingId === c.id ? "Uploading…" : c.image ? "Replace image" : "Upload image"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadImage(i, f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={c.enabled !== false}
+                    onChange={(e) => update(i, { enabled: e.target.checked })}
+                  />
+                  Enabled
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                className="rounded-sm border border-border p-1 hover:bg-accent disabled:opacity-30"
+                title="Move up"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => move(i, 1)}
+                disabled={i === list.length - 1}
+                className="rounded-sm border border-border p-1 hover:bg-accent disabled:opacity-30"
+                title="Move down"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => remove(i)}
+                className="rounded-sm border border-border p-1 text-destructive hover:bg-accent"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {list.length === 0 && (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No collection cards. Click “Add card” to create one.
+          </div>
+        )}
+      </div>
+
+      <p className="mt-4 text-xs text-muted-foreground">
+        Tip: link to category pages like <code>/category/football</code>, or to <code>/custom-design</code> and <code>/photo-printing</code>.
+      </p>
+    </div>
+  );
+}
