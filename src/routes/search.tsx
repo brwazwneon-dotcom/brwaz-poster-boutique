@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { PosterBadge } from "@/components/PosterBadge";
 import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -31,6 +32,7 @@ type PosterRow = {
   image_url: string;
   category_id: string | null;
   tags: string[] | null;
+  badge?: string | null;
 };
 
 function SearchPage() {
@@ -77,7 +79,7 @@ function SearchPage() {
 
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags")
+        .select("id,title,image_url,category_id,tags,badge")
         .eq("hidden", false)
         .or(orParts.join(","))
         .limit(120);
@@ -125,6 +127,7 @@ function SearchPage() {
               >
                 <div className="relative aspect-[3/4] overflow-hidden">
                   <WishlistHeart posterId={p.id} />
+                  <PosterBadge badge={p.badge} />
                   <FramePreview
                     posterUrl={p.image_url}
                     title={p.title}
