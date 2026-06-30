@@ -19,7 +19,6 @@ import { SafeImage } from "@/components/SafeImage";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import {
-  DEFAULT_EDIT_SETTINGS,
   loadImage,
   normalizeEditSettings,
   renderEditToBlob,
