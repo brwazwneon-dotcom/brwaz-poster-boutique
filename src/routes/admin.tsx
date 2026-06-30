@@ -25,6 +25,7 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import { PRICING_DEFAULTS, PRICING_KEYS, type Pricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
