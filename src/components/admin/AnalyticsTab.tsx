@@ -908,3 +908,214 @@ function HealthCard({
     </button>
   );
 }
+
+/* ----------------------------- AI Insights ----------------------------- */
+
+function buildInsights(d: Dashboard): string[] {
+  const out: string[] = [];
+  const cats = d.top_categories ?? [];
+  const totalSales = cats.reduce((a, c) => a + (c.sales || 0), 0);
+  if (cats[0] && totalSales > 0) {
+    const pct = ((cats[0].sales / totalSales) * 100).toFixed(0);
+    out.push(`${cats[0].name} posters generated ${pct}% of total category sales.`);
+  }
+  const sizes = d.top_sizes ?? [];
+  if (sizes[0]) out.push(`${sizes[0].size} is your best-selling size (${fmtNum(sizes[0].orders)} orders).`);
+  const govs = d.top_governorates ?? [];
+  if (govs[0]) out.push(`${govs[0].governorate} leads in revenue with ${fmtEGP(govs[0].revenue)} across ${fmtNum(govs[0].orders)} orders.`);
+  const top = d.top_selling?.[0];
+  if (top && top.sales_count > 1) out.push(`${top.title} is your top performer with ${fmtNum(top.sales_count)} sales.`);
+  const cust = d.customers;
+  if (cust && cust.total_customers > 0) {
+    const rate = ((cust.returning_customers / cust.total_customers) * 100).toFixed(0);
+    out.push(`${rate}% of customers have ordered more than once — focus on retention to grow this.`);
+  }
+  const lowest = d.lowest_performing ?? [];
+  if (lowest[0]) out.push(`${lowest[0].title} has ${fmtNum(lowest[0].views_count)} views but no sales — consider better pricing or imagery.`);
+  const noRes = d.no_result_searches ?? [];
+  if (noRes[0]) out.push(`Customers are searching for “${noRes[0].q}” (${fmtNum(noRes[0].c)}× with no results) — add matching products.`);
+  const conv = d.conversions;
+  if (conv?.custom_design > 0) out.push(`Custom design has ${fmtNum(conv.custom_design)} orders — promote this premium service more.`);
+  if (d.orders_cancelled > 0 && d.orders_total > 0) {
+    const r = ((d.orders_cancelled / d.orders_total) * 100).toFixed(1);
+    if (Number(r) > 5) out.push(`Cancellation rate is ${r}% — review checkout and shipping to reduce drop-off.`);
+  }
+  return out.slice(0, 8);
+}
+
+/* ----------------------------- Live feed ----------------------------- */
+
+type FeedItem = { text: string; at: string; tone: string; icon: ReactNode };
+
+function buildLiveFeed(d: Dashboard): FeedItem[] {
+  const items: FeedItem[] = [];
+  (d.recent_orders ?? []).forEach((o) => items.push({
+    text: `${o.customer_name ?? "A customer"} from ${o.governorate ?? "Egypt"} placed an order ${o.order_number ? `· ${o.order_number}` : ""}`,
+    at: o.created_at,
+    tone: "bg-emerald-500/20 text-emerald-300",
+    icon: <ShoppingCart className="h-3.5 w-3.5" />,
+  }));
+  (d.recent_custom ?? []).forEach((c) => items.push({
+    text: `${c.customer_name ?? "A customer"} submitted a custom design (${fmtNum(c.image_count)} image${c.image_count === 1 ? "" : "s"})`,
+    at: c.created_at,
+    tone: "bg-violet-500/20 text-violet-300",
+    icon: <ImagePlus className="h-3.5 w-3.5" />,
+  }));
+  (d.recent_photo ?? []).forEach((p) => items.push({
+    text: `${p.customer_name ?? "A customer"} ordered ${fmtNum(p.quantity)} photo prints`,
+    at: p.created_at,
+    tone: "bg-sky-500/20 text-sky-300",
+    icon: <ImgIcon className="h-3.5 w-3.5" />,
+  }));
+  (d.recent_reviews ?? []).forEach((r) => items.push({
+    text: `${r.customer_name} left a ${r.rating}★ review`,
+    at: r.created_at,
+    tone: "bg-amber-500/20 text-amber-300",
+    icon: <Star className="h-3.5 w-3.5" />,
+  }));
+  return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+
+/* ----------------------------- Profit panel ----------------------------- */
+
+function ProfitPanel({ data, onSaved }: { data: Dashboard; onSaved: () => void }) {
+  const initial: Required<ProfitCosts> = {
+    product_cost: Number(data.profit_costs?.product_cost ?? 0),
+    packaging_cost: Number(data.profit_costs?.packaging_cost ?? 0),
+    shipping_cost: Number(data.profit_costs?.shipping_cost ?? 0),
+    advertising_cost: Number(data.profit_costs?.advertising_cost ?? 0),
+  };
+  const [costs, setCosts] = useState<Required<ProfitCosts>>(initial);
+  const [saving, setSaving] = useState(false);
+
+  const totalOrders = data.orders_total || 0;
+  const gross = Number(data.revenue_total || 0);
+  const totalProductCost = (costs.product_cost || 0) * totalOrders;
+  const totalPackagingCost = (costs.packaging_cost || 0) * totalOrders;
+  const totalShippingCost = (costs.shipping_cost || 0) * totalOrders;
+  const totalAdCost = costs.advertising_cost || 0;
+  const totalCost = totalProductCost + totalPackagingCost + totalShippingCost + totalAdCost;
+  const net = gross - totalCost;
+  const perOrder = totalOrders > 0 ? net / totalOrders : 0;
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("site_settings").upsert({ key: "profit_costs", value: costs as unknown as object }, { onConflict: "key" });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Profit costs saved");
+    onSaved();
+  };
+
+  const Field = ({ label, k }: { label: string; k: keyof ProfitCosts }) => (
+    <label className="block">
+      <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        min={0}
+        value={costs[k] ?? 0}
+        onChange={(e) => setCosts({ ...costs, [k]: Number(e.target.value) || 0 })}
+        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+      />
+    </label>
+  );
+
+  return (
+    <Panel
+      title="Profit Analytics"
+      icon={<Banknote className="h-4 w-4 text-emerald-300" />}
+      action={
+        <button onClick={save} disabled={saving} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-50">
+          <SettingsIcon className="h-3 w-3" /> {saving ? "Saving…" : "Save costs"}
+        </button>
+      }
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Product cost / order" k="product_cost" />
+          <Field label="Packaging cost / order" k="packaging_cost" />
+          <Field label="Shipping cost / order" k="shipping_cost" />
+          <Field label="Total advertising cost" k="advertising_cost" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <Stat label="Gross Revenue" value={fmtEGP(gross)} tone="success" />
+          <Stat label="Total Costs" value={fmtEGP(totalCost)} tone="danger" />
+          <Stat label="Net Profit" value={fmtEGP(net)} tone={net >= 0 ? "success" : "danger"} />
+          <Stat label="Profit / Order" value={fmtEGP(perOrder)} tone={perOrder >= 0 ? "success" : "danger"} />
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone: "success" | "danger" | "default" }) {
+  const cls =
+    tone === "success" ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-200" :
+    tone === "danger" ? "border-rose-500/40 bg-rose-500/5 text-rose-200" :
+    "border-border bg-background/40";
+  return (
+    <div className={`rounded-sm border ${cls} p-3`}>
+      <div className="text-[10px] uppercase tracking-[0.2em] opacity-80">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+/* ----------------------------- PDF export ----------------------------- */
+
+async function exportDashboardPdf(d: Dashboard) {
+  try {
+    const [{ jsPDF }, autoTableMod] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const autoTable = (autoTableMod as { default: (doc: unknown, opts: unknown) => void }).default;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    doc.setFontSize(18);
+    doc.text("BRWAZWNEON · Dashboard Report", 40, 50);
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(`Generated ${new Date().toLocaleString("en-EG")}`, 40, 68);
+
+    autoTable(doc, {
+      startY: 90,
+      head: [["KPI", "Value"]],
+      body: [
+        ["Today's Revenue", fmtEGP(d.revenue_today)],
+        ["Weekly Revenue", fmtEGP(d.revenue_week)],
+        ["Monthly Revenue", fmtEGP(d.revenue_month)],
+        ["Total Revenue", fmtEGP(d.revenue_total)],
+        ["Today's Orders", fmtNum(d.orders_today)],
+        ["Total Orders", fmtNum(d.orders_total)],
+        ["Pending / Processing / Printed", `${d.orders_pending} / ${d.orders_processing ?? 0} / ${d.orders_printed ?? 0}`],
+        ["Shipped / Delivered / Cancelled", `${d.orders_shipped ?? 0} / ${d.orders_delivered ?? 0} / ${d.orders_cancelled}`],
+        ["Total Customers", fmtNum(d.customers?.total_customers ?? 0)],
+        ["Returning Customers", fmtNum(d.customers?.returning_customers ?? 0)],
+        ["Visitors (today / month / total)", `${d.visitors_today} / ${d.visitors_month} / ${d.visitors_total}`],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [20, 20, 20] },
+    });
+
+    autoTable(doc, {
+      head: [["Top Selling Poster", "Sales"]],
+      body: (d.top_selling ?? []).slice(0, 10).map((p) => [p.title, fmtNum(p.sales_count)]),
+      theme: "striped",
+    });
+    autoTable(doc, {
+      head: [["Top Category", "Sales", "Views"]],
+      body: (d.top_categories ?? []).slice(0, 10).map((c) => [c.name, fmtNum(c.sales), fmtNum(c.views)]),
+      theme: "striped",
+    });
+    autoTable(doc, {
+      head: [["Top Governorate", "Orders", "Revenue"]],
+      body: (d.top_governorates ?? []).slice(0, 10).map((g) => [g.governorate, fmtNum(g.orders), fmtEGP(g.revenue)]),
+      theme: "striped",
+    });
+
+    doc.save(`brwazwneon-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("PDF exported");
+  } catch (e) {
+    toast.error((e as Error).message);
+  }
+}
