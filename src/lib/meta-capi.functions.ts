@@ -23,7 +23,7 @@ const InputSchema = z.object({
   ]),
   event_id: z.string().min(1).max(128),
   event_source_url: z.string().url().optional(),
-  custom_data: z.record(z.unknown()).default({}),
+  custom_data: z.record(z.string(), z.unknown()).default({}),
   user_data: UserDataSchema,
   client_user_agent: z.string().max(1024).optional(),
 });
