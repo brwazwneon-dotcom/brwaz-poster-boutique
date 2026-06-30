@@ -746,6 +746,28 @@ export type Database = {
         Returns: undefined
       }
       increment_poster_views: { Args: { p_id: string }; Returns: undefined }
+      posters_tags_text: { Args: { p_tags: string[] }; Returns: string }
+      search_posters: {
+        Args: { lim?: number; q: string }
+        Returns: {
+          badge: string
+          category_id: string
+          category_name: string
+          category_slug: string
+          id: string
+          image_url: string
+          score: number
+          tags: string[]
+          title: string
+        }[]
+      }
+      trending_searches: {
+        Args: { lim?: number }
+        Returns: {
+          count: number
+          query: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"

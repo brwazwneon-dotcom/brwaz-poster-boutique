@@ -1,7 +1,7 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ShoppingBag, Search, Heart } from "lucide-react";
-import { useState } from "react";
 import { useCart } from "@/lib/cart";
+import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useRootCategories } from "@/lib/use-categories";
 import { LOGO_URL } from "@/lib/site";
@@ -10,12 +10,6 @@ export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
   const { data: categories = [] } = useRootCategories();
-  const navigate = useNavigate();
-  const [q, setQ] = useState("");
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate({ to: "/search", search: { q: q.trim() } });
-  };
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
@@ -28,16 +22,9 @@ export function SiteHeader() {
             decoding="async"
           />
         </Link>
-        <form onSubmit={submit} className="relative hidden flex-1 max-w-xl md:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search posters: Messi, Marvel, BMW…"
-            className="w-full rounded-sm border border-border bg-card py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
-            aria-label="Search posters"
-          />
-        </form>
+        <div className="relative hidden flex-1 max-w-xl md:block">
+          <SearchBox variant="header" />
+        </div>
         <nav className="hidden items-center gap-5 text-xs uppercase tracking-widest text-muted-foreground lg:flex">
           {categories.slice(0, 5).map((c) =>
             c.slug === "custom" ? (
