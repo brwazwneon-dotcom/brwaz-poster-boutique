@@ -7,11 +7,12 @@ type BackupType = (typeof ALLOWED_TRIGGERS)[number];
 const RESTORE_SCOPES = ["settings", "pricing", "homepage", "categories", "reviews", "orders", "posters", "all"] as const;
 type RestoreScope = (typeof RESTORE_SCOPES)[number];
 
-async function assertAdmin(supabase: ReturnType<typeof requireSupabaseAuth> extends { context: { supabase: infer S } } ? S : unknown, userId: string) {
-  const { data, error } = await (supabase as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: boolean | null; error: { message: string } | null }> }).rpc(
-    "has_role",
-    { _user_id: userId, _role: "admin" },
-  );
+type MaybeRpc = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+async function assertAdmin(supabase: unknown, userId: string) {
+  const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
   if (error || !data) throw new Error("Forbidden");
 }
 
