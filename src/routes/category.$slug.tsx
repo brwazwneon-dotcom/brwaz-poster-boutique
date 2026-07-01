@@ -504,8 +504,8 @@ function Customizer({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
-        <div className="mx-auto flex w-full justify-center [&_img]:max-h-[42vh] [&_img]:w-auto">
-          <div className="w-full max-w-[260px]">
+        <div className="mx-auto flex w-full justify-center">
+          <div className="w-full max-w-[min(260px,28vh)]">
             <PosterGallery
               posterId={primary.id}
               posterUrl={primary.image_url}
@@ -529,7 +529,7 @@ function Customizer({
       {posters.length > 1 && (
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
-          <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
+          <div key={p.id} className="group relative aspect-[2/3] overflow-hidden rounded-sm">
             <FramePreview
               posterUrl={p.image_url}
               title={p.title}
