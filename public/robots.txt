@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /auth
+Disallow: /cart
+Disallow: /api/
+
+Sitemap: https://brwaz-poster-boutique.lovable.app/sitemap.xml

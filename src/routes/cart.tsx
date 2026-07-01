@@ -301,11 +301,11 @@ function CartPage() {
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="inline-flex items-center rounded-sm border border-border">
-                      <button className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty - 1)}>
+                      <button aria-label="Decrease quantity" className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty - 1)}>
                         <Minus className="h-3 w-3" />
                       </button>
                       <span className="w-8 text-center text-sm">{i.qty}</span>
-                      <button className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty + 1)}>
+                      <button aria-label="Increase quantity" className="p-2 hover:bg-accent" onClick={() => setQty(i.id, i.qty + 1)}>
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>

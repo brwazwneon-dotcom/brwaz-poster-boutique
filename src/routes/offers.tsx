@@ -13,13 +13,25 @@ import { cn } from "@/lib/utils";
 import { usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/offers")({
-  head: () => ({
-    meta: [
-      { title: "Special Offers — BRWAZWNEON" },
-      { name: "description", content: "Bundle deals on framed posters. 6 frames 20x30 for 790 EGP, 4 frames 30x40 for 890 EGP." },
-      { property: "og:title", content: "Special Offers — BRWAZWNEON" },
-    ],
-  }),
+  head: () => {
+    const title = "Special Offers — BRWAZWNEON";
+    const description = "Bundle deals on framed posters: 6 frames 20×30 for 790 EGP or 4 frames 30×40 for 890 EGP. Cash on delivery across Egypt.";
+    const url = "https://brwaz-poster-boutique.lovable.app/offers";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
+  },
   component: OffersPage,
 });
 
