@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
@@ -25,6 +26,11 @@ import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetsRoute = SetsRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/photo-printing'
     | '/search'
     | '/sets'
+    | '/sitemap.xml'
     | '/wishlist'
     | '/category/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/photo-printing'
     | '/search'
     | '/sets'
+    | '/sitemap.xml'
     | '/wishlist'
     | '/category/$slug'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/photo-printing'
     | '/search'
     | '/sets'
+    | '/sitemap.xml'
     | '/wishlist'
     | '/category/$slug'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   SearchRoute: typeof SearchRoute
   SetsRoute: typeof SetsRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
 }
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/wishlist'
       fullPath: '/wishlist'
       preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sets': {
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   PhotoPrintingRoute: PhotoPrintingRoute,
   SearchRoute: SearchRoute,
   SetsRoute: SetsRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
 }
