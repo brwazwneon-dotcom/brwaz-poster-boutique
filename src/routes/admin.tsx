@@ -4484,3 +4484,164 @@ function AnnouncementTab() {
     </div>
   );
 }
+
+/* ---------- SIZE GUIDE ---------- */
+
+function SizeGuideTab() {
+  const qc = useQueryClient();
+  const [cfg, setCfg] = useState<SizeGuideConfig>(DEFAULT_SIZE_GUIDE);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-size-guide"],
+    queryFn: async (): Promise<SizeGuideConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", SIZE_GUIDE_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<SizeGuideConfig>;
+      return { ...DEFAULT_SIZE_GUIDE, ...v, sizes: v.sizes ?? DEFAULT_SIZE_GUIDE.sizes };
+    },
+  });
+
+  useEffect(() => { if (data) setCfg(data); }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: SIZE_GUIDE_KEY,
+        value: cfg as never,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success("Size guide saved");
+      qc.invalidateQueries({ queryKey: ["size-guide-config"] });
+      qc.invalidateQueries({ queryKey: ["admin-size-guide"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadRoom = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+      const path = `size-guide/room-${Date.now()}.${ext}`;
+      const url = await uploadAndSign("slider", path, file);
+      setCfg((c) => ({ ...c, roomImageUrl: url }));
+      toast.success("Room image uploaded — click Save to publish");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const updateSize = (i: number, patch: Partial<SizeGuideItem>) =>
+    setCfg((c) => ({ ...c, sizes: c.sizes.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }));
+  const moveSize = (i: number, dir: -1 | 1) => setCfg((c) => {
+    const j = i + dir;
+    if (j < 0 || j >= c.sizes.length) return c;
+    const next = c.sizes.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    return { ...c, sizes: next };
+  });
+  const removeSize = (i: number) => setCfg((c) => ({ ...c, sizes: c.sizes.filter((_, idx) => idx !== i) }));
+  const addSize = () => setCfg((c) => ({
+    ...c,
+    sizes: [...c.sizes, { id: `custom-${Date.now()}`, label: "New size", width: 30, height: 40 }],
+  }));
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
+        Size guide and room preview shown on every product page.
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6 space-y-4">
+        <label className="flex items-center gap-3">
+          <input type="checkbox" checked={cfg.enabled}
+            onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))} className="h-4 w-4" />
+          <span className="text-xs uppercase tracking-widest">Enable Size Guide</span>
+        </label>
+        <label className="flex items-center gap-3">
+          <input type="checkbox" checked={cfg.roomEnabled}
+            onChange={(e) => setCfg((c) => ({ ...c, roomEnabled: e.target.checked }))} className="h-4 w-4" />
+          <span className="text-xs uppercase tracking-widest">Enable Room Preview tab</span>
+        </label>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Room image</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRoom(f); e.target.value = ""; }}
+              disabled={uploading}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            {cfg.roomImageUrl && (
+              <img src={cfg.roomImageUrl} alt="room" className="mt-2 h-32 w-full rounded-sm border border-border object-cover" />
+            )}
+          </label>
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Wall width in cm (used to scale overlays)
+            </span>
+            <input
+              type="number"
+              min={60}
+              max={800}
+              value={cfg.wallWidthCm}
+              onChange={(e) => setCfg((c) => ({ ...c, wallWidthCm: Number(e.target.value) || DEFAULT_SIZE_GUIDE.wallWidthCm }))}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs uppercase tracking-widest">Sizes</div>
+          <button onClick={addSize} className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
+            <Plus className="h-3.5 w-3.5" /> Add size
+          </button>
+        </div>
+        <div className="space-y-2">
+          {cfg.sizes.map((s, i) => (
+            <div key={`${s.id}-${i}`} className="grid grid-cols-[1fr_1fr_80px_80px_auto] items-center gap-2 rounded-sm border border-border bg-background/50 p-2">
+              <input value={s.id} onChange={(e) => updateSize(i, { id: e.target.value })} placeholder="id"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs" />
+              <input value={s.label} onChange={(e) => updateSize(i, { label: e.target.value })} placeholder="label"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+              <input type="number" value={s.width} onChange={(e) => updateSize(i, { width: Number(e.target.value) || 0 })}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+              <input type="number" value={s.height} onChange={(e) => updateSize(i, { height: Number(e.target.value) || 0 })}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+              <div className="flex items-center gap-1">
+                <button onClick={() => moveSize(i, -1)} className="rounded-sm border border-border p-1 hover:bg-accent" aria-label="Up"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button onClick={() => moveSize(i, 1)} className="rounded-sm border border-border p-1 hover:bg-accent" aria-label="Down"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button onClick={() => removeSize(i)} className="rounded-sm border border-border p-1 text-destructive hover:bg-accent" aria-label="Remove"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50">
+          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save size guide"}
+        </button>
+      </div>
+    </div>
+  );
+}
