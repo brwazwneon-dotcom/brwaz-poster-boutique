@@ -45,7 +45,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "sets" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -127,7 +127,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "sets", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -152,6 +152,8 @@ function AdminPage() {
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "slider" && <SliderTab />}
         {tab === "highlights" && <HighlightsTab />}
+        {tab === "best-sellers" && <BestSellersTab />}
+        {tab === "sections" && <HomeSectionsTab />}
         {tab === "sets" && <SetsTab />}
         {tab === "collections" && <CollectionsTab />}
         {tab === "mockups" && <MockupsTab />}
