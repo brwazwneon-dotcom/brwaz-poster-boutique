@@ -15,6 +15,7 @@ import { BeforeAfter } from "@/components/BeforeAfter";
 import { ShopByCollection } from "@/components/ShopByCollection";
 import { Highlights } from "@/components/Highlights";
 import { BestSellers } from "@/components/BestSellers";
+import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
@@ -67,6 +68,7 @@ function Index() {
   return (
     <div className="bg-background text-foreground">
       <HomeSlider />
+      <CollectionsQuickBar />
       {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
         .map((s) => RENDERERS[s.key](s.title, s.subtitle))}
