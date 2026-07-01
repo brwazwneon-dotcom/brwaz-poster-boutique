@@ -596,7 +596,7 @@ export function AiPosterUpload() {
                     onToggleSelect={() => toggleSelected(r.id)}
                     mains={mains}
                     subsOf={subsOf}
-                    onChange={(patch) => update(r.id, patch)}
+                    onChange={(patch) => editField(r.id, patch)}
                   />
                 ))}
               </tbody>
