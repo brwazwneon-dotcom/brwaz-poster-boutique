@@ -127,6 +127,60 @@ export type Database = {
         }
         Relationships: []
       }
+      backups: {
+        Row: {
+          backup_type: string
+          checksum: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_email: string | null
+          encryption: string | null
+          error_message: string | null
+          id: string
+          size_bytes: number | null
+          status: string
+          storage_manifest: Json | null
+          storage_path: string | null
+          table_counts: Json | null
+          triggered_by: string
+        }
+        Insert: {
+          backup_type: string
+          checksum?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          encryption?: string | null
+          error_message?: string | null
+          id?: string
+          size_bytes?: number | null
+          status?: string
+          storage_manifest?: Json | null
+          storage_path?: string | null
+          table_counts?: Json | null
+          triggered_by?: string
+        }
+        Update: {
+          backup_type?: string
+          checksum?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          encryption?: string | null
+          error_message?: string | null
+          id?: string
+          size_bytes?: number | null
+          status?: string
+          storage_manifest?: Json | null
+          storage_path?: string | null
+          table_counts?: Json | null
+          triggered_by?: string
+        }
+        Relationships: []
+      }
       before_after: {
         Row: {
           active: boolean
@@ -991,6 +1045,7 @@ export type Database = {
         Returns: Json
       }
       admin_live_visitors: { Args: never; Returns: number }
+      admin_storage_manifest: { Args: never; Returns: Json }
       increment_poster_cart_adds: {
         Args: { p_ids: string[]; p_qty: number }
         Returns: undefined
