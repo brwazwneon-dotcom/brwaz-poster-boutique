@@ -1465,8 +1465,9 @@ function OrdersTab() {
   };
 
   const setPaymentStatus = async (o: Order, payment_status: string) => {
-    const patch: Record<string, unknown> = { payment_status };
-    if (payment_status === "verified") patch.payment_verified_at = new Date().toISOString();
+    const patch = payment_status === "verified"
+      ? { payment_status, payment_verified_at: new Date().toISOString() }
+      : { payment_status };
     const { error } = await supabase.from("orders").update(patch).eq("id", o.id);
     if (error) return toast.error(error.message);
     toast.success("Payment status updated");
