@@ -23,6 +23,7 @@ import { MarketingBoot } from "@/components/MarketingBoot";
 import { PwaBoot } from "@/components/PwaBoot";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
+import { PreviewBadge } from "@/components/PreviewBadge";
 
 function NotFoundComponent() {
   return (
@@ -200,6 +201,7 @@ function RootComponent() {
             <MarketingBoot />
             <PwaBoot />
             <InstallPrompt />
+            <PreviewBadge />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
