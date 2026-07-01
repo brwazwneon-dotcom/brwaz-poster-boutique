@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { getSystemHealth, type HealthReport } from "@/lib/system-health.functions";
 import { sendTestNotification } from "@/lib/notifications.functions";
-import { createBackup } from "@/lib/backups.functions";
+import { createBackupServer } from "@/lib/backups.functions";
 import { cn } from "@/lib/utils";
 
 type Severity = "ok" | "warn" | "crit";
@@ -135,7 +135,7 @@ function healthScore(critical: number, warnings: number) {
 export function SystemHealthTab() {
   const fetchHealth = useServerFn(getSystemHealth);
   const sendTest = useServerFn(sendTestNotification);
-  const doBackup = useServerFn(createBackup);
+  const doBackup = useServerFn(createBackupServer);
   const [busy, setBusy] = useState<string | null>(null);
 
   const { data, isLoading, refetch, dataUpdatedAt } = useQuery({
@@ -161,7 +161,7 @@ export function SystemHealthTab() {
   async function handleBackup() {
     setBusy("backup");
     try {
-      await doBackup({ data: { backup_type: "manual" } } as any);
+      await doBackup({ data: { type: "manual" } } as any);
       toast.success("Backup created");
     } catch (e) { toast.error((e as Error).message); }
     finally { setBusy(null); refetch(); }
