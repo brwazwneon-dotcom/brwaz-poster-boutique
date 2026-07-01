@@ -167,8 +167,22 @@ function CartPage() {
         payment_screenshot: screenshotPath,
       });
       });
-      const { error } = await supabase.from("orders").insert(rows);
+      const { data: inserted, error } = await supabase
+        .from("orders")
+        .insert(rows)
+        .select("id");
       if (error) throw error;
+
+      // Fire admin push notifications (non-blocking — checkout must never fail on this).
+      try {
+        const ids = (inserted ?? []).map((r) => r.id).filter(Boolean);
+        if (ids.length) {
+          const { notifyNewOrder } = await import("@/lib/notifications.functions");
+          void Promise.allSettled(ids.map((orderId) => notifyNewOrder({ data: { orderId } })));
+        }
+      } catch (e) {
+        console.warn("order notification failed", e);
+      }
 
       // Purchase event — once order is persisted.
       try {
