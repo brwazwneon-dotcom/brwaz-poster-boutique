@@ -1464,6 +1464,15 @@ function OrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
+  const setPaymentStatus = async (o: Order, payment_status: string) => {
+    const patch: Record<string, unknown> = { payment_status };
+    if (payment_status === "verified") patch.payment_verified_at = new Date().toISOString();
+    const { error } = await supabase.from("orders").update(patch).eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Payment status updated");
+    qc.invalidateQueries({ queryKey: ["admin-orders"] });
+  };
+
   const remove = async (o: Order) => {
     if (!confirm("Delete this order?")) return;
     const { error } = await supabase.from("orders").delete().eq("id", o.id);
