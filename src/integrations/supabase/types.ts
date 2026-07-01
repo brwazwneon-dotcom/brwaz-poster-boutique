@@ -84,12 +84,15 @@ export type Database = {
       }
       analytics_visits: {
         Row: {
+          browser: string | null
           city: string | null
           country: string | null
+          country_code: string | null
           created_at: string
           device: string | null
           governorate: string | null
           id: string
+          os: string | null
           path: string | null
           referrer: string | null
           session_id: string
@@ -98,12 +101,15 @@ export type Database = {
           visitor_id: string
         }
         Insert: {
+          browser?: string | null
           city?: string | null
           country?: string | null
+          country_code?: string | null
           created_at?: string
           device?: string | null
           governorate?: string | null
           id?: string
+          os?: string | null
           path?: string | null
           referrer?: string | null
           session_id: string
@@ -112,12 +118,15 @@ export type Database = {
           visitor_id: string
         }
         Update: {
+          browser?: string | null
           city?: string | null
           country?: string | null
+          country_code?: string | null
           created_at?: string
           device?: string | null
           governorate?: string | null
           id?: string
+          os?: string | null
           path?: string | null
           referrer?: string | null
           session_id?: string
@@ -1066,6 +1075,7 @@ export type Database = {
         Returns: Json
       }
       admin_live_visitors: { Args: never; Returns: number }
+      admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
       admin_storage_manifest: { Args: never; Returns: Json }
       increment_poster_cart_adds: {
         Args: { p_ids: string[]; p_qty: number }
