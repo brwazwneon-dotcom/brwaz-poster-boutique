@@ -100,6 +100,7 @@ function CategoryPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
   const [badgeFilter, setBadgeFilter] = useState<string>("");
+  const [activeSubId, setActiveSubId] = useState<string>("");
   const { record } = useRecentlyViewed();
 
   // Retargeting: fire ViewCategory once per category mount.
@@ -113,13 +114,22 @@ function CategoryPage() {
   }, [category?.id]);
 
   const includedCategoryIds = useMemo(
-    () => (category ? descendantIds(categories, category.id) : []),
-    [categories, category],
+    () => {
+      if (!category) return [];
+      if (activeSubId) return descendantIds(categories, activeSubId);
+      return descendantIds(categories, category.id);
+    },
+    [categories, category, activeSubId],
   );
   const subcategories = useMemo(
     () => (category ? categories.filter((c) => c.parent_id === category.id) : []),
     [categories, category],
   );
+
+  // Reset sub filter when navigating to a different top category
+  useEffect(() => {
+    setActiveSubId("");
+  }, [category?.id]);
 
   const postersQ = useInfiniteQuery({
     queryKey: ["posters", category?.id ?? slug, sort, includedCategoryIds.join(",")],
@@ -197,16 +207,35 @@ function CategoryPage() {
       </div>
 
       {subcategories.length > 0 && (
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div
+          className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0 sm:overflow-visible sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <button
+            type="button"
+            onClick={() => setActiveSubId("")}
+            className={cn(
+              "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
+              !activeSubId
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All
+          </button>
           {subcategories.map((c) => (
-            <Link
+            <button
               key={c.id}
-              to="/category/$slug"
-              params={{ slug: c.slug }}
-              className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+              type="button"
+              onClick={() => setActiveSubId(c.id === activeSubId ? "" : c.id)}
+              className={cn(
+                "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
+                activeSubId === c.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
             >
               {c.name}
-            </Link>
+            </button>
           ))}
         </div>
       )}
