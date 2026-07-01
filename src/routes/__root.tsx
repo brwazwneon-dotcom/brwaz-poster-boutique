@@ -22,6 +22,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { MarketingBoot } from "@/components/MarketingBoot";
 import { PwaBoot } from "@/components/PwaBoot";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
 
 function NotFoundComponent() {
   return (
@@ -184,6 +185,7 @@ function RootComponent() {
       <CartProvider>
         <WishlistProvider>
           <RecentlyViewedProvider>
+            <MaintenanceGate>
             <div className="flex min-h-screen flex-col">
           <AnnouncementBar />
           <SiteHeader />
@@ -193,6 +195,7 @@ function RootComponent() {
           <SiteFooter />
             </div>
             <WhatsAppButton />
+            </MaintenanceGate>
             <Toaster richColors position="top-center" />
             <MarketingBoot />
             <PwaBoot />
