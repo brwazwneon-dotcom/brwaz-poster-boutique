@@ -151,17 +151,16 @@ export const getSystemHealth = createServerFn({ method: "GET" })
       count("orders", (q) => q.not("payment_screenshot_url", "is", null)),
     ]);
 
-    const [customersRes, lastOrder, lastReview, lastVisit, lastNotif, failedNotif, storageRpc, backupsRes, marketingRes, settingsRes, capiEventRes] =
+    const [lastOrder, lastReview, lastVisit, lastNotif, failedNotif, storageRpc, backupsRes, marketingRes, settingsRes, capiEventRes] =
       await Promise.all([
-        admin.from("orders").select("phone", { count: "exact", head: false }).not("phone", "is", null).limit(0),
         admin.from("orders").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("reviews").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("analytics_visits").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("notification_logs").select("created_at,status").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("notification_logs").select("*", { count: "exact", head: true }).neq("status", "sent").gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
         admin.rpc("admin_storage_manifest"),
-        admin.from("backups").select("id,created_at,frequency,size_bytes").order("created_at", { ascending: false }).limit(50),
-        admin.from("marketing_secrets").select("firebase_service_account,meta_capi_token,instapay_config,vodafone_config").eq("id", 1).maybeSingle(),
+        admin.from("backups").select("id,created_at,backup_type,size_bytes,status").order("created_at", { ascending: false }).limit(50),
+        admin.from("marketing_secrets").select("firebase_service_account,meta_capi_access_token").eq("id", 1).maybeSingle(),
         admin.from("site_settings").select("key,value").in("key", [
           "ga4_measurement_id",
           "ga4_enabled",
@@ -169,8 +168,10 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           "meta_pixel_enabled",
           "meta_capi_enabled",
           "meta_advanced_matching_enabled",
+          "instapay_config",
+          "vodafone_config",
         ]),
-        admin.from("analytics_poster_events").select("created_at").eq("event", "capi").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        admin.from("analytics_poster_events").select("created_at").eq("event_type", "capi").order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
     // Unique customers approximation via phone
@@ -181,8 +182,8 @@ export const getSystemHealth = createServerFn({ method: "GET" })
       .limit(10000);
     const customers = new Set((uniqPhones ?? []).map((r: any) => String(r.phone).trim()).filter(Boolean)).size;
 
-    const backupsList = (backupsRes.data ?? []) as Array<{ created_at: string; frequency: string; size_bytes: number | null }>;
-    const findFreq = (f: string) => backupsList.find((b) => (b.frequency ?? "").toLowerCase() === f) ?? null;
+    const backupsList = ((backupsRes.data ?? []) as unknown) as Array<{ created_at: string; backup_type: string; size_bytes: number | null }>;
+    const findFreq = (f: string) => backupsList.find((b) => (b.backup_type ?? "").toLowerCase() === f) ?? null;
 
     const settingsMap: Record<string, any> = {};
     for (const row of settingsRes.data ?? []) settingsMap[row.key] = row.value;
@@ -197,12 +198,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
     const storage = (storageRpc.data ?? {}) as Record<string, { file_count: number; total_bytes: number }>;
     const totalStorage = Object.values(storage).reduce((sum, s) => sum + nz(s?.total_bytes), 0);
 
-    // DB size (approx)
-    let dbSize: number | null = null;
-    try {
-      const { data } = await admin.rpc("pg_database_size" as any, { name: "postgres" } as any);
-      if (typeof data === "number") dbSize = data;
-    } catch { /* not exposed — leave null */ }
+    const dbSize: number | null = null; // Postgres size introspection not exposed via Data API
 
     return {
       generatedAt: new Date().toISOString(),
@@ -265,8 +261,8 @@ export const getSystemHealth = createServerFn({ method: "GET" })
       },
       payment: {
         cash_on_delivery: true,
-        instapay_configured: Boolean(marketing?.instapay_config?.handle || marketing?.instapay_config?.phone),
-        vodafone_configured: Boolean(marketing?.vodafone_config?.phone),
+        instapay_configured: Boolean(settingsMap.instapay_config?.handle || settingsMap.instapay_config?.phone),
+        vodafone_configured: Boolean(settingsMap.vodafone_config?.phone || settingsMap.vodafone_config?.number),
         screenshots_uploaded_total: screenshots,
       },
       environment: {
