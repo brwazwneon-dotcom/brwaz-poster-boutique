@@ -2905,12 +2905,24 @@ function MockupsTab() {
       const parse = (raw: unknown, fb: FrameMockup): FrameMockup => {
         if (!raw || typeof raw !== "object") return fb;
         const v = raw as Partial<FrameMockup>;
+        const num = (x: unknown, d: number) => {
+          const n = Number(x);
+          return Number.isFinite(n) ? n : d;
+        };
         return {
           image: typeof v.image === "string" ? v.image : fb.image,
-          top: Number(v.top ?? fb.top),
-          left: Number(v.left ?? fb.left),
-          width: Number(v.width ?? fb.width),
-          height: Number(v.height ?? fb.height),
+          top: num(v.top, fb.top),
+          left: num(v.left, fb.left),
+          width: num(v.width, fb.width),
+          height: num(v.height, fb.height),
+          rotate: num(v.rotate, 0),
+          skewX: num(v.skewX, 0),
+          skewY: num(v.skewY, 0),
+          borderRadius: num(v.borderRadius, 0),
+          scale: num(v.scale, 1),
+          perspective: num(v.perspective, 1000),
+          rotateX: num(v.rotateX, 0),
+          rotateY: num(v.rotateY, 0),
         };
       };
       return {
