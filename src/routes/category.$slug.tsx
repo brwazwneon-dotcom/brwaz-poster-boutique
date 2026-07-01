@@ -8,6 +8,7 @@ import { useCategories, descendantIds, type Category } from "@/lib/use-categorie
 import {
   FRAME_COLORS,
   FRAME_TYPES,
+  sizesForFrame,
   SIZES,
   type FrameColorId,
   type FrameTypeId,
@@ -411,9 +412,11 @@ function Customizer({
     setFrameType(next);
     if (next === "wood") {
       setColor("wood");
-      setSize("30x40");
     } else if (color === "wood") {
       setColor("black");
+      if (!(["20x30", "30x40", "40x50"] as SizeId[]).includes(size)) {
+        setSize("30x40");
+      }
     }
   };
   const { add } = useCart();
@@ -524,11 +527,14 @@ function Customizer({
       </OptionGroup>
 
       <OptionGroup label="Size">
-        {SIZES.map((s) => (
+        {sizesForFrame(frameType).map((sid) => {
+          const s = SIZES.find((x) => x.id === sid)!;
+          return (
           <OptionButton key={s.id} active={size === s.id} onClick={() => setSize(s.id)}>
             {s.label}
           </OptionButton>
-        ))}
+          );
+        })}
       </OptionGroup>
 
       {frameType !== "wood" && (

@@ -1933,6 +1933,11 @@ function SettingsTab() {
         <PriceField k="frame_wood_20x30" label="20 × 30" />
         <PriceField k="frame_wood_30x40" label="30 × 40" />
         <PriceField k="frame_wood_40x50" label="40 × 50" />
+        <PriceField k="frame_wood_40x60" label="40 × 60" />
+        <PriceField k="frame_wood_50x60" label="50 × 60" />
+        <PriceField k="frame_wood_50x70" label="50 × 70" />
+        <PriceField k="frame_wood_60x90" label="60 × 90" />
+        <PriceField k="frame_wood_100x60" label="100 × 60" />
       </Section>
 
       <Section title="Custom Design">
