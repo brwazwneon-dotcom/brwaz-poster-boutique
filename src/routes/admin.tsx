@@ -3803,7 +3803,8 @@ function BestSellersTab() {
     qc.invalidateQueries({ queryKey: ["best-sellers"] });
   };
 
-  const update = async (id: string, patch: Partial<BSAdminRow>) => {
+  type BSUpdate = Partial<Omit<BSAdminRow, "posters">>;
+  const update = async (id: string, patch: BSUpdate) => {
     const { error } = await supabase.from("best_sellers").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     invalidate();
