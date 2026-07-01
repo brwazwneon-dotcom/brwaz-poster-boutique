@@ -1663,6 +1663,12 @@ function OrdersTab() {
             <Row k="Packaging Fee" v={`${viewing.packaging_fee ?? 0} EGP`} />
             <Row k="Total" v={`${viewing.total_price} EGP`} />
             <Row k="Status" v={viewing.status} />
+            <Row k="Payment Method" v={viewing.payment_method === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"} />
+            <Row k="Payment Status" v={PAYMENT_STATUS_LABEL[viewing.payment_status ?? "not_required"]} />
+            {viewing.payment_verified_at && (
+              <Row k="Verified At" v={new Date(viewing.payment_verified_at).toLocaleString()} />
+            )}
+            <PaymentScreenshotBlock order={viewing} onUpdate={() => qc.invalidateQueries({ queryKey: ["admin-orders"] })} />
           </div>
         </Modal>
       )}
