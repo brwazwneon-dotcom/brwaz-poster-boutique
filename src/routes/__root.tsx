@@ -17,6 +17,7 @@ import { RecentlyViewedProvider } from "@/lib/recently-viewed";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Toaster } from "@/components/ui/sonner";
 import { MarketingBoot } from "@/components/MarketingBoot";
 
@@ -138,6 +139,7 @@ function RootComponent() {
         <WishlistProvider>
           <RecentlyViewedProvider>
             <div className="flex min-h-screen flex-col">
+          <AnnouncementBar />
           <SiteHeader />
           <main className="flex-1">
             <Outlet />
