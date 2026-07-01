@@ -35,6 +35,8 @@ import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { SizeGuide } from "@/components/SizeGuide";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Minus, Plus } from "lucide-react";
 
 type Poster = {
   id: string;
@@ -271,7 +273,7 @@ function CategoryPage() {
         ))}
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_minmax(360px,420px)]">
         <div>
           {postersQ.isLoading || catLoading ? (
             <div className="py-20 text-center text-sm text-muted-foreground">
@@ -345,7 +347,7 @@ function CategoryPage() {
           )}
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
+        <aside className="hidden lg:block lg:sticky lg:top-[90px] lg:self-start lg:h-[calc(100vh-110px)]">
           {selectedPosters.length > 0 && category ? (
             <Customizer
               posters={selectedPosters}
@@ -373,6 +375,17 @@ function CategoryPage() {
             </div>
           )}
         </aside>
+
+        {selectedPosters.length > 0 && category && (
+          <MobileCustomizerBar
+            posters={selectedPosters}
+            category={category}
+            onRemove={(id) =>
+              setSelectedIds((prev) => prev.filter((x) => x !== id))
+            }
+            onClear={() => setSelectedIds([])}
+          />
+        )}
       </div>
 
       {subcategories.length > 0 && (
@@ -425,6 +438,7 @@ function Customizer({
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
+  const [quantity, setQuantity] = useState(1);
   const handleFrameType = (next: FrameTypeId) => {
     setFrameType(next);
     if (next === "wood") {
@@ -440,26 +454,29 @@ function Customizer({
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
   const unit = priceForFrame(pricing, frameType, size) + (isCustom ? pricing.customDesignFee : 0);
-  const total = unit * posters.length;
+  const total = unit * posters.length * quantity;
 
   const primary = posters[0];
 
   const handleAdd = () => {
-    posters.forEach((poster) => {
-      add({
-        posterId: poster.id,
-        title: poster.title,
-        image: poster.image_url,
-        categoryId: category.id,
-        categoryName: category.name,
-        frameType,
-        size,
-        color,
-        price: unit,
-        editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
+    for (let n = 0; n < quantity; n++) {
+      posters.forEach((poster) => {
+        add({
+          posterId: poster.id,
+          title: poster.title,
+          image: poster.image_url,
+          categoryId: category.id,
+          categoryName: category.name,
+          frameType,
+          size,
+          color,
+          price: unit,
+          editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
+        });
       });
-    });
-    toast.success(`Added ${posters.length} poster${posters.length > 1 ? "s" : ""} to cart`);
+    }
+    const totalItems = posters.length * quantity;
+    toast.success(`Added ${totalItems} poster${totalItems > 1 ? "s" : ""} to cart`);
     onClear();
   };
 
@@ -469,11 +486,12 @@ function Customizer({
     `\nFrame: ${FRAME_TYPES.find((f) => f.id === frameType)?.label}` +
     `\nSize: ${SIZES.find((s) => s.id === size)?.label}` +
     `\nColor: ${FRAME_COLORS.find((c) => c.id === color)?.label}` +
+    `\nQuantity: ${quantity}` +
     `\nTotal: ${total} EGP`;
 
   return (
-    <div className="rounded-sm border border-border bg-card p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full flex-col rounded-sm border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
           {posters.length} selected
         </div>
@@ -484,26 +502,34 @@ function Customizer({
           Clear all
         </button>
       </div>
-      <div className="mt-4 mx-auto w-full max-w-[260px]">
-        <PosterGallery
-          posterId={primary.id}
-          posterUrl={primary.image_url}
-          title={primary.title}
-          frameType={frameType}
-          color={color}
-          editSettings={primary.edit_settings}
-        />
+      <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
+      <div className="mx-auto w-full" style={{ maxHeight: "42vh" }}>
+        <div className="mx-auto h-full" style={{ maxHeight: "42vh" }}>
+          <div className="mx-auto flex justify-center" style={{ maxHeight: "42vh" }}>
+            <div style={{ maxHeight: "42vh" }} className="w-auto [&_img]:max-h-[42vh] [&_img]:w-auto">
+              <PosterGallery
+                posterId={primary.id}
+                posterUrl={primary.image_url}
+                title={primary.title}
+                frameType={frameType}
+                color={color}
+                editSettings={primary.edit_settings}
+              />
+            </div>
+          </div>
+      </div>
       </div>
       {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {(primary.sales_count ?? 0) > 0 && (
-            <span>✔ {formatCount(primary.sales_count)} customers purchased this design</span>
+            <span>✔ {formatCount(primary.sales_count)} sold</span>
           )}
           {(primary.views_count ?? 0) > 0 && (
             <span>👁 {formatCount(primary.views_count)} views</span>
           )}
         </div>
       ) : null}
+      {posters.length > 1 && (
       <div className="mt-3 grid grid-cols-5 gap-2">
         {posters.map((p) => (
           <div key={p.id} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
@@ -526,14 +552,7 @@ function Customizer({
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
-        <div className="text-display text-3xl">
-          {total} <span className="text-base text-muted-foreground">EGP</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {unit} EGP × {posters.length}
-        </div>
-      </div>
+      )}
 
       <OptionGroup label="Frame Type">
         {FRAME_TYPES.map((f) => (
@@ -579,7 +598,40 @@ function Customizer({
       </OptionGroup>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-2">
+      <OptionGroup label="Quantity">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="h-4 w-4" />
+          </button>
+          <div className="min-w-[3rem] text-center text-lg font-semibold">{quantity}</div>
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+            aria-label="Increase quantity"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      </OptionGroup>
+      </div>
+
+      <div className="sticky bottom-0 border-t border-border bg-card px-5 py-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <div className="text-display text-3xl leading-none">
+            {total} <span className="text-base text-muted-foreground">EGP</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {unit} × {posters.length}
+            {quantity > 1 ? ` × ${quantity}` : ""}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
         <button
           onClick={handleAdd}
           className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-2"
@@ -594,8 +646,68 @@ function Customizer({
         >
           WhatsApp order
         </a>
+        </div>
       </div>
     </div>
+  );
+}
+
+function MobileCustomizerBar({
+  posters,
+  category,
+  onRemove,
+  onClear,
+}: {
+  posters: Poster[];
+  category: Category;
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pricing = usePricing();
+  const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
+  // Quick estimate at default 30x40 PVC for the bar
+  const estUnit = priceForFrame(pricing, "pvc", "30x40") + (isCustom ? pricing.customDesignFee : 0);
+  const estTotal = estUnit * posters.length;
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              {posters.length} selected
+            </div>
+            <div className="truncate text-sm font-semibold">
+              from {estTotal} EGP
+            </div>
+          </div>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="rounded-sm bg-primary px-5 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+            >
+              Customize
+            </button>
+          </SheetTrigger>
+        </div>
+      </div>
+      <SheetContent
+        side="bottom"
+        className="h-[92vh] overflow-hidden p-0"
+      >
+        <div className="h-full">
+          <Customizer
+            posters={posters}
+            category={category}
+            onRemove={onRemove}
+            onClear={() => {
+              onClear();
+              setOpen(false);
+            }}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
