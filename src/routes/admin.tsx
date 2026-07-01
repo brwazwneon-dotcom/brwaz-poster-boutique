@@ -67,6 +67,12 @@ import {
   type SizeGuideConfig,
   type SizeGuideItem,
 } from "@/lib/size-guide";
+import {
+  HERO_BANNER_CONFIG_KEY,
+  DEFAULT_HERO_BANNER_CONFIG,
+  type HeroBanner,
+  type HeroBannerConfig,
+} from "@/lib/hero-banners";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -78,7 +84,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
