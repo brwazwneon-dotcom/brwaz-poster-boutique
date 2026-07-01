@@ -117,14 +117,19 @@ export function usePricing(): Pricing {
       return {
         frame: {
           pvc: {
-            "20x30": num("frame_pvc_20x30", d.frame.pvc["20x30"]),
-            "30x40": num("frame_pvc_30x40", d.frame.pvc["30x40"]),
-            "40x50": num("frame_pvc_40x50", d.frame.pvc["40x50"]),
+            "20x30": num("frame_pvc_20x30", d.frame.pvc["20x30"] ?? 0),
+            "30x40": num("frame_pvc_30x40", d.frame.pvc["30x40"] ?? 0),
+            "40x50": num("frame_pvc_40x50", d.frame.pvc["40x50"] ?? 0),
           },
           wood: {
-            "20x30": num("frame_wood_20x30", d.frame.wood["20x30"]),
-            "30x40": num("frame_wood_30x40", d.frame.wood["30x40"]),
-            "40x50": num("frame_wood_40x50", d.frame.wood["40x50"]),
+            "20x30": num("frame_wood_20x30", d.frame.wood["20x30"] ?? 0),
+            "30x40": num("frame_wood_30x40", d.frame.wood["30x40"] ?? 0),
+            "40x50": num("frame_wood_40x50", d.frame.wood["40x50"] ?? 0),
+            "40x60": num("frame_wood_40x60", d.frame.wood["40x60"] ?? 0),
+            "50x60": num("frame_wood_50x60", d.frame.wood["50x60"] ?? 0),
+            "50x70": num("frame_wood_50x70", d.frame.wood["50x70"] ?? 0),
+            "60x90": num("frame_wood_60x90", d.frame.wood["60x90"] ?? 0),
+            "100x60": num("frame_wood_100x60", d.frame.wood["100x60"] ?? 0),
           },
         },
         customDesignFee: num("custom_design_fee", d.customDesignFee),
