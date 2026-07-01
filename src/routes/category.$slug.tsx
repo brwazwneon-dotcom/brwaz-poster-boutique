@@ -275,7 +275,7 @@ function CategoryPage() {
         ))}
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_minmax(360px,420px)]">
+      <div className="mt-10 grid gap-8 lg:grid-cols-[1.85fr_minmax(440px,540px)]">
         <div>
           {postersQ.isLoading || catLoading ? (
             <div className="py-20 text-center text-sm text-muted-foreground">
