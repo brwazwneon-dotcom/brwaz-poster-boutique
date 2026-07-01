@@ -7,7 +7,7 @@ import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero
  * Full-bleed advertising slider that sits BEHIND the hero content.
  * Renders nothing when no banners are configured (parent falls back to default hero bg).
  */
-export function HeroBannerSlider({ children }: { children: React.ReactNode }) {
+export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
   const { data: banners = [] } = useHeroBanners();
   const { data: cfg } = useHeroBannerConfig();
   const autoplay = cfg?.autoplay_ms ?? 4000;
@@ -25,7 +25,7 @@ export function HeroBannerSlider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, [banners.length, autoplay]);
 
-  if (banners.length === 0) return <>{children}</>;
+  if (banners.length === 0) return <>{fallback}</>;
 
   const go = (n: number) => setIdx((n + banners.length) % banners.length);
   const current: HeroBanner | undefined = banners[idx];
@@ -65,9 +65,6 @@ export function HeroBannerSlider({ children }: { children: React.ReactNode }) {
         style={{ opacity: Math.max(0, Math.min(1, overlay)) }}
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-background/60 to-background" />
-
-      {/* Children: the CTA-side banner meta (title/subtitle/button) sits above content */}
-      {children}
 
       {/* Optional per-banner CTA badge, top-right, out of the way of header/wishlist/cart */}
       {current && (current.title || current.subtitle || current.button_text) && (
