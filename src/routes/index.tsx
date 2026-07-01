@@ -12,6 +12,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ShopByCollection } from "@/components/ShopByCollection";
+import { Highlights } from "@/components/Highlights";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -34,6 +35,8 @@ function Index() {
     <div className="bg-background text-foreground">
       {/* HOMEPAGE SLIDER (renders only when admin has uploaded slides) */}
       <HomeSlider />
+      {/* HIGHLIGHTS */}
+      <Highlights />
       {/* HERO */}
       <section className="relative isolate overflow-hidden border-b border-border">
         <img
