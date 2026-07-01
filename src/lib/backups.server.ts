@@ -141,9 +141,13 @@ export async function encryptJson(payload: unknown): Promise<{ blob: Uint8Array;
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
   const cipher = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext),
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv.buffer as ArrayBuffer },
+      key,
+      plaintext.buffer as ArrayBuffer,
+    ),
   );
-  const checksumBuf = await crypto.subtle.digest("SHA-256", plaintext);
+  const checksumBuf = await crypto.subtle.digest("SHA-256", plaintext.buffer as ArrayBuffer);
   const checksum = toBase64(new Uint8Array(checksumBuf));
   // Envelope: JSON with version, iv, ciphertext
   const envelope = JSON.stringify({
@@ -160,7 +164,7 @@ export async function decryptJson<T = unknown>(blob: ArrayBuffer): Promise<T> {
   const parsed = JSON.parse(text) as { iv: string; ct: string };
   const key = await deriveKey();
   const plain = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: fromBase64(parsed.iv) },
+    { name: "AES-GCM", iv: fromBase64(parsed.iv).buffer as ArrayBuffer },
     key,
     fromBase64(parsed.ct).buffer as ArrayBuffer,
   );
