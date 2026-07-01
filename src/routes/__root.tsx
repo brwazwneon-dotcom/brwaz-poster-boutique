@@ -20,6 +20,8 @@ import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Toaster } from "@/components/ui/sonner";
 import { MarketingBoot } from "@/components/MarketingBoot";
+import { PwaBoot } from "@/components/PwaBoot";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 function NotFoundComponent() {
   return (
@@ -96,12 +98,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6efe3779-cc28-496a-9e5a-83bca2411747/id-preview-c66ecc4f--f058d43d-0089-4221-9256-8bd2e9d26c3d.lovable.app-1782734562408.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6efe3779-cc28-496a-9e5a-83bca2411747/id-preview-c66ecc4f--f058d43d-0089-4221-9256-8bd2e9d26c3d.lovable.app-1782734562408.png" },
+      { name: "theme-color", content: "#000000" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "BRWAZWNEON" },
+      { name: "mobile-web-app-capable", content: "yes" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
@@ -149,6 +160,8 @@ function RootComponent() {
             <WhatsAppButton />
             <Toaster richColors position="top-center" />
             <MarketingBoot />
+            <PwaBoot />
+            <InstallPrompt />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
