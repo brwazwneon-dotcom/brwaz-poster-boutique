@@ -1045,6 +1045,7 @@ export type Database = {
         Returns: Json
       }
       admin_live_visitors: { Args: never; Returns: number }
+      admin_storage_manifest: { Args: never; Returns: Json }
       increment_poster_cart_adds: {
         Args: { p_ids: string[]; p_qty: number }
         Returns: undefined
