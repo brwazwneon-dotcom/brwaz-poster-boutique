@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "./SafeImage";
@@ -69,8 +68,8 @@ export function Highlights() {
               const Icon = FALLBACK_ICONS[h.key] ?? Sparkles;
               return (
                 <li key={h.id} className="shrink-0">
-                  <Link
-                    to={h.link}
+                  <a
+                    href={h.link}
                     className="group flex w-[92px] flex-col items-center gap-2 sm:w-[108px]"
                   >
                     <div className="relative h-[92px] w-[92px] overflow-hidden rounded-full border border-border bg-card transition group-hover:border-primary sm:h-[108px] sm:w-[108px]">
@@ -89,7 +88,7 @@ export function Highlights() {
                     <span className="text-center text-[10px] font-semibold uppercase tracking-widest text-foreground">
                       {h.title}
                     </span>
-                  </Link>
+                  </a>
                 </li>
               );
             })}
