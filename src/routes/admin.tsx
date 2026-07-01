@@ -4192,3 +4192,140 @@ function HomeSectionsTab() {
     </div>
   );
 }
+
+/* ---------- ANNOUNCEMENT BAR ---------- */
+
+function AnnouncementTab() {
+  const qc = useQueryClient();
+  const [cfg, setCfg] = useState<AnnouncementConfig>(ANNOUNCEMENT_DEFAULTS);
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-announcement"],
+    queryFn: async (): Promise<AnnouncementConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", ANNOUNCEMENT_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<AnnouncementConfig>;
+      return { ...ANNOUNCEMENT_DEFAULTS, ...v };
+    },
+  });
+
+  useEffect(() => { if (data) setCfg(data); }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: ANNOUNCEMENT_KEY,
+        value: cfg as never,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success("Announcement bar saved");
+      qc.invalidateQueries({ queryKey: ["announcement-bar"] });
+      qc.invalidateQueries({ queryKey: ["admin-announcement"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  const set = <K extends keyof AnnouncementConfig>(k: K, v: AnnouncementConfig[K]) =>
+    setCfg((c) => ({ ...c, [k]: v }));
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
+        Marquee announcement above the header on every page.
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6 space-y-5">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={cfg.enabled}
+            onChange={(e) => set("enabled", e.target.checked)}
+            className="h-4 w-4"
+          />
+          <span className="text-xs uppercase tracking-widest">Enable announcement bar</span>
+        </label>
+
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Text</span>
+          <input
+            value={cfg.text}
+            onChange={(e) => set("text", e.target.value)}
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Animation duration (seconds per loop) — lower = faster
+          </span>
+          <input
+            type="number"
+            min={5}
+            max={120}
+            value={cfg.speed}
+            onChange={(e) => set("speed", Number(e.target.value) || ANNOUNCEMENT_DEFAULTS.speed)}
+            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </label>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {([
+            ["bg", "Background"],
+            ["color", "Text color"],
+            ["accent", "Accent color"],
+          ] as const).map(([k, label]) => (
+            <label key={k} className="block">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+              <div className="mt-1 flex items-center gap-2 rounded-sm border border-border bg-background px-2 py-1.5">
+                <input
+                  type="color"
+                  value={cfg[k]}
+                  onChange={(e) => set(k, e.target.value)}
+                  className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
+                />
+                <input
+                  value={cfg[k]}
+                  onChange={(e) => set(k, e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+              </div>
+            </label>
+          ))}
+        </div>
+
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Preview</div>
+          <div className="overflow-hidden rounded-sm" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+            <div className="whitespace-nowrap py-1.5 text-xs uppercase tracking-[0.28em]">
+              <span className="mx-6">{cfg.text}</span>
+              <span style={{ color: cfg.accent }}>•</span>
+              <span className="mx-6">{cfg.text}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save announcement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
