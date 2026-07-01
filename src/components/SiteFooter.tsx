@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { useCategories } from "@/lib/use-categories";
+import { useFooterMenu } from "@/lib/footer-menu";
 import { LOGO_URL, BRANCH, SOCIAL } from "@/lib/site";
 import { Instagram, Facebook, MessageCircle, MapPin } from "lucide-react";
 
 export function SiteFooter() {
-  const { data: categories = [] } = useCategories();
+  const { links } = useFooterMenu();
+  const shopLinks = links.filter((l) => l.enabled);
   return (
     <footer className="mt-24 border-t border-border bg-background">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
@@ -52,11 +53,11 @@ export function SiteFooter() {
         <div>
           <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Shop</h4>
           <ul className="space-y-2 text-sm">
-            {categories.map((c) => (
-              <li key={c.slug}>
-                <Link to="/category/$slug" params={{ slug: c.slug }} className="hover:underline">
-                  {c.name}
-                </Link>
+            {shopLinks.map((l) => (
+              <li key={l.id}>
+                <a href={l.href} className="hover:underline">
+                  {l.label}
+                </a>
               </li>
             ))}
           </ul>
