@@ -44,8 +44,18 @@ function CartPage() {
   const subtotal = total;
   const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
   const packagingFee = bundleQty * pricing.packagingFee;
-  const shipping = computeShipping(subtotal, settings);
-  const grand = subtotal + packagingFee + shipping;
+  // Frame count for double-face-tape upsell: each item is one frame per qty,
+  // bundles count all posters inside the bundle × qty.
+  const frameCount = items.reduce(
+    (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
+    0,
+  );
+  const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
+  const [tapeOpen, setTapeOpen] = useState(false);
+  const tapeUnit = pricing.doubleFaceTapePrice;
+  const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
+  const shipping = computeShipping(subtotal + tapeTotal, settings);
+  const grand = subtotal + packagingFee + tapeTotal + shipping;
   const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -83,6 +93,11 @@ function CartPage() {
       }
       return head;
     });
+    if (tapeChoice === true && tapeTotal > 0) {
+      lines.push(
+        `${items.length + 1}. Double Face Tape ×${frameCount}\n   ${tapeUnit} EGP each\n   ${tapeTotal} EGP`,
+      );
+    }
     return [
       `New order from BRWAZWNEON — ${paymentMethod === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"}`,
       "",
@@ -99,9 +114,29 @@ function CartPage() {
       "",
       `Subtotal: ${subtotal} EGP`,
       ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
+      ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
       `Total: ${grand} EGP`,
     ].join("\n");
+  };
+
+  const handlePlaceOrderClick = () => {
+    if (items.length === 0) return toast.error("Your cart is empty");
+    if (!name || !phone || !governorate || !address)
+      return toast.error("Please fill in all delivery fields");
+    if (paymentMethod === "instapay" && !screenshot)
+      return toast.error("Please upload your payment screenshot");
+    // Show the upsell popup once per checkout session, only if enabled.
+    if (
+      pricing.doubleFaceTapeEnabled &&
+      tapeUnit > 0 &&
+      frameCount > 0 &&
+      tapeChoice === null
+    ) {
+      setTapeOpen(true);
+      return;
+    }
+    void handleOrder();
   };
 
   const handleOrder = async () => {
@@ -171,6 +206,30 @@ function CartPage() {
         payment_screenshot: screenshotPath,
       });
       });
+      // Append the double-face-tape line as its own order row when chosen.
+      if (tapeChoice === true && tapeTotal > 0) {
+        rows.push({
+          customer_name: name,
+          phone,
+          governorate,
+          address,
+          frame_type: labelForFrame("pvc"),
+          frame_color: labelForColor("black"),
+          size: labelForSize("20x30"),
+          quantity: frameCount,
+          selected_poster: "double-face-tape",
+          poster_title: "Double Face Tape",
+          poster_image: "",
+          subtotal: tapeTotal,
+          packaging_fee: 0,
+          shipping_cost: 0,
+          total_price: tapeTotal,
+          status: "new",
+          payment_method: paymentMethod,
+          payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
+          payment_screenshot: screenshotPath,
+        } as (typeof rows)[number]);
+      }
       const { data: inserted, error } = await supabase
         .from("orders")
         .insert(rows)
@@ -240,6 +299,7 @@ function CartPage() {
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
       setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
+      setTapeChoice(null); setTapeOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to place order");
     } finally {
@@ -467,6 +527,12 @@ function CartPage() {
                     <span>{packagingFee} EGP</span>
                   </div>
                 )}
+                {tapeTotal > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">🩹 Double Face Tape ({frameCount} × {tapeUnit})</span>
+                    <span>{tapeTotal} EGP</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">🚚 Shipping</span>
                   <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>
@@ -486,7 +552,7 @@ function CartPage() {
                 </div>
               </div>
               <button
-                onClick={handleOrder}
+                onClick={handlePlaceOrderClick}
                 disabled={submitting}
                 className="mt-5 w-full rounded-sm bg-primary px-4 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
@@ -497,6 +563,56 @@ function CartPage() {
               </p>
             </div>
           </aside>
+        </div>
+      )}
+      {tapeOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Need double face tape?"
+        >
+          <div className="w-full max-w-md rounded-sm border border-border bg-card p-6 shadow-2xl">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              Optional add-on
+            </div>
+            <h2 className="text-display mt-2 text-3xl leading-tight">Need double face tape?</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Add double face tape to easily hang your frames on the wall.
+            </p>
+            <div className="mt-5 rounded-sm border border-border bg-background p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                  {tapeUnit} EGP per frame · {frameCount} frame{frameCount === 1 ? "" : "s"}
+                </span>
+                <span className="text-display text-2xl">
+                  {frameCount * tapeUnit} <span className="text-xs text-muted-foreground">EGP</span>
+                </span>
+              </div>
+            </div>
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={() => {
+                  setTapeChoice(true);
+                  setTapeOpen(false);
+                  setTimeout(() => { void handleOrder(); }, 0);
+                }}
+                className="w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+              >
+                Yes, add double face tape
+              </button>
+              <button
+                onClick={() => {
+                  setTapeChoice(false);
+                  setTapeOpen(false);
+                  setTimeout(() => { void handleOrder(); }, 0);
+                }}
+                className="w-full rounded-sm border border-border px-4 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+              >
+                No, continue without it
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

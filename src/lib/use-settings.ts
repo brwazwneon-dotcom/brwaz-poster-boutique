@@ -50,6 +50,8 @@ export type Pricing = {
   packagingFee: number;
   shippingFee: number;
   freeShippingThreshold: number;
+  doubleFaceTapePrice: number;
+  doubleFaceTapeEnabled: boolean;
 };
 
 export const PRICING_DEFAULTS: Pricing = {
@@ -72,6 +74,8 @@ export const PRICING_DEFAULTS: Pricing = {
   packagingFee: 20,
   shippingFee: 89,
   freeShippingThreshold: 1600,
+  doubleFaceTapePrice: 20,
+  doubleFaceTapeEnabled: true,
 };
 
 export const PRICING_KEYS = {
@@ -95,6 +99,8 @@ export const PRICING_KEYS = {
   packaging_fee: ["packagingFee"],
   shipping_fee: ["shippingFee"],
   free_shipping_threshold: ["freeShippingThreshold"],
+  double_face_tape_price: ["doubleFaceTapePrice"],
+  double_face_tape_enabled: ["doubleFaceTapeEnabled"],
 } as const;
 
 export function usePricing(): Pricing {
@@ -145,6 +151,8 @@ export function usePricing(): Pricing {
         packagingFee: num("packaging_fee", d.packagingFee),
         shippingFee: num("shipping_fee", d.shippingFee),
         freeShippingThreshold: num("free_shipping_threshold", d.freeShippingThreshold),
+        doubleFaceTapePrice: num("double_face_tape_price", d.doubleFaceTapePrice),
+        doubleFaceTapeEnabled: num("double_face_tape_enabled", d.doubleFaceTapeEnabled ? 1 : 0) !== 0,
       };
     },
   });
