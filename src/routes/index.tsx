@@ -96,21 +96,58 @@ function HeroSection() {
             Premium framed posters of the films, players, shows, anime and cars
             you actually care about. Gallery-grade frames, hand-printed.
           </p>
-          <div className="mt-10 flex flex-wrap gap-3">
+          <div className="mt-10 flex flex-col items-start gap-6 sm:flex-row sm:flex-wrap sm:items-end">
             <Link
               to="/category/$slug"
               params={{ slug: "movies" }}
-              className="rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
+              className="w-full rounded-sm bg-primary px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 sm:w-auto"
             >
               Shop Posters
             </Link>
+
+            <div className="flex w-full flex-col items-start sm:w-auto sm:items-center">
+              <span className="mb-2 inline-flex items-center gap-1 rounded-sm border border-border bg-background/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.3em] text-foreground">
+                ⭐ Most Popular
+              </span>
+              <Link
+                to="/custom-design"
+                onClick={(e) => {
+                  const el = document.getElementById("custom-design");
+                  if (el) {
+                    e.preventDefault();
+                    el.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="group relative w-full overflow-hidden rounded-sm border border-white/70 bg-black px-10 py-5 text-center text-sm font-semibold uppercase tracking-widest text-white shadow-[0_0_0_rgba(255,255,255,0)] transition-all duration-[250ms] hover:-translate-y-0.5 hover:border-white hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] sm:w-auto"
+              >
+                🎨 Customize Your Frame
+                <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 skew-x-12 bg-white/10 opacity-0 transition-all duration-700 group-hover:left-full group-hover:opacity-100" />
+              </Link>
+              <p className="mt-3 max-w-xs text-[11px] leading-relaxed text-muted-foreground sm:text-center">
+                Upload your own photo or artwork and our designers will prepare it for premium-quality printing.
+              </p>
+            </div>
+
             <Link
               to="/photo-printing"
-              className="rounded-sm border border-border px-8 py-4 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+              className="w-full rounded-sm border border-border px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent sm:w-auto"
             >
               Print Your Photos
             </Link>
           </div>
+
+          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
+            {[
+              "Professional Designer Included",
+              "We Enhance Your Photo Before Printing",
+              "Preview Before Printing",
+            ].map((t) => (
+              <li key={t} className="flex items-center gap-2">
+                <span className="text-foreground">✔</span>
+                {t}
+              </li>
+            ))}
+          </ul>
         </div>
     </section>
   );
