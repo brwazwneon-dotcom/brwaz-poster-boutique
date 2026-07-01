@@ -5,6 +5,7 @@ import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
 import { BeforeAfter } from "@/components/BeforeAfter";
+import { ProductInfoSections } from "@/components/ProductInfoSections";
 import {
   useSiteSettings,
   computeShipping,
@@ -645,6 +646,7 @@ function CustomDesignPage() {
 
       <style>{`.inp{width:100%;border-radius:.125rem;border:1px solid hsl(var(--border));background:hsl(var(--background));padding:.5rem .75rem;font-size:.875rem;outline:none}.inp:focus{border-color:hsl(var(--primary))}`}</style>
       <BeforeAfter location="custom-design" />
+      <ProductInfoSections variant="all" />
     </div>
   );
 }

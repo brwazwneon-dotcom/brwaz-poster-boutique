@@ -29,6 +29,7 @@ import { PosterGallery } from "@/components/PosterGallery";
 import { trackEvent, enqueueEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
+import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
@@ -390,6 +391,7 @@ function CategoryPage() {
     {selectedPosters[0] && <BeforeAfter location="product" />}
     <RecentlyViewed />
     <CustomerReviews posterId={selectedPosters[0]?.id} />
+    <ProductInfoSections variant="all" />
     </>
   );
 }

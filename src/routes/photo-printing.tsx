@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
 import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
 import { BeforeAfter } from "@/components/BeforeAfter";
+import { ProductInfoSections } from "@/components/ProductInfoSections";
 
 export const Route = createFileRoute("/photo-printing")({
   head: () => ({
@@ -398,6 +399,7 @@ function PhotoPrintingPage() {
         </div>
       </section>
       <BeforeAfter location="photo-printing" />
+      <ProductInfoSections variant="photo" />
     </div>
   );
 }
