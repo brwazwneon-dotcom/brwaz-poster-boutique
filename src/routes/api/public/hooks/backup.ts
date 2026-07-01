@@ -11,12 +11,23 @@ export const Route = createFileRoute("/api/public/hooks/backup")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = request.headers.get("apikey");
-        const expected =
-          process.env.SUPABASE_PUBLISHABLE_KEY ||
-          process.env.SUPABASE_ANON_KEY ||
-          "";
-        if (!apiKey || !expected || apiKey !== expected) {
+        // Authenticate the caller with a server-only shared secret. The
+        // Supabase publishable/anon key must NOT be used here because it is
+        // shipped in the client bundle and could be used to trigger
+        // expensive backup jobs.
+        const provided = request.headers.get("x-backup-secret") ?? "";
+        const expected = process.env.BACKUP_WEBHOOK_SECRET ?? "";
+        const ok =
+          !!expected &&
+          provided.length === expected.length &&
+          (() => {
+            let diff = 0;
+            for (let i = 0; i < expected.length; i++) {
+              diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+            }
+            return diff === 0;
+          })();
+        if (!ok) {
           return new Response("Unauthorized", { status: 401 });
         }
 
