@@ -30,7 +30,6 @@ import { trackEvent, enqueueEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
-import { POSTER_BADGES } from "@/lib/poster-badges";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
@@ -100,7 +99,6 @@ function CategoryPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
-  const [badgeFilter, setBadgeFilter] = useState<string>("");
   const [activeSubId, setActiveSubId] = useState<string>("");
   const { record } = useRecentlyViewed();
 
@@ -156,8 +154,8 @@ function CategoryPage() {
 
   const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
   const filteredPosters = useMemo(
-    () => (badgeFilter ? posters.filter((p) => p.badge === badgeFilter) : posters),
-    [posters, badgeFilter],
+    () => posters,
+    [posters],
   );
   const selectedPosters = useMemo(
     () => selectedIds
@@ -255,31 +253,6 @@ function CategoryPage() {
             )}
           >
             {s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Badge</span>
-        <button
-          onClick={() => setBadgeFilter("")}
-          className={cn(
-            "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
-            !badgeFilter ? "border-primary bg-accent" : "border-border text-muted-foreground hover:text-foreground",
-          )}
-        >
-          All
-        </button>
-        {POSTER_BADGES.map((b) => (
-          <button
-            key={b.id}
-            onClick={() => setBadgeFilter(b.id)}
-            className={cn(
-              "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
-              badgeFilter === b.id ? "border-primary bg-accent" : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {b.label}
           </button>
         ))}
       </div>
