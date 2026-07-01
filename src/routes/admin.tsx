@@ -40,6 +40,12 @@ import {
   type AnnouncementConfig,
 } from "@/components/AnnouncementBar";
 import {
+  QUICKBAR_KEY,
+  DEFAULT_QUICKBAR,
+  type QuickBarConfig,
+  type QuickBarChip,
+} from "@/lib/quickbar";
+import {
   DEFAULT_HOME_SECTIONS,
   HOME_SECTION_LABELS,
   HOME_SECTIONS_KEY,
@@ -60,7 +66,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -142,7 +148,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -171,6 +177,7 @@ function AdminPage() {
         {tab === "sections" && <HomeSectionsTab />}
         {tab === "sets" && <SetsTab />}
         {tab === "collections" && <CollectionsTab />}
+        {tab === "quickbar" && <QuickBarTab />}
         {tab === "mockups" && <MockupsTab />}
         {tab === "wishlists" && <WishlistsTab />}
         {tab === "reviews" && <ReviewsTab />}
@@ -179,6 +186,142 @@ function AdminPage() {
         {tab === "announcement" && <AnnouncementTab />}
         {tab === "exports" && <ExportsTab />}
         {tab === "settings" && <SettingsTab />}
+      </div>
+    </div>
+  );
+}
+
+function QuickBarTab() {
+  const qc = useQueryClient();
+  const [cfg, setCfg] = useState<QuickBarConfig>(DEFAULT_QUICKBAR);
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-quickbar"],
+    queryFn: async (): Promise<QuickBarConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", QUICKBAR_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<QuickBarConfig>;
+      return {
+        enabled: v.enabled !== false,
+        chips: Array.isArray(v.chips) && v.chips.length ? (v.chips as QuickBarChip[]) : DEFAULT_QUICKBAR.chips,
+      };
+    },
+  });
+
+  useEffect(() => { if (data) setCfg(data); }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: QUICKBAR_KEY,
+        value: cfg as never,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success("Quick bar saved");
+      qc.invalidateQueries({ queryKey: ["collections-quickbar"] });
+      qc.invalidateQueries({ queryKey: ["admin-quickbar"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateChip = (i: number, patch: Partial<QuickBarChip>) =>
+    setCfg((c) => ({ ...c, chips: c.chips.map((ch, idx) => (idx === i ? { ...ch, ...patch } : ch)) }));
+  const removeChip = (i: number) =>
+    setCfg((c) => ({ ...c, chips: c.chips.filter((_, idx) => idx !== i) }));
+  const moveChip = (i: number, dir: -1 | 1) => {
+    setCfg((c) => {
+      const j = i + dir;
+      if (j < 0 || j >= c.chips.length) return c;
+      const next = c.chips.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...c, chips: next };
+    });
+  };
+  const addChip = () =>
+    setCfg((c) => ({
+      ...c,
+      chips: [...c.chips, { id: `chip-${Date.now()}`, label: "New", href: "/", enabled: true }],
+    }));
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="max-w-4xl space-y-5">
+      <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
+        Horizontal collections chip bar shown above the hero on the homepage.
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6 space-y-5">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={cfg.enabled}
+            onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))}
+            className="h-4 w-4"
+          />
+          <span className="text-xs uppercase tracking-widest">Enable quick bar</span>
+        </label>
+
+        <div className="space-y-2">
+          {cfg.chips.map((ch, i) => (
+            <div key={ch.id} className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3">
+              <input
+                type="checkbox"
+                checked={ch.enabled}
+                onChange={(e) => updateChip(i, { enabled: e.target.checked })}
+                className="h-4 w-4"
+                title="Show / hide"
+              />
+              <input
+                value={ch.label}
+                onChange={(e) => updateChip(i, { label: e.target.value })}
+                placeholder="Label"
+                className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <input
+                value={ch.href}
+                onChange={(e) => updateChip(i, { href: e.target.value })}
+                placeholder="/category/football"
+                className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <button onClick={() => moveChip(i, -1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => moveChip(i, 1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => removeChip(i)} className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent" title="Remove">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button
+            onClick={addChip}
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            <Plus className="h-4 w-4" /> Add chip
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save quick bar"}
+          </button>
+        </div>
       </div>
     </div>
   );
