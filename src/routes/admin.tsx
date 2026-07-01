@@ -1178,78 +1178,503 @@ function EditPosterModal({
 function CategoriesTab() {
   const qc = useQueryClient();
   const { data: categories = [] } = useCategories();
-  const [editing, setEditing] = useState<Category | "new" | null>(null);
+  const [editing, setEditing] = useState<Category | "new-root" | { newUnder: string } | null>(null);
+  const [deleting, setDeleting] = useState<Category | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [cleanOpen, setCleanOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const remove = async (c: Category) => {
-    if (!confirm(`Delete category "${c.name}"? Posters in it will become unassigned.`)) return;
-    const { error } = await supabase.from("categories").delete().eq("id", c.id);
-    if (error) return toast.error(error.message);
-    toast.success("Deleted");
+  // Poster counts per category_id (top ~1000 categories should be plenty)
+  const { data: counts = {} } = useQuery({
+    queryKey: ["category-poster-counts"],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("posters")
+        .select("category_id")
+        .not("category_id", "is", null)
+        .limit(50000);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const row of (data ?? []) as Array<{ category_id: string | null }>) {
+        if (!row.category_id) continue;
+        map[row.category_id] = (map[row.category_id] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
+
+  const roots = categories.filter((c) => !c.parent_id);
+  const childrenOf = (id: string) => categories.filter((c) => c.parent_id === id);
+
+  const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["categories"] });
+    qc.invalidateQueries({ queryKey: ["category-poster-counts"] });
+  };
+
+  const toggleExpand = (id: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const toggleHidden = async (c: Category) => {
+    const { error } = await supabase
+      .from("categories")
+      .update({ hidden: !c.hidden })
+      .eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(!c.hidden ? "Hidden" : "Visible");
+    invalidate();
+  };
+
+  const move = async (c: Category, dir: -1 | 1) => {
+    const siblings = categories
+      .filter((x) => (x.parent_id ?? null) === (c.parent_id ?? null))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((x) => x.id === c.id);
+    const swap = siblings[idx + dir];
+    if (!swap) return;
+    await Promise.all([
+      supabase.from("categories").update({ sort_order: swap.sort_order }).eq("id", c.id),
+      supabase.from("categories").update({ sort_order: c.sort_order }).eq("id", swap.id),
+    ]);
+    invalidate();
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const bulkDeleteEmpty = async () => {
+    const ids = Array.from(selected).filter((id) => (counts[id] ?? 0) === 0 && childrenOf(id).length === 0);
+    if (!ids.length) return toast.error("Selection is empty or contains non-empty subcategories");
+    if (!confirm(`Delete ${ids.length} empty subcategor${ids.length === 1 ? "y" : "ies"}?`)) return;
+    const { error } = await supabase.from("categories").delete().in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${ids.length}`);
+    setSelected(new Set());
+    invalidate();
+  };
+
+  const renderRow = (c: Category, depth: number) => {
+    const kids = childrenOf(c.id);
+    const count = counts[c.id] ?? 0;
+    const isOpen = expanded.has(c.id);
+    return (
+      <div key={c.id}>
+        <div
+          className={cn(
+            "flex items-center gap-2 border-b border-border px-2 py-2 text-sm",
+            c.hidden && "opacity-60",
+          )}
+          style={{ paddingLeft: 8 + depth * 20 }}
+        >
+          {depth > 0 && (
+            <input
+              type="checkbox"
+              checked={selected.has(c.id)}
+              onChange={() => toggleSelect(c.id)}
+              className="h-4 w-4"
+            />
+          )}
+          {kids.length > 0 ? (
+            <button
+              onClick={() => toggleExpand(c.id)}
+              className="w-5 text-muted-foreground"
+              aria-label={isOpen ? "Collapse" : "Expand"}
+            >
+              {isOpen ? "▾" : "▸"}
+            </button>
+          ) : (
+            <span className="w-5" />
+          )}
+          {c.icon ? (
+            <SafeImage src={c.icon} alt="" className="h-6 w-6 rounded-sm object-cover" />
+          ) : c.image ? (
+            <SafeImage src={c.image} alt="" className="h-6 w-6 rounded-sm object-cover" />
+          ) : (
+            <span className="h-6 w-6 rounded-sm bg-muted" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium">
+              {c.name}
+              {c.hidden && (
+                <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  hidden
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">
+              /{c.slug} · {count} poster{count === 1 ? "" : "s"}
+              {kids.length > 0 && ` · ${kids.length} sub`}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => move(c, -1)}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
+              title="Move up"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => move(c, 1)}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
+              title="Move down"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setEditing({ newUnder: c.id })}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
+              title="Add subcategory"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => toggleHidden(c)}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
+              title={c.hidden ? "Show" : "Hide"}
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setEditing(c)}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
+              title="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setDeleting(c)}
+              className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+        {isOpen && kids.map((k) => renderRow(k, depth + 1))}
+      </div>
+    );
   };
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={() => setEditing("new")}
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> New category
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">
+          {roots.length} main · {categories.length - roots.length} sub
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {selected.size > 0 && (
+            <button
+              onClick={bulkDeleteEmpty}
+              className="inline-flex items-center gap-2 rounded-sm border border-destructive px-3 py-2 text-xs uppercase tracking-widest text-destructive"
+            >
+              <Trash2 className="h-4 w-4" /> Delete empty ({selected.size})
+            </button>
+          )}
+          <button
+            onClick={() => setCleanOpen(true)}
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest"
+          >
+            <Sparkles className="h-4 w-4" /> Clean categories
+          </button>
+          <button
+            onClick={() => setEditing("new-root")}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+          >
+            <Plus className="h-4 w-4" /> New main category
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map((c) => (
-          <div key={c.id} className="overflow-hidden rounded-sm border border-border bg-card">
-            <div className="aspect-[16/9] overflow-hidden bg-muted">
-              {c.image ? (
-                <SafeImage src={c.image} alt={c.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-xs uppercase tracking-widest text-muted-foreground">
-                  No cover
+      <div className="rounded-sm border border-border bg-card">
+        {roots.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">No categories yet.</div>
+        ) : (
+          roots.map((r) => (
+            <div key={r.id} className="border-b border-border last:border-b-0">
+              {renderRow(r, 0)}
+              {!expanded.has(r.id) && childrenOf(r.id).length > 0 && (
+                <div className="pl-14 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {childrenOf(r.id).length} subcategories — click ▸ to expand
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between gap-2 p-4">
-              <div>
-                <div className="font-semibold">{indentCat(c, categories)}</div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  /{c.slug}
-                </div>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setEditing(c)}
-                  className="rounded-sm p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label="Edit"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => remove(c)}
-                  className="rounded-sm p-2 text-muted-foreground hover:bg-accent hover:text-destructive"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
+
+      {/* Orphans (parent_id points to a missing category) */}
+      {(() => {
+        const ids = new Set(categories.map((c) => c.id));
+        const orphans = categories.filter((c) => c.parent_id && !ids.has(c.parent_id));
+        if (!orphans.length) return null;
+        return (
+          <div className="mt-6 rounded-sm border border-amber-500/50 bg-amber-500/10 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+              Orphaned subcategories ({orphans.length})
+            </div>
+            <ul className="space-y-1 text-sm">
+              {orphans.map((o) => (
+                <li key={o.id} className="flex items-center justify-between">
+                  <span>{o.name} <span className="text-muted-foreground">/{o.slug}</span></span>
+                  <button
+                    onClick={() => setEditing(o)}
+                    className="rounded-sm border border-border px-2 py-1 text-xs uppercase tracking-widest"
+                  >
+                    Fix parent
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {editing && (
         <EditCategoryModal
-          category={editing === "new" ? null : editing}
+          category={
+            editing === "new-root" || typeof editing === "object" && "newUnder" in editing
+              ? null
+              : editing
+          }
+          defaultParentId={
+            typeof editing === "object" && editing && "newUnder" in editing ? editing.newUnder : ""
+          }
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            qc.invalidateQueries({ queryKey: ["categories"] });
+            invalidate();
           }}
         />
       )}
+
+      {deleting && (
+        <DeleteCategoryModal
+          category={deleting}
+          posterCount={counts[deleting.id] ?? 0}
+          categories={categories}
+          onClose={() => setDeleting(null)}
+          onDone={() => {
+            setDeleting(null);
+            invalidate();
+          }}
+        />
+      )}
+
+      {cleanOpen && (
+        <CleanCategoriesModal
+          categories={categories}
+          counts={counts}
+          onClose={() => setCleanOpen(false)}
+          onChanged={invalidate}
+        />
+      )}
     </div>
+  );
+}
+
+function DeleteCategoryModal({
+  category, posterCount, categories, onClose, onDone,
+}: {
+  category: Category;
+  posterCount: number;
+  categories: Category[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const hasKids = categories.some((c) => c.parent_id === category.id);
+  const [action, setAction] = useState<"move" | "unassign" | "">("");
+  const [moveTo, setMoveTo] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const options = categories.filter((c) => c.id !== category.id && !c.parent_id ? true : c.parent_id !== null && c.id !== category.id);
+
+  const commit = async () => {
+    setBusy(true);
+    try {
+      if (hasKids) {
+        toast.error("Move or delete its subcategories first");
+        return;
+      }
+      if (posterCount > 0) {
+        if (action === "move") {
+          if (!moveTo) return toast.error("Pick a target subcategory");
+          const { error } = await supabase
+            .from("posters")
+            .update({ category_id: moveTo })
+            .eq("category_id", category.id);
+          if (error) throw error;
+        } else if (action === "unassign") {
+          const { error } = await supabase
+            .from("posters")
+            .update({ category_id: null })
+            .eq("category_id", category.id);
+          if (error) throw error;
+        } else {
+          return toast.error("Choose what to do with the posters");
+        }
+      }
+      const { error } = await supabase.from("categories").delete().eq("id", category.id);
+      if (error) throw error;
+      toast.success("Deleted");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Delete "${category.name}"`}>
+      {hasKids ? (
+        <p className="text-sm text-destructive">
+          This category has subcategories. Move or delete them first.
+        </p>
+      ) : posterCount === 0 ? (
+        <p className="text-sm text-muted-foreground">This subcategory is empty. Delete it?</p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm">
+            This subcategory contains <strong>{posterCount}</strong> poster{posterCount === 1 ? "" : "s"}.
+            What do you want to do?
+          </p>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="radio" name="del" checked={action === "move"} onChange={() => setAction("move")} />
+            <div className="flex-1">
+              <div>Move posters to another subcategory</div>
+              {action === "move" && (
+                <select
+                  value={moveTo}
+                  onChange={(e) => setMoveTo(e.target.value)}
+                  className="mt-2 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">— Choose target —</option>
+                  {options.map((o) => (
+                    <option key={o.id} value={o.id}>{indentCat(o, categories)}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="radio" name="del" checked={action === "unassign"} onChange={() => setAction("unassign")} />
+            Remove the subcategory from posters (leave them uncategorized)
+          </label>
+        </div>
+      )}
+      <div className="mt-6 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+          Cancel
+        </button>
+        <button
+          onClick={commit}
+          disabled={busy || hasKids}
+          className="rounded-sm bg-destructive px-4 py-2 text-xs uppercase tracking-widest text-destructive-foreground disabled:opacity-50"
+        >
+          {busy ? "Deleting…" : "Delete"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function CleanCategoriesModal({
+  categories, counts, onClose, onChanged,
+}: {
+  categories: Category[];
+  counts: Record<string, number>;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const ids = new Set(categories.map((c) => c.id));
+  const orphans = categories.filter((c) => c.parent_id && !ids.has(c.parent_id));
+  const empties = categories.filter(
+    (c) => c.parent_id && (counts[c.id] ?? 0) === 0 && !categories.some((k) => k.parent_id === c.id),
+  );
+  const bySlug = new Map<string, Category[]>();
+  for (const c of categories) {
+    const key = `${c.parent_id ?? "root"}::${c.slug.toLowerCase()}`;
+    if (!bySlug.has(key)) bySlug.set(key, []);
+    bySlug.get(key)!.push(c);
+  }
+  const dups = Array.from(bySlug.values()).filter((g) => g.length > 1);
+
+  const deleteMany = async (list: Category[]) => {
+    if (!list.length) return;
+    if (!confirm(`Delete ${list.length} categor${list.length === 1 ? "y" : "ies"}?`)) return;
+    const { error } = await supabase.from("categories").delete().in("id", list.map((c) => c.id));
+    if (error) return toast.error(error.message);
+    toast.success("Cleaned");
+    onChanged();
+  };
+
+  return (
+    <Modal onClose={onClose} title="Clean categories">
+      <div className="space-y-4 text-sm">
+        <section>
+          <div className="mb-1 font-semibold">Empty subcategories ({empties.length})</div>
+          {empties.length ? (
+            <>
+              <ul className="mb-2 max-h-40 overflow-auto rounded-sm border border-border p-2">
+                {empties.map((e) => (
+                  <li key={e.id} className="truncate">{indentCat(e, categories)}</li>
+                ))}
+              </ul>
+              <button
+                onClick={() => deleteMany(empties)}
+                className="rounded-sm border border-destructive px-3 py-1.5 text-xs uppercase tracking-widest text-destructive"
+              >
+                Delete all empty
+              </button>
+            </>
+          ) : (
+            <p className="text-muted-foreground">None.</p>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-1 font-semibold">Orphaned subcategories ({orphans.length})</div>
+          {orphans.length ? (
+            <ul className="max-h-40 overflow-auto rounded-sm border border-border p-2">
+              {orphans.map((o) => (
+                <li key={o.id} className="truncate">{o.name} /{o.slug}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">None.</p>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-1 font-semibold">Duplicate slugs ({dups.length})</div>
+          {dups.length ? (
+            <ul className="max-h-40 overflow-auto rounded-sm border border-border p-2">
+              {dups.map((g) => (
+                <li key={g[0].slug} className="truncate">
+                  /{g[0].slug} × {g.length}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">None.</p>
+          )}
+        </section>
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+          Close
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -1269,15 +1694,17 @@ function indentCat(c: Category, all: Category[]): string {
 }
 
 function EditCategoryModal({
-  category, onClose, onSaved,
-}: { category: Category | null; onClose: () => void; onSaved: () => void }) {
+  category, defaultParentId, onClose, onSaved,
+}: { category: Category | null; defaultParentId?: string; onClose: () => void; onSaved: () => void }) {
   const isNew = !category;
   const [name, setName] = useState(category?.name ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [imageUrl, setImageUrl] = useState(category?.image ?? "");
+  const [iconUrl, setIconUrl] = useState(category?.icon ?? "");
   const [sortOrder, setSortOrder] = useState<number>(category?.sort_order ?? 0);
-  const [parentId, setParentId] = useState<string>(category?.parent_id ?? "");
+  const [parentId, setParentId] = useState<string>(category?.parent_id ?? defaultParentId ?? "");
   const [file, setFile] = useState<File | null>(null);
+  const [iconFile, setIconFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const { data: allCats = [] } = useCategories();
 
@@ -1291,10 +1718,17 @@ function EditCategoryModal({
         const path = `_categories/${crypto.randomUUID()}.${ext}`;
         finalImage = await uploadAndSign("posters", path, file);
       }
+      let finalIcon = iconUrl;
+      if (iconFile) {
+        const ext = iconFile.name.split(".").pop() ?? "png";
+        const path = `_categories/icons/${crypto.randomUUID()}.${ext}`;
+        finalIcon = await uploadAndSign("posters", path, iconFile);
+      }
       const payload = {
         name: name.trim(),
         slug: (slug || slugify(name)).trim(),
         image: finalImage || null,
+        icon: finalIcon || null,
         sort_order: sortOrder,
         parent_id: parentId || null,
       };
@@ -1362,6 +1796,18 @@ function EditCategoryModal({
           />
           {imageUrl && !file && (
             <SafeImage src={imageUrl} alt="" className="mt-2 h-24 w-40 rounded-sm object-cover" />
+          )}
+        </label>
+        <label className="block">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Icon (small square)</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setIconFile(e.target.files?.[0] ?? null)}
+            className="mt-1 w-full text-sm text-muted-foreground"
+          />
+          {iconUrl && !iconFile && (
+            <SafeImage src={iconUrl} alt="" className="mt-2 h-12 w-12 rounded-sm object-cover" />
           )}
         </label>
       </div>

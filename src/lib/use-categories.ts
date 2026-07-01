@@ -9,6 +9,8 @@ export type Category = {
   sort_order: number;
   parent_id: string | null;
   description?: string | null;
+  icon?: string | null;
+  hidden?: boolean;
 };
 
 export function useCategories() {
@@ -18,7 +20,7 @@ export function useCategories() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description")
+        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw error;
