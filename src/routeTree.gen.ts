@@ -13,6 +13,7 @@ import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
+import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as CustomDesignRouteImport } from './routes/custom-design'
 import { Route as CartRouteImport } from './routes/cart'
@@ -39,6 +40,11 @@ const SearchRoute = SearchRouteImport.update({
 const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
   id: '/photo-printing',
   path: '/photo-printing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfflineRoute = OfflineRouteImport.update({
+  id: '/offline',
+  path: '/offline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OffersRoute = OffersRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
+  '/offline': typeof OfflineRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
+  '/offline': typeof OfflineRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
+  '/offline': typeof OfflineRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/custom-design'
     | '/offers'
+    | '/offline'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/custom-design'
     | '/offers'
+    | '/offline'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/custom-design'
     | '/offers'
+    | '/offline'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
+  OfflineRoute: typeof OfflineRoute
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   SearchRoute: typeof SearchRoute
   SetsRoute: typeof SetsRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/photo-printing'
       fullPath: '/photo-printing'
       preLoaderRoute: typeof PhotoPrintingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offline': {
+      id: '/offline'
+      path: '/offline'
+      fullPath: '/offline'
+      preLoaderRoute: typeof OfflineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offers': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
+  OfflineRoute: OfflineRoute,
   PhotoPrintingRoute: PhotoPrintingRoute,
   SearchRoute: SearchRoute,
   SetsRoute: SetsRoute,
