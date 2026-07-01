@@ -503,22 +503,18 @@ function Customizer({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
-      <div className="mx-auto w-full" style={{ maxHeight: "42vh" }}>
-        <div className="mx-auto h-full" style={{ maxHeight: "42vh" }}>
-          <div className="mx-auto flex justify-center" style={{ maxHeight: "42vh" }}>
-            <div style={{ maxHeight: "42vh" }} className="w-auto [&_img]:max-h-[42vh] [&_img]:w-auto">
-              <PosterGallery
-                posterId={primary.id}
-                posterUrl={primary.image_url}
-                title={primary.title}
-                frameType={frameType}
-                color={color}
-                editSettings={primary.edit_settings}
-              />
-            </div>
+        <div className="mx-auto flex w-full justify-center [&_img]:max-h-[42vh] [&_img]:w-auto">
+          <div className="w-full max-w-[260px]">
+            <PosterGallery
+              posterId={primary.id}
+              posterUrl={primary.image_url}
+              title={primary.title}
+              frameType={frameType}
+              color={color}
+              editSettings={primary.edit_settings}
+            />
           </div>
-      </div>
-      </div>
+        </div>
       {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {(primary.sales_count ?? 0) > 0 && (
