@@ -11,9 +11,13 @@ import {
 } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
+
+const INSTAPAY_NUMBER = "01090771294";
+const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -48,6 +52,28 @@ function CartPage() {
   const [governorate, setGovernorate] = useState("");
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "instapay">("cod");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleScreenshotChange = (file: File | null) => {
+    if (!file) {
+      setScreenshot(null);
+      setScreenshotPreview(null);
+      return;
+    }
+    if (!ALLOWED_SCREENSHOT_TYPES.includes(file.type)) {
+      toast.error("Only JPG, PNG, WEBP or PDF are allowed");
+      return;
+    }
+    if (file.size > MAX_SCREENSHOT_BYTES) {
+      toast.error("Max file size is 10 MB");
+      return;
+    }
+    setScreenshot(file);
+    setScreenshotPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+  };
 
   const buildMessage = () => {
     const lines = items.map((i, idx) => {
@@ -58,12 +84,15 @@ function CartPage() {
       return head;
     });
     return [
-      "New order from BRWAZWNEON (Cash on delivery)",
+      `New order from BRWAZWNEON — ${paymentMethod === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"}`,
       "",
       `Name: ${name}`,
       `Phone: ${phone}`,
       `Governorate: ${governorate}`,
       `Address: ${address}`,
+      paymentMethod === "instapay"
+        ? `Payment: Instapay / Vodafone Cash → ${INSTAPAY_NUMBER} (screenshot attached)`
+        : "Payment: Cash on delivery",
       "",
       "Items:",
       ...lines,
@@ -79,6 +108,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (paymentMethod === "instapay" && !screenshot)
+      return toast.error("Please upload your payment screenshot");
 
     setSubmitting(true);
     const contentIds = items.flatMap((i) =>
@@ -95,6 +126,18 @@ function CartPage() {
       }, { phone, city: governorate, country: "EG" });
     } catch { /* noop */ }
     try {
+      let screenshotPath: string | null = null;
+      if (paymentMethod === "instapay" && screenshot) {
+        const folder = crypto.randomUUID();
+        const rawExt = (screenshot.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "jpg";
+        const path = `${folder}/receipt.${rawExt}`;
+        const { error: upErr } = await supabase.storage
+          .from("payment-screenshots")
+          .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
+        if (upErr) throw upErr;
+        screenshotPath = path;
+      }
+
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const rows = items.map((i) => {
         const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
@@ -119,6 +162,9 @@ function CartPage() {
         shipping_cost: shippingPerItem,
         total_price: i.price * i.qty + linePackaging + shippingPerItem,
         status: "new",
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
+        payment_screenshot: screenshotPath,
       });
       });
       const { error } = await supabase.from("orders").insert(rows);
@@ -175,6 +221,7 @@ function CartPage() {
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
+      setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to place order");
     } finally {
@@ -267,7 +314,7 @@ function CartPage() {
             <div className="rounded-sm border border-border bg-card p-6">
               <h2 className="text-display text-2xl">Checkout</h2>
               <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                Cash on delivery
+                Cash on delivery · Instapay · Vodafone Cash
               </p>
               <div className="mt-5 space-y-3">
                 <Field label="Full name" value={name} onChange={setName} />
@@ -288,6 +335,108 @@ function CartPage() {
                   </select>
                 </label>
                 <Field label="Address" value={address} onChange={setAddress} textarea />
+              </div>
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Payment method
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2">
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition ${paymentMethod === "cod" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}>
+                    <input
+                      type="radio"
+                      name="pm"
+                      value="cod"
+                      checked={paymentMethod === "cod"}
+                      onChange={() => setPaymentMethod("cod")}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <div>
+                      <div className="font-semibold">Cash on delivery</div>
+                      <div className="text-xs text-muted-foreground">Pay in cash when your order arrives.</div>
+                    </div>
+                  </label>
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition ${paymentMethod === "instapay" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}>
+                    <input
+                      type="radio"
+                      name="pm"
+                      value="instapay"
+                      checked={paymentMethod === "instapay"}
+                      onChange={() => setPaymentMethod("instapay")}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <div>
+                      <div className="font-semibold">Instapay / Vodafone Cash</div>
+                      <div className="text-xs text-muted-foreground">Transfer, then upload your payment screenshot.</div>
+                    </div>
+                  </label>
+                </div>
+                {paymentMethod === "instapay" && (
+                  <div className="mt-3 space-y-3 rounded-sm border border-border bg-background p-3">
+                    <p className="text-xs leading-relaxed">
+                      Please transfer the total amount to:
+                    </p>
+                    <div className="flex items-center justify-between gap-2 rounded-sm border border-border bg-card px-3 py-2">
+                      <span className="text-display text-lg tracking-widest">{INSTAPAY_NUMBER}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(INSTAPAY_NUMBER).then(() => toast.success("Number copied"));
+                        }}
+                        className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      (Instapay or Vodafone Cash) — After payment, upload your payment screenshot below.
+                    </p>
+
+                    {screenshot ? (
+                      <div className="relative overflow-hidden rounded-sm border border-border">
+                        {screenshotPreview ? (
+                          <img src={screenshotPreview} alt="Payment screenshot" className="max-h-56 w-full object-contain bg-black/40" />
+                        ) : (
+                          <div className="flex items-center gap-2 p-4 text-sm">
+                            <FileText className="h-5 w-5" /> {screenshot.name}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between border-t border-border bg-card px-3 py-2 text-[11px]">
+                          <span className="truncate text-muted-foreground">
+                            {screenshot.name} · {(screenshot.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleScreenshotChange(null)}
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault(); setDragOver(false);
+                          const f = e.dataTransfer.files?.[0];
+                          if (f) handleScreenshotChange(f);
+                        }}
+                        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border border-dashed p-6 text-center text-xs transition ${dragOver ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+                      >
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">Upload payment screenshot</span>
+                        <span className="text-[10px] text-muted-foreground">Drag & drop or click · JPG, PNG, WEBP, PDF · max 10 MB</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleScreenshotChange(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
                 <div className="flex items-center justify-between">

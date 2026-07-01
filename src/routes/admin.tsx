@@ -1391,9 +1391,29 @@ type Order = {
   packaging_fee: number | null;
   status: string;
   created_at: string;
+  payment_method: string | null;
+  payment_status: string | null;
+  payment_screenshot: string | null;
+  payment_notes: string | null;
+  payment_verified_at: string | null;
 };
 
 const STATUSES = ["new", "processing", "printed", "shipped", "delivered", "cancelled"];
+const PAYMENT_STATUSES = ["not_required", "pending", "received", "verified", "rejected"] as const;
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  not_required: "COD (no payment)",
+  pending: "Pending Payment",
+  received: "Payment Received",
+  verified: "Payment Verified",
+  rejected: "Rejected",
+};
+const PAYMENT_STATUS_TONE: Record<string, string> = {
+  not_required: "bg-muted text-muted-foreground",
+  pending: "bg-amber-500/15 text-amber-500",
+  received: "bg-blue-500/15 text-blue-400",
+  verified: "bg-emerald-500/15 text-emerald-400",
+  rejected: "bg-red-500/15 text-red-400",
+};
 
 function OrdersTab() {
   const qc = useQueryClient();
@@ -1407,7 +1427,7 @@ function OrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
@@ -1441,6 +1461,16 @@ function OrdersTab() {
     const { error } = await supabase.from("orders").update({ status }).eq("id", o.id);
     if (error) return toast.error(error.message);
     toast.success("Updated");
+    qc.invalidateQueries({ queryKey: ["admin-orders"] });
+  };
+
+  const setPaymentStatus = async (o: Order, payment_status: string) => {
+    const patch = payment_status === "verified"
+      ? { payment_status, payment_verified_at: new Date().toISOString() }
+      : { payment_status };
+    const { error } = await supabase.from("orders").update(patch).eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Payment status updated");
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
@@ -1542,6 +1572,7 @@ function OrdersTab() {
                   <th className="px-3 py-3 text-left">Poster</th>
                   <th className="px-3 py-3 text-left">Spec</th>
                   <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3 text-left">Payment</th>
                   <th className="px-3 py-3 text-left">Status</th>
                   <th className="px-3 py-3"></th>
                 </tr>
@@ -1574,6 +1605,22 @@ function OrdersTab() {
                       <div className="text-muted-foreground">{o.size} · {o.frame_color} · ×{o.quantity}</div>
                     </td>
                     <td className="px-3 py-3 text-right font-semibold">{o.total_price} EGP</td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                          {o.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}
+                        </span>
+                        <select
+                          value={o.payment_status ?? "not_required"}
+                          onChange={(e) => setPaymentStatus(o, e.target.value)}
+                          className={`rounded-sm border border-border bg-background px-2 py-1 text-[11px] ${PAYMENT_STATUS_TONE[o.payment_status ?? "not_required"] ?? ""}`}
+                        >
+                          {PAYMENT_STATUSES.map((s) => (
+                            <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
                     <td className="px-3 py-3">
                       <select
                         value={o.status}
@@ -1616,6 +1663,12 @@ function OrdersTab() {
             <Row k="Packaging Fee" v={`${viewing.packaging_fee ?? 0} EGP`} />
             <Row k="Total" v={`${viewing.total_price} EGP`} />
             <Row k="Status" v={viewing.status} />
+            <Row k="Payment Method" v={viewing.payment_method === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"} />
+            <Row k="Payment Status" v={PAYMENT_STATUS_LABEL[viewing.payment_status ?? "not_required"]} />
+            {viewing.payment_verified_at && (
+              <Row k="Verified At" v={new Date(viewing.payment_verified_at).toLocaleString()} />
+            )}
+            <PaymentScreenshotBlock order={viewing} onUpdate={() => qc.invalidateQueries({ queryKey: ["admin-orders"] })} />
           </div>
         </Modal>
       )}
@@ -1628,6 +1681,111 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
     <div className="rounded-sm border border-border bg-card p-4">
       <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">{label}</div>
       <div className="text-display mt-2 text-2xl">{value}</div>
+    </div>
+  );
+}
+
+function PaymentScreenshotBlock({ order, onUpdate }: { order: Order; onUpdate: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [notes, setNotes] = useState(order.payment_notes ?? "");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!order.payment_screenshot) { setUrl(null); return; }
+    setLoading(true);
+    supabase.storage
+      .from("payment-screenshots")
+      .createSignedUrl(order.payment_screenshot, 60 * 60)
+      .then(({ data }) => { if (!cancelled) setUrl(data?.signedUrl ?? null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [order.payment_screenshot]);
+
+  const saveNotes = async () => {
+    const { error } = await supabase.from("orders").update({ payment_notes: notes }).eq("id", order.id);
+    if (error) return toast.error(error.message);
+    toast.success("Notes saved");
+    onUpdate();
+  };
+
+  const setPS = async (payment_status: string) => {
+    const patch = payment_status === "verified"
+      ? { payment_status, payment_verified_at: new Date().toISOString() }
+      : { payment_status };
+    const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
+    if (error) return toast.error(error.message);
+    toast.success("Payment status updated");
+    onUpdate();
+  };
+
+  const waLink = `https://wa.me/${order.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+    `Hi ${order.customer_name}, this is BRWAZWNEON regarding order ${order.order_number ?? ""}. `,
+  )}`;
+
+  if (order.payment_method !== "instapay") return null;
+
+  return (
+    <div className="mt-3 space-y-3 rounded-sm border border-border bg-muted/30 p-3">
+      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Payment screenshot
+      </div>
+      {order.payment_screenshot ? (
+        loading ? (
+          <div className="text-xs text-muted-foreground">Loading…</div>
+        ) : url ? (
+          <div className="space-y-2">
+            {/\.pdf$/i.test(order.payment_screenshot) ? (
+              <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm underline">
+                Open PDF receipt
+              </a>
+            ) : (
+              <a href={url} target="_blank" rel="noreferrer">
+                <img src={url} alt="Payment screenshot" className="max-h-72 w-full rounded-sm border border-border object-contain bg-black/40" />
+              </a>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <a href={url} download className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+                Download
+              </a>
+              <a href={url} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+                Open in new tab
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-destructive">Could not load screenshot.</div>
+        )
+      ) : (
+        <div className="text-xs text-muted-foreground">No screenshot uploaded.</div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setPS("received")} className="rounded-sm border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-blue-300 hover:bg-blue-500/20">
+          Mark Received
+        </button>
+        <button onClick={() => setPS("verified")} className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20">
+          ✓ Verify Payment
+        </button>
+        <button onClick={() => setPS("rejected")} className="rounded-sm border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-red-300 hover:bg-red-500/20">
+          ✕ Reject
+        </button>
+        <a href={waLink} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+          Contact on WhatsApp
+        </a>
+      </div>
+
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment notes (internal)</span>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={saveNotes}
+          className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+          placeholder="e.g. transfer reference #, missing amount…"
+        />
+      </label>
     </div>
   );
 }
