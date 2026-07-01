@@ -57,9 +57,6 @@ export function RecentlyViewed({
                 />
               </Link>
               <div className="mt-3 space-y-1">
-                <div className="truncate text-[11px] font-semibold uppercase tracking-widest text-foreground">
-                  {p.title}
-                </div>
                 {p.category_name && (
                   <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                     {p.category_name}
