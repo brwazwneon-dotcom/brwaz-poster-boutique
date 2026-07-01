@@ -3,6 +3,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type CategoryLite = { id: string; name: string; slug: string; parent_id: string | null };
 
+type MaybeRpc = {
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
+async function assertAdmin(supabase: unknown, userId: string) {
+  const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if (error || !data) throw new Error("Forbidden");
+}
+
 type GenInput = {
   imageUrl: string;
   filename?: string;
@@ -55,7 +66,9 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
       categories: Array.isArray(d.categories) ? d.categories : [],
     };
   })
-  .handler(async ({ data }): Promise<GeneratedPosterMeta> => {
+  .handler(async ({ data, context }): Promise<GeneratedPosterMeta> => {
+    // AI generation is an admin-only operation — it burns paid gateway credits.
+    await assertAdmin(context.supabase, context.userId);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
