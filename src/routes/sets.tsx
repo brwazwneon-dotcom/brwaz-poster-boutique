@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart";
 import { toast } from "sonner";
 import { whatsappLink } from "@/lib/whatsapp";
 import { useState } from "react";
+import { ProductInfoSections } from "@/components/ProductInfoSections";
 
 export const Route = createFileRoute("/sets")({
   head: () => ({
@@ -73,6 +74,7 @@ function SetsPage() {
           </div>
         )}
       </section>
+      <ProductInfoSections variant="all" />
     </div>
   );
 }
