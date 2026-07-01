@@ -34,6 +34,7 @@ import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
+import { useGridDisplayMode } from "@/lib/use-settings";
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Minus, Plus } from "lucide-react";
