@@ -29,6 +29,7 @@ import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { BackupsTab } from "@/components/admin/BackupsTab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
+import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
