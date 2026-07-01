@@ -35,6 +35,11 @@ import {
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 import { PRICING_DEFAULTS, PRICING_KEYS, type Pricing } from "@/lib/use-settings";
 import {
+  ANNOUNCEMENT_KEY,
+  ANNOUNCEMENT_DEFAULTS,
+  type AnnouncementConfig,
+} from "@/components/AnnouncementBar";
+import {
   DEFAULT_HOME_SECTIONS,
   HOME_SECTION_LABELS,
   HOME_SECTIONS_KEY,
