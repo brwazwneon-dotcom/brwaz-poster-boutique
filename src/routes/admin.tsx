@@ -46,6 +46,12 @@ import {
   type QuickBarChip,
 } from "@/lib/quickbar";
 import {
+  FOOTER_MENU_KEY,
+  DEFAULT_FOOTER_MENU,
+  type FooterMenuConfig,
+  type FooterLink,
+} from "@/lib/footer-menu";
+import {
   DEFAULT_HOME_SECTIONS,
   HOME_SECTION_LABELS,
   HOME_SECTIONS_KEY,
@@ -72,7 +78,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -154,7 +160,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -184,6 +190,7 @@ function AdminPage() {
         {tab === "sets" && <SetsTab />}
         {tab === "collections" && <CollectionsTab />}
         {tab === "quickbar" && <QuickBarTab />}
+        {tab === "footer-menu" && <FooterMenuTab />}
         {tab === "mockups" && <MockupsTab />}
         {tab === "wishlists" && <WishlistsTab />}
         {tab === "reviews" && <ReviewsTab />}
