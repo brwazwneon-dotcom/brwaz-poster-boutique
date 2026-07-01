@@ -40,6 +40,12 @@ import {
   type AnnouncementConfig,
 } from "@/components/AnnouncementBar";
 import {
+  QUICKBAR_KEY,
+  DEFAULT_QUICKBAR,
+  type QuickBarConfig,
+  type QuickBarChip,
+} from "@/lib/quickbar";
+import {
   DEFAULT_HOME_SECTIONS,
   HOME_SECTION_LABELS,
   HOME_SECTIONS_KEY,
@@ -60,7 +66,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -142,7 +148,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -171,6 +177,7 @@ function AdminPage() {
         {tab === "sections" && <HomeSectionsTab />}
         {tab === "sets" && <SetsTab />}
         {tab === "collections" && <CollectionsTab />}
+        {tab === "quickbar" && <QuickBarTab />}
         {tab === "mockups" && <MockupsTab />}
         {tab === "wishlists" && <WishlistsTab />}
         {tab === "reviews" && <ReviewsTab />}
