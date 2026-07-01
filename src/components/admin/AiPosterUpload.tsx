@@ -138,6 +138,10 @@ export function AiPosterUpload() {
         category_id: null,
         subcategory_id: null,
         badge: null,
+        colors: [],
+        orientation: null,
+        confidence: null,
+        edited: {},
       };
     });
     setRows((prev) => [...prev, ...next]);
