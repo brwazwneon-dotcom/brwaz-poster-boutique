@@ -314,7 +314,7 @@ function CartPage() {
             <div className="rounded-sm border border-border bg-card p-6">
               <h2 className="text-display text-2xl">Checkout</h2>
               <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                Cash on delivery
+                Cash on delivery · Instapay · Vodafone Cash
               </p>
               <div className="mt-5 space-y-3">
                 <Field label="Full name" value={name} onChange={setName} />
