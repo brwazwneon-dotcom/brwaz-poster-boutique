@@ -47,6 +47,10 @@ type Row = {
   category_id: string | null;
   subcategory_id: string | null;
   badge: string | null;
+  colors: string[];
+  orientation: "portrait" | "landscape" | "square" | null;
+  confidence: number | null;
+  edited: Record<string, boolean>;
 };
 
 const UPLOAD_CONCURRENCY = 4;
