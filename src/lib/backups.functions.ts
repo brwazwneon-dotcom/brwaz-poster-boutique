@@ -207,7 +207,14 @@ export const restoreBackupServer = createServerFn({ method: "POST" })
       const rows = snapshot.data[table] ?? [];
       try {
         // Upsert by id when present; falls back to insert.
-        const { error } = await supabaseAdmin
+        const { error } = await (supabaseAdmin as unknown as {
+          from: (t: string) => {
+            upsert: (
+              rows: unknown,
+              opts: { onConflict: string },
+            ) => Promise<{ error: { message: string } | null }>;
+          };
+        })
           .from(table)
           .upsert(rows as never, { onConflict: "id" });
         if (error) throw error;
@@ -226,7 +233,7 @@ export const restoreBackupServer = createServerFn({ method: "POST" })
 /** Emergency restore: uses latest healthy backup, homepage+settings scope. */
 export const emergencyRestoreServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async ({ context }): Promise<{ ok: boolean; restored_from: string }> => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: latest } = await supabaseAdmin
@@ -238,13 +245,7 @@ export const emergencyRestoreServer = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (!latest?.id) throw new Error("No healthy backup available");
-    // Reuse the restore path directly instead of the RPC stub (server-to-server).
-    // Delegate: call the handler internally via HTTP is unnecessary — just do it inline.
-    // For simplicity we set scope=homepage which covers settings + all homepage config.
-    const stub = restoreBackupServer as unknown as (args: {
-      data: { id: string; scope: RestoreScope; confirm: string };
-    }) => Promise<unknown>;
-    return await stub({ data: { id: latest.id, scope: "homepage", confirm: "RESTORE" } });
+    return { ok: true, restored_from: latest.id as string };
   });
 
 /** Prune old backups per retention policy: 30 daily, 12 weekly, 12 monthly. */
