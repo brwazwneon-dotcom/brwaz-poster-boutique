@@ -2870,6 +2870,11 @@ function SettingsTab() {
         <PriceField k="free_shipping_threshold" label="Free shipping above" />
       </Section>
 
+      <Section title="Double Face Tape (Upsell)">
+        <PriceField k="double_face_tape_price" label="Price per frame" />
+        <PriceField k="double_face_tape_enabled" label="Enabled (1 = on, 0 = off)" />
+      </Section>
+
       <div className="flex justify-end">
         <button
           onClick={save}
