@@ -320,9 +320,6 @@ function CategoryPage() {
                           {idx + 1}
                         </span>
                       )}
-                      <span className="absolute inset-x-0 bottom-0 truncate bg-background/80 px-2 py-1 text-left text-[10px] uppercase tracking-widest">
-                        {p.title}
-                      </span>
                       {(p.sales_count ?? 0) > 0 && (
                         <span className="pointer-events-none absolute bottom-7 right-2 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
                           ✔ {formatCount(p.sales_count)} sold

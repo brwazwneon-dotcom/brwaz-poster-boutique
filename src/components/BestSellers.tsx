@@ -198,8 +198,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                   </div>
                 </div>
                 <div className="mt-3">
-                  <h3 className="line-clamp-1 text-sm font-semibold">{p.title}</h3>
-                  <div className="mt-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
                     <span>{p.categories?.name ?? "Poster"}</span>
                     <span className="text-foreground">{price} EGP</span>
                   </div>
