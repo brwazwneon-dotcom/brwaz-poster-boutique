@@ -34,6 +34,16 @@ import {
 } from "@/lib/poster-edit";
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 import { PRICING_DEFAULTS, PRICING_KEYS, type Pricing } from "@/lib/use-settings";
+import {
+  DEFAULT_HOME_SECTIONS,
+  HOME_SECTION_LABELS,
+  HOME_SECTIONS_KEY,
+  BEST_SELLERS_CONFIG_KEY,
+  DEFAULT_BS_CONFIG,
+  type HomeSectionConfig,
+  type HomeSectionKey,
+  type BestSellersConfig,
+} from "@/lib/homepage-sections";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
