@@ -35,6 +35,7 @@ import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
+import { SizeGuide } from "@/components/SizeGuide";
 
 type Poster = {
   id: string;
@@ -565,6 +566,7 @@ function Customizer({
           );
         })}
       </OptionGroup>
+      <SizeGuide availableIds={sizesForFrame(frameType)} />
 
       {frameType !== "wood" && (
       <OptionGroup label="Frame Color">
