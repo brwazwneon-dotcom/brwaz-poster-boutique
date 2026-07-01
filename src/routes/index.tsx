@@ -17,6 +17,7 @@ import { Highlights } from "@/components/Highlights";
 import { BestSellers } from "@/components/BestSellers";
 import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
+import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
@@ -81,14 +82,20 @@ function Index() {
 function HeroSection() {
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
-        <img
-          src={hero}
-          alt="Framed poster gallery wall"
-          width={1600}
-          height={1024}
-          className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40 grayscale"
+        <HeroBannerSlider
+          fallback={
+            <>
+              <img
+                src={hero}
+                alt="Framed poster gallery wall"
+                width={1600}
+                height={1024}
+                className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40 grayscale"
+              />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/50 via-background/80 to-background" />
+            </>
+          }
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/50 via-background/80 to-background" />
         <div className="container-page flex min-h-[85vh] flex-col justify-end py-20">
           <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
             BRWAZWNEON · Framed in Egypt · Cash on delivery

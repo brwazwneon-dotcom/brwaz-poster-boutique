@@ -296,6 +296,42 @@ export type Database = {
         }
         Relationships: []
       }
+      hero_banners: {
+        Row: {
+          button_link: string | null
+          button_text: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          image_url: string
+          sort_order: number
+          subtitle: string | null
+          title: string | null
+        }
+        Insert: {
+          button_link?: string | null
+          button_text?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url: string
+          sort_order?: number
+          subtitle?: string | null
+          title?: string | null
+        }
+        Update: {
+          button_link?: string | null
+          button_text?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string
+          sort_order?: number
+          subtitle?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       highlights: {
         Row: {
           created_at: string
