@@ -336,6 +336,108 @@ function CartPage() {
                 </label>
                 <Field label="Address" value={address} onChange={setAddress} textarea />
               </div>
+              <div className="mt-5 border-t border-border pt-4">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Payment method
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2">
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition ${paymentMethod === "cod" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}>
+                    <input
+                      type="radio"
+                      name="pm"
+                      value="cod"
+                      checked={paymentMethod === "cod"}
+                      onChange={() => setPaymentMethod("cod")}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <div>
+                      <div className="font-semibold">Cash on delivery</div>
+                      <div className="text-xs text-muted-foreground">Pay in cash when your order arrives.</div>
+                    </div>
+                  </label>
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition ${paymentMethod === "instapay" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}>
+                    <input
+                      type="radio"
+                      name="pm"
+                      value="instapay"
+                      checked={paymentMethod === "instapay"}
+                      onChange={() => setPaymentMethod("instapay")}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <div>
+                      <div className="font-semibold">Instapay / Vodafone Cash</div>
+                      <div className="text-xs text-muted-foreground">Transfer, then upload your payment screenshot.</div>
+                    </div>
+                  </label>
+                </div>
+                {paymentMethod === "instapay" && (
+                  <div className="mt-3 space-y-3 rounded-sm border border-border bg-background p-3">
+                    <p className="text-xs leading-relaxed">
+                      Please transfer the total amount to:
+                    </p>
+                    <div className="flex items-center justify-between gap-2 rounded-sm border border-border bg-card px-3 py-2">
+                      <span className="text-display text-lg tracking-widest">{INSTAPAY_NUMBER}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(INSTAPAY_NUMBER).then(() => toast.success("Number copied"));
+                        }}
+                        className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      (Instapay or Vodafone Cash) — After payment, upload your payment screenshot below.
+                    </p>
+
+                    {screenshot ? (
+                      <div className="relative overflow-hidden rounded-sm border border-border">
+                        {screenshotPreview ? (
+                          <img src={screenshotPreview} alt="Payment screenshot" className="max-h-56 w-full object-contain bg-black/40" />
+                        ) : (
+                          <div className="flex items-center gap-2 p-4 text-sm">
+                            <FileText className="h-5 w-5" /> {screenshot.name}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between border-t border-border bg-card px-3 py-2 text-[11px]">
+                          <span className="truncate text-muted-foreground">
+                            {screenshot.name} · {(screenshot.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleScreenshotChange(null)}
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault(); setDragOver(false);
+                          const f = e.dataTransfer.files?.[0];
+                          if (f) handleScreenshotChange(f);
+                        }}
+                        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border border-dashed p-6 text-center text-xs transition ${dragOver ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+                      >
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">Upload payment screenshot</span>
+                        <span className="text-[10px] text-muted-foreground">Drag & drop or click · JPG, PNG, WEBP, PDF · max 10 MB</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleScreenshotChange(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
