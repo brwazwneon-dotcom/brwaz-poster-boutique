@@ -55,6 +55,12 @@ import {
   type HomeSectionKey,
   type BestSellersConfig,
 } from "@/lib/homepage-sections";
+import {
+  SIZE_GUIDE_KEY,
+  DEFAULT_SIZE_GUIDE,
+  type SizeGuideConfig,
+  type SizeGuideItem,
+} from "@/lib/size-guide";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -66,7 +72,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -148,7 +154,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -184,6 +190,7 @@ function AdminPage() {
         {tab === "before-after" && <BeforeAfterTab />}
         {tab === "marketing" && <MarketingTab />}
         {tab === "announcement" && <AnnouncementTab />}
+        {tab === "size-guide" && <SizeGuideTab />}
         {tab === "exports" && <ExportsTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
