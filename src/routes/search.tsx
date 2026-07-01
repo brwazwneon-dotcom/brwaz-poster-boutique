@@ -127,7 +127,6 @@ function SearchPage() {
                   />
                 </div>
                 <div className="p-2">
-                  <div className="truncate text-xs">{p.title}</div>
                   <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">
                     {p.category_name ?? "—"}
                   </div>
