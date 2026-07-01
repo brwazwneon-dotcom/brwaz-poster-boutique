@@ -1391,9 +1391,29 @@ type Order = {
   packaging_fee: number | null;
   status: string;
   created_at: string;
+  payment_method: string | null;
+  payment_status: string | null;
+  payment_screenshot: string | null;
+  payment_notes: string | null;
+  payment_verified_at: string | null;
 };
 
 const STATUSES = ["new", "processing", "printed", "shipped", "delivered", "cancelled"];
+const PAYMENT_STATUSES = ["not_required", "pending", "received", "verified", "rejected"] as const;
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  not_required: "COD (no payment)",
+  pending: "Pending Payment",
+  received: "Payment Received",
+  verified: "Payment Verified",
+  rejected: "Rejected",
+};
+const PAYMENT_STATUS_TONE: Record<string, string> = {
+  not_required: "bg-muted text-muted-foreground",
+  pending: "bg-amber-500/15 text-amber-500",
+  received: "bg-blue-500/15 text-blue-400",
+  verified: "bg-emerald-500/15 text-emerald-400",
+  rejected: "bg-red-500/15 text-red-400",
+};
 
 function OrdersTab() {
   const qc = useQueryClient();
