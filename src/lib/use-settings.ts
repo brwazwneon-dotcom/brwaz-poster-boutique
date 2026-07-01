@@ -246,3 +246,32 @@ export function useFrameMockups(): FrameMockups {
 }
 
 export { MOCKUP_DEFAULTS, MOCKUP_KEYS };
+
+/* -------------------- Grid display mode -------------------- */
+
+export type GridDisplayMode = "artwork" | "black" | "white" | "wood";
+export const GRID_DISPLAY_MODE_KEY = "grid_display_mode";
+export const GRID_DISPLAY_MODE_DEFAULT: GridDisplayMode = "artwork";
+
+export function useGridDisplayMode(): GridDisplayMode {
+  const q = useQuery({
+    queryKey: ["grid-display-mode"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<GridDisplayMode> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", GRID_DISPLAY_MODE_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = data?.value as unknown;
+      const s = typeof v === "string" ? v : "";
+      return (["artwork", "black", "white", "wood"] as GridDisplayMode[]).includes(
+        s as GridDisplayMode,
+      )
+        ? (s as GridDisplayMode)
+        : GRID_DISPLAY_MODE_DEFAULT;
+    },
+  });
+  return q.data ?? GRID_DISPLAY_MODE_DEFAULT;
+}
