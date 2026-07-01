@@ -3176,6 +3176,8 @@ function FramePreviewPreviewWithOverride({
           height: `${mockup.height}%`,
           overflow: "hidden",
           borderRadius: `${mockup.borderRadius ?? 0}%`,
+          perspective: `${Math.max(200, mockup.perspective ?? 1000)}px`,
+          transformStyle: "preserve-3d",
         }}
       >
         <img
@@ -3184,7 +3186,7 @@ function FramePreviewPreviewWithOverride({
           className="h-full w-full object-cover select-none"
           draggable={false}
           style={{
-            transform: `rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
+            transform: `rotateX(${mockup.rotateX ?? 0}deg) rotateY(${mockup.rotateY ?? 0}deg) rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
             transformOrigin: "center center",
             willChange: "transform",
           }}
