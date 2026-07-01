@@ -3,13 +3,24 @@ import { ShoppingBag, Search, Heart } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
-import { useRootCategories } from "@/lib/use-categories";
 import { LOGO_URL } from "@/lib/site";
+
+const MAIN_MENU: { label: string; href: string }[] = [
+  { label: "Football", href: "/category/football" },
+  { label: "Movies", href: "/category/movies" },
+  { label: "TV Series", href: "/category/tv-series" },
+  { label: "Marvel & DC", href: "/category/marvel-dc" },
+  { label: "Anime", href: "/category/anime" },
+  { label: "Cars", href: "/category/cars" },
+  { label: "Custom Design", href: "/custom-design" },
+  { label: "Photo Printing", href: "/photo-printing" },
+  { label: "Sets", href: "/sets" },
+  { label: "Best Sellers", href: "/#best-sellers" },
+];
 
 export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
-  const { data: categories = [] } = useRootCategories();
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
@@ -26,42 +37,15 @@ export function SiteHeader() {
           <SearchBox variant="header" />
         </div>
         <nav className="hidden items-center gap-5 text-xs uppercase tracking-widest text-muted-foreground lg:flex">
-          {categories.slice(0, 5).map((c) =>
-            c.slug === "custom" ? (
-              <Link
-                key={c.slug}
-                to="/custom-design"
-                className="transition-colors hover:text-foreground"
-                activeProps={{ className: "text-foreground" }}
-              >
-                {c.name}
-              </Link>
-            ) : (
-              <Link
-                key={c.slug}
-                to="/category/$slug"
-                params={{ slug: c.slug }}
-                className="transition-colors hover:text-foreground"
-                activeProps={{ className: "text-foreground" }}
-              >
-                {c.name}
-              </Link>
-            ),
-          )}
-          <Link
-            to="/offers"
-            className="transition-colors hover:text-foreground"
-            activeProps={{ className: "text-foreground" }}
-          >
-            Offers
-          </Link>
-          <Link
-            to="/photo-printing"
-            className="transition-colors hover:text-foreground"
-            activeProps={{ className: "text-foreground" }}
-          >
-            Photo Printing
-          </Link>
+          {MAIN_MENU.slice(0, 6).map((m) => (
+            <a
+              key={m.href}
+              href={m.href}
+              className="whitespace-nowrap transition-colors hover:text-foreground"
+            >
+              {m.label}
+            </a>
+          ))}
         </nav>
         <Link
           to="/search"
