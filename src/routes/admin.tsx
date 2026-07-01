@@ -343,6 +343,131 @@ function QuickBarTab() {
 
 /* ---------- POSTERS ---------- */
 
+function FooterMenuTab() {
+  const qc = useQueryClient();
+  const [cfg, setCfg] = useState<FooterMenuConfig>(DEFAULT_FOOTER_MENU);
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-footer-menu"],
+    queryFn: async (): Promise<FooterMenuConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", FOOTER_MENU_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<FooterMenuConfig>;
+      return {
+        links: Array.isArray(v.links) && v.links.length ? (v.links as FooterLink[]) : DEFAULT_FOOTER_MENU.links,
+      };
+    },
+  });
+
+  useEffect(() => { if (data) setCfg(data); }, [data]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        key: FOOTER_MENU_KEY,
+        value: cfg as never,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success("Footer menu saved");
+      qc.invalidateQueries({ queryKey: ["footer-menu"] });
+      qc.invalidateQueries({ queryKey: ["admin-footer-menu"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateLink = (i: number, patch: Partial<FooterLink>) =>
+    setCfg((c) => ({ ...c, links: c.links.map((l, idx) => (idx === i ? { ...l, ...patch } : l)) }));
+  const removeLink = (i: number) =>
+    setCfg((c) => ({ ...c, links: c.links.filter((_, idx) => idx !== i) }));
+  const moveLink = (i: number, dir: -1 | 1) => {
+    setCfg((c) => {
+      const j = i + dir;
+      if (j < 0 || j >= c.links.length) return c;
+      const next = c.links.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...c, links: next };
+    });
+  };
+  const addLink = () =>
+    setCfg((c) => ({
+      ...c,
+      links: [...c.links, { id: `link-${Date.now()}`, label: "New", href: "/", enabled: true }],
+    }));
+
+  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="max-w-4xl space-y-5">
+      <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
+        Links shown in the footer "Shop" column. Curated only — never auto-populated from categories.
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-6 space-y-5">
+        <div className="space-y-2">
+          {cfg.links.map((l, i) => (
+            <div key={l.id} className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3">
+              <input
+                type="checkbox"
+                checked={l.enabled}
+                onChange={(e) => updateLink(i, { enabled: e.target.checked })}
+                className="h-4 w-4"
+                title="Show / hide"
+              />
+              <input
+                value={l.label}
+                onChange={(e) => updateLink(i, { label: e.target.value })}
+                placeholder="Label"
+                className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <input
+                value={l.href}
+                onChange={(e) => updateLink(i, { href: e.target.value })}
+                placeholder="/category/football"
+                className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
+              />
+              <button onClick={() => moveLink(i, -1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => moveLink(i, 1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => removeLink(i)} className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent" title="Remove">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button
+            onClick={addLink}
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            <Plus className="h-4 w-4" /> Add link
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save footer menu"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type Poster = {
   id: string;
   title: string;
