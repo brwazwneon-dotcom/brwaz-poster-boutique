@@ -398,6 +398,12 @@ export type Database = {
           notes: string | null
           order_number: string | null
           packaging_fee: number
+          payment_method: string
+          payment_notes: string | null
+          payment_reference: string | null
+          payment_screenshot: string | null
+          payment_status: string
+          payment_verified_at: string | null
           phone: string
           poster_image: string | null
           poster_title: string | null
@@ -420,6 +426,12 @@ export type Database = {
           notes?: string | null
           order_number?: string | null
           packaging_fee?: number
+          payment_method?: string
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_screenshot?: string | null
+          payment_status?: string
+          payment_verified_at?: string | null
           phone: string
           poster_image?: string | null
           poster_title?: string | null
@@ -442,6 +454,12 @@ export type Database = {
           notes?: string | null
           order_number?: string | null
           packaging_fee?: number
+          payment_method?: string
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_screenshot?: string | null
+          payment_status?: string
+          payment_verified_at?: string | null
           phone?: string
           poster_image?: string | null
           poster_title?: string | null
