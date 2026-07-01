@@ -387,15 +387,13 @@ function CategoryPage() {
         </aside>
       </div>
 
-      {categories.length > 1 && (
+      {subcategories.length > 0 && (
         <div className="mt-16 border-t border-border pt-10">
           <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            More categories
+            More in {category?.name ?? "this collection"}
           </h3>
           <div className="mt-4 flex flex-wrap gap-2">
-            {categories
-              .filter((c) => c.slug !== slug)
-              .map((c) => (
+            {subcategories.map((c) => (
                 <Link
                   key={c.slug}
                   to="/category/$slug"
