@@ -93,6 +93,43 @@ export function AiPosterUpload() {
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
+  // Track manual edits so AI regen doesn't overwrite them.
+  const editField = (id: string, patch: Partial<Row>) =>
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const edited = { ...r.edited };
+        for (const k of Object.keys(patch)) edited[k] = true;
+        return { ...r, ...patch, edited };
+      }),
+    );
+
+  const applyAiMeta = (id: string, meta: GeneratedPosterMeta) =>
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const e = r.edited;
+        const conf = meta.confidence ?? 0.7;
+        return {
+          ...r,
+          status: conf < 0.7 ? "needs_review" : "ready",
+          confidence: conf,
+          colors: e.colors ? r.colors : meta.colors,
+          orientation: e.orientation ? r.orientation : meta.orientation,
+          title: e.title ? r.title : meta.title || r.title,
+          description: e.description ? r.description : meta.description,
+          seo_title: e.seo_title ? r.seo_title : meta.seo_title,
+          seo_description: e.seo_description ? r.seo_description : meta.seo_description,
+          alt_text: e.alt_text ? r.alt_text : meta.alt_text || meta.title || r.title,
+          slug: e.slug ? r.slug : meta.slug || slugify(meta.title || r.title),
+          tags: e.tags ? r.tags : meta.tags,
+          category_id: e.category_id ? r.category_id : meta.category_id,
+          subcategory_id: e.subcategory_id ? r.subcategory_id : meta.subcategory_id,
+          badge: e.badge ? r.badge : meta.badge,
+        };
+      }),
+    );
+
   const counts = useMemo(() => {
     const c = {
       total: rows.length,
