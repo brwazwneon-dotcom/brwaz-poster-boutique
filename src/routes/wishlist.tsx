@@ -130,7 +130,6 @@ function WishlistPage() {
                   />
                 </div>
                 <div className="p-3">
-                  <div className="truncate text-sm">{p.title}</div>
                   <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">
                     {cat?.name ?? "Poster"}
                   </div>
