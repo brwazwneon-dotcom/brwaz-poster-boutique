@@ -153,9 +153,6 @@ export function RelatedPosters({
                 />
               </Link>
               <div className="mt-3 space-y-1">
-                <div className="truncate text-[11px] font-semibold uppercase tracking-widest text-foreground">
-                  {p.title}
-                </div>
                 <div className="text-xs text-muted-foreground">
                   From <span className="text-foreground">{unit}</span> EGP
                 </div>
