@@ -16,6 +16,7 @@ import {
   FRAME_TYPES,
   FRAME_COLORS,
   SIZES,
+  sizesForFrame,
   type FrameTypeId,
   type SizeId,
   type FrameColorId,
@@ -100,16 +101,23 @@ function CustomDesignPage() {
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const replaceTargetId = useRef<string | null>(null);
 
-  // Wooden Portrait rules: force wood color, default size to 30x40.
+  // Enforce per-frame-type size/color rules.
   const handleFrameType = (id: FrameTypeId) => {
     setFrameType(id);
+    const allowed = sizesForFrame(id);
+    if (!allowed.includes(size)) setSize(allowed[0]);
     if (id === "wood") {
+      // Wooden Portrait has no color options — clear any PVC color.
       setColor("wood");
-      setSize("30x40");
     } else if (color === "wood") {
       setColor("black");
     }
   };
+
+  const availableSizes = useMemo(
+    () => SIZES.filter((s) => sizesForFrame(frameType).includes(s.id)),
+    [frameType],
+  );
 
   const unit = useMemo(
     () => priceForFrame(pricing, frameType, size) + pricing.customDesignFee,
@@ -470,7 +478,7 @@ function CustomDesignPage() {
 
               <OptionBlock label="Size">
                 <div className="grid grid-cols-3 gap-2">
-                  {SIZES.map((s) => (
+                  {availableSizes.map((s) => (
                     <Chip key={s.id} active={size === s.id} onClick={() => setSize(s.id)}>
                       {s.label}
                     </Chip>
