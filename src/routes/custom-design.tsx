@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
+import { SizeGuide } from "@/components/SizeGuide";
 import {
   useSiteSettings,
   computeShipping,
@@ -485,6 +486,7 @@ function CustomDesignPage() {
                   ))}
                 </div>
               </OptionBlock>
+              <SizeGuide availableIds={availableSizes.map((s) => s.id)} />
 
               {frameType !== "wood" && (
                 <OptionBlock label="Frame Color">
