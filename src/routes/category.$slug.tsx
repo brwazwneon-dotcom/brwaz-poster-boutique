@@ -305,33 +305,20 @@ function CategoryPage() {
                     >
                         <WishlistHeart posterId={p.id} />
                         <PosterBadge badge={p.badge} />
-                      {gridMode === "artwork" ? (
-                        <SafeImage
-                          src={p.image_url}
-                          alt={p.title}
-                          loading="lazy"
-                          draggable={false}
-                          className={cn(
-                            "h-full w-full select-none object-cover transition",
-                            active && "scale-[1.02]",
-                          )}
-                        />
-                      ) : (
-                        <FramePreview
-                          posterUrl={p.image_url}
-                          title={p.title}
-                          editSettings={p.edit_settings}
-                          aspectClassName="aspect-[2/3]"
-                          frameType={gridMode === "wood" ? "wood" : "pvc"}
-                          color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
-                          bare
-                          loading="lazy"
-                          className={cn(
-                            "h-full w-full transition",
-                            active && "scale-[1.02]",
-                          )}
-                        />
-                      )}
+                      <FramePreview
+                        posterUrl={p.image_url}
+                        title={p.title}
+                        editSettings={p.edit_settings}
+                        aspectClassName="aspect-[2/3]"
+                        frameType={gridMode === "wood" ? "wood" : "pvc"}
+                        color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
+                        bare
+                        loading="lazy"
+                        className={cn(
+                          "h-full w-full transition",
+                          active && "scale-[1.02]",
+                        )}
+                      />
                       {active && (
                         <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                           {idx + 1}
