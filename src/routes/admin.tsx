@@ -3114,6 +3114,9 @@ function MockupEditor({
         <NumField label="Skew Y °" value={m.skewY ?? 0}  onChange={(v) => set("skewY", v)} />
         <NumField label="Radius %" value={m.borderRadius ?? 0} onChange={(v) => set("borderRadius", v)} />
         <NumField label="Scale"    value={m.scale ?? 1}  onChange={(v) => set("scale", v)} />
+        <NumField label="Perspective px" value={m.perspective ?? 1000} onChange={(v) => set("perspective", v)} />
+        <NumField label="Rotate X °" value={m.rotateX ?? 0} onChange={(v) => set("rotateX", v)} />
+        <NumField label="Rotate Y °" value={m.rotateY ?? 0} onChange={(v) => set("rotateY", v)} />
       </div>
 
       <button
