@@ -260,19 +260,7 @@ export function AiPosterUpload() {
         if (!r || !r.imageUrl || r.status === "failed") continue;
         try {
           const meta = await runAi(r, r.imageUrl);
-          update(id, {
-            status: "ready",
-            title: meta.title || r.title,
-            description: meta.description,
-            seo_title: meta.seo_title,
-            seo_description: meta.seo_description,
-            alt_text: meta.alt_text || meta.title || r.title,
-            slug: meta.slug || slugify(meta.title || r.title),
-            tags: meta.tags,
-            category_id: meta.category_id,
-            subcategory_id: meta.subcategory_id,
-            badge: meta.badge,
-          });
+          applyAiMeta(id, meta);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "AI failed";
           // Fallback: use filename as title, mark needs review.
@@ -296,7 +284,8 @@ export function AiPosterUpload() {
     });
     if (!ids.length) return toast.error("Select rows to regenerate");
     setBusy(true);
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined }));
+    // "Regenerate with AI" = intentional overwrite; clear the edited map.
+    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -306,19 +295,7 @@ export function AiPosterUpload() {
         if (!r || !r.imageUrl) continue;
         try {
           const meta = await runAi(r, r.imageUrl);
-          update(id, {
-            status: "ready",
-            title: meta.title || r.title,
-            description: meta.description,
-            seo_title: meta.seo_title,
-            seo_description: meta.seo_description,
-            alt_text: meta.alt_text || meta.title,
-            slug: meta.slug || slugify(meta.title),
-            tags: meta.tags,
-            category_id: meta.category_id,
-            subcategory_id: meta.subcategory_id,
-            badge: meta.badge,
-          });
+          applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
