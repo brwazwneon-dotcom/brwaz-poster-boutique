@@ -246,6 +246,42 @@ export type Database = {
         }
         Relationships: []
       }
+      highlights: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          image_url: string | null
+          key: string
+          link: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          key: string
+          link?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          key?: string
+          link?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marketing_secrets: {
         Row: {
           id: number
@@ -622,6 +658,51 @@ export type Database = {
           query?: string
           results_count?: number
           visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      sets: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          featured: boolean
+          frames_count: number
+          id: string
+          image_url: string | null
+          name: string
+          old_price: number | null
+          price: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          featured?: boolean
+          frames_count?: number
+          id?: string
+          image_url?: string | null
+          name: string
+          old_price?: number | null
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          featured?: boolean
+          frames_count?: number
+          id?: string
+          image_url?: string | null
+          name?: string
+          old_price?: number | null
+          price?: number
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
