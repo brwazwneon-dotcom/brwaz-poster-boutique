@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_devices: {
+        Row: {
+          created_at: string
+          fcm_token: string
+          id: string
+          label: string | null
+          last_seen_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fcm_token: string
+          id?: string
+          label?: string | null
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fcm_token?: string
+          id?: string
+          label?: string | null
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       analytics_poster_events: {
         Row: {
           created_at: string
@@ -370,19 +400,58 @@ export type Database = {
       }
       marketing_secrets: {
         Row: {
+          firebase_service_account: Json | null
           id: number
           meta_capi_access_token: string | null
           updated_at: string
         }
         Insert: {
+          firebase_service_account?: Json | null
           id?: number
           meta_capi_access_token?: string | null
           updated_at?: string
         }
         Update: {
+          firebase_service_account?: Json | null
           id?: number
           meta_capi_access_token?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_logs: {
+        Row: {
+          body: string | null
+          created_at: string
+          error: string | null
+          failed_count: number
+          id: string
+          payload: Json | null
+          sent_count: number
+          status: string | null
+          title: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          error?: string | null
+          failed_count?: number
+          id?: string
+          payload?: Json | null
+          sent_count?: number
+          status?: string | null
+          title?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          error?: string | null
+          failed_count?: number
+          id?: string
+          payload?: Json | null
+          sent_count?: number
+          status?: string | null
+          title?: string | null
         }
         Relationships: []
       }
