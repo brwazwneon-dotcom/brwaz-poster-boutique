@@ -16,6 +16,7 @@ import { ShopByCollection } from "@/components/ShopByCollection";
 import { Highlights } from "@/components/Highlights";
 import { BestSellers } from "@/components/BestSellers";
 import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
+import { TrustedQuality } from "@/components/TrustedQuality";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
@@ -40,6 +41,7 @@ function Index() {
   const RENDERERS: Record<HomeSectionKey, (title?: string, subtitle?: string) => React.ReactNode> = {
     hero: () => <HeroSection key="hero" />,
     trust: () => <TrustSection key="trust" />,
+    "trusted-quality": (t, s) => <TrustedQuality key="trusted-quality" title={t} subtitle={s} />,
     highlights: () => <Highlights key="highlights" />,
     "best-sellers": (t, s) => <BestSellers key="best-sellers" title={t} subtitle={s} />,
     benefits: () => <BenefitsBar key="benefits" />,
