@@ -213,9 +213,9 @@ function CartPage() {
           phone,
           governorate,
           address,
-          frame_type: "Accessory",
-          frame_color: "-",
-          size: "-",
+          frame_type: labelForFrame("pvc"),
+          frame_color: labelForColor("black"),
+          size: labelForSize("20x30"),
           quantity: frameCount,
           selected_poster: "double-face-tape",
           poster_title: "Double Face Tape",
@@ -228,7 +228,7 @@ function CartPage() {
           payment_method: paymentMethod,
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
           payment_screenshot: screenshotPath,
-        });
+        } as (typeof rows)[number]);
       }
       const { data: inserted, error } = await supabase
         .from("orders")
