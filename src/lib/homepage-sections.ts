@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type HomeSectionKey =
   | "hero"
   | "trust"
+  | "trusted-quality"
   | "highlights"
   | "best-sellers"
   | "benefits"
@@ -24,6 +25,7 @@ export type HomeSectionConfig = {
 export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   hero: "Hero",
   trust: "Trust statement",
+  "trusted-quality": "Trusted Quality",
   highlights: "Highlights",
   "best-sellers": "Best Sellers",
   benefits: "Benefits bar",
@@ -38,6 +40,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
 export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { key: "hero", enabled: true },
   { key: "trust", enabled: true },
+  { key: "trusted-quality", enabled: true, title: "Trusted Quality", subtitle: "Why BRWAZWNEON" },
   { key: "highlights", enabled: true },
   { key: "best-sellers", enabled: true, title: "Best Sellers", subtitle: "Our top picks — hand-selected." },
   { key: "benefits", enabled: true },
