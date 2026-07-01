@@ -3724,3 +3724,464 @@ function SetsTab() {
     </div>
   );
 }
+
+/* ---------- BEST SELLERS ---------- */
+
+type BSAdminRow = {
+  id: string;
+  poster_id: string;
+  position: number;
+  pinned: boolean;
+  hidden: boolean;
+  featured: boolean;
+  badge_disabled: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  posters: {
+    id: string;
+    title: string;
+    image_url: string;
+    categories: { name: string } | null;
+  } | null;
+};
+
+function BestSellersTab() {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["admin-best-sellers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("best_sellers")
+        .select(
+          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters(id,title,image_url,categories(name))",
+        )
+        .order("pinned", { ascending: false })
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as BSAdminRow[];
+    },
+  });
+
+  const { data: searchResults = [] } = useQuery({
+    queryKey: ["admin-poster-search-bs", search],
+    enabled: search.trim().length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("posters")
+        .select("id,title,image_url")
+        .ilike("title", `%${search.trim()}%`)
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: cfg } = useQuery({
+    queryKey: ["admin-bs-config"],
+    queryFn: async (): Promise<BestSellersConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", BEST_SELLERS_CONFIG_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<BestSellersConfig>;
+      const allowed = [8, 12, 16, 24] as const;
+      const max = allowed.includes(v.max as (typeof allowed)[number])
+        ? (v.max as BestSellersConfig["max"])
+        : DEFAULT_BS_CONFIG.max;
+      return { max, autoplay: v.autoplay === true, loop: v.loop !== false };
+    },
+  });
+
+  const currentCfg = cfg ?? DEFAULT_BS_CONFIG;
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-best-sellers"] });
+    qc.invalidateQueries({ queryKey: ["best-sellers"] });
+  };
+
+  const update = async (id: string, patch: Partial<BSAdminRow>) => {
+    const { error } = await supabase.from("best_sellers").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    invalidate();
+  };
+
+  const move = async (r: BSAdminRow, dir: -1 | 1) => {
+    const list = rows.filter((x) => x.pinned === r.pinned);
+    const idx = list.findIndex((x) => x.id === r.id);
+    const other = list[idx + dir];
+    if (!other) return;
+    await update(r.id, { position: other.position });
+    await update(other.id, { position: r.position });
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Remove from Best Sellers?")) return;
+    const { error } = await supabase.from("best_sellers").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Removed");
+    invalidate();
+  };
+
+  const addPoster = async (posterId: string) => {
+    const maxPos = rows.reduce((m, r) => Math.max(m, r.position), 0);
+    const { error } = await supabase
+      .from("best_sellers")
+      .insert({ poster_id: posterId, position: maxPos + 1 });
+    if (error) return toast.error(error.message);
+    toast.success("Added");
+    setSearch("");
+    invalidate();
+  };
+
+  const saveConfig = async (patch: Partial<BestSellersConfig>) => {
+    const next = { ...currentCfg, ...patch };
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: BEST_SELLERS_CONFIG_KEY, value: next as unknown as never });
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-bs-config"] });
+    qc.invalidateQueries({ queryKey: ["best-sellers-config"] });
+    qc.invalidateQueries({ queryKey: ["best-sellers"] });
+    toast.success("Saved");
+  };
+
+  const existingIds = new Set(rows.map((r) => r.poster_id));
+
+  return (
+    <div>
+      {/* Display settings */}
+      <div className="rounded-sm border border-border bg-card p-4">
+        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
+          Display settings
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            Max products
+            <select
+              value={currentCfg.max}
+              onChange={(e) =>
+                saveConfig({ max: Number(e.target.value) as BestSellersConfig["max"] })
+              }
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+            >
+              {[8, 12, 16, 24].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input
+              type="checkbox"
+              checked={currentCfg.autoplay}
+              onChange={(e) => saveConfig({ autoplay: e.target.checked })}
+            />
+            Autoplay
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input
+              type="checkbox"
+              checked={currentCfg.loop}
+              onChange={(e) => saveConfig({ loop: e.target.checked })}
+            />
+            Loop
+          </label>
+        </div>
+      </div>
+
+      {/* Add poster */}
+      <div className="mt-6 rounded-sm border border-border bg-card p-4">
+        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
+          Add a poster
+        </p>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search posters by title…"
+            className="w-full rounded-sm border border-border bg-background py-2 pl-10 pr-3 text-sm"
+          />
+        </div>
+        {search.trim().length >= 2 && (
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            {searchResults.map((p) => {
+              const already = existingIds.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  disabled={already}
+                  onClick={() => addPoster(p.id)}
+                  className="group relative overflow-hidden rounded-sm border border-border bg-muted text-left disabled:opacity-40"
+                >
+                  <div className="aspect-[3/4] w-full">
+                    <SafeImage
+                      src={p.image_url}
+                      alt={p.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="p-2 text-[10px] uppercase tracking-widest">
+                    {already ? "Already added" : p.title}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Rows */}
+      <div className="mt-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No best sellers yet. Search a poster above to add one.
+          </div>
+        ) : (
+          rows.map((r, i) => (
+            <div
+              key={r.id}
+              className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3"
+            >
+              <div className="h-16 w-12 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                {r.posters?.image_url ? (
+                  <SafeImage
+                    src={r.posters.image_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : null}
+              </div>
+              <div className="min-w-[180px] flex-1">
+                <div className="text-sm font-semibold">{r.posters?.title ?? "—"}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {r.posters?.categories?.name ?? "Uncategorised"}
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={r.pinned}
+                  onChange={(e) => update(r.id, { pinned: e.target.checked })}
+                />
+                Pin
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={r.featured}
+                  onChange={(e) => update(r.id, { featured: e.target.checked })}
+                />
+                Featured
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={!r.hidden}
+                  onChange={(e) => update(r.id, { hidden: !e.target.checked })}
+                />
+                Show
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={!r.badge_disabled}
+                  onChange={(e) => update(r.id, { badge_disabled: !e.target.checked })}
+                />
+                Badge
+              </label>
+              <label className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Start
+                <input
+                  type="date"
+                  defaultValue={r.start_date ? r.start_date.slice(0, 10) : ""}
+                  onBlur={(e) => {
+                    const v = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    if (v !== r.start_date) update(r.id, { start_date: v });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                />
+              </label>
+              <label className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                End
+                <input
+                  type="date"
+                  defaultValue={r.end_date ? r.end_date.slice(0, 10) : ""}
+                  onBlur={(e) => {
+                    const v = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    if (v !== r.end_date) update(r.id, { end_date: v });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                />
+              </label>
+              <div className="ml-auto flex gap-1">
+                <button
+                  onClick={() => move(r, -1)}
+                  disabled={i === 0}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => move(r, 1)}
+                  disabled={i === rows.length - 1}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => remove(r.id)}
+                  className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- HOMEPAGE SECTIONS MANAGER ---------- */
+
+function HomeSectionsTab() {
+  const qc = useQueryClient();
+  const { data: sections = DEFAULT_HOME_SECTIONS, isLoading } = useQuery({
+    queryKey: ["admin-home-sections"],
+    queryFn: async (): Promise<HomeSectionConfig[]> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", HOME_SECTIONS_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const raw = data?.value;
+      if (!Array.isArray(raw)) return DEFAULT_HOME_SECTIONS;
+      const seen = new Set<string>();
+      const out: HomeSectionConfig[] = [];
+      for (const item of raw) {
+        const key = (item as { key?: string }).key as HomeSectionKey | undefined;
+        if (!key || !(key in HOME_SECTION_LABELS)) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const def = DEFAULT_HOME_SECTIONS.find((d) => d.key === key);
+        out.push({
+          key,
+          enabled: (item as { enabled?: unknown }).enabled !== false,
+          title: (item as { title?: string }).title ?? def?.title,
+          subtitle: (item as { subtitle?: string }).subtitle ?? def?.subtitle,
+        });
+      }
+      for (const d of DEFAULT_HOME_SECTIONS) if (!seen.has(d.key)) out.push(d);
+      return out;
+    },
+  });
+
+  const save = async (next: HomeSectionConfig[]) => {
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: HOME_SECTIONS_KEY, value: next as unknown as never });
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-home-sections"] });
+    qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+  };
+
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= sections.length) return;
+    const next = [...sections];
+    [next[i], next[j]] = [next[j], next[i]];
+    save(next);
+  };
+
+  const updateAt = (i: number, patch: Partial<HomeSectionConfig>) => {
+    const next = sections.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+    save(next);
+  };
+
+  const resetDefaults = () => {
+    if (!confirm("Reset section order to defaults?")) return;
+    save(DEFAULT_HOME_SECTIONS);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
+        <p className="text-xs text-muted-foreground">
+          Reorder, show/hide, and rename homepage sections. Changes apply instantly.
+        </p>
+        <button
+          onClick={resetDefaults}
+          className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          Reset defaults
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : (
+          sections.map((s, i) => (
+            <div
+              key={s.key}
+              className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3"
+            >
+              <div className="min-w-[140px]">
+                <div className="text-sm font-semibold">{HOME_SECTION_LABELS[s.key]}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {s.key}
+                </div>
+              </div>
+              <input
+                defaultValue={s.title ?? ""}
+                placeholder="Custom title (optional)"
+                onBlur={(e) => e.target.value !== (s.title ?? "") && updateAt(i, { title: e.target.value || undefined })}
+                className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                defaultValue={s.subtitle ?? ""}
+                placeholder="Subtitle (optional)"
+                onBlur={(e) => e.target.value !== (s.subtitle ?? "") && updateAt(i, { subtitle: e.target.value || undefined })}
+                className="flex-1 min-w-[200px] rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={s.enabled}
+                  onChange={(e) => updateAt(i, { enabled: e.target.checked })}
+                />
+                Show
+              </label>
+              <div className="ml-auto flex gap-1">
+                <button
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => move(i, 1)}
+                  disabled={i === sections.length - 1}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
