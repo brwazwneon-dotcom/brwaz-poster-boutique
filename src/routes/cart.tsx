@@ -126,6 +126,10 @@ function CartPage() {
       }, { phone, city: governorate, country: "EG" });
     } catch { /* noop */ }
     try {
+      const { logCheckoutStart } = await import("@/lib/analytics");
+      logCheckoutStart();
+    } catch { /* noop */ }
+    try {
       let screenshotPath: string | null = null;
       if (paymentMethod === "instapay" && screenshot) {
         const folder = crypto.randomUUID();
