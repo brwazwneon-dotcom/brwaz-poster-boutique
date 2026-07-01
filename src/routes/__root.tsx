@@ -120,6 +120,41 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap",
       },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://brwaz-poster-boutique.lovable.app/#org",
+              name: "BRWAZWNEON",
+              url: "https://brwaz-poster-boutique.lovable.app",
+              logo: "https://brwaz-poster-boutique.lovable.app/icon-512.png",
+              areaServed: "EG",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Alexandria",
+                addressCountry: "EG",
+              },
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://brwaz-poster-boutique.lovable.app/#website",
+              url: "https://brwaz-poster-boutique.lovable.app",
+              name: "BRWAZWNEON",
+              publisher: { "@id": "https://brwaz-poster-boutique.lovable.app/#org" },
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://brwaz-poster-boutique.lovable.app/search?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
