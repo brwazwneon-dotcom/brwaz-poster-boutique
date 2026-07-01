@@ -167,7 +167,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -206,6 +206,7 @@ function AdminPage() {
         {tab === "marketing" && <MarketingTab />}
         {tab === "announcement" && <AnnouncementTab />}
         {tab === "size-guide" && <SizeGuideTab />}
+        {tab === "notifications" && <NotificationsTab />}
         {tab === "exports" && <ExportsTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
