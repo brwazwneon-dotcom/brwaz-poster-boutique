@@ -183,6 +183,12 @@ export type FrameMockup = {
   borderRadius?: number;
   /** Extra scale multiplier on the artwork. */
   scale?: number;
+  /** 3D perspective depth in px applied to the printable area wrapper. */
+  perspective?: number;
+  /** 3D rotation around the X axis in degrees (tilt forward/back). */
+  rotateX?: number;
+  /** 3D rotation around the Y axis in degrees (tilt left/right). */
+  rotateY?: number;
 };
 
 export type FrameMockups = {
@@ -192,9 +198,9 @@ export type FrameMockups = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
-  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
-  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1 },
+  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
+  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
+  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
@@ -221,6 +227,9 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     skewY: numOr(v.skewY, fallback.skewY ?? 0),
     borderRadius: numOr(v.borderRadius, fallback.borderRadius ?? 0),
     scale: numOr(v.scale, fallback.scale ?? 1),
+    perspective: numOr(v.perspective, fallback.perspective ?? 1000),
+    rotateX: numOr(v.rotateX, fallback.rotateX ?? 0),
+    rotateY: numOr(v.rotateY, fallback.rotateY ?? 0),
   };
 }
 

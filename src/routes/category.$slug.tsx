@@ -275,7 +275,7 @@ function CategoryPage() {
         ))}
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_minmax(360px,420px)]">
+      <div className="mt-10 grid gap-8 lg:grid-cols-[1.85fr_minmax(440px,540px)]">
         <div>
           {postersQ.isLoading || catLoading ? (
             <div className="py-20 text-center text-sm text-muted-foreground">
@@ -503,9 +503,9 @@ function Customizer({
           Clear all
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
+      <div className="flex-1 overflow-y-auto px-5 py-3 [scrollbar-width:thin]">
         <div className="mx-auto flex w-full justify-center">
-          <div className="w-full max-w-[min(260px,28vh)]">
+          <div className="w-full max-w-[min(340px,36vh)]">
             <PosterGallery
               posterId={primary.id}
               posterUrl={primary.image_url}

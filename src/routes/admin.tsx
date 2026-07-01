@@ -2905,12 +2905,24 @@ function MockupsTab() {
       const parse = (raw: unknown, fb: FrameMockup): FrameMockup => {
         if (!raw || typeof raw !== "object") return fb;
         const v = raw as Partial<FrameMockup>;
+        const num = (x: unknown, d: number) => {
+          const n = Number(x);
+          return Number.isFinite(n) ? n : d;
+        };
         return {
           image: typeof v.image === "string" ? v.image : fb.image,
-          top: Number(v.top ?? fb.top),
-          left: Number(v.left ?? fb.left),
-          width: Number(v.width ?? fb.width),
-          height: Number(v.height ?? fb.height),
+          top: num(v.top, fb.top),
+          left: num(v.left, fb.left),
+          width: num(v.width, fb.width),
+          height: num(v.height, fb.height),
+          rotate: num(v.rotate, 0),
+          skewX: num(v.skewX, 0),
+          skewY: num(v.skewY, 0),
+          borderRadius: num(v.borderRadius, 0),
+          scale: num(v.scale, 1),
+          perspective: num(v.perspective, 1000),
+          rotateX: num(v.rotateX, 0),
+          rotateY: num(v.rotateY, 0),
         };
       };
       return {
@@ -3114,6 +3126,9 @@ function MockupEditor({
         <NumField label="Skew Y °" value={m.skewY ?? 0}  onChange={(v) => set("skewY", v)} />
         <NumField label="Radius %" value={m.borderRadius ?? 0} onChange={(v) => set("borderRadius", v)} />
         <NumField label="Scale"    value={m.scale ?? 1}  onChange={(v) => set("scale", v)} />
+        <NumField label="Perspective px" value={m.perspective ?? 1000} onChange={(v) => set("perspective", v)} />
+        <NumField label="Rotate X °" value={m.rotateX ?? 0} onChange={(v) => set("rotateX", v)} />
+        <NumField label="Rotate Y °" value={m.rotateY ?? 0} onChange={(v) => set("rotateY", v)} />
       </div>
 
       <button
@@ -3173,6 +3188,8 @@ function FramePreviewPreviewWithOverride({
           height: `${mockup.height}%`,
           overflow: "hidden",
           borderRadius: `${mockup.borderRadius ?? 0}%`,
+          perspective: `${Math.max(200, mockup.perspective ?? 1000)}px`,
+          transformStyle: "preserve-3d",
         }}
       >
         <img
@@ -3181,7 +3198,7 @@ function FramePreviewPreviewWithOverride({
           className="h-full w-full object-cover select-none"
           draggable={false}
           style={{
-            transform: `rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
+            transform: `rotateX(${mockup.rotateX ?? 0}deg) rotateY(${mockup.rotateY ?? 0}deg) rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
             transformOrigin: "center center",
             willChange: "transform",
           }}
