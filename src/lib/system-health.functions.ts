@@ -104,7 +104,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
     const admin = supabaseAdmin;
 
     const count = async (table: string, filter?: (q: any) => any) => {
-      let q = admin.from(table).select("*", { count: "exact", head: true });
+      let q: any = (admin.from as any)(table).select("*", { count: "exact", head: true });
       if (filter) q = filter(q);
       const { count: c, error } = await q;
       if (error) return 0;
