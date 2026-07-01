@@ -119,7 +119,8 @@ export function useBestSellersConfig() {
         .maybeSingle();
       if (error) throw error;
       const v = (data?.value ?? {}) as Partial<BestSellersConfig>;
-      const max = ([8, 12, 16, 24] as const).includes(v.max as number)
+      const allowed = [8, 12, 16, 24] as const;
+      const max = allowed.includes(v.max as (typeof allowed)[number])
         ? (v.max as BestSellersConfig["max"])
         : DEFAULT_BS_CONFIG.max;
       return {
