@@ -70,8 +70,11 @@ export function FramePreview({
   const rotate = (s.rotate || 0) + (m.rotate ?? 0);
   const skewX = m.skewX ?? 0;
   const skewY = m.skewY ?? 0;
+  const rotateX = m.rotateX ?? 0;
+  const rotateY = m.rotateY ?? 0;
+  const perspective = Math.max(200, m.perspective ?? 1000);
   const objectFit = s.fit === "fit" ? "contain" : "cover";
-  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
+  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
   return (
@@ -94,6 +97,8 @@ export function FramePreview({
           width: `${m.width}%`,
           height: `${m.height}%`,
           borderRadius,
+          perspective: `${perspective}px`,
+          transformStyle: "preserve-3d",
         }}
       >
         <SafeImage
