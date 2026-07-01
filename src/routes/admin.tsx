@@ -1572,6 +1572,7 @@ function OrdersTab() {
                   <th className="px-3 py-3 text-left">Poster</th>
                   <th className="px-3 py-3 text-left">Spec</th>
                   <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3 text-left">Payment</th>
                   <th className="px-3 py-3 text-left">Status</th>
                   <th className="px-3 py-3"></th>
                 </tr>
@@ -1604,6 +1605,22 @@ function OrdersTab() {
                       <div className="text-muted-foreground">{o.size} · {o.frame_color} · ×{o.quantity}</div>
                     </td>
                     <td className="px-3 py-3 text-right font-semibold">{o.total_price} EGP</td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                          {o.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}
+                        </span>
+                        <select
+                          value={o.payment_status ?? "not_required"}
+                          onChange={(e) => setPaymentStatus(o, e.target.value)}
+                          className={`rounded-sm border border-border bg-background px-2 py-1 text-[11px] ${PAYMENT_STATUS_TONE[o.payment_status ?? "not_required"] ?? ""}`}
+                        >
+                          {PAYMENT_STATUSES.map((s) => (
+                            <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
                     <td className="px-3 py-3">
                       <select
                         value={o.status}
