@@ -45,7 +45,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "highlights" | "sets" | "collections" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -127,7 +127,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "highlights", "sets", "collections", "mockups", "wishlists", "reviews", "before-after", "marketing", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -151,6 +151,8 @@ function AdminPage() {
         {tab === "orders" && <OrdersTab />}
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "slider" && <SliderTab />}
+        {tab === "highlights" && <HighlightsTab />}
+        {tab === "sets" && <SetsTab />}
         {tab === "collections" && <CollectionsTab />}
         {tab === "mockups" && <MockupsTab />}
         {tab === "wishlists" && <WishlistsTab />}
@@ -3453,6 +3455,259 @@ function ExportsTab() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- HIGHLIGHTS ---------- */
+
+type HighlightRow = {
+  id: string;
+  key: string;
+  title: string;
+  image_url: string | null;
+  link: string;
+  sort_order: number;
+  enabled: boolean;
+};
+
+function HighlightsTab() {
+  const qc = useQueryClient();
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["admin-highlights"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("highlights")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as HighlightRow[];
+    },
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-highlights"] });
+    qc.invalidateQueries({ queryKey: ["highlights"] });
+  };
+
+  const update = async (id: string, patch: Partial<HighlightRow>) => {
+    const { error } = await supabase.from("highlights").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    invalidate();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this highlight?")) return;
+    const { error } = await supabase.from("highlights").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    invalidate();
+  };
+
+  const move = async (r: HighlightRow, dir: -1 | 1) => {
+    const idx = rows.findIndex((x) => x.id === r.id);
+    const other = rows[idx + dir];
+    if (!other) return;
+    await update(r.id, { sort_order: other.sort_order });
+    await update(other.id, { sort_order: r.sort_order });
+  };
+
+  const uploadImage = async (r: HighlightRow, file: File) => {
+    const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+    const path = `highlights/${r.id}-${Date.now()}.${ext}`;
+    try {
+      const signed = await uploadAndSign("slider", path, file);
+      await update(r.id, { image_url: signed });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
+  };
+
+  const addNew = async () => {
+    const key = prompt("Highlight key (unique slug, e.g. new-in):");
+    if (!key) return;
+    const title = prompt("Title:") ?? key;
+    const link = prompt("Link (e.g. /category/new):") ?? "/";
+    const sort_order = (rows[rows.length - 1]?.sort_order ?? 0) + 1;
+    const { error } = await supabase.from("highlights").insert({ key, title, link, sort_order, enabled: true });
+    if (error) return toast.error(error.message);
+    invalidate();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
+        <p className="text-xs text-muted-foreground">Homepage highlight strip — reorder, toggle, or change images/links.</p>
+        <button onClick={addNew} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground">
+          <Plus className="h-4 w-4" /> New highlight
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No highlights yet.
+          </div>
+        ) : (
+          rows.map((r, i) => (
+            <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3">
+              <div className="h-16 w-16 overflow-hidden rounded-full border border-border bg-muted">
+                {r.image_url ? <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">No img</div>}
+              </div>
+              <label className="cursor-pointer text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                Upload
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(r, f); e.currentTarget.value = ""; }} />
+              </label>
+              <input defaultValue={r.title} placeholder="Title" onBlur={(e) => e.target.value !== r.title && update(r.id, { title: e.target.value })} className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+              <input defaultValue={r.link} placeholder="/category/football" onBlur={(e) => e.target.value !== r.link && update(r.id, { link: e.target.value })} className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.key}</span>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input type="checkbox" checked={r.enabled} onChange={(e) => update(r.id, { enabled: e.target.checked })} />
+                Enabled
+              </label>
+              <div className="ml-auto flex gap-1">
+                <button onClick={() => move(r, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button onClick={() => move(r, 1)} disabled={i === rows.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button onClick={() => remove(r.id)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- SETS ---------- */
+
+type SetRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  frames_count: number;
+  price: number;
+  old_price: number | null;
+  enabled: boolean;
+  featured: boolean;
+  sort_order: number;
+};
+
+function SetsTab() {
+  const qc = useQueryClient();
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["admin-sets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sets")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as SetRow[];
+    },
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-sets"] });
+    qc.invalidateQueries({ queryKey: ["sets", "public"] });
+  };
+
+  const update = async (id: string, patch: Partial<SetRow>) => {
+    const { error } = await supabase.from("sets").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    invalidate();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this set?")) return;
+    const { error } = await supabase.from("sets").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    invalidate();
+  };
+
+  const move = async (r: SetRow, dir: -1 | 1) => {
+    const idx = rows.findIndex((x) => x.id === r.id);
+    const other = rows[idx + dir];
+    if (!other) return;
+    await update(r.id, { sort_order: other.sort_order });
+    await update(other.id, { sort_order: r.sort_order });
+  };
+
+  const uploadImage = async (r: SetRow, file: File) => {
+    const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+    const path = `sets/${r.id}-${Date.now()}.${ext}`;
+    try {
+      const signed = await uploadAndSign("slider", path, file);
+      await update(r.id, { image_url: signed });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
+  };
+
+  const addNew = async () => {
+    const name = prompt("Set name (e.g. 6 Frames Set):");
+    if (!name) return;
+    const sort_order = (rows[rows.length - 1]?.sort_order ?? 0) + 1;
+    const { error } = await supabase.from("sets").insert({ name, frames_count: 6, price: 0, sort_order, enabled: true });
+    if (error) return toast.error(error.message);
+    invalidate();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
+        <p className="text-xs text-muted-foreground">Frame Sets — bundles shown on the /sets page. Admin controls all prices.</p>
+        <button onClick={addNew} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground">
+          <Plus className="h-4 w-4" /> New set
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No sets yet. Create one to get started.
+          </div>
+        ) : (
+          rows.map((r, i) => (
+            <div key={r.id} className="rounded-sm border border-border bg-card p-4">
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="h-24 w-32 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                  {r.image_url ? <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">No image</div>}
+                </div>
+                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input defaultValue={r.name} placeholder="Set name" onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                  <input type="number" defaultValue={r.frames_count} placeholder="Number of frames" onBlur={(e) => Number(e.target.value) !== r.frames_count && update(r.id, { frames_count: Number(e.target.value) || 1 })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                  <input type="number" defaultValue={r.price} placeholder="Price (EGP)" onBlur={(e) => Number(e.target.value) !== Number(r.price) && update(r.id, { price: Number(e.target.value) || 0 })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                  <input type="number" defaultValue={r.old_price ?? ""} placeholder="Old price (optional)" onBlur={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== (r.old_price ?? null)) update(r.id, { old_price: v }); }} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                  <textarea defaultValue={r.description ?? ""} placeholder="Description" onBlur={(e) => e.target.value !== (r.description ?? "") && update(r.id, { description: e.target.value || null })} className="col-span-full min-h-[60px] rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                  Upload image
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(r, f); e.currentTarget.value = ""; }} />
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                  <input type="checkbox" checked={r.enabled} onChange={(e) => update(r.id, { enabled: e.target.checked })} /> Enabled
+                </label>
+                <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                  <input type="checkbox" checked={r.featured} onChange={(e) => update(r.id, { featured: e.target.checked })} /> Featured
+                </label>
+                <div className="ml-auto flex gap-1">
+                  <button onClick={() => move(r, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => move(r, 1)} disabled={i === rows.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => remove(r.id)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

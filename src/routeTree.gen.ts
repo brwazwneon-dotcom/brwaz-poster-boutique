@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
 import { Route as OffersRouteImport } from './routes/offers'
@@ -23,6 +24,11 @@ import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetsRoute = SetsRouteImport.update({
+  id: '/sets',
+  path: '/sets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
+  '/sets': typeof SetsRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
+  '/sets': typeof SetsRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/offers': typeof OffersRoute
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
+  '/sets': typeof SetsRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/offers'
     | '/photo-printing'
     | '/search'
+    | '/sets'
     | '/wishlist'
     | '/category/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/offers'
     | '/photo-printing'
     | '/search'
+    | '/sets'
     | '/wishlist'
     | '/category/$slug'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/offers'
     | '/photo-printing'
     | '/search'
+    | '/sets'
     | '/wishlist'
     | '/category/$slug'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   OffersRoute: typeof OffersRoute
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   SearchRoute: typeof SearchRoute
+  SetsRoute: typeof SetsRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
 }
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/wishlist'
       fullPath: '/wishlist'
       preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sets': {
+      id: '/sets'
+      path: '/sets'
+      fullPath: '/sets'
+      preLoaderRoute: typeof SetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -244,6 +264,7 @@ const rootRouteChildren: RootRouteChildren = {
   OffersRoute: OffersRoute,
   PhotoPrintingRoute: PhotoPrintingRoute,
   SearchRoute: SearchRoute,
+  SetsRoute: SetsRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
 }

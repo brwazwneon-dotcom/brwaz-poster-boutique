@@ -12,6 +12,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ShopByCollection } from "@/components/ShopByCollection";
+import { Highlights } from "@/components/Highlights";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -82,6 +83,9 @@ function Index() {
           </p>
         </div>
       </section>
+
+      {/* HIGHLIGHTS */}
+      <Highlights />
 
       {/* BENEFITS BAR */}
       <section className="border-b border-border bg-background">
