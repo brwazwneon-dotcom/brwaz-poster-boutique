@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import type React from "react";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
@@ -13,6 +14,8 @@ import { CustomerReviews } from "@/components/CustomerReviews";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ShopByCollection } from "@/components/ShopByCollection";
 import { Highlights } from "@/components/Highlights";
+import { BestSellers } from "@/components/BestSellers";
+import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 
 const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
 
@@ -31,12 +34,49 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { data: categories = [] } = useCategories();
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
+  const sections = useHomeSections();
+
+  const RENDERERS: Record<HomeSectionKey, (title?: string, subtitle?: string) => React.ReactNode> = {
+    hero: () => <HeroSection key="hero" />,
+    trust: () => <TrustSection key="trust" />,
+    highlights: () => <Highlights key="highlights" />,
+    "best-sellers": (t, s) => <BestSellers key="best-sellers" title={t} subtitle={s} />,
+    benefits: () => <BenefitsBar key="benefits" />,
+    collections: () => <ShopByCollection key="collections" />,
+    categories: () => (
+      <div key="categories">
+        {FEATURED_SLUGS.map((slug, i) => {
+          const cat = bySlug.get(slug);
+          return (
+            <CategorySection
+              key={slug}
+              slug={slug}
+              name={cat?.name ?? defaultName(slug)}
+              index={i}
+            />
+          );
+        })}
+      </div>
+    ),
+    offers: () => <OffersSection key="offers" />,
+    "recently-viewed": () => <RecentlyViewed key="recently-viewed" />,
+    "before-after": () => <BeforeAfter key="before-after" location="homepage" />,
+    reviews: () => <CustomerReviews key="reviews" />,
+  };
+
   return (
     <div className="bg-background text-foreground">
-      {/* HOMEPAGE SLIDER (renders only when admin has uploaded slides) */}
       <HomeSlider />
-      {/* HERO */}
-      <section className="relative isolate overflow-hidden border-b border-border">
+      {sections
+        .filter((s) => s.enabled && s.key in RENDERERS)
+        .map((s) => RENDERERS[s.key](s.title, s.subtitle))}
+    </div>
+  );
+}
+
+function HeroSection() {
+  return (
+    <section className="relative isolate overflow-hidden border-b border-border">
         <img
           src={hero}
           alt="Framed poster gallery wall"
@@ -72,23 +112,26 @@ function Index() {
             </Link>
           </div>
         </div>
-      </section>
+    </section>
+  );
+}
 
-      {/* TRUST STATEMENT */}
-      <section className="border-b border-border bg-card">
+function TrustSection() {
+  return (
+    <section className="border-b border-border bg-card">
         <div className="container-page py-6 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-foreground sm:text-sm">
             <span className="mr-2">⭐</span>
             Over 7 Million Photos Printed — And We're Still Creating Memories With You.
           </p>
         </div>
-      </section>
+    </section>
+  );
+}
 
-      {/* HIGHLIGHTS */}
-      <Highlights />
-
-      {/* BENEFITS BAR */}
-      <section className="border-b border-border bg-background">
+function BenefitsBar() {
+  return (
+    <section className="border-b border-border bg-background">
         <div className="container-page py-5">
           <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
@@ -105,26 +148,13 @@ function Index() {
             ))}
           </ul>
         </div>
-      </section>
+    </section>
+  );
+}
 
-      {/* SHOP BY COLLECTION */}
-      <ShopByCollection />
-
-      {/* CATEGORY SECTIONS */}
-      {FEATURED_SLUGS.map((slug, i) => {
-        const cat = bySlug.get(slug);
-        return (
-          <CategorySection
-            key={slug}
-            slug={slug}
-            name={cat?.name ?? defaultName(slug)}
-            index={i}
-          />
-        );
-      })}
-
-      {/* SPECIAL OFFERS */}
-      <section className="border-t border-border bg-card">
+function OffersSection() {
+  return (
+    <section className="border-t border-border bg-card">
         <div className="container-page py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
             Limited time
@@ -151,13 +181,7 @@ function Index() {
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* RECENTLY VIEWED */}
-      <RecentlyViewed />
-      <BeforeAfter location="homepage" />
-      <CustomerReviews />
-    </div>
+    </section>
   );
 }
 

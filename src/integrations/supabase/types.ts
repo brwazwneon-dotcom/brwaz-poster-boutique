@@ -136,6 +136,56 @@ export type Database = {
         }
         Relationships: []
       }
+      best_sellers: {
+        Row: {
+          badge_disabled: boolean
+          created_at: string
+          end_date: string | null
+          featured: boolean
+          hidden: boolean
+          id: string
+          pinned: boolean
+          position: number
+          poster_id: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          badge_disabled?: boolean
+          created_at?: string
+          end_date?: string | null
+          featured?: boolean
+          hidden?: boolean
+          id?: string
+          pinned?: boolean
+          position?: number
+          poster_id: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          badge_disabled?: boolean
+          created_at?: string
+          end_date?: string | null
+          featured?: boolean
+          hidden?: boolean
+          id?: string
+          pinned?: boolean
+          position?: number
+          poster_id?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "best_sellers_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: true
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
