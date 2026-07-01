@@ -163,14 +163,12 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                 className="group relative w-[70%] shrink-0 snap-start sm:w-[45%] md:w-[32%] lg:w-[19%]"
               >
                 <div className="relative overflow-hidden rounded-sm border border-border bg-muted">
-                  <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
-                    {badgeText ? <PosterBadge badge={badgeText} /> : null}
-                    {r.featured ? (
-                      <span className="rounded-sm bg-primary px-2 py-1 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
-                        Featured
-                      </span>
-                    ) : null}
-                  </div>
+                  {badgeText ? <PosterBadge badge={badgeText} /> : null}
+                  {r.featured ? (
+                    <span className="absolute right-10 top-2 z-10 rounded-sm border border-border bg-background/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-widest">
+                      Featured
+                    </span>
+                  ) : null}
                   <WishlistHeart posterId={p.id} />
                   <FramePreview
                     posterUrl={p.image_url}
