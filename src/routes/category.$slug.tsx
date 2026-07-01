@@ -60,12 +60,26 @@ const SORTS: SortDef[] = [
 ];
 
 export const Route = createFileRoute("/category/$slug")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `${params.slug.replace(/-/g, " ")} posters — BRWAZWNEON` },
-      { name: "description", content: "Premium framed posters." },
-    ],
-  }),
+  head: ({ params }) => {
+    const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const title = `${pretty} Posters — BRWAZWNEON`;
+    const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
+    const url = `https://brwaz-poster-boutique.lovable.app/category/${params.slug}`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
+  },
   component: CategoryPage,
   notFoundComponent: () => (
     <div className="container-page py-24 text-center">
