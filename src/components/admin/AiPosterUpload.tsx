@@ -327,6 +327,11 @@ export function AiPosterUpload() {
       seo_title: r.seo_title || null,
       seo_description: r.seo_description || null,
       badge: r.badge,
+      slug: r.slug || null,
+      alt_text: r.alt_text || null,
+      colors: r.colors,
+      orientation: r.orientation,
+      ai_confidence: r.confidence,
       hidden,
     }));
     const { error } = await supabase.from("posters").insert(payload);
