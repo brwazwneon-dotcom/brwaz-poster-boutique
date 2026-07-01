@@ -176,7 +176,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                     posterUrl={p.image_url}
                     title={p.title}
                     aspectClassName="aspect-[3/4]"
-                    frameColor="black"
+                    color="black"
                     loading="lazy"
                     className="h-full w-full transition duration-500 group-hover:scale-[1.02]"
                   />
