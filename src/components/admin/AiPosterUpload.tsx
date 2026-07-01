@@ -759,6 +759,33 @@ function RowEditor({
       </td>
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
+        {row.confidence != null && (
+          <div
+            className={cn(
+              "mt-1 text-[10px] uppercase tracking-widest",
+              row.confidence < 0.7 ? "text-amber-500" : "text-muted-foreground",
+            )}
+            title="AI confidence — below 70% = needs review"
+          >
+            AI {Math.round(row.confidence * 100)}%
+          </div>
+        )}
+        {row.orientation && (
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+            {row.orientation}
+          </div>
+        )}
+        {row.colors.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1" title={row.colors.join(", ")}>
+            {row.colors.slice(0, 5).map((c) => (
+              <span
+                key={c}
+                className="inline-block h-3 w-3 rounded-full border border-border"
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        )}
       </td>
     </tr>
   );
