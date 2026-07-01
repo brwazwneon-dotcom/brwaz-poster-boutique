@@ -4,6 +4,70 @@ import { isPreviewMode } from "./preview-mode";
 const VISITOR_KEY = "brw-visitor-id";
 const SESSION_KEY = "brw-session-id";
 const UNIQUE_VIEW_KEY = "brw-unique-viewed";
+const GEO_KEY = "brw-geo-v1";
+const GEO_TTL_MS = 24 * 60 * 60 * 1000;
+
+type GeoInfo = {
+  country?: string | null;
+  country_code?: string | null;
+  city?: string | null;
+  governorate?: string | null;
+  ts: number;
+};
+
+function readGeo(): GeoInfo | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(GEO_KEY);
+    if (!raw) return null;
+    const g = JSON.parse(raw) as GeoInfo;
+    if (!g?.ts || Date.now() - g.ts > GEO_TTL_MS) return null;
+    return g;
+  } catch { return null; }
+}
+
+async function fetchGeo(): Promise<GeoInfo | null> {
+  const cached = readGeo();
+  if (cached) return cached;
+  try {
+    // Free geolocation, no key. Fails silently.
+    const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const g: GeoInfo = {
+      country: (j.country_name as string) || null,
+      country_code: (j.country_code as string) || null,
+      city: (j.city as string) || null,
+      governorate: (j.region as string) || null,
+      ts: Date.now(),
+    };
+    try { window.localStorage.setItem(GEO_KEY, JSON.stringify(g)); } catch { /* ignore */ }
+    return g;
+  } catch { return null; }
+}
+
+export function detectBrowser(): string {
+  if (typeof navigator === "undefined") return "Other";
+  const ua = navigator.userAgent || "";
+  if (/Edg\//i.test(ua)) return "Edge";
+  if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return "Opera";
+  if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) return "Chrome";
+  if (/Firefox\//i.test(ua)) return "Firefox";
+  if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) return "Safari";
+  if (/MSIE|Trident/i.test(ua)) return "IE";
+  return "Other";
+}
+
+export function detectOS(): string {
+  if (typeof navigator === "undefined") return "Other";
+  const ua = navigator.userAgent || "";
+  if (/Windows/i.test(ua)) return "Windows";
+  if (/Android/i.test(ua)) return "Android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS";
+  if (/Mac OS X|Macintosh/i.test(ua)) return "macOS";
+  if (/Linux/i.test(ua)) return "Linux";
+  return "Other";
+}
 
 function uid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -83,15 +147,26 @@ export function trackVisit(path: string): void {
   const search = window.location.search || "";
   const source = detectSource(referrer, search);
   const device = detectDevice();
-  void supabase.from("analytics_visits").insert({
-    visitor_id: visitorId(),
-    session_id: sessionId(),
-    path,
-    referrer: referrer.slice(0, 500),
-    source,
-    device,
-    user_agent: (navigator.userAgent || "").slice(0, 500),
-  });
+  const browser = detectBrowser();
+  const os = detectOS();
+  void (async () => {
+    const geo = await fetchGeo();
+    await supabase.from("analytics_visits").insert({
+      visitor_id: visitorId(),
+      session_id: sessionId(),
+      path,
+      referrer: referrer.slice(0, 500),
+      source,
+      device,
+      browser,
+      os,
+      country: geo?.country ?? null,
+      country_code: geo?.country_code ?? null,
+      city: geo?.city ?? null,
+      governorate: geo?.governorate ?? null,
+      user_agent: (navigator.userAgent || "").slice(0, 500),
+    });
+  })();
 }
 
 function uniqueViewedSet(): Set<string> {
@@ -121,7 +196,7 @@ export function markUniqueView(posterId: string): boolean {
 
 export function logPosterEvent(
   posterId: string,
-  eventType: "view" | "unique_view" | "cart_add" | "wishlist_add",
+  eventType: "view" | "unique_view" | "cart_add" | "wishlist_add" | "checkout_start" | "checkout_complete",
   durationSeconds?: number,
 ): void {
   if (!posterId) return;
@@ -132,6 +207,17 @@ export function logPosterEvent(
     session_id: sessionId(),
     event_type: eventType,
     duration_seconds: typeof durationSeconds === "number" ? Math.round(durationSeconds) : null,
+  });
+}
+
+/** Log a checkout-started event. Called when the user opens the checkout page. */
+export function logCheckoutStart(): void {
+  if (isPreviewMode()) return;
+  void supabase.from("analytics_poster_events").insert({
+    poster_id: null,
+    visitor_id: visitorId(),
+    session_id: sessionId(),
+    event_type: "checkout_start",
   });
 }
 
