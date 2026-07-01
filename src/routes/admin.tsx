@@ -29,6 +29,7 @@ import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { BackupsTab } from "@/components/admin/BackupsTab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
+import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
@@ -88,7 +89,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "maintenance" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -170,7 +171,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "maintenance", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -212,6 +213,7 @@ function AdminPage() {
         {tab === "notifications" && <NotificationsTab />}
         {tab === "backups" && <BackupsTab />}
         {tab === "system-health" && <SystemHealthTab />}
+        {tab === "env-check" && <EnvCheckTab />}
         {tab === "maintenance" && <MaintenanceTab />}
         {tab === "exports" && <ExportsTab />}
         {tab === "settings" && <SettingsTab />}
