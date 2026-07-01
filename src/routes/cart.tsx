@@ -11,9 +11,13 @@ import {
 } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
+
+const INSTAPAY_NUMBER = "01090771294";
+const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -48,6 +52,28 @@ function CartPage() {
   const [governorate, setGovernorate] = useState("");
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "instapay">("cod");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleScreenshotChange = (file: File | null) => {
+    if (!file) {
+      setScreenshot(null);
+      setScreenshotPreview(null);
+      return;
+    }
+    if (!ALLOWED_SCREENSHOT_TYPES.includes(file.type)) {
+      toast.error("Only JPG, PNG, WEBP or PDF are allowed");
+      return;
+    }
+    if (file.size > MAX_SCREENSHOT_BYTES) {
+      toast.error("Max file size is 10 MB");
+      return;
+    }
+    setScreenshot(file);
+    setScreenshotPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
+  };
 
   const buildMessage = () => {
     const lines = items.map((i, idx) => {
@@ -58,12 +84,15 @@ function CartPage() {
       return head;
     });
     return [
-      "New order from BRWAZWNEON (Cash on delivery)",
+      `New order from BRWAZWNEON — ${paymentMethod === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"}`,
       "",
       `Name: ${name}`,
       `Phone: ${phone}`,
       `Governorate: ${governorate}`,
       `Address: ${address}`,
+      paymentMethod === "instapay"
+        ? `Payment: Instapay / Vodafone Cash → ${INSTAPAY_NUMBER} (screenshot attached)`
+        : "Payment: Cash on delivery",
       "",
       "Items:",
       ...lines,
@@ -79,6 +108,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (paymentMethod === "instapay" && !screenshot)
+      return toast.error("Please upload your payment screenshot");
 
     setSubmitting(true);
     const contentIds = items.flatMap((i) =>
@@ -95,6 +126,18 @@ function CartPage() {
       }, { phone, city: governorate, country: "EG" });
     } catch { /* noop */ }
     try {
+      let screenshotPath: string | null = null;
+      if (paymentMethod === "instapay" && screenshot) {
+        const folder = crypto.randomUUID();
+        const rawExt = (screenshot.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "jpg";
+        const path = `${folder}/receipt.${rawExt}`;
+        const { error: upErr } = await supabase.storage
+          .from("payment-screenshots")
+          .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
+        if (upErr) throw upErr;
+        screenshotPath = path;
+      }
+
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const rows = items.map((i) => {
         const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
@@ -119,6 +162,9 @@ function CartPage() {
         shipping_cost: shippingPerItem,
         total_price: i.price * i.qty + linePackaging + shippingPerItem,
         status: "new",
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
+        payment_screenshot: screenshotPath,
       });
       });
       const { error } = await supabase.from("orders").insert(rows);
@@ -175,6 +221,7 @@ function CartPage() {
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
+      setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to place order");
     } finally {
