@@ -1685,6 +1685,111 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+function PaymentScreenshotBlock({ order, onUpdate }: { order: Order; onUpdate: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [notes, setNotes] = useState(order.payment_notes ?? "");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!order.payment_screenshot) { setUrl(null); return; }
+    setLoading(true);
+    supabase.storage
+      .from("payment-screenshots")
+      .createSignedUrl(order.payment_screenshot, 60 * 60)
+      .then(({ data }) => { if (!cancelled) setUrl(data?.signedUrl ?? null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [order.payment_screenshot]);
+
+  const saveNotes = async () => {
+    const { error } = await supabase.from("orders").update({ payment_notes: notes }).eq("id", order.id);
+    if (error) return toast.error(error.message);
+    toast.success("Notes saved");
+    onUpdate();
+  };
+
+  const setPS = async (payment_status: string) => {
+    const patch = payment_status === "verified"
+      ? { payment_status, payment_verified_at: new Date().toISOString() }
+      : { payment_status };
+    const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
+    if (error) return toast.error(error.message);
+    toast.success("Payment status updated");
+    onUpdate();
+  };
+
+  const waLink = `https://wa.me/${order.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+    `Hi ${order.customer_name}, this is BRWAZWNEON regarding order ${order.order_number ?? ""}. `,
+  )}`;
+
+  if (order.payment_method !== "instapay") return null;
+
+  return (
+    <div className="mt-3 space-y-3 rounded-sm border border-border bg-muted/30 p-3">
+      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Payment screenshot
+      </div>
+      {order.payment_screenshot ? (
+        loading ? (
+          <div className="text-xs text-muted-foreground">Loading…</div>
+        ) : url ? (
+          <div className="space-y-2">
+            {/\.pdf$/i.test(order.payment_screenshot) ? (
+              <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm underline">
+                Open PDF receipt
+              </a>
+            ) : (
+              <a href={url} target="_blank" rel="noreferrer">
+                <img src={url} alt="Payment screenshot" className="max-h-72 w-full rounded-sm border border-border object-contain bg-black/40" />
+              </a>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <a href={url} download className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+                Download
+              </a>
+              <a href={url} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+                Open in new tab
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-destructive">Could not load screenshot.</div>
+        )
+      ) : (
+        <div className="text-xs text-muted-foreground">No screenshot uploaded.</div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setPS("received")} className="rounded-sm border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-blue-300 hover:bg-blue-500/20">
+          Mark Received
+        </button>
+        <button onClick={() => setPS("verified")} className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20">
+          ✓ Verify Payment
+        </button>
+        <button onClick={() => setPS("rejected")} className="rounded-sm border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-red-300 hover:bg-red-500/20">
+          ✕ Reject
+        </button>
+        <a href={waLink} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+          Contact on WhatsApp
+        </a>
+      </div>
+
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment notes (internal)</span>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={saveNotes}
+          className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+          placeholder="e.g. transfer reference #, missing amount…"
+        />
+      </label>
+    </div>
+  );
+}
+
 /* ---------- CUSTOM DESIGN ORDERS ---------- */
 
 type CustomOrder = {
