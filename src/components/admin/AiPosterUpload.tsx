@@ -11,14 +11,16 @@ import {
   Trash2,
   Save,
   FileText,
+  Plus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
-import { useCategories } from "@/lib/use-categories";
+import { useCategories, type Category } from "@/lib/use-categories";
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 type RowStatus =
   | "uploaded"
@@ -50,6 +52,9 @@ type Row = {
   colors: string[];
   orientation: "portrait" | "landscape" | "square" | null;
   confidence: number | null;
+  suggested_subcategory_name: string | null;
+  suggested_category_name: string | null;
+  detected_subject: string | null;
   edited: Record<string, boolean>;
 };
 
@@ -73,9 +78,23 @@ function isHeic(file: File) {
 
 export function AiPosterUpload() {
   const { data: categories = [] } = useCategories();
+  const qc = useQueryClient();
   const mains = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subsOf = (parentId: string | null) =>
     parentId ? categories.filter((c) => c.parent_id === parentId) : [];
+  const categoriesRef = useRef<Category[]>(categories);
+  categoriesRef.current = categories;
+
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const findSubByName = (parentId: string, name: string) => {
+    const target = norm(name);
+    if (!target) return null;
+    return (
+      categoriesRef.current.find(
+        (c) => c.parent_id === parentId && norm(c.name) === target,
+      ) ?? null
+    );
+  };
 
   const [rows, setRows] = useState<Row[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -110,6 +129,18 @@ export function AiPosterUpload() {
         if (r.id !== id) return r;
         const e = r.edited;
         const conf = meta.confidence ?? 0.7;
+        // Resolve AI's suggested subcategory name against existing subs
+        // so we don't offer to create a duplicate.
+        let subId = meta.subcategory_id;
+        let suggestedSub = meta.suggested_subcategory_name;
+        const catId = meta.category_id;
+        if (!subId && catId && suggestedSub) {
+          const existing = findSubByName(catId, suggestedSub);
+          if (existing) {
+            subId = existing.id;
+            suggestedSub = null;
+          }
+        }
         return {
           ...r,
           status: conf < 0.7 ? "needs_review" : "ready",
@@ -123,8 +154,11 @@ export function AiPosterUpload() {
           alt_text: e.alt_text ? r.alt_text : meta.alt_text || meta.title || r.title,
           slug: e.slug ? r.slug : meta.slug || slugify(meta.title || r.title),
           tags: e.tags ? r.tags : meta.tags,
-          category_id: e.category_id ? r.category_id : meta.category_id,
-          subcategory_id: e.subcategory_id ? r.subcategory_id : meta.subcategory_id,
+          category_id: e.category_id ? r.category_id : catId,
+          subcategory_id: e.subcategory_id ? r.subcategory_id : subId,
+          suggested_subcategory_name: e.subcategory_id ? r.suggested_subcategory_name : suggestedSub,
+          suggested_category_name: e.category_id ? r.suggested_category_name : (catId ? null : meta.suggested_category_name),
+          detected_subject: meta.detected_subject,
           badge: e.badge ? r.badge : meta.badge,
         };
       }),
@@ -178,6 +212,9 @@ export function AiPosterUpload() {
         colors: [],
         orientation: null,
         confidence: null,
+        suggested_subcategory_name: null,
+        suggested_category_name: null,
+        detected_subject: null,
         edited: {},
       };
     });
@@ -384,6 +421,97 @@ export function AiPosterUpload() {
     toast.success(`Applied to ${selected.size} row(s)`);
   };
 
+  // Create ONE suggested subcategory (from a row) and attach it.
+  const createSuggestedSubcategory = async (rowId: string) => {
+    const r = rowsRef.current.find((x) => x.id === rowId);
+    if (!r || !r.category_id || !r.suggested_subcategory_name) return;
+    const name = r.suggested_subcategory_name.trim();
+    // Double-check for an existing sibling with the same name.
+    const existing = findSubByName(r.category_id, name);
+    if (existing) {
+      update(rowId, { subcategory_id: existing.id, suggested_subcategory_name: null });
+      toast.success(`Linked to existing “${existing.name}”`);
+      return;
+    }
+    const parent = categoriesRef.current.find((c) => c.id === r.category_id);
+    const siblings = categoriesRef.current.filter((c) => c.parent_id === r.category_id);
+    const maxOrder = siblings.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+    const slugBase = slugify(`${parent?.slug ?? "cat"}-${name}`) || slugify(name);
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({
+        name,
+        slug: slugBase,
+        parent_id: r.category_id,
+        sort_order: maxOrder + 1,
+      })
+      .select("id,name,slug,parent_id,sort_order,image,description,icon,hidden")
+      .single();
+    if (error || !data) {
+      toast.error(error?.message ?? "Failed to create subcategory");
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["categories"] });
+    update(rowId, { subcategory_id: data.id, suggested_subcategory_name: null });
+    toast.success(`Created “${name}” under ${parent?.name ?? "category"}`);
+  };
+
+  // Bulk: create every unique unresolved suggestion in selected rows.
+  const createAllSuggested = async () => {
+    const targets = rowsRef.current.filter(
+      (r) =>
+        selected.has(r.id) &&
+        r.category_id &&
+        r.suggested_subcategory_name &&
+        !r.subcategory_id,
+    );
+    if (!targets.length) return toast.error("No suggestions in selection");
+    // Group by parent+normalized-name so we insert each new sub only once.
+    const groups = new Map<string, { parentId: string; name: string; rowIds: string[] }>();
+    for (const r of targets) {
+      const key = `${r.category_id}::${norm(r.suggested_subcategory_name!)}`;
+      const g = groups.get(key);
+      if (g) g.rowIds.push(r.id);
+      else groups.set(key, { parentId: r.category_id!, name: r.suggested_subcategory_name!.trim(), rowIds: [r.id] });
+    }
+    let created = 0;
+    for (const g of groups.values()) {
+      const existing = findSubByName(g.parentId, g.name);
+      let subId = existing?.id ?? null;
+      if (!subId) {
+        const parent = categoriesRef.current.find((c) => c.id === g.parentId);
+        const siblings = categoriesRef.current.filter((c) => c.parent_id === g.parentId);
+        const maxOrder = siblings.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+        const slugBase = slugify(`${parent?.slug ?? "cat"}-${g.name}`) || slugify(g.name);
+        const { data, error } = await supabase
+          .from("categories")
+          .insert({ name: g.name, slug: slugBase, parent_id: g.parentId, sort_order: maxOrder + 1 })
+          .select("id")
+          .single();
+        if (error || !data) continue;
+        subId = data.id;
+        created++;
+      }
+      for (const rid of g.rowIds) {
+        update(rid, { subcategory_id: subId!, suggested_subcategory_name: null });
+      }
+    }
+    await qc.invalidateQueries({ queryKey: ["categories"] });
+    toast.success(`Created ${created} new subcategor${created === 1 ? "y" : "ies"}`);
+  };
+
+  const suggestionsInSelection = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          selected.has(r.id) &&
+          r.category_id &&
+          r.suggested_subcategory_name &&
+          !r.subcategory_id,
+      ).length,
+    [rows, selected],
+  );
+
   const toggleSelected = (id: string) =>
     setSelected((prev) => {
       const n = new Set(prev);
@@ -489,6 +617,14 @@ export function AiPosterUpload() {
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
               >
                 <RotateCcw className="h-3 w-3" /> Regenerate
+              </button>
+              <button
+                disabled={suggestionsInSelection === 0}
+                onClick={createAllSuggested}
+                title="Create every AI-suggested subcategory for selected rows"
+                className="inline-flex items-center gap-1 rounded-sm border border-primary px-3 py-1.5 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-40"
+              >
+                <Plus className="h-3 w-3" /> Create suggested ({suggestionsInSelection})
               </button>
               <button
                 disabled={selected.size === 0}
@@ -597,6 +733,7 @@ export function AiPosterUpload() {
                     mains={mains}
                     subsOf={subsOf}
                     onChange={(patch) => editField(r.id, patch)}
+                    onCreateSuggested={() => createSuggestedSubcategory(r.id)}
                   />
                 ))}
               </tbody>
@@ -615,6 +752,7 @@ function RowEditor({
   mains,
   subsOf,
   onChange,
+  onCreateSuggested,
 }: {
   row: Row;
   selected: boolean;
@@ -622,9 +760,12 @@ function RowEditor({
   mains: { id: string; name: string }[];
   subsOf: (id: string | null) => { id: string; name: string }[];
   onChange: (patch: Partial<Row>) => void;
+  onCreateSuggested: () => void;
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
+  const showSuggestion =
+    !!row.suggested_subcategory_name && !row.subcategory_id && !isLocked;
   return (
     <tr className={cn("align-top", selected && "bg-accent/30")}>
       <td className="pt-2">
@@ -700,6 +841,22 @@ function RowEditor({
             </option>
           ))}
         </select>
+        {showSuggestion && (
+          <button
+            type="button"
+            onClick={onCreateSuggested}
+            disabled={!row.category_id}
+            title="Create this subcategory under the detected parent"
+            className="mt-1 inline-flex w-full items-center justify-center gap-1 rounded-sm border border-primary bg-primary/5 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-40"
+          >
+            <Plus className="h-3 w-3" /> Create “{row.suggested_subcategory_name}”
+          </button>
+        )}
+        {row.detected_subject && (
+          <div className="text-[10px] text-muted-foreground" title="AI detected subject">
+            AI: {row.detected_subject}
+          </div>
+        )}
       </td>
       <td className="pr-2">
         <textarea
