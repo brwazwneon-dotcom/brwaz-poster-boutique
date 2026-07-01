@@ -20,6 +20,9 @@ export type GeneratedPosterMeta = {
   tags: string[];
   category_id: string | null;
   subcategory_id: string | null;
+  colors: string[];
+  orientation: "portrait" | "landscape" | "square" | null;
+  confidence: number;
 };
 
 export const generatePosterMeta = createServerFn({ method: "POST" })
@@ -48,23 +51,34 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
       })
       .join("\n");
 
-    const system = `You are an e-commerce SEO assistant for BRWAZWNEON, a premium poster store selling Football, Movies, TV Series, Anime, Cars, and Custom posters. Analyze the poster image and return JSON only.
+    const system = `You are an e-commerce SEO copywriter for BRWAZWNEON, a premium framed-poster store in Egypt selling Football, Movies, TV Series, Marvel & DC, Anime, Cars, Gaming, Portraits, Photography and Quotes posters. Analyze the poster image and return JSON only.
 Categories available (use the exact id after the # for category_id / subcategory_id, or null if none match):
 ${catList || "(none)"}
 
+Description writing rules (80-150 words, natural persuasive tone, no emojis, no hype words like "amazing"):
+- Open by naming the exact subject you see in the image (player, movie, character, car model, etc.)
+- Mention premium print quality on FujiFilm Crystal Archive chemical paper
+- Mention the choice between a High Quality PVC Frame or a Wooden Portrait finish
+- Mention long-lasting, fade-resistant colors and a professional gallery finish
+- Suggest it as perfect wall decor for bedroom, office, gaming room, or a gift
+
 Return JSON with this exact shape:
 {
-  "title": "concise commercial title, 4-8 words",
-  "description": "1-2 sentence customer-facing description for a wall poster product page",
-  "seo_title": "SEO title under 60 chars including main keyword + 'Poster'",
-  "seo_description": "SEO meta description under 160 chars",
-  "alt_text": "concise accessibility alt text describing the poster image, under 120 chars",
-  "slug": "kebab-case url slug for this poster, lowercase letters, numbers and dashes only, under 60 chars",
+  "title": "clean human-friendly product title, 4-8 words, e.g. 'Lionel Messi World Cup Poster'",
+  "description": "80-150 word marketing paragraph following the rules above",
+  "seo_title": "SEO title max 60 chars, ending with '| BRWAZWNEON'",
+  "seo_description": "SEO meta description max 155 chars, action-oriented, mention framed poster + Egypt / cash on delivery when it fits",
+  "alt_text": "descriptive alt text for accessibility and Google Images, under 120 chars",
+  "slug": "kebab-case url slug, lowercase letters, numbers and dashes only, under 60 chars",
   "badge": "one of: best-seller, new, trending, limited, exclusive — or null if none clearly applies",
-  "tags": ["5 to 10 short relevant tags"],
+  "tags": ["10 to 20 short relevant keywords/tags — subjects, franchise, style, room, gift, BRWAZWNEON"],
   "category_id": "<id or null>",
-  "subcategory_id": "<id or null>"
+  "subcategory_id": "<id or null>",
+  "colors": ["2 to 5 dominant colors as lowercase english names, e.g. black, white, red, gold"],
+  "orientation": "portrait | landscape | square",
+  "confidence": 0.0
 }
+confidence is a number between 0 and 1 reflecting how confident you are that the subject, category and metadata are correct.
 No markdown, no commentary.`;
 
     const userText = `Identify the subject of this poster image and generate the metadata. Filename hint: ${data.filename ?? "(none)"}.`;
@@ -119,6 +133,19 @@ No markdown, no commentary.`;
     const allowedBadges = new Set(["best-seller", "new", "trending", "limited", "exclusive"]);
     const badge =
       typeof parsed.badge === "string" && allowedBadges.has(parsed.badge) ? parsed.badge : null;
+    const allowedOrient = new Set(["portrait", "landscape", "square"] as const);
+    const orientation =
+      typeof parsed.orientation === "string" && allowedOrient.has(parsed.orientation as never)
+        ? (parsed.orientation as "portrait" | "landscape" | "square")
+        : null;
+    const colors = Array.isArray(parsed.colors)
+      ? parsed.colors
+          .map((c) => String(c).toLowerCase().trim())
+          .filter((c) => c && c.length <= 24)
+          .slice(0, 6)
+      : [];
+    const confRaw = typeof parsed.confidence === "number" ? parsed.confidence : Number(parsed.confidence);
+    const confidence = Number.isFinite(confRaw) ? Math.max(0, Math.min(1, confRaw)) : 0.7;
     const slugify = (s: string) =>
       s
         .toLowerCase()
@@ -136,9 +163,12 @@ No markdown, no commentary.`;
       slug: (typeof parsed.slug === "string" && parsed.slug ? slugify(parsed.slug) : slugify(title)),
       badge,
       tags: Array.isArray(parsed.tags)
-        ? parsed.tags.map((t) => String(t)).filter(Boolean).slice(0, 15)
+        ? parsed.tags.map((t) => String(t)).filter(Boolean).slice(0, 20)
         : [],
       category_id: catId,
       subcategory_id: subId,
+      colors,
+      orientation,
+      confidence,
     };
   });

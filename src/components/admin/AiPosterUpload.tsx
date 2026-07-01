@@ -47,6 +47,10 @@ type Row = {
   category_id: string | null;
   subcategory_id: string | null;
   badge: string | null;
+  colors: string[];
+  orientation: "portrait" | "landscape" | "square" | null;
+  confidence: number | null;
+  edited: Record<string, boolean>;
 };
 
 const UPLOAD_CONCURRENCY = 4;
@@ -88,6 +92,43 @@ export function AiPosterUpload() {
 
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  // Track manual edits so AI regen doesn't overwrite them.
+  const editField = (id: string, patch: Partial<Row>) =>
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const edited = { ...r.edited };
+        for (const k of Object.keys(patch)) edited[k] = true;
+        return { ...r, ...patch, edited };
+      }),
+    );
+
+  const applyAiMeta = (id: string, meta: GeneratedPosterMeta) =>
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const e = r.edited;
+        const conf = meta.confidence ?? 0.7;
+        return {
+          ...r,
+          status: conf < 0.7 ? "needs_review" : "ready",
+          confidence: conf,
+          colors: e.colors ? r.colors : meta.colors,
+          orientation: e.orientation ? r.orientation : meta.orientation,
+          title: e.title ? r.title : meta.title || r.title,
+          description: e.description ? r.description : meta.description,
+          seo_title: e.seo_title ? r.seo_title : meta.seo_title,
+          seo_description: e.seo_description ? r.seo_description : meta.seo_description,
+          alt_text: e.alt_text ? r.alt_text : meta.alt_text || meta.title || r.title,
+          slug: e.slug ? r.slug : meta.slug || slugify(meta.title || r.title),
+          tags: e.tags ? r.tags : meta.tags,
+          category_id: e.category_id ? r.category_id : meta.category_id,
+          subcategory_id: e.subcategory_id ? r.subcategory_id : meta.subcategory_id,
+          badge: e.badge ? r.badge : meta.badge,
+        };
+      }),
+    );
 
   const counts = useMemo(() => {
     const c = {
@@ -134,6 +175,10 @@ export function AiPosterUpload() {
         category_id: null,
         subcategory_id: null,
         badge: null,
+        colors: [],
+        orientation: null,
+        confidence: null,
+        edited: {},
       };
     });
     setRows((prev) => [...prev, ...next]);
@@ -215,19 +260,7 @@ export function AiPosterUpload() {
         if (!r || !r.imageUrl || r.status === "failed") continue;
         try {
           const meta = await runAi(r, r.imageUrl);
-          update(id, {
-            status: "ready",
-            title: meta.title || r.title,
-            description: meta.description,
-            seo_title: meta.seo_title,
-            seo_description: meta.seo_description,
-            alt_text: meta.alt_text || meta.title || r.title,
-            slug: meta.slug || slugify(meta.title || r.title),
-            tags: meta.tags,
-            category_id: meta.category_id,
-            subcategory_id: meta.subcategory_id,
-            badge: meta.badge,
-          });
+          applyAiMeta(id, meta);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "AI failed";
           // Fallback: use filename as title, mark needs review.
@@ -251,7 +284,8 @@ export function AiPosterUpload() {
     });
     if (!ids.length) return toast.error("Select rows to regenerate");
     setBusy(true);
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined }));
+    // "Regenerate with AI" = intentional overwrite; clear the edited map.
+    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -261,19 +295,7 @@ export function AiPosterUpload() {
         if (!r || !r.imageUrl) continue;
         try {
           const meta = await runAi(r, r.imageUrl);
-          update(id, {
-            status: "ready",
-            title: meta.title || r.title,
-            description: meta.description,
-            seo_title: meta.seo_title,
-            seo_description: meta.seo_description,
-            alt_text: meta.alt_text || meta.title,
-            slug: meta.slug || slugify(meta.title),
-            tags: meta.tags,
-            category_id: meta.category_id,
-            subcategory_id: meta.subcategory_id,
-            badge: meta.badge,
-          });
+          applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
@@ -305,6 +327,11 @@ export function AiPosterUpload() {
       seo_title: r.seo_title || null,
       seo_description: r.seo_description || null,
       badge: r.badge,
+      slug: r.slug || null,
+      alt_text: r.alt_text || null,
+      colors: r.colors,
+      orientation: r.orientation,
+      ai_confidence: r.confidence,
       hidden,
     }));
     const { error } = await supabase.from("posters").insert(payload);
@@ -569,7 +596,7 @@ export function AiPosterUpload() {
                     onToggleSelect={() => toggleSelected(r.id)}
                     mains={mains}
                     subsOf={subsOf}
-                    onChange={(patch) => update(r.id, patch)}
+                    onChange={(patch) => editField(r.id, patch)}
                   />
                 ))}
               </tbody>
@@ -732,6 +759,33 @@ function RowEditor({
       </td>
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
+        {row.confidence != null && (
+          <div
+            className={cn(
+              "mt-1 text-[10px] uppercase tracking-widest",
+              row.confidence < 0.7 ? "text-amber-500" : "text-muted-foreground",
+            )}
+            title="AI confidence — below 70% = needs review"
+          >
+            AI {Math.round(row.confidence * 100)}%
+          </div>
+        )}
+        {row.orientation && (
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+            {row.orientation}
+          </div>
+        )}
+        {row.colors.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1" title={row.colors.join(", ")}>
+            {row.colors.slice(0, 5).map((c) => (
+              <span
+                key={c}
+                className="inline-block h-3 w-3 rounded-full border border-border"
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        )}
       </td>
     </tr>
   );

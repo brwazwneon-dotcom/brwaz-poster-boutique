@@ -701,9 +701,12 @@ export type Database = {
       }
       posters: {
         Row: {
+          ai_confidence: number | null
+          alt_text: string | null
           badge: string | null
           cart_adds_count: number
           category_id: string | null
+          colors: string[] | null
           created_at: string
           description: string | null
           edit_settings: Json
@@ -712,11 +715,13 @@ export type Database = {
           id: string
           image_url: string
           last_viewed_at: string | null
+          orientation: string | null
           original_url: string | null
           price: number | null
           sales_count: number
           seo_description: string | null
           seo_title: string | null
+          slug: string | null
           sort_order: number
           tags: string[]
           title: string
@@ -726,9 +731,12 @@ export type Database = {
           views_count: number
         }
         Insert: {
+          ai_confidence?: number | null
+          alt_text?: string | null
           badge?: string | null
           cart_adds_count?: number
           category_id?: string | null
+          colors?: string[] | null
           created_at?: string
           description?: string | null
           edit_settings?: Json
@@ -737,11 +745,13 @@ export type Database = {
           id?: string
           image_url: string
           last_viewed_at?: string | null
+          orientation?: string | null
           original_url?: string | null
           price?: number | null
           sales_count?: number
           seo_description?: string | null
           seo_title?: string | null
+          slug?: string | null
           sort_order?: number
           tags?: string[]
           title?: string
@@ -751,9 +761,12 @@ export type Database = {
           views_count?: number
         }
         Update: {
+          ai_confidence?: number | null
+          alt_text?: string | null
           badge?: string | null
           cart_adds_count?: number
           category_id?: string | null
+          colors?: string[] | null
           created_at?: string
           description?: string | null
           edit_settings?: Json
@@ -762,11 +775,13 @@ export type Database = {
           id?: string
           image_url?: string
           last_viewed_at?: string | null
+          orientation?: string | null
           original_url?: string | null
           price?: number | null
           sales_count?: number
           seo_description?: string | null
           seo_title?: string | null
+          slug?: string | null
           sort_order?: number
           tags?: string[]
           title?: string
