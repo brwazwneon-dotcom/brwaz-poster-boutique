@@ -35,8 +35,6 @@ function Index() {
     <div className="bg-background text-foreground">
       {/* HOMEPAGE SLIDER (renders only when admin has uploaded slides) */}
       <HomeSlider />
-      {/* HIGHLIGHTS */}
-      <Highlights />
       {/* HERO */}
       <section className="relative isolate overflow-hidden border-b border-border">
         <img
@@ -85,6 +83,9 @@ function Index() {
           </p>
         </div>
       </section>
+
+      {/* HIGHLIGHTS */}
+      <Highlights />
 
       {/* BENEFITS BAR */}
       <section className="border-b border-border bg-background">
