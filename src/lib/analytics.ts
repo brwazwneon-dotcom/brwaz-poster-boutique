@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isPreviewMode } from "./preview-mode";
 
 const VISITOR_KEY = "brw-visitor-id";
 const SESSION_KEY = "brw-session-id";
@@ -75,6 +76,7 @@ let visitFiredFor: string | null = null;
 /** Record a page view in analytics_visits. Dedupes per path per call. */
 export function trackVisit(path: string): void {
   if (typeof window === "undefined") return;
+  if (isPreviewMode()) return;
   if (visitFiredFor === path) return;
   visitFiredFor = path;
   const referrer = document.referrer || "";
@@ -123,6 +125,7 @@ export function logPosterEvent(
   durationSeconds?: number,
 ): void {
   if (!posterId) return;
+  if (isPreviewMode()) return;
   void supabase.from("analytics_poster_events").insert({
     poster_id: posterId,
     visitor_id: visitorId(),
@@ -135,6 +138,7 @@ export function logPosterEvent(
 export function logSearchQuery(query: string, resultsCount: number): void {
   const clean = (query || "").trim();
   if (clean.length < 2) return;
+  if (isPreviewMode()) return;
   void supabase.from("search_queries").insert({
     query: clean.slice(0, 200),
     results_count: Math.max(0, resultsCount | 0),

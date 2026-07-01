@@ -4,6 +4,7 @@
  * a typed `gaEvent` helper. Safe no-op until configured.
  */
 import type { MarketingConfig } from "./use-marketing";
+import { isPreviewMode } from "./preview-mode";
 
 declare global {
   interface Window {
@@ -58,6 +59,7 @@ export type GAEventName =
 
 export function gaEvent(name: GAEventName, params: Record<string, unknown> = {}) {
   if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
+  if (isPreviewMode()) return;
   try {
     window.gtag?.("event", name, params);
   } catch { /* noop */ }
@@ -65,6 +67,7 @@ export function gaEvent(name: GAEventName, params: Record<string, unknown> = {})
 
 export function gaPageView(path: string, title?: string) {
   if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
+  if (isPreviewMode()) return;
   try {
     window.gtag?.("event", "page_view", {
       page_location: window.location.href,

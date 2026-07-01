@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -162,12 +163,15 @@ function AdminPage() {
           <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Dashboard</div>
           <h1 className="text-display text-5xl">Admin</h1>
         </div>
-        <button
-          onClick={signOut}
-          className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <PreviewAsClient />
+          <button
+            onClick={signOut}
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        </div>
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
