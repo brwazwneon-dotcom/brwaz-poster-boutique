@@ -249,9 +249,9 @@ export { MOCKUP_DEFAULTS, MOCKUP_KEYS };
 
 /* -------------------- Grid display mode -------------------- */
 
-export type GridDisplayMode = "artwork" | "black" | "white" | "wood";
+export type GridDisplayMode = "black" | "white" | "wood";
 export const GRID_DISPLAY_MODE_KEY = "grid_display_mode";
-export const GRID_DISPLAY_MODE_DEFAULT: GridDisplayMode = "artwork";
+export const GRID_DISPLAY_MODE_DEFAULT: GridDisplayMode = "black";
 
 export function useGridDisplayMode(): GridDisplayMode {
   const q = useQuery({
@@ -266,7 +266,7 @@ export function useGridDisplayMode(): GridDisplayMode {
       if (error) throw error;
       const v = data?.value as unknown;
       const s = typeof v === "string" ? v : "";
-      return (["artwork", "black", "white", "wood"] as GridDisplayMode[]).includes(
+      return (["black", "white", "wood"] as GridDisplayMode[]).includes(
         s as GridDisplayMode,
       )
         ? (s as GridDisplayMode)

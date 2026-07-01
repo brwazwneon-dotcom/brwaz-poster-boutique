@@ -2972,8 +2972,7 @@ function GridDisplayModeCard() {
   });
   const [saving, setSaving] = useState(false);
   const options: { id: GridDisplayMode; label: string; hint: string }[] = [
-    { id: "artwork", label: "Artwork Only", hint: "Clean poster art, no frame (default)" },
-    { id: "black", label: "Black Frame Preview", hint: "Show poster inside black frame mockup" },
+    { id: "black", label: "Black Frame Preview", hint: "Show poster inside black frame mockup (default)" },
     { id: "white", label: "White Frame Preview", hint: "Show poster inside white frame mockup" },
     { id: "wood", label: "Wooden Portrait Preview", hint: "Show poster inside wooden frame mockup" },
   ];
