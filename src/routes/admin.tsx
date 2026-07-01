@@ -25,6 +25,7 @@ import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
+import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
@@ -84,7 +85,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "exports" | "settings";
+type Tab = "analytics" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
