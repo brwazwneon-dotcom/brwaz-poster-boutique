@@ -1,0 +1,17 @@
+# BRWAZWNEON
+
+> Premium framed poster boutique — movies, football, anime, cars and TV series. Custom-printed, framed, and delivered across Egypt with cash on delivery.
+
+BRWAZWNEON prints and ships museum-grade framed posters from Alexandria, Egypt. Customers pick a poster, choose a frame (PVC or Wooden Portrait) and size, then order via cart, WhatsApp, or Instapay / Vodafone Cash.
+
+## Pages
+- [Home](/): featured collections, best sellers, hero and bundle offers.
+- [Special Offers](/offers): bundle deals — 6 frames 20×30 for 790 EGP, 4 frames 30×40 for 890 EGP.
+- [Sets](/sets): curated frame sets.
+- [Custom Design](/custom-design): upload up to 20 of your own images to print and frame.
+- [Photo Printing](/photo-printing): bulk photo printing, minimum 20 photos.
+- [Search](/search): search across the full poster catalog.
+- [Wishlist](/wishlist): saved posters.
+
+## Optional
+- [Cart](/cart): checkout, shipping, cash on delivery, Instapay / Vodafone Cash.
