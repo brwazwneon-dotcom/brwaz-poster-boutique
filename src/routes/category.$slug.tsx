@@ -8,6 +8,7 @@ import { useCategories, descendantIds, type Category } from "@/lib/use-categorie
 import {
   FRAME_COLORS,
   FRAME_TYPES,
+  sizesForFrame,
   SIZES,
   type FrameColorId,
   type FrameTypeId,
