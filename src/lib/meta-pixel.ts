@@ -7,6 +7,7 @@
 import { sendCapiEvent } from "./meta-capi.functions";
 import type { MarketingConfig } from "./use-marketing";
 import { gaEvent, type GAEventName } from "./ga4";
+import { isPreviewMode } from "./preview-mode";
 
 declare global {
   interface Window {
@@ -100,6 +101,7 @@ export function trackEvent(
 ) {
   const cfg = lastConfig;
   if (!cfg) return; // not loaded yet
+  if (isPreviewMode()) return;
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
 
@@ -203,6 +205,7 @@ export function trackCustom(
 ) {
   const cfg = lastConfig;
   if (!cfg) return;
+  if (isPreviewMode()) return;
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
 
