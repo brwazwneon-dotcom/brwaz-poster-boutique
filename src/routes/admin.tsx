@@ -4784,3 +4784,236 @@ function SizeGuideTab() {
     </div>
   );
 }
+
+/* ============================ Hero Banners tab ============================ */
+
+function HeroBannersTab() {
+  const qc = useQueryClient();
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: banners = [], isLoading } = useQuery({
+    queryKey: ["admin-hero-banners"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("hero_banners" as never)
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as HeroBanner[];
+    },
+  });
+
+  const { data: cfg } = useQuery({
+    queryKey: ["admin-hero-banner-config"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", HERO_BANNER_CONFIG_KEY)
+        .maybeSingle();
+      const v = (data?.value ?? {}) as Partial<HeroBannerConfig>;
+      return {
+        autoplay_ms: Number(v.autoplay_ms) > 0 ? Number(v.autoplay_ms) : DEFAULT_HERO_BANNER_CONFIG.autoplay_ms,
+        overlay_opacity: typeof v.overlay_opacity === "number" ? v.overlay_opacity : DEFAULT_HERO_BANNER_CONFIG.overlay_opacity,
+      } as HeroBannerConfig;
+    },
+  });
+
+  const [autoplay, setAutoplay] = useState<number>(DEFAULT_HERO_BANNER_CONFIG.autoplay_ms);
+  const [overlay, setOverlay] = useState<number>(DEFAULT_HERO_BANNER_CONFIG.overlay_opacity);
+  useEffect(() => {
+    if (cfg) {
+      setAutoplay(cfg.autoplay_ms);
+      setOverlay(cfg.overlay_opacity);
+    }
+  }, [cfg]);
+
+  const saveConfig = async () => {
+    const payload = { autoplay_ms: autoplay, overlay_opacity: overlay };
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: HERO_BANNER_CONFIG_KEY, value: payload }, { onConflict: "key" });
+    if (error) return toast.error(error.message);
+    toast.success("Settings saved");
+    qc.invalidateQueries({ queryKey: ["hero-banner-config"] });
+    qc.invalidateQueries({ queryKey: ["admin-hero-banner-config"] });
+  };
+
+  const upload = async () => {
+    if (!files || files.length === 0) return toast.error("Choose images");
+    setUploading(true);
+    try {
+      let order = (banners[banners.length - 1]?.sort_order ?? 0) + 1;
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+        const path = `hero-${crypto.randomUUID()}.${ext}`;
+        const signedUrl = await uploadAndSign("slider", path, file);
+        const { error } = await supabase.from("hero_banners" as never).insert({
+          image_url: signedUrl,
+          sort_order: order++,
+          enabled: true,
+        } as never);
+        if (error) throw error;
+      }
+      toast.success("Uploaded");
+      setFiles(null);
+      const input = document.getElementById("hero-banner-files") as HTMLInputElement | null;
+      if (input) input.value = "";
+      qc.invalidateQueries({ queryKey: ["admin-hero-banners"] });
+      qc.invalidateQueries({ queryKey: ["hero-banners"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const update = async (id: string, patch: Partial<HeroBanner>) => {
+    const { error } = await supabase.from("hero_banners" as never).update(patch as never).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["admin-hero-banners"] });
+    qc.invalidateQueries({ queryKey: ["hero-banners"] });
+  };
+
+  const remove = async (b: HeroBanner) => {
+    if (!confirm("Delete this banner?")) return;
+    const { error } = await supabase.from("hero_banners" as never).delete().eq("id", b.id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["admin-hero-banners"] });
+    qc.invalidateQueries({ queryKey: ["hero-banners"] });
+  };
+
+  const move = async (b: HeroBanner, dir: -1 | 1) => {
+    const idx = banners.findIndex((x) => x.id === b.id);
+    const other = banners[idx + dir];
+    if (!other) return;
+    await update(b.id, { sort_order: other.sort_order });
+    await update(other.id, { sort_order: b.sort_order });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold uppercase tracking-widest">Hero Advertising Banners</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Rotating banners displayed behind the homepage hero. Falls back to the default hero image when empty.
+        </p>
+      </div>
+
+      <div className="grid gap-3 rounded-sm border border-border bg-card p-6 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-xs uppercase tracking-widest">
+          Autoplay speed (ms)
+          <input
+            type="number"
+            min={1500}
+            step={500}
+            value={autoplay}
+            onChange={(e) => setAutoplay(Number(e.target.value) || 4000)}
+            className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm normal-case tracking-normal"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs uppercase tracking-widest">
+          Overlay opacity ({overlay.toFixed(2)})
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={overlay}
+            onChange={(e) => setOverlay(Number(e.target.value))}
+            className="w-full"
+          />
+        </label>
+        <div className="sm:col-span-2">
+          <button
+            onClick={saveConfig}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+          >
+            <Save className="h-4 w-4" /> Save settings
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-6">
+        <input
+          id="hero-banner-files"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => setFiles(e.target.files)}
+          className="text-sm text-muted-foreground"
+        />
+        <button
+          onClick={upload}
+          disabled={uploading}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
+          <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : "Upload banners"}
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : banners.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+            No banners yet. Upload your first hero banner.
+          </div>
+        ) : (
+          banners.map((b, i) => (
+            <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3">
+              <SafeImage src={b.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
+              <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                <input
+                  defaultValue={b.title ?? ""}
+                  placeholder="Title"
+                  onBlur={(e) => e.target.value !== (b.title ?? "") && update(b.id, { title: e.target.value || null })}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  defaultValue={b.subtitle ?? ""}
+                  placeholder="Subtitle"
+                  onBlur={(e) => e.target.value !== (b.subtitle ?? "") && update(b.id, { subtitle: e.target.value || null })}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  defaultValue={b.button_text ?? ""}
+                  placeholder="Button text"
+                  onBlur={(e) => e.target.value !== (b.button_text ?? "") && update(b.id, { button_text: e.target.value || null })}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  defaultValue={b.button_link ?? ""}
+                  placeholder="Button link (https://…)"
+                  onBlur={(e) => e.target.value !== (b.button_link ?? "") && update(b.id, { button_link: e.target.value || null })}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  checked={b.enabled}
+                  onChange={(e) => update(b.id, { enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+              <div className="ml-auto flex gap-1">
+                <button onClick={() => move(b, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move up">
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => move(b, 1)} disabled={i === banners.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move down">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => remove(b)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
