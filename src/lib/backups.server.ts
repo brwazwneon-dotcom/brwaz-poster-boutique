@@ -162,7 +162,7 @@ export async function decryptJson<T = unknown>(blob: ArrayBuffer): Promise<T> {
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromBase64(parsed.iv) },
     key,
-    fromBase64(parsed.ct),
+    fromBase64(parsed.ct) as unknown as ArrayBuffer,
   );
   return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
