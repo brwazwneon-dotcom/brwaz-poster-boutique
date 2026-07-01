@@ -43,7 +43,7 @@ export function computeShipping(subtotal: number, s: SiteSettings) {
 /* -------------------- Admin-managed pricing -------------------- */
 
 export type Pricing = {
-  frame: Record<FrameTypeId, Record<SizeId, number>>;
+  frame: Record<FrameTypeId, Partial<Record<SizeId, number>>>;
   customDesignFee: number;
   photo: Record<"10x15" | "13x18" | "15x20", number>;
   offers: { bundle6_20x30: number; bundle4_30x40: number };
@@ -55,7 +55,16 @@ export type Pricing = {
 export const PRICING_DEFAULTS: Pricing = {
   frame: {
     pvc:  { "20x30": 150, "30x40": 250, "40x50": 350 },
-    wood: { "20x30": 190, "30x40": 270, "40x50": 400 },
+    wood: {
+      "20x30": 190,
+      "30x40": 270,
+      "40x50": 400,
+      "40x60": 450,
+      "50x60": 500,
+      "50x70": 580,
+      "60x90": 850,
+      "100x60": 950,
+    },
   },
   customDesignFee: 20,
   photo: { "10x15": 10, "13x18": 15, "15x20": 20 },
@@ -72,6 +81,11 @@ export const PRICING_KEYS = {
   frame_wood_20x30: ["frame", "wood", "20x30"],
   frame_wood_30x40: ["frame", "wood", "30x40"],
   frame_wood_40x50: ["frame", "wood", "40x50"],
+  frame_wood_40x60: ["frame", "wood", "40x60"],
+  frame_wood_50x60: ["frame", "wood", "50x60"],
+  frame_wood_50x70: ["frame", "wood", "50x70"],
+  frame_wood_60x90: ["frame", "wood", "60x90"],
+  frame_wood_100x60: ["frame", "wood", "100x60"],
   custom_design_fee: ["customDesignFee"],
   photo_10x15: ["photo", "10x15"],
   photo_13x18: ["photo", "13x18"],
