@@ -40,6 +40,7 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import { GRID_DISPLAY_MODE_KEY, GRID_DISPLAY_MODE_DEFAULT, type GridDisplayMode } from "@/lib/use-settings";
 import { PRICING_DEFAULTS, PRICING_KEYS, type Pricing } from "@/lib/use-settings";
 import {
   ANNOUNCEMENT_KEY,
@@ -2944,6 +2945,78 @@ function MockupsTab() {
         <MockupEditor label="Black Frame" variant="black" mockup={data.black} onSaved={onSaved} />
         <MockupEditor label="White Frame" variant="white" mockup={data.white} onSaved={onSaved} />
         <MockupEditor label="Wooden Portrait" variant="wood" mockup={data.wood} onSaved={onSaved} />
+      </div>
+      <GridDisplayModeCard />
+    </div>
+  );
+}
+
+function GridDisplayModeCard() {
+  const qc = useQueryClient();
+  const { data: mode = GRID_DISPLAY_MODE_DEFAULT } = useQuery({
+    queryKey: ["admin-grid-display-mode"],
+    queryFn: async (): Promise<GridDisplayMode> => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", GRID_DISPLAY_MODE_KEY)
+        .maybeSingle();
+      const v = data?.value as unknown;
+      const s = typeof v === "string" ? v : "";
+      return (["artwork", "black", "white", "wood"] as GridDisplayMode[]).includes(
+        s as GridDisplayMode,
+      )
+        ? (s as GridDisplayMode)
+        : GRID_DISPLAY_MODE_DEFAULT;
+    },
+  });
+  const [saving, setSaving] = useState(false);
+  const options: { id: GridDisplayMode; label: string; hint: string }[] = [
+    { id: "artwork", label: "Artwork Only", hint: "Clean poster art, no frame (default)" },
+    { id: "black", label: "Black Frame Preview", hint: "Show poster inside black frame mockup" },
+    { id: "white", label: "White Frame Preview", hint: "Show poster inside white frame mockup" },
+    { id: "wood", label: "Wooden Portrait Preview", hint: "Show poster inside wooden frame mockup" },
+  ];
+  const save = async (next: GridDisplayMode) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: GRID_DISPLAY_MODE_KEY, value: next as unknown as never });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["admin-grid-display-mode"] });
+      qc.invalidateQueries({ queryKey: ["grid-display-mode"] });
+      toast.success("Grid display mode updated");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="rounded-sm border border-border bg-card p-6">
+      <h3 className="text-display text-2xl">Grid Display Mode</h3>
+      <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+        Controls how poster thumbnails appear on the category grid.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            disabled={saving}
+            onClick={() => save(o.id)}
+            className={cn(
+              "rounded-sm border p-4 text-left transition disabled:opacity-60",
+              mode === o.id
+                ? "border-primary bg-accent"
+                : "border-border hover:bg-accent/50",
+            )}
+          >
+            <div className="text-sm font-semibold">{o.label}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{o.hint}</div>
+          </button>
+        ))}
       </div>
     </div>
   );
