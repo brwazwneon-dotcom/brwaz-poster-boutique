@@ -27,6 +27,7 @@ const EN: Dict = {
   "tab.categories": "Categories",
   "tab.orders": "Orders",
   "tab.custom": "Custom Designs",
+  "tab.photo-4x6": "4×6 Photos",
   "tab.slider": "Slider",
   "tab.hero-banners": "Hero Banners",
   "tab.highlights": "Highlights",
