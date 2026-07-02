@@ -106,7 +106,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
     // via private.has_role(). When called with service_role, auth.uid() is
     // NULL and the RPC raises 'forbidden'. Call it with the admin's own
     // authenticated client instead so has_role() resolves correctly.
-    const asUser = context.supabase;
+    const asUser = (context as any).supabase as typeof admin;
 
     const count = async (table: string, filter?: (q: any) => any) => {
       let q: any = (admin.from as any)(table).select("*", { count: "exact", head: true });
