@@ -41,6 +41,8 @@ function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
+  const photo4x6 = usePhoto4x6Config();
+  const navigate = useNavigate();
   const subtotal = total;
   const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
   const packagingFee = bundleQty * pricing.packagingFee;
@@ -52,6 +54,8 @@ function CartPage() {
   );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
+  const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
+  const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
   const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
   const shipping = computeShipping(subtotal + tapeTotal, settings);
