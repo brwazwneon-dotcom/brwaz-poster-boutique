@@ -3054,11 +3054,8 @@ function MockupEditor({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof FrameMockup, v: string) => {
-    if (k === "image") return setM({ ...m, image: v });
-    const n = Number(v);
-    setM({ ...m, [k]: Number.isFinite(n) ? n : 0 });
-  };
+  const patch = (p: Partial<FrameMockup>) => setM((prev) => ({ ...prev, ...p }));
+  const setNum = (k: keyof FrameMockup, v: number) => patch({ [k]: v } as Partial<FrameMockup>);
 
   const onUpload = async (file: File) => {
     setUploading(true);
@@ -3093,6 +3090,19 @@ function MockupEditor({
     }
   };
 
+  const centerArtwork = () => {
+    const w = m.width || 80;
+    const h = m.height || 80;
+    patch({ left: (100 - w) / 2, top: (100 - h) / 2 });
+  };
+  const resetAll = () => {
+    const defaults: FrameMockup =
+      variant === "wood"
+        ? { image: m.image, top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false }
+        : { image: m.image, top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false };
+    setM(defaults);
+  };
+
   return (
     <div className="rounded-sm border border-border bg-card p-5">
       <div className="flex items-center justify-between">
@@ -3100,7 +3110,7 @@ function MockupEditor({
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{variant}</span>
       </div>
 
-      <div className="mt-4 mx-auto w-full max-w-[220px]">
+      <div className="mt-4 mx-auto w-full max-w-[260px]">
         <FramePreviewPreviewWithOverride mockup={m} variant={variant} />
       </div>
 
@@ -3119,19 +3129,31 @@ function MockupEditor({
         />
       </label>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <NumField label="Top %"    value={m.top}    onChange={(v) => set("top", v)} />
-        <NumField label="Left %"   value={m.left}   onChange={(v) => set("left", v)} />
-        <NumField label="Width %"  value={m.width}  onChange={(v) => set("width", v)} />
-        <NumField label="Height %" value={m.height} onChange={(v) => set("height", v)} />
-        <NumField label="Rotate °" value={m.rotate ?? 0} onChange={(v) => set("rotate", v)} />
-        <NumField label="Skew X °" value={m.skewX ?? 0}  onChange={(v) => set("skewX", v)} />
-        <NumField label="Skew Y °" value={m.skewY ?? 0}  onChange={(v) => set("skewY", v)} />
-        <NumField label="Radius %" value={m.borderRadius ?? 0} onChange={(v) => set("borderRadius", v)} />
-        <NumField label="Scale"    value={m.scale ?? 1}  onChange={(v) => set("scale", v)} />
-        <NumField label="Perspective px" value={m.perspective ?? 1000} onChange={(v) => set("perspective", v)} />
-        <NumField label="Rotate X °" value={m.rotateX ?? 0} onChange={(v) => set("rotateX", v)} />
-        <NumField label="Rotate Y °" value={m.rotateY ?? 0} onChange={(v) => set("rotateY", v)} />
+      {/* Quick action buttons */}
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <ToolBtn onClick={() => setNum("rotate", Math.max(-10, (m.rotate ?? 0) - 1))} icon={<RotateCcw className="h-3.5 w-3.5" />} label="Rot −" />
+        <ToolBtn onClick={() => setNum("rotate", Math.min(10, (m.rotate ?? 0) + 1))} icon={<RotateCw className="h-3.5 w-3.5" />} label="Rot +" />
+        <ToolBtn onClick={centerArtwork} icon={<Crosshair className="h-3.5 w-3.5" />} label="Center" />
+        <ToolBtn onClick={() => setNum("scale", Math.min(3, +((m.scale ?? 1) + 0.05).toFixed(2)))} icon={<ZoomIn className="h-3.5 w-3.5" />} label="Zoom +" />
+        <ToolBtn onClick={() => setNum("scale", Math.max(0.3, +((m.scale ?? 1) - 0.05).toFixed(2)))} icon={<ZoomOut className="h-3.5 w-3.5" />} label="Zoom −" />
+        <ToolBtn onClick={resetAll} icon={<RotateCcw className="h-3.5 w-3.5" />} label="Reset" />
+        <ToolBtn active={!!m.flipX} onClick={() => patch({ flipX: !m.flipX })} icon={<FlipHorizontal className="h-3.5 w-3.5" />} label="Flip H" />
+        <ToolBtn active={!!m.flipY} onClick={() => patch({ flipY: !m.flipY })} icon={<FlipVertical className="h-3.5 w-3.5" />} label="Flip V" />
+      </div>
+
+      <div className="mt-5 space-y-3">
+        <SliderRow label="X Position" value={m.left} min={-20} max={100} step={0.1} suffix="%" onChange={(v) => setNum("left", v)} />
+        <SliderRow label="Y Position" value={m.top} min={-20} max={100} step={0.1} suffix="%" onChange={(v) => setNum("top", v)} />
+        <SliderRow label="Width" value={m.width} min={5} max={120} step={0.1} suffix="%" onChange={(v) => setNum("width", v)} />
+        <SliderRow label="Height" value={m.height} min={5} max={120} step={0.1} suffix="%" onChange={(v) => setNum("height", v)} />
+        <SliderRow label="Scale" value={m.scale ?? 1} min={0.3} max={3} step={0.01} onChange={(v) => setNum("scale", v)} />
+        <SliderRow label="Rotation" value={m.rotate ?? 0} min={-10} max={10} step={0.1} suffix="°" onChange={(v) => setNum("rotate", v)} />
+        <SliderRow label="Perspective X" value={m.rotateY ?? 0} min={-30} max={30} step={0.1} suffix="°" onChange={(v) => setNum("rotateY", v)} />
+        <SliderRow label="Perspective Y" value={m.rotateX ?? 0} min={-30} max={30} step={0.1} suffix="°" onChange={(v) => setNum("rotateX", v)} />
+        <SliderRow label="Skew Horizontal" value={m.skewX ?? 0} min={-20} max={20} step={0.1} suffix="°" onChange={(v) => setNum("skewX", v)} />
+        <SliderRow label="Skew Vertical" value={m.skewY ?? 0} min={-20} max={20} step={0.1} suffix="°" onChange={(v) => setNum("skewY", v)} />
+        <SliderRow label="Perspective Depth" value={m.perspective ?? 1000} min={200} max={3000} step={10} suffix="px" onChange={(v) => setNum("perspective", v)} />
+        <SliderRow label="Border Radius" value={m.borderRadius ?? 0} min={0} max={50} step={0.1} suffix="%" onChange={(v) => setNum("borderRadius", v)} />
       </div>
 
       <button
@@ -3141,29 +3163,89 @@ function MockupEditor({
       >
         <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
       </button>
+      <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+        Saved values apply to every {label.toLowerCase()} across the site.
+      </p>
     </div>
   );
 }
 
-function NumField({
+function ToolBtn({
+  onClick,
+  icon,
+  label,
+  active,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-[10px] uppercase tracking-widest transition",
+        active
+          ? "border-primary bg-accent text-foreground"
+          : "border-border text-muted-foreground hover:text-foreground hover:bg-accent/60",
+      )}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function SliderRow({
   label,
   value,
+  min,
+  max,
+  step,
   onChange,
+  suffix,
 }: {
   label: string;
   value: number;
-  onChange: (v: string) => void;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  suffix?: string;
 }) {
+  const v = Number.isFinite(value) ? value : 0;
   return (
-    <label className="block">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <input
-        value={String(value)}
-        inputMode="decimal"
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-      />
-    </label>
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+        <span>{label}</span>
+        <span className="tabular-nums text-foreground">
+          {Number.isInteger(step) ? v.toFixed(0) : v.toFixed(2)}
+          {suffix ?? ""}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Slider
+          value={[v]}
+          min={min}
+          max={max}
+          step={step}
+          onValueChange={(a) => onChange(a[0])}
+          className="flex-1"
+        />
+        <input
+          type="number"
+          value={v}
+          step={step}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onChange(n);
+          }}
+          className="w-16 rounded-sm border border-border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
+        />
+      </div>
+    </div>
   );
 }
 
