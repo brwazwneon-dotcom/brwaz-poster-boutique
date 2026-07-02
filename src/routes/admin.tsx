@@ -175,17 +175,22 @@ function AdminPage() {
     <div className="container-page py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Dashboard</div>
-          <h1 className="text-display text-5xl">Admin</h1>
+          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{t("shell.dashboard")}</div>
+          <h1 className="text-display text-5xl">{t("shell.admin")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <PreviewAsClient />
-          <button
-            onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          <AdminTip label={t("shell.preview")}>
+            <div><PreviewAsClient /></div>
+          </AdminTip>
+          <LanguageSwitcher />
+          <AdminTip label={t("shell.sign_out")}>
+            <button
+              onClick={signOut}
+              className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+            >
+              <LogOut className="h-4 w-4" /> {t("shell.sign_out")}
+            </button>
+          </AdminTip>
         </div>
       </div>
 
@@ -201,7 +206,7 @@ function AdminPage() {
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
-            {t}
+            {tabLabel(useAdminI18n.bind(null)().t /* not called here */, t)}
           </button>
         ))}
       </div>
