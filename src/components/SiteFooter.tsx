@@ -1,17 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import { useFooterMenu } from "@/lib/footer-menu";
-import { LOGO_URL, BRANCH, SOCIAL } from "@/lib/site";
+import { BRANCH, SOCIAL } from "@/lib/site";
+import { useLogoSize } from "@/lib/branding";
 import { Instagram, Facebook, MessageCircle, MapPin } from "lucide-react";
 
 export function SiteFooter() {
   const { links } = useFooterMenu();
   const shopLinks = links.filter((l) => l.enabled);
+  const logo = useLogoSize("footer");
   return (
     <footer className="mt-24 border-t border-border bg-background">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
         <div>
           <Link to="/" aria-label="BRWAZWNEON home" className="inline-flex">
-            <img src={LOGO_URL} alt="BRWAZWNEON" className="h-9 w-auto md:h-[45px]" loading="lazy" />
+            <img src={logo.src} alt="BRWAZWNEON" style={logo.style} loading="lazy" />
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
             Premium framed posters. Cinema, sport, anime, motors — printed and

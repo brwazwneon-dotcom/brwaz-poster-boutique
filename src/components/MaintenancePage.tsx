@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Instagram, Facebook, MessageCircle, Mail, MapPin, Phone } from "lucide-react";
-import { LOGO_URL, SOCIAL } from "@/lib/site";
+import { SOCIAL } from "@/lib/site";
+import { useLogoSize } from "@/lib/branding";
 import type { MaintenanceConfig } from "@/lib/maintenance";
 
 function useCountdown(endTime: string | null) {
@@ -34,6 +35,7 @@ function Unit({ v, label }: { v: number; label: string }) {
 
 export function MaintenancePage({ cfg }: { cfg: MaintenanceConfig }) {
   const cd = useCountdown(cfg.endTime);
+  const logo = useLogoSize("maintenance");
 
   // SEO: keep robots off the maintenance page.
   useEffect(() => {
@@ -81,9 +83,10 @@ export function MaintenancePage({ cfg }: { cfg: MaintenanceConfig }) {
       {/* Content */}
       <div className="container-page relative z-10 mx-auto max-w-2xl px-6 py-16 text-center">
         <img
-          src={LOGO_URL}
+          src={logo.src}
           alt="BRWAZWNEON"
-          className="mx-auto h-16 w-auto object-contain"
+          className="mx-auto object-contain"
+          style={logo.style}
           loading="eager"
         />
 
