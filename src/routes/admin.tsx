@@ -117,6 +117,17 @@ function AdminPage() {
   const { t } = useAdminI18n();
 
   useEffect(() => {
+    const applyHash = () => {
+      const h = typeof window !== "undefined" ? window.location.hash : "";
+      const m = h.match(/tab=([\w-]+)/);
+      if (m) setTab(m[1] as Tab);
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
