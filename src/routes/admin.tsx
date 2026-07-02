@@ -33,6 +33,8 @@ import { BackupsTab } from "@/components/admin/BackupsTab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
+import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
+import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
@@ -90,8 +92,17 @@ export const Route = createFileRoute("/admin")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: AdminPage,
+  component: AdminPageWithI18n,
 });
+
+function AdminPageWithI18n() {
+  return (
+    <AdminI18nProvider>
+      <AdminPage />
+      <HelpButton />
+    </AdminI18nProvider>
+  );
+}
 
 type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "settings";
 
@@ -102,6 +113,7 @@ function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("analytics");
+  const { t } = useAdminI18n();
 
   useEffect(() => {
     (async () => {
@@ -163,33 +175,38 @@ function AdminPage() {
     <div className="container-page py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Dashboard</div>
-          <h1 className="text-display text-5xl">Admin</h1>
+          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{t("shell.dashboard")}</div>
+          <h1 className="text-display text-5xl">{t("shell.admin")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <PreviewAsClient />
-          <button
-            onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+          <AdminTip label={t("shell.preview")}>
+            <div><PreviewAsClient /></div>
+          </AdminTip>
+          <LanguageSwitcher />
+          <AdminTip label={t("shell.sign_out")}>
+            <button
+              onClick={signOut}
+              className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+            >
+              <LogOut className="h-4 w-4" /> {t("shell.sign_out")}
+            </button>
+          </AdminTip>
         </div>
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "realtime", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "settings"] as Tab[]).map((t) => (
+        {(["analytics", "realtime", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "settings"] as Tab[]).map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             className={cn(
               "border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-widest transition",
-              tab === t
+              tab === tabKey
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
-            {t}
+            {tabLabel(t, tabKey)}
           </button>
         ))}
       </div>
