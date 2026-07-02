@@ -104,7 +104,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "settings";
+type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
