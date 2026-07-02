@@ -33,6 +33,8 @@ import { BackupsTab } from "@/components/admin/BackupsTab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
+import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
+import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
