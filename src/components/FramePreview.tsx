@@ -65,8 +65,10 @@ export function FramePreview({
   const scale = Math.max(0.1, s.zoom || 1);
   // Combine per-poster edit settings with admin calibration for this frame template.
   const adminScale = Math.max(0.1, m.scale ?? 1);
-  const sx = Math.max(0.1, s.stretchX || 1) * scale * adminScale;
-  const sy = Math.max(0.1, s.stretchY || 1) * scale * adminScale;
+  const flipX = m.flipX ? -1 : 1;
+  const flipY = m.flipY ? -1 : 1;
+  const sx = Math.max(0.1, s.stretchX || 1) * scale * adminScale * flipX;
+  const sy = Math.max(0.1, s.stretchY || 1) * scale * adminScale * flipY;
   const rotate = (s.rotate || 0) + (m.rotate ?? 0);
   const skewX = m.skewX ?? 0;
   const skewY = m.skewY ?? 0;

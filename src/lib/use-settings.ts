@@ -189,6 +189,10 @@ export type FrameMockup = {
   rotateX?: number;
   /** 3D rotation around the Y axis in degrees (tilt left/right). */
   rotateY?: number;
+  /** Mirror the artwork horizontally. */
+  flipX?: boolean;
+  /** Mirror the artwork vertically. */
+  flipY?: boolean;
 };
 
 export type FrameMockups = {
@@ -198,9 +202,9 @@ export type FrameMockups = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
-  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
-  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0 },
+  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
@@ -230,6 +234,8 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     perspective: numOr(v.perspective, fallback.perspective ?? 1000),
     rotateX: numOr(v.rotateX, fallback.rotateX ?? 0),
     rotateY: numOr(v.rotateY, fallback.rotateY ?? 0),
+    flipX: typeof v.flipX === "boolean" ? v.flipX : fallback.flipX ?? false,
+    flipY: typeof v.flipY === "boolean" ? v.flipY : fallback.flipY ?? false,
   };
 }
 
