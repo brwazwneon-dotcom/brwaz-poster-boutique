@@ -283,6 +283,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          featured: boolean
           hidden: boolean
           icon: string | null
           id: string
@@ -291,11 +292,13 @@ export type Database = {
           parent_id: string | null
           slug: string
           sort_order: number
+          status: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          featured?: boolean
           hidden?: boolean
           icon?: string | null
           id?: string
@@ -304,11 +307,13 @@ export type Database = {
           parent_id?: string | null
           slug: string
           sort_order?: number
+          status?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          featured?: boolean
           hidden?: boolean
           icon?: string | null
           id?: string
@@ -317,6 +322,7 @@ export type Database = {
           parent_id?: string | null
           slug?: string
           sort_order?: number
+          status?: string
           updated_at?: string
         }
         Relationships: [
