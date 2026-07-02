@@ -195,7 +195,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "realtime", "posters", "ai-upload", "categories", "orders", "custom", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "realtime", "posters", "ai-upload", "categories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
