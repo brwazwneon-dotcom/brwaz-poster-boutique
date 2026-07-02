@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
-import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 
 const INSTAPAY_NUMBER = "01090771294";
