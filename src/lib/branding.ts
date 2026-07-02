@@ -96,7 +96,7 @@ export function useSaveBranding() {
     const clean = normalizeBranding(next);
     const { error } = await supabase
       .from("site_settings")
-      .upsert({ key: BRANDING_KEY, value: clean as unknown as Record<string, unknown> }, { onConflict: "key" });
+      .upsert({ key: BRANDING_KEY, value: clean as unknown as never }, { onConflict: "key" });
     if (error) throw error;
     qc.setQueryData(["branding", BRANDING_KEY], clean);
     await qc.invalidateQueries({ queryKey: ["branding"] });
