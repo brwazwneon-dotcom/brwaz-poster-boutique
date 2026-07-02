@@ -113,6 +113,7 @@ function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("analytics");
+  const { t } = useAdminI18n();
 
   useEffect(() => {
     (async () => {
