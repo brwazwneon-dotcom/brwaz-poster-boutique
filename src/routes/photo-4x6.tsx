@@ -5,7 +5,7 @@ import { Upload, X, Loader2, Sparkles, Palette, ScanFace, Focus, Printer, Shirt,
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
 import { useSiteSettings, computeShipping, usePhoto4x6Config, type Photo4x6Package } from "@/lib/use-settings";
-import { BeforeAfter } from "@/components/BeforeAfter";
+import { Slider as BeforeAfterSlider } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { enhancePhoto, type PhotoAiAction } from "@/lib/photo-ai.functions";
 
@@ -519,11 +519,10 @@ function Photo4x6Page() {
           role="dialog"
         >
           <div className="w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <BeforeAfter
+            <BeforeAfterSlider
               before={beforeAfterPic.originalDataUrl}
               after={(beforeAfterPic.selected === "suit" && beforeAfterPic.suitDataUrl) ? beforeAfterPic.suitDataUrl : (beforeAfterPic.enhancedDataUrl ?? beforeAfterPic.originalDataUrl)}
-              beforeLabel="Original"
-              afterLabel={beforeAfterPic.selected === "suit" ? "Suit" : "Enhanced"}
+              title={beforeAfterPic.selected === "suit" ? "Suit version" : "Enhanced version"}
             />
             <div className="mt-3 flex justify-center">
               <button
