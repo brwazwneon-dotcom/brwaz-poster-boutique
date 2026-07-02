@@ -11,6 +11,8 @@ export type Category = {
   description?: string | null;
   icon?: string | null;
   hidden?: boolean;
+  featured?: boolean;
+  status?: "published" | "draft";
 };
 
 export function useCategories() {
@@ -20,13 +22,21 @@ export function useCategories() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden")
+        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Category[];
     },
   });
+}
+
+/** True when a category may be shown to customers (not hidden and not draft). */
+export function isCategoryVisible(c: Category | null | undefined): boolean {
+  if (!c) return false;
+  if (c.hidden) return false;
+  if (c.status === "draft") return false;
+  return true;
 }
 
 /** Returns only top-level categories (no parent). */

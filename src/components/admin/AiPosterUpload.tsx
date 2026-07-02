@@ -485,7 +485,7 @@ export function AiPosterUpload() {
         const slugBase = slugify(`${parent?.slug ?? "cat"}-${g.name}`) || slugify(g.name);
         const { data, error } = await supabase
           .from("categories")
-          .insert({ name: g.name, slug: slugBase, parent_id: g.parentId, sort_order: maxOrder + 1 })
+          .insert({ name: g.name, slug: slugBase, parent_id: g.parentId, sort_order: maxOrder + 1, status: "draft" })
           .select("id")
           .single();
         if (error || !data) continue;

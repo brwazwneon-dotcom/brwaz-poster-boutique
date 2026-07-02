@@ -139,7 +139,7 @@ function CategoryPage() {
     [categories, category, activeSubId],
   );
   const subcategories = useMemo(
-    () => (category ? categories.filter((c) => c.parent_id === category.id && !c.hidden) : []),
+    () => (category ? categories.filter((c) => c.parent_id === category.id && !c.hidden && c.status !== "draft") : []),
     [categories, category],
   );
 
