@@ -140,6 +140,19 @@ function CartPage() {
       setTapeOpen(true);
       return;
     }
+    // 4×6 photo upsell (once per session)
+    if (
+      photo4x6.enabled &&
+      photo4x6.upsellEnabled &&
+      !photoUpsellShown &&
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("photo4x6_upsell_shown") !== "1"
+    ) {
+      setPhotoUpsellOpen(true);
+      setPhotoUpsellShown(true);
+      sessionStorage.setItem("photo4x6_upsell_shown", "1");
+      return;
+    }
     void handleOrder();
   };
 
