@@ -30,6 +30,7 @@ import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
 import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { BackupsTab } from "@/components/admin/BackupsTab";
+import { Photo4x6Tab } from "@/components/admin/Photo4x6Tab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
