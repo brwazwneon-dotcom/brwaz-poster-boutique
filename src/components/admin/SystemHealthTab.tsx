@@ -431,3 +431,66 @@ function downloadFile(content: string, filename: string, mime: string) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+function issueTarget(issue: string): { tab?: string; label: string } {
+  const s = issue.toLowerCase();
+  if (s.includes("firebase")) return { tab: "notifications", label: "Configure Firebase Notifications" };
+  if (s.includes("google analytics") || s.includes("ga4")) return { tab: "marketing", label: "Configure GA4" };
+  if (s.includes("meta pixel")) return { tab: "marketing", label: "Configure Meta Pixel" };
+  if (s.includes("instapay")) return { tab: "settings", label: "Configure Instapay" };
+  if (s.includes("vodafone")) return { tab: "settings", label: "Configure Vodafone Cash" };
+  if (s.includes("backup")) return { tab: "backups", label: "Open Backups" };
+  if (s.includes("review")) return { tab: "reviews", label: "Moderate Reviews" };
+  if (s.includes("missing image") || s.includes("catalog")) return { tab: "posters", label: "Open Catalog" };
+  if (s.includes("storage")) return { tab: "system-health", label: "Retry storage check" };
+  if (s.includes("env vars") || s.includes("encryption")) return { tab: "env-check", label: "Open Env Check" };
+  if (s.includes("admin devices")) return { tab: "notifications", label: "Register admin device" };
+  return { label: "Fix Now" };
+}
+
+function FixActions({
+  issue,
+  onIgnore,
+  onRefresh,
+  onBackup,
+}: {
+  issue: string;
+  onIgnore: (k: string) => void;
+  onRefresh: () => void;
+  onBackup: () => void;
+}) {
+  const t = issueTarget(issue);
+  const isBackup = /backup/i.test(issue);
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {isBackup && (
+        <button
+          onClick={onBackup}
+          className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/20"
+        >
+          Create Backup Now
+        </button>
+      )}
+      {t.tab && (
+        <a
+          href={`/admin#tab=${t.tab}`}
+          className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+        >
+          {t.label}
+        </a>
+      )}
+      <button
+        onClick={onRefresh}
+        className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+      >
+        Fix Now
+      </button>
+      <button
+        onClick={() => onIgnore(issue)}
+        className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:bg-accent"
+      >
+        Ignore for Launch
+      </button>
+    </span>
+  );
+}
