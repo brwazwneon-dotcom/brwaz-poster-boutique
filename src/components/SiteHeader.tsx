@@ -3,7 +3,7 @@ import { ShoppingBag, Search, Heart } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
-import { LOGO_URL } from "@/lib/site";
+import { useLogoSize } from "@/lib/branding";
 
 const MAIN_MENU: { label: string; href: string }[] = [
   { label: "Football", href: "/category/football" },
@@ -22,14 +22,15 @@ const MAIN_MENU: { label: string; href: string }[] = [
 export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
+  const logo = useLogoSize("header");
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <Link to="/" aria-label="BRWAZWNEON home" className="flex items-center">
           <img
-            src={LOGO_URL}
+            src={logo.src}
             alt="BRWAZWNEON"
-            className="h-9 w-auto md:h-[45px]"
+            style={logo.style}
             loading="eager"
             decoding="async"
           />
