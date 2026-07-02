@@ -278,15 +278,47 @@ export function SystemHealthTab() {
           {checks.critical.length > 0 && (
             <div className="rounded-sm border border-red-500/50 bg-red-500/5 p-4">
               <div className="flex items-center gap-2 mb-2"><XCircle className="h-4 w-4 text-red-500" /><span className="text-xs uppercase tracking-widest font-semibold">Critical ({checks.critical.length})</span></div>
-              <ul className="space-y-1 text-sm">{checks.critical.map((c) => <li key={c}>• {c}</li>)}</ul>
+              <ul className="space-y-2 text-sm">
+                {checks.critical.map((c) => (
+                  <li key={c} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>• {c}</span>
+                    <FixActions issue={c} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {checks.warnings.length > 0 && (
             <div className="rounded-sm border border-amber-500/50 bg-amber-500/5 p-4">
               <div className="flex items-center gap-2 mb-2"><AlertTriangle className="h-4 w-4 text-amber-500" /><span className="text-xs uppercase tracking-widest font-semibold">Warnings ({checks.warnings.length})</span></div>
-              <ul className="space-y-1 text-sm">{checks.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>
+              <ul className="space-y-2 text-sm">
+                {checks.warnings.filter((w) => !ignored[w]).map((w) => (
+                  <li key={w} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>• {w}</span>
+                    <FixActions issue={w} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {checks.optional.length > 0 && (
+        <div className="rounded-sm border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Cloud className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs uppercase tracking-widest font-semibold">Optional integrations ({checks.optional.length})</span>
+            <span className="text-[10px] text-muted-foreground">— safe to launch without these</span>
+          </div>
+          <ul className="space-y-2 text-sm">
+            {checks.optional.filter((o) => !ignored[o]).map((o) => (
+              <li key={o} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">• {o}</span>
+                <FixActions issue={o} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
