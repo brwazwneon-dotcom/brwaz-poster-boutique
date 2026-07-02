@@ -219,6 +219,7 @@ function AdminPage() {
         {tab === "categories" && <CategoriesTab />}
         {tab === "orders" && <OrdersTab />}
         {tab === "custom" && <CustomDesignOrdersTab />}
+        {tab === "photo-4x6" && <Photo4x6Tab />}
         {tab === "slider" && <SliderTab />}
         {tab === "hero-banners" && <HeroBannersTab />}
         {tab === "highlights" && <HighlightsTab />}
