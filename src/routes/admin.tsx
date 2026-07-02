@@ -3283,9 +3283,10 @@ function FramePreviewPreviewWithOverride({
           className="h-full w-full object-cover select-none"
           draggable={false}
           style={{
-            transform: `rotateX(${mockup.rotateX ?? 0}deg) rotateY(${mockup.rotateY ?? 0}deg) rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${mockup.scale ?? 1})`,
+            transform: `translate3d(0,0,0) rotateX(${mockup.rotateX ?? 0}deg) rotateY(${mockup.rotateY ?? 0}deg) rotate(${mockup.rotate ?? 0}deg) skew(${mockup.skewX ?? 0}deg, ${mockup.skewY ?? 0}deg) scale(${(mockup.scale ?? 1) * (mockup.flipX ? -1 : 1)}, ${(mockup.scale ?? 1) * (mockup.flipY ? -1 : 1)})`,
             transformOrigin: "center center",
             willChange: "transform",
+            backfaceVisibility: "hidden",
           }}
         />
       </div>
