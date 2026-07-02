@@ -2924,6 +2924,8 @@ function MockupsTab() {
           perspective: num(v.perspective, 1000),
           rotateX: num(v.rotateX, 0),
           rotateY: num(v.rotateY, 0),
+          flipX: typeof v.flipX === "boolean" ? v.flipX : false,
+          flipY: typeof v.flipY === "boolean" ? v.flipY : false,
         };
       };
       return {
