@@ -14,6 +14,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
+import { Route as Photo4x6RouteImport } from './routes/photo-4x6'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as CustomDesignRouteImport } from './routes/custom-design'
@@ -47,6 +48,11 @@ const SearchRoute = SearchRouteImport.update({
 const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
   id: '/photo-printing',
   path: '/photo-printing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Photo4x6Route = Photo4x6RouteImport.update({
+  id: '/photo-4x6',
+  path: '/photo-4x6',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/photo-4x6'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/photo-4x6'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/photo-4x6'
     | '/photo-printing'
     | '/search'
     | '/sets'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
   OfflineRoute: typeof OfflineRoute
+  Photo4x6Route: typeof Photo4x6Route
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   SearchRoute: typeof SearchRoute
   SetsRoute: typeof SetsRoute
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/photo-printing'
       fullPath: '/photo-printing'
       preLoaderRoute: typeof PhotoPrintingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/photo-4x6': {
+      id: '/photo-4x6'
+      path: '/photo-4x6'
+      fullPath: '/photo-4x6'
+      preLoaderRoute: typeof Photo4x6RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
   OfflineRoute: OfflineRoute,
+  Photo4x6Route: Photo4x6Route,
   PhotoPrintingRoute: PhotoPrintingRoute,
   SearchRoute: SearchRoute,
   SetsRoute: SetsRoute,

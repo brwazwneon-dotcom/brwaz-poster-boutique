@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
-import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 
 const INSTAPAY_NUMBER = "01090771294";
@@ -41,6 +41,8 @@ function CartPage() {
   const { items, remove, setQty, clear, total } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
+  const photo4x6 = usePhoto4x6Config();
+  const navigate = useNavigate();
   const subtotal = total;
   const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
   const packagingFee = bundleQty * pricing.packagingFee;
@@ -52,6 +54,8 @@ function CartPage() {
   );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
+  const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
+  const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
   const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
   const shipping = computeShipping(subtotal + tapeTotal, settings);
@@ -134,6 +138,19 @@ function CartPage() {
       tapeChoice === null
     ) {
       setTapeOpen(true);
+      return;
+    }
+    // 4×6 photo upsell (once per session)
+    if (
+      photo4x6.enabled &&
+      photo4x6.upsellEnabled &&
+      !photoUpsellShown &&
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("photo4x6_upsell_shown") !== "1"
+    ) {
+      setPhotoUpsellOpen(true);
+      setPhotoUpsellShown(true);
+      sessionStorage.setItem("photo4x6_upsell_shown", "1");
       return;
     }
     void handleOrder();
@@ -610,6 +627,58 @@ function CartPage() {
                 className="w-full rounded-sm border border-border px-4 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
               >
                 No, continue without it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {photoUpsellOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="4x6 Photo Printing"
+        >
+          <div className="w-full max-w-md rounded-sm border border-border bg-card p-6 shadow-2xl">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              Optional add-on
+            </div>
+            <h2 className="text-display mt-2 text-3xl leading-tight">{photo4x6.upsellTitle}</h2>
+            <p className="mt-3 text-sm text-muted-foreground">{photo4x6.upsellSubtitle}</p>
+            {photo4x6.upsellExampleImage && (
+              <img
+                src={photo4x6.upsellExampleImage}
+                alt=""
+                className="mt-4 aspect-video w-full rounded-sm border border-border object-cover"
+              />
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {photo4x6.packages.slice(0, 2).map((p) => (
+                <div key={p.key} className="rounded-sm border border-border bg-background p-3 text-center">
+                  <div className="text-display text-2xl">{p.photos}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">photos 4×6</div>
+                  <div className="mt-1 text-display text-xl">{p.price} EGP</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={() => {
+                  setPhotoUpsellOpen(false);
+                  navigate({ to: "/photo-4x6", search: { from: "checkout" } });
+                }}
+                className="w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+              >
+                Add 4×6 photos
+              </button>
+              <button
+                onClick={() => {
+                  setPhotoUpsellOpen(false);
+                  setTimeout(() => { void handleOrder(); }, 0);
+                }}
+                className="w-full rounded-sm border border-border px-4 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+              >
+                Continue without it
               </button>
             </div>
           </div>

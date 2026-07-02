@@ -619,6 +619,66 @@ export type Database = {
           },
         ]
       }
+      photo_4x6_orders: {
+        Row: {
+          address: string | null
+          created_at: string
+          customer_name: string
+          enhanced_paths: string[]
+          governorate: string | null
+          id: string
+          notes: string | null
+          order_number: string | null
+          original_paths: string[]
+          package_key: string
+          phone: string
+          photo_count: number
+          selected_versions: Json
+          status: string
+          suit_paths: string[]
+          total_price: number
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          customer_name: string
+          enhanced_paths?: string[]
+          governorate?: string | null
+          id?: string
+          notes?: string | null
+          order_number?: string | null
+          original_paths?: string[]
+          package_key: string
+          phone: string
+          photo_count?: number
+          selected_versions?: Json
+          status?: string
+          suit_paths?: string[]
+          total_price?: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          customer_name?: string
+          enhanced_paths?: string[]
+          governorate?: string | null
+          id?: string
+          notes?: string | null
+          order_number?: string | null
+          original_paths?: string[]
+          package_key?: string
+          phone?: string
+          photo_count?: number
+          selected_versions?: Json
+          status?: string
+          suit_paths?: string[]
+          total_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       photo_orders: {
         Row: {
           address: string

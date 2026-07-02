@@ -14,6 +14,7 @@ const MAIN_MENU: { label: string; href: string }[] = [
   { label: "Cars", href: "/category/cars" },
   { label: "Custom Design", href: "/custom-design" },
   { label: "Photo Printing", href: "/photo-printing" },
+  { label: "4×6 Photos", href: "/photo-4x6" },
   { label: "Sets", href: "/sets" },
   { label: "Best Sellers", href: "/#best-sellers" },
 ];
