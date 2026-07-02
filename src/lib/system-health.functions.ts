@@ -102,6 +102,11 @@ export const getSystemHealth = createServerFn({ method: "GET" })
     const start = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin;
+    // The storage manifest RPC is SECURITY DEFINER and gated on auth.uid()
+    // via private.has_role(). When called with service_role, auth.uid() is
+    // NULL and the RPC raises 'forbidden'. Call it with the admin's own
+    // authenticated client instead so has_role() resolves correctly.
+    const asUser = (context as any).supabase as typeof admin;
 
     const count = async (table: string, filter?: (q: any) => any) => {
       let q: any = (admin.from as any)(table).select("*", { count: "exact", head: true });
@@ -158,7 +163,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
         admin.from("analytics_visits").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("notification_logs").select("created_at,status").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("notification_logs").select("*", { count: "exact", head: true }).neq("status", "sent").gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
-        admin.rpc("admin_storage_manifest"),
+        asUser.rpc("admin_storage_manifest"),
         admin.from("backups").select("id,created_at,backup_type,size_bytes,status").order("created_at", { ascending: false }).limit(50),
         admin.from("marketing_secrets").select("firebase_service_account,meta_capi_access_token").eq("id", 1).maybeSingle(),
         admin.from("site_settings").select("key,value").in("key", [

@@ -84,6 +84,7 @@ function Row({ label, value, sev }: { label: string; value: React.ReactNode; sev
 function computeChecks(r: HealthReport) {
   const critical: string[] = [];
   const warnings: string[] = [];
+  const optional: string[] = [];
   const passed: string[] = [];
 
   // DB
@@ -101,33 +102,38 @@ function computeChecks(r: HealthReport) {
   if (r.backups.last_daily || r.backups.last_weekly || r.backups.last_monthly) passed.push("Backups configured");
   else warnings.push("No backups recorded yet");
 
-  // Notifications
+  // Notifications (optional integration)
   if (r.notifications.fcm_configured) passed.push("Firebase Cloud Messaging configured");
-  else warnings.push("Firebase service account not configured");
-  if (r.notifications.devices === 0) warnings.push("No admin devices registered for FCM");
+  else optional.push("Firebase (push notifications) — optional");
+  if (r.notifications.fcm_configured && r.notifications.devices === 0) optional.push("No admin devices registered for FCM");
   if (r.notifications.recent_failures > 0) warnings.push(`${r.notifications.recent_failures} notification failures in last 24h`);
 
-  // Marketing
+  // Marketing (optional integrations)
   if (r.marketing.ga4_measurement_id && r.marketing.ga4_enabled) passed.push("Google Analytics 4 active");
-  else warnings.push("Google Analytics not configured");
+  else optional.push("Google Analytics 4 — optional");
   if (r.marketing.meta_pixel_id && r.marketing.meta_pixel_enabled) passed.push("Meta Pixel active");
-  else warnings.push("Meta Pixel not configured");
+  else optional.push("Meta Pixel — optional");
 
   // Payment
   if (r.payment.cash_on_delivery) passed.push("Cash on Delivery available");
-  if (!r.payment.instapay_configured) warnings.push("Instapay not configured");
-  if (!r.payment.vodafone_configured) warnings.push("Vodafone Cash not configured");
+  if (r.payment.instapay_configured) passed.push("Instapay configured");
+  else optional.push("Instapay — optional");
+  if (r.payment.vodafone_configured) passed.push("Vodafone Cash configured");
+  else optional.push("Vodafone Cash — optional");
 
   // Env
   if (!r.environment.supabase_url || !r.environment.service_role_key) critical.push("Missing server env vars");
   else passed.push("Server environment variables set");
   if (!r.environment.backup_encryption_key) warnings.push("Backup encryption key missing");
 
-  return { critical, warnings, passed };
+  return { critical, warnings, optional, passed };
 }
 
-function healthScore(critical: number, warnings: number) {
-  const score = Math.max(0, 100 - critical * 25 - warnings * 3);
+function healthScore(critical: number, warnings: number, optional: number) {
+  // Critical items are true blockers (DB, storage, checkout, env, payment upload).
+  // Warnings are things to fix but do not block launch.
+  // Optional integrations (FCM, GA4, Meta Pixel, Instapay, Vodafone) only cost 1pt each.
+  const score = Math.max(0, 100 - critical * 20 - warnings * 4 - optional * 1);
   const sev: Severity = critical > 0 ? "crit" : warnings > 3 ? "warn" : "ok";
   return { score, sev };
 }
@@ -146,7 +152,20 @@ export function SystemHealthTab() {
   });
 
   const checks = useMemo(() => (data ? computeChecks(data) : null), [data]);
-  const health = useMemo(() => (checks ? healthScore(checks.critical.length, checks.warnings.length) : null), [checks]);
+  const health = useMemo(
+    () => (checks ? healthScore(checks.critical.length, checks.warnings.length, checks.optional.length) : null),
+    [checks],
+  );
+  const [ignored, setIgnored] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("health-ignored") ?? "{}"); } catch { return {}; }
+  });
+  const ignore = (key: string) => {
+    const next = { ...ignored, [key]: true };
+    setIgnored(next);
+    try { localStorage.setItem("health-ignored", JSON.stringify(next)); } catch { /* noop */ }
+    toast.success("Ignored for launch");
+  };
 
   async function handleTestNotif() {
     setBusy("notif");
@@ -259,15 +278,47 @@ export function SystemHealthTab() {
           {checks.critical.length > 0 && (
             <div className="rounded-sm border border-red-500/50 bg-red-500/5 p-4">
               <div className="flex items-center gap-2 mb-2"><XCircle className="h-4 w-4 text-red-500" /><span className="text-xs uppercase tracking-widest font-semibold">Critical ({checks.critical.length})</span></div>
-              <ul className="space-y-1 text-sm">{checks.critical.map((c) => <li key={c}>• {c}</li>)}</ul>
+              <ul className="space-y-2 text-sm">
+                {checks.critical.map((c) => (
+                  <li key={c} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>• {c}</span>
+                    <FixActions issue={c} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {checks.warnings.length > 0 && (
             <div className="rounded-sm border border-amber-500/50 bg-amber-500/5 p-4">
               <div className="flex items-center gap-2 mb-2"><AlertTriangle className="h-4 w-4 text-amber-500" /><span className="text-xs uppercase tracking-widest font-semibold">Warnings ({checks.warnings.length})</span></div>
-              <ul className="space-y-1 text-sm">{checks.warnings.map((w) => <li key={w}>• {w}</li>)}</ul>
+              <ul className="space-y-2 text-sm">
+                {checks.warnings.filter((w) => !ignored[w]).map((w) => (
+                  <li key={w} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>• {w}</span>
+                    <FixActions issue={w} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {checks.optional.length > 0 && (
+        <div className="rounded-sm border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Cloud className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs uppercase tracking-widest font-semibold">Optional integrations ({checks.optional.length})</span>
+            <span className="text-[10px] text-muted-foreground">— safe to launch without these</span>
+          </div>
+          <ul className="space-y-2 text-sm">
+            {checks.optional.filter((o) => !ignored[o]).map((o) => (
+              <li key={o} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">• {o}</span>
+                <FixActions issue={o} onIgnore={ignore} onRefresh={() => refetch()} onBackup={handleBackup} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -379,4 +430,67 @@ function downloadFile(content: string, filename: string, mime: string) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function issueTarget(issue: string): { tab?: string; label: string } {
+  const s = issue.toLowerCase();
+  if (s.includes("firebase")) return { tab: "notifications", label: "Configure Firebase Notifications" };
+  if (s.includes("google analytics") || s.includes("ga4")) return { tab: "marketing", label: "Configure GA4" };
+  if (s.includes("meta pixel")) return { tab: "marketing", label: "Configure Meta Pixel" };
+  if (s.includes("instapay")) return { tab: "settings", label: "Configure Instapay" };
+  if (s.includes("vodafone")) return { tab: "settings", label: "Configure Vodafone Cash" };
+  if (s.includes("backup")) return { tab: "backups", label: "Open Backups" };
+  if (s.includes("review")) return { tab: "reviews", label: "Moderate Reviews" };
+  if (s.includes("missing image") || s.includes("catalog")) return { tab: "posters", label: "Open Catalog" };
+  if (s.includes("storage")) return { tab: "system-health", label: "Retry storage check" };
+  if (s.includes("env vars") || s.includes("encryption")) return { tab: "env-check", label: "Open Env Check" };
+  if (s.includes("admin devices")) return { tab: "notifications", label: "Register admin device" };
+  return { label: "Fix Now" };
+}
+
+function FixActions({
+  issue,
+  onIgnore,
+  onRefresh,
+  onBackup,
+}: {
+  issue: string;
+  onIgnore: (k: string) => void;
+  onRefresh: () => void;
+  onBackup: () => void;
+}) {
+  const t = issueTarget(issue);
+  const isBackup = /backup/i.test(issue);
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {isBackup && (
+        <button
+          onClick={onBackup}
+          className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/20"
+        >
+          Create Backup Now
+        </button>
+      )}
+      {t.tab && (
+        <a
+          href={`/admin#tab=${t.tab}`}
+          className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+        >
+          {t.label}
+        </a>
+      )}
+      <button
+        onClick={onRefresh}
+        className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+      >
+        Fix Now
+      </button>
+      <button
+        onClick={() => onIgnore(issue)}
+        className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:bg-accent"
+      >
+        Ignore for Launch
+      </button>
+    </span>
+  );
 }
