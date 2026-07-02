@@ -290,3 +290,87 @@ export function useGridDisplayMode(): GridDisplayMode {
   });
   return q.data ?? GRID_DISPLAY_MODE_DEFAULT;
 }
+
+/* -------------------- 4x6 Photo Printing config -------------------- */
+
+export type Photo4x6Package = {
+  key: string;
+  photos: number;
+  price: number;
+  label: string;
+};
+
+export type Photo4x6Config = {
+  enabled: boolean;
+  packages: Photo4x6Package[];
+  aiEnhanceEnabled: boolean;
+  aiSuitEnabled: boolean;
+  upsellEnabled: boolean;
+  upsellExampleImage: string;
+  upsellTitle: string;
+  upsellSubtitle: string;
+};
+
+export const PHOTO_4X6_DEFAULTS: Photo4x6Config = {
+  enabled: true,
+  packages: [
+    { key: "p8", photos: 8, price: 80, label: "8 Photos 4×6" },
+    { key: "p12", photos: 12, price: 99, label: "12 Photos 4×6" },
+  ],
+  aiEnhanceEnabled: true,
+  aiSuitEnabled: true,
+  upsellEnabled: true,
+  upsellExampleImage: "",
+  upsellTitle: "Print Your Personal Photos 4×6",
+  upsellSubtitle:
+    "Upload your favorite photos and we'll enhance the quality before printing.",
+};
+
+export const PHOTO_4X6_KEY = "photo_4x6_config";
+
+function parsePhoto4x6(raw: unknown): Photo4x6Config {
+  if (!raw || typeof raw !== "object") return PHOTO_4X6_DEFAULTS;
+  const v = raw as Partial<Photo4x6Config>;
+  const packages = Array.isArray(v.packages) && v.packages.length
+    ? v.packages
+        .map((p) => {
+          const photos = Number(p?.photos);
+          const price = Number(p?.price);
+          if (!Number.isFinite(photos) || !Number.isFinite(price)) return null;
+          return {
+            key: String(p?.key ?? `p${photos}`),
+            photos,
+            price,
+            label: String(p?.label ?? `${photos} Photos 4×6`),
+          } as Photo4x6Package;
+        })
+        .filter((p): p is Photo4x6Package => !!p)
+    : PHOTO_4X6_DEFAULTS.packages;
+  return {
+    enabled: typeof v.enabled === "boolean" ? v.enabled : true,
+    packages: packages.length ? packages : PHOTO_4X6_DEFAULTS.packages,
+    aiEnhanceEnabled: typeof v.aiEnhanceEnabled === "boolean" ? v.aiEnhanceEnabled : true,
+    aiSuitEnabled: typeof v.aiSuitEnabled === "boolean" ? v.aiSuitEnabled : true,
+    upsellEnabled: typeof v.upsellEnabled === "boolean" ? v.upsellEnabled : true,
+    upsellExampleImage: typeof v.upsellExampleImage === "string" ? v.upsellExampleImage : "",
+    upsellTitle: typeof v.upsellTitle === "string" && v.upsellTitle ? v.upsellTitle : PHOTO_4X6_DEFAULTS.upsellTitle,
+    upsellSubtitle: typeof v.upsellSubtitle === "string" && v.upsellSubtitle ? v.upsellSubtitle : PHOTO_4X6_DEFAULTS.upsellSubtitle,
+  };
+}
+
+export function usePhoto4x6Config(): Photo4x6Config {
+  const q = useQuery({
+    queryKey: ["photo-4x6-config"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Photo4x6Config> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", PHOTO_4X6_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return parsePhoto4x6(data?.value);
+    },
+  });
+  return q.data ?? PHOTO_4X6_DEFAULTS;
+}
