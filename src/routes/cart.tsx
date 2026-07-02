@@ -632,6 +632,58 @@ function CartPage() {
           </div>
         </div>
       )}
+      {photoUpsellOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="4x6 Photo Printing"
+        >
+          <div className="w-full max-w-md rounded-sm border border-border bg-card p-6 shadow-2xl">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              Optional add-on
+            </div>
+            <h2 className="text-display mt-2 text-3xl leading-tight">{photo4x6.upsellTitle}</h2>
+            <p className="mt-3 text-sm text-muted-foreground">{photo4x6.upsellSubtitle}</p>
+            {photo4x6.upsellExampleImage && (
+              <img
+                src={photo4x6.upsellExampleImage}
+                alt=""
+                className="mt-4 aspect-video w-full rounded-sm border border-border object-cover"
+              />
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {photo4x6.packages.slice(0, 2).map((p) => (
+                <div key={p.key} className="rounded-sm border border-border bg-background p-3 text-center">
+                  <div className="text-display text-2xl">{p.photos}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">photos 4×6</div>
+                  <div className="mt-1 text-display text-xl">{p.price} EGP</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={() => {
+                  setPhotoUpsellOpen(false);
+                  navigate({ to: "/photo-4x6", search: { from: "checkout" } });
+                }}
+                className="w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+              >
+                Add 4×6 photos
+              </button>
+              <button
+                onClick={() => {
+                  setPhotoUpsellOpen(false);
+                  setTimeout(() => { void handleOrder(); }, 0);
+                }}
+                className="w-full rounded-sm border border-border px-4 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+              >
+                Continue without it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
