@@ -95,6 +95,15 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
+function AdminPageWithI18n() {
+  return (
+    <AdminI18nProvider>
+      <AdminPage />
+      <HelpButton />
+    </AdminI18nProvider>
+  );
+}
+
 type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "categories" | "orders" | "custom" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "settings";
 
 function AdminPage() {
