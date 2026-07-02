@@ -84,6 +84,7 @@ function Row({ label, value, sev }: { label: string; value: React.ReactNode; sev
 function computeChecks(r: HealthReport) {
   const critical: string[] = [];
   const warnings: string[] = [];
+  const optional: string[] = [];
   const passed: string[] = [];
 
   // DB
@@ -101,33 +102,38 @@ function computeChecks(r: HealthReport) {
   if (r.backups.last_daily || r.backups.last_weekly || r.backups.last_monthly) passed.push("Backups configured");
   else warnings.push("No backups recorded yet");
 
-  // Notifications
+  // Notifications (optional integration)
   if (r.notifications.fcm_configured) passed.push("Firebase Cloud Messaging configured");
-  else warnings.push("Firebase service account not configured");
-  if (r.notifications.devices === 0) warnings.push("No admin devices registered for FCM");
+  else optional.push("Firebase (push notifications) — optional");
+  if (r.notifications.fcm_configured && r.notifications.devices === 0) optional.push("No admin devices registered for FCM");
   if (r.notifications.recent_failures > 0) warnings.push(`${r.notifications.recent_failures} notification failures in last 24h`);
 
-  // Marketing
+  // Marketing (optional integrations)
   if (r.marketing.ga4_measurement_id && r.marketing.ga4_enabled) passed.push("Google Analytics 4 active");
-  else warnings.push("Google Analytics not configured");
+  else optional.push("Google Analytics 4 — optional");
   if (r.marketing.meta_pixel_id && r.marketing.meta_pixel_enabled) passed.push("Meta Pixel active");
-  else warnings.push("Meta Pixel not configured");
+  else optional.push("Meta Pixel — optional");
 
   // Payment
   if (r.payment.cash_on_delivery) passed.push("Cash on Delivery available");
-  if (!r.payment.instapay_configured) warnings.push("Instapay not configured");
-  if (!r.payment.vodafone_configured) warnings.push("Vodafone Cash not configured");
+  if (r.payment.instapay_configured) passed.push("Instapay configured");
+  else optional.push("Instapay — optional");
+  if (r.payment.vodafone_configured) passed.push("Vodafone Cash configured");
+  else optional.push("Vodafone Cash — optional");
 
   // Env
   if (!r.environment.supabase_url || !r.environment.service_role_key) critical.push("Missing server env vars");
   else passed.push("Server environment variables set");
   if (!r.environment.backup_encryption_key) warnings.push("Backup encryption key missing");
 
-  return { critical, warnings, passed };
+  return { critical, warnings, optional, passed };
 }
 
-function healthScore(critical: number, warnings: number) {
-  const score = Math.max(0, 100 - critical * 25 - warnings * 3);
+function healthScore(critical: number, warnings: number, optional: number) {
+  // Critical items are true blockers (DB, storage, checkout, env, payment upload).
+  // Warnings are things to fix but do not block launch.
+  // Optional integrations (FCM, GA4, Meta Pixel, Instapay, Vodafone) only cost 1pt each.
+  const score = Math.max(0, 100 - critical * 20 - warnings * 4 - optional * 1);
   const sev: Severity = critical > 0 ? "crit" : warnings > 3 ? "warn" : "ok";
   return { score, sev };
 }
@@ -146,7 +152,20 @@ export function SystemHealthTab() {
   });
 
   const checks = useMemo(() => (data ? computeChecks(data) : null), [data]);
-  const health = useMemo(() => (checks ? healthScore(checks.critical.length, checks.warnings.length) : null), [checks]);
+  const health = useMemo(
+    () => (checks ? healthScore(checks.critical.length, checks.warnings.length, checks.optional.length) : null),
+    [checks],
+  );
+  const [ignored, setIgnored] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("health-ignored") ?? "{}"); } catch { return {}; }
+  });
+  const ignore = (key: string) => {
+    const next = { ...ignored, [key]: true };
+    setIgnored(next);
+    try { localStorage.setItem("health-ignored", JSON.stringify(next)); } catch { /* noop */ }
+    toast.success("Ignored for launch");
+  };
 
   async function handleTestNotif() {
     setBusy("notif");
