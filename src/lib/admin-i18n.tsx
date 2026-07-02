@@ -74,6 +74,7 @@ const AR: Dict = {
   "tab.categories": "الأقسام",
   "tab.orders": "الطلبات",
   "tab.custom": "التصاميم المخصصة",
+  "tab.photo-4x6": "طباعة 4×6",
   "tab.slider": "السلايدر",
   "tab.hero-banners": "بانرات الهيرو",
   "tab.highlights": "العروض المميزة",
