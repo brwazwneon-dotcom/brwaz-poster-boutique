@@ -51,6 +51,7 @@ const EN: Dict = {
   "tab.env-check": "Env Check",
   "tab.maintenance": "Maintenance",
   "tab.exports": "Exports",
+  "tab.branding": "Branding",
   "tab.settings": "Settings",
 };
 
@@ -99,6 +100,7 @@ const AR: Dict = {
   "tab.env-check": "فحص الإعدادات",
   "tab.maintenance": "وضع الصيانة",
   "tab.exports": "التصدير",
+  "tab.branding": "الهوية",
   "tab.settings": "الإعدادات",
 };
 
