@@ -72,6 +72,7 @@ export type HealthReport = {
     service_role_key: boolean;
     backup_encryption_key: boolean;
     lovable_api_key: boolean;
+    gemini_api_key: boolean;
   };
   version: {
     build_mode: string;
