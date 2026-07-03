@@ -24,6 +24,7 @@ const EN: Dict = {
   "tab.realtime": "Realtime",
   "tab.posters": "Products",
   "tab.ai-upload": "AI Upload",
+  "tab.ai-settings": "AI Settings",
   "tab.categories": "Categories",
   "tab.subcategories": "Sub Categories",
   "tab.orders": "Orders",
