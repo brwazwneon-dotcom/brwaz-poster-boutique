@@ -275,6 +275,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
         service_role_key: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
         backup_encryption_key: Boolean(process.env.BACKUP_ENCRYPTION_KEY),
         lovable_api_key: Boolean(process.env.LOVABLE_API_KEY),
+        gemini_api_key: Boolean(process.env.GEMINI_API_KEY),
       },
       version: {
         build_mode: process.env.NODE_ENV ?? "unknown",
