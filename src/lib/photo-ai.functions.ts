@@ -58,73 +58,34 @@ export const enhancePhoto = createServerFn({ method: "POST" })
     return { imageBase64: d.imageBase64, action: d.action };
   })
   .handler(async ({ data }): Promise<PhotoAiResult> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) return { ok: false, error: "ai_failed", message: "AI unavailable" };
+    const { geminiGenerate, extractImageDataUrl, extractText, GEMINI_IMAGE_MODEL, getGeminiKey } =
+      await import("@/lib/gemini.server");
+    if (!getGeminiKey()) return { ok: false, error: "ai_failed", message: "AI unavailable" };
 
     const prompt = PROMPTS[data.action];
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          modalities: ["image", "text"],
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: data.imageBase64 } },
-              ],
-            },
-          ],
-        }),
+      // Decode incoming data URL to inlineData for Gemini
+      const m = /^data:([^;]+);base64,(.+)$/i.exec(data.imageBase64);
+      if (!m) return { ok: false, error: "invalid_input", message: "invalid image" };
+      const json = await geminiGenerate(GEMINI_IMAGE_MODEL, {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: m[1], data: m[2] } },
+            ],
+          },
+        ],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
       });
+      const img = extractImageDataUrl(json);
+      if (img) return { ok: true, imageBase64: img };
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        return { ok: false, error: "ai_failed", message: `Gateway ${res.status}: ${body.slice(0, 120)}` };
-      }
-      const json = (await res.json()) as {
-        choices?: Array<{
-          message?: {
-            content?: string | Array<{ type?: string; image_url?: { url?: string }; text?: string }>;
-            images?: Array<{ image_url?: { url?: string } }>;
-          };
-        }>;
-      };
-      const msg = json.choices?.[0]?.message;
-
-      // Look for image in `images` array (Nano Banana standard output)
-      const imgFromArray = msg?.images?.[0]?.image_url?.url;
-      if (imgFromArray && imgFromArray.startsWith("data:image/")) {
-        return { ok: true, imageBase64: imgFromArray };
-      }
-
-      // Fallback: image inside content array
-      if (Array.isArray(msg?.content)) {
-        for (const c of msg.content) {
-          const url = c?.image_url?.url;
-          if (typeof url === "string" && url.startsWith("data:image/")) {
-            return { ok: true, imageBase64: url };
-          }
-        }
-      }
-
-      // Person-detection sentinel for suit action
-      const textOut =
-        typeof msg?.content === "string"
-          ? msg.content
-          : Array.isArray(msg?.content)
-          ? msg.content.map((c) => c?.text ?? "").join(" ")
-          : "";
+      const textOut = extractText(json);
       if (data.action === "suit" && /NO_PERSON/i.test(textOut)) {
         return { ok: false, error: "no_person" };
       }
-
       return { ok: false, error: "ai_failed", message: "No image returned" };
     } catch (e) {
       return {
