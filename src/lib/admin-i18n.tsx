@@ -74,6 +74,7 @@ const AR: Dict = {
   "tab.realtime": "الزوار المباشرون",
   "tab.posters": "المنتجات",
   "tab.ai-upload": "رفع بالذكاء الاصطناعي",
+  "tab.ai-settings": "إعدادات الذكاء الاصطناعي",
   "tab.categories": "الأقسام",
   "tab.subcategories": "الأقسام الفرعية",
   "tab.orders": "الطلبات",
