@@ -67,10 +67,12 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }): Promise<GeneratedPosterMeta> => {
-    // AI generation is an admin-only operation — it burns paid gateway credits.
+    // AI generation is an admin-only operation.
     await assertAdmin(context.supabase, context.userId);
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    const { geminiGenerate, urlToInlineData, extractText, GEMINI_TEXT_MODEL, getGeminiKey } = await import(
+      "@/lib/gemini.server"
+    );
+    if (!getGeminiKey()) throw new Error("GEMINI_API_KEY missing");
 
     const mains = data.categories.filter((c) => !c.parent_id);
     const catList = mains
@@ -141,36 +143,21 @@ No markdown, no commentary.`;
 
     const userText = `Identify the subject of this poster image and generate the metadata. Filename hint: ${data.filename ?? "(none)"}.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userText },
-              { type: "image_url", image_url: { url: data.imageUrl } },
-            ],
-          },
-        ],
-      }),
+    const inline = await urlToInlineData(data.imageUrl);
+    const json = await geminiGenerate(GEMINI_TEXT_MODEL, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: userText },
+            { inlineData: { mimeType: inline.mimeType, data: inline.data } },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.4 },
     });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`AI gateway ${res.status}: ${body.slice(0, 200)}`);
-    }
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = json.choices?.[0]?.message?.content ?? "";
+    const content = extractText(json) ?? "";
     let parsed: Partial<GeneratedPosterMeta> = {};
     try {
       parsed = JSON.parse(content);
