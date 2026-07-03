@@ -108,7 +108,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "ai-settings" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -210,7 +210,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "realtime", "posters", "ai-upload", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "realtime", "posters", "ai-upload", "ai-settings", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -259,6 +259,7 @@ function AdminPage() {
         {tab === "maintenance" && <MaintenanceTab />}
         {tab === "exports" && <ExportsTab />}
         {tab === "branding" && <BrandingTab />}
+        {tab === "ai-settings" && <AiSettingsTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>
