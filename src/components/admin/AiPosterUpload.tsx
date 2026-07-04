@@ -1033,11 +1033,23 @@ function RowEditor({
           <div
             className={cn(
               "mt-1 text-[10px] uppercase tracking-widest",
-              row.confidence < 0.7 ? "text-amber-500" : "text-muted-foreground",
+              row.status === "needs_review" ? "text-amber-500" : "text-muted-foreground",
             )}
-            title="AI confidence — below 70% = needs review"
+            title="AI confidence — below auto-approve threshold = needs review"
           >
             AI {Math.round(row.confidence * 100)}%
+          </div>
+        )}
+        {row.status === "needs_review" && row.review_reasons && row.review_reasons.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {row.review_reasons.map((rr) => (
+              <span
+                key={rr}
+                className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-amber-600"
+              >
+                {REVIEW_REASON_LABEL[rr]}
+              </span>
+            ))}
           </div>
         )}
         {row.orientation && (
