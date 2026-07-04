@@ -21,6 +21,12 @@ import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.fu
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  useAiAutoApproveThreshold,
+  computeReviewReasons,
+  REVIEW_REASON_LABEL,
+  type ReviewReason,
+} from "@/lib/ai-review";
 
 type RowStatus =
   | "uploaded"
@@ -55,6 +61,7 @@ type Row = {
   suggested_subcategory_name: string | null;
   suggested_category_name: string | null;
   detected_subject: string | null;
+  review_reasons?: ReviewReason[];
   edited: Record<string, boolean>;
 };
 
@@ -79,6 +86,9 @@ function isHeic(file: File) {
 export function AiPosterUpload() {
   const { data: categories = [] } = useCategories();
   const qc = useQueryClient();
+  const aiThreshold = useAiAutoApproveThreshold();
+  const aiThresholdRef = useRef(aiThreshold);
+  aiThresholdRef.current = aiThreshold;
   const mains = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subsOf = (parentId: string | null) =>
     parentId ? categories.filter((c) => c.parent_id === parentId) : [];
@@ -141,10 +151,27 @@ export function AiPosterUpload() {
             suggestedSub = null;
           }
         }
+        const threshold = aiThresholdRef.current;
+        const parentHasSubs = catId ? categoriesRef.current.some((c) => c.parent_id === catId) : false;
+        const reasons = computeReviewReasons(
+          {
+            confidence: conf,
+            category_id: e.category_id ? r.category_id : catId,
+            subcategory_id: e.subcategory_id ? r.subcategory_id : subId,
+            suggested_category_name: e.category_id ? r.suggested_category_name : (catId ? null : meta.suggested_category_name),
+            suggested_subcategory_name: e.subcategory_id ? r.suggested_subcategory_name : suggestedSub,
+            hasSubsUnderParent: parentHasSubs,
+          },
+          threshold,
+        );
+        // Auto-approve when confidence meets threshold AND category resolved.
+        const autoApprove =
+          conf >= threshold && reasons.every((x) => x !== "category_unclear" && x !== "ai_failed");
         return {
           ...r,
-          status: conf < 0.7 ? "needs_review" : "ready",
+          status: autoApprove ? "ready" : "needs_review",
           confidence: conf,
+          review_reasons: reasons,
           colors: e.colors ? r.colors : meta.colors,
           orientation: e.orientation ? r.orientation : meta.orientation,
           title: e.title ? r.title : meta.title || r.title,
@@ -304,6 +331,7 @@ export function AiPosterUpload() {
           update(id, {
             status: "needs_review",
             error: msg,
+            review_reasons: ["ai_failed"],
           });
         }
       }
@@ -337,6 +365,7 @@ export function AiPosterUpload() {
           update(id, {
             status: "needs_review",
             error: err instanceof Error ? err.message : "AI failed",
+            review_reasons: ["ai_failed"],
           });
         }
       }
@@ -386,6 +415,66 @@ export function AiPosterUpload() {
 
   const publishSelected = () => insertPosters(Array.from(selected), false);
   const saveDraftSelected = () => insertPosters(Array.from(selected), true);
+
+  const approveAllNeedsReview = () => {
+    let n = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.status !== "needs_review") return r;
+        n++;
+        return { ...r, status: "ready", review_reasons: [] };
+      }),
+    );
+    if (n > 0) toast.success(`Approved ${n} row${n === 1 ? "" : "s"}`);
+    else toast.error("Nothing to approve");
+  };
+
+  const regenerateNeedsReview = async () => {
+    const ids = rowsRef.current
+      .filter((r) => r.status === "needs_review" && r.imageUrl)
+      .map((r) => r.id);
+    if (!ids.length) return toast.error("No rows need review");
+    setSelected(new Set(ids));
+    // Re-use existing regen worker path
+    setBusy(true);
+    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < ids.length) {
+        const i = cursor++;
+        const id = ids[i];
+        const r = rowsRef.current.find((x) => x.id === id);
+        if (!r || !r.imageUrl) continue;
+        try {
+          const meta = await runAi(r, r.imageUrl);
+          applyAiMeta(id, meta);
+        } catch (err) {
+          update(id, {
+            status: "needs_review",
+            error: err instanceof Error ? err.message : "AI failed",
+            review_reasons: ["ai_failed"],
+          });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, worker));
+    setBusy(false);
+    toast.success("Regeneration complete");
+  };
+
+  const markSelectedAsGenerated = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    let n = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!selected.has(r.id)) return r;
+        if (r.status === "published") return r;
+        n++;
+        return { ...r, status: "ready", review_reasons: [] };
+      }),
+    );
+    if (n > 0) toast.success(`Marked ${n} as generated`);
+  };
 
   const deleteSelected = () => {
     if (!selected.size) return;
@@ -617,6 +706,30 @@ export function AiPosterUpload() {
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
               >
                 <RotateCcw className="h-3 w-3" /> Regenerate
+              </button>
+              <button
+                disabled={busy || counts.needs === 0}
+                onClick={approveAllNeedsReview}
+                title="Mark every Needs Review row as Ready"
+                className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/60 px-3 py-1.5 text-[10px] uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-3 w-3" /> Approve needs review ({counts.needs})
+              </button>
+              <button
+                disabled={busy || counts.needs === 0}
+                onClick={regenerateNeedsReview}
+                title="Regenerate AI for every Needs Review row"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <RotateCcw className="h-3 w-3" /> Regen needs review
+              </button>
+              <button
+                disabled={busy || selected.size === 0}
+                onClick={markSelectedAsGenerated}
+                title="Mark selected rows as Generated / Ready"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <Sparkles className="h-3 w-3" /> Mark as generated
               </button>
               <button
                 disabled={suggestionsInSelection === 0}
@@ -920,11 +1033,23 @@ function RowEditor({
           <div
             className={cn(
               "mt-1 text-[10px] uppercase tracking-widest",
-              row.confidence < 0.7 ? "text-amber-500" : "text-muted-foreground",
+              row.status === "needs_review" ? "text-amber-500" : "text-muted-foreground",
             )}
-            title="AI confidence — below 70% = needs review"
+            title="AI confidence — below auto-approve threshold = needs review"
           >
             AI {Math.round(row.confidence * 100)}%
+          </div>
+        )}
+        {row.status === "needs_review" && row.review_reasons && row.review_reasons.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {row.review_reasons.map((rr) => (
+              <span
+                key={rr}
+                className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-amber-600"
+              >
+                {REVIEW_REASON_LABEL[rr]}
+              </span>
+            ))}
           </div>
         )}
         {row.orientation && (

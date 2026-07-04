@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Sparkles, Zap } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Sparkles, Zap, ShieldCheck } from "lucide-react";
 import {
   getAiSettingsStatus,
   testAiConnection,
@@ -10,11 +10,46 @@ import {
   type AiTestResult,
   type AiTestProduct,
 } from "@/lib/ai-settings.functions";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AI_THRESHOLD_KEY,
+  AI_THRESHOLD_DEFAULT,
+  AI_THRESHOLD_MIN,
+  AI_THRESHOLD_MAX,
+  useAiAutoApproveThreshold,
+} from "@/lib/ai-review";
 
 export function AiSettingsTab() {
   const statusFn = useServerFn(getAiSettingsStatus);
   const testFn = useServerFn(testAiConnection);
   const sampleFn = useServerFn(generateTestProductData);
+  const qc = useQueryClient();
+  const savedThreshold = useAiAutoApproveThreshold();
+  const [threshold, setThreshold] = useState<number>(savedThreshold);
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  useEffect(() => {
+    setThreshold(savedThreshold);
+  }, [savedThreshold]);
+
+  async function saveThreshold(v?: number) {
+    const value = Math.max(AI_THRESHOLD_MIN, Math.min(AI_THRESHOLD_MAX, v ?? threshold));
+    setSavingThreshold(true);
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert(
+          { key: AI_THRESHOLD_KEY, value: value as unknown as never },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["ai-auto-approve-threshold"] });
+      toast.success(`Auto-approve threshold saved: ${Math.round(value * 100)}%`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["ai-settings-status"],
@@ -177,6 +212,63 @@ export function AiSettingsTab() {
             )}
           </div>
         )}
+      </div>
+
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <div>
+            <div className="text-lg font-semibold">AI Auto-Approval Confidence</div>
+            <div className="text-xs text-muted-foreground">
+              Images at or above this confidence auto-fill title, category, tags & SEO
+              and go straight to <span className="font-medium">Ready</span>. Below it, they
+              land in <span className="font-medium">Needs Review</span>.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <input
+            type="range"
+            min={Math.round(AI_THRESHOLD_MIN * 100)}
+            max={Math.round(AI_THRESHOLD_MAX * 100)}
+            step={1}
+            value={Math.round(threshold * 100)}
+            onChange={(e) => setThreshold(Number(e.target.value) / 100)}
+            className="w-full accent-primary"
+          />
+          <div className="w-16 text-right font-mono text-lg font-semibold">
+            {Math.round(threshold * 100)}%
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => saveThreshold()}
+            disabled={savingThreshold || threshold === savedThreshold}
+            className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {savingThreshold ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Save Threshold
+          </button>
+          <button
+            onClick={() => {
+              setThreshold(AI_THRESHOLD_DEFAULT);
+              void saveThreshold(AI_THRESHOLD_DEFAULT);
+            }}
+            disabled={savingThreshold}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            Reset to {Math.round(AI_THRESHOLD_DEFAULT * 100)}%
+          </button>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Range: {Math.round(AI_THRESHOLD_MIN * 100)}% – {Math.round(AI_THRESHOLD_MAX * 100)}%.
+          Default: {Math.round(AI_THRESHOLD_DEFAULT * 100)}%. Clear posters (comics, anime,
+          football, cars, movies) still get title and tags generated even when category
+          confidence is low.
+        </div>
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-5 text-sm space-y-2">
