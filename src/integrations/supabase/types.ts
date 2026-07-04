@@ -1143,6 +1143,13 @@ export type Database = {
       admin_live_visitors: { Args: never; Returns: number }
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
       admin_storage_manifest: { Args: never; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_poster_cart_adds: {
         Args: { p_ids: string[]; p_qty: number }
         Returns: undefined
