@@ -214,6 +214,63 @@ export function AiSettingsTab() {
         )}
       </div>
 
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <div>
+            <div className="text-lg font-semibold">AI Auto-Approval Confidence</div>
+            <div className="text-xs text-muted-foreground">
+              Images at or above this confidence auto-fill title, category, tags & SEO
+              and go straight to <span className="font-medium">Ready</span>. Below it, they
+              land in <span className="font-medium">Needs Review</span>.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <input
+            type="range"
+            min={Math.round(AI_THRESHOLD_MIN * 100)}
+            max={Math.round(AI_THRESHOLD_MAX * 100)}
+            step={1}
+            value={Math.round(threshold * 100)}
+            onChange={(e) => setThreshold(Number(e.target.value) / 100)}
+            className="w-full accent-primary"
+          />
+          <div className="w-16 text-right font-mono text-lg font-semibold">
+            {Math.round(threshold * 100)}%
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => saveThreshold()}
+            disabled={savingThreshold || threshold === savedThreshold}
+            className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {savingThreshold ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Save Threshold
+          </button>
+          <button
+            onClick={() => {
+              setThreshold(AI_THRESHOLD_DEFAULT);
+              void saveThreshold(AI_THRESHOLD_DEFAULT);
+            }}
+            disabled={savingThreshold}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            Reset to {Math.round(AI_THRESHOLD_DEFAULT * 100)}%
+          </button>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Range: {Math.round(AI_THRESHOLD_MIN * 100)}% – {Math.round(AI_THRESHOLD_MAX * 100)}%.
+          Default: {Math.round(AI_THRESHOLD_DEFAULT * 100)}%. Clear posters (comics, anime,
+          football, cars, movies) still get title and tags generated even when category
+          confidence is low.
+        </div>
+      </div>
+
       <div className="rounded-lg border bg-muted/30 p-5 text-sm space-y-2">
         <div className="font-semibold">Where Gemini is used</div>
         <ul className="list-disc list-inside text-muted-foreground space-y-1">
