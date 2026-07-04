@@ -21,6 +21,12 @@ import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.fu
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  useAiAutoApproveThreshold,
+  computeReviewReasons,
+  REVIEW_REASON_LABEL,
+  type ReviewReason,
+} from "@/lib/ai-review";
 
 type RowStatus =
   | "uploaded"
@@ -79,6 +85,9 @@ function isHeic(file: File) {
 export function AiPosterUpload() {
   const { data: categories = [] } = useCategories();
   const qc = useQueryClient();
+  const aiThreshold = useAiAutoApproveThreshold();
+  const aiThresholdRef = useRef(aiThreshold);
+  aiThresholdRef.current = aiThreshold;
   const mains = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subsOf = (parentId: string | null) =>
     parentId ? categories.filter((c) => c.parent_id === parentId) : [];
@@ -141,10 +150,27 @@ export function AiPosterUpload() {
             suggestedSub = null;
           }
         }
+        const threshold = aiThresholdRef.current;
+        const parentHasSubs = catId ? categoriesRef.current.some((c) => c.parent_id === catId) : false;
+        const reasons = computeReviewReasons(
+          {
+            confidence: conf,
+            category_id: e.category_id ? r.category_id : catId,
+            subcategory_id: e.subcategory_id ? r.subcategory_id : subId,
+            suggested_category_name: e.category_id ? r.suggested_category_name : (catId ? null : meta.suggested_category_name),
+            suggested_subcategory_name: e.subcategory_id ? r.suggested_subcategory_name : suggestedSub,
+            hasSubsUnderParent: parentHasSubs,
+          },
+          threshold,
+        );
+        // Auto-approve when confidence meets threshold AND category resolved.
+        const autoApprove =
+          conf >= threshold && reasons.every((x) => x !== "category_unclear" && x !== "ai_failed");
         return {
           ...r,
-          status: conf < 0.7 ? "needs_review" : "ready",
+          status: autoApprove ? "ready" : "needs_review",
           confidence: conf,
+          review_reasons: reasons,
           colors: e.colors ? r.colors : meta.colors,
           orientation: e.orientation ? r.orientation : meta.orientation,
           title: e.title ? r.title : meta.title || r.title,
