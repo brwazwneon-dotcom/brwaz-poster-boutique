@@ -708,6 +708,30 @@ export function AiPosterUpload() {
                 <RotateCcw className="h-3 w-3" /> Regenerate
               </button>
               <button
+                disabled={busy || counts.needs === 0}
+                onClick={approveAllNeedsReview}
+                title="Mark every Needs Review row as Ready"
+                className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/60 px-3 py-1.5 text-[10px] uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-3 w-3" /> Approve needs review ({counts.needs})
+              </button>
+              <button
+                disabled={busy || counts.needs === 0}
+                onClick={regenerateNeedsReview}
+                title="Regenerate AI for every Needs Review row"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <RotateCcw className="h-3 w-3" /> Regen needs review
+              </button>
+              <button
+                disabled={busy || selected.size === 0}
+                onClick={markSelectedAsGenerated}
+                title="Mark selected rows as Generated / Ready"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <Sparkles className="h-3 w-3" /> Mark as generated
+              </button>
+              <button
                 disabled={suggestionsInSelection === 0}
                 onClick={createAllSuggested}
                 title="Create every AI-suggested subcategory for selected rows"
