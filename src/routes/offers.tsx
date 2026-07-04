@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -271,14 +272,14 @@ function BundleBuilder({
                         : "border-transparent hover:border-border",
                     )}
                   >
-                    <SafeImage
-                      src={p.image_url}
-                      alt={p.title}
+                    <FramePreview
+                      posterUrl={p.image_url}
+                      title={p.title}
+                      frameType={frameType}
+                      color={color}
+                      aspectClassName="h-full w-full"
+                      className="transition-transform duration-300 group-hover:scale-[1.02]"
                       loading="lazy"
-                      className={cn(
-                        "h-full w-full object-cover transition",
-                        active ? "" : "grayscale group-hover:grayscale-0",
-                      )}
                     />
                     {active && (
                       <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
@@ -348,7 +349,15 @@ function BundleBuilder({
                 >
                   {p && (
                     <>
-                      <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                      <FramePreview
+                        posterUrl={p.image_url}
+                        title={p.title}
+                        frameType={frameType}
+                        color={color}
+                        aspectClassName="h-full w-full"
+                        bare
+                        loading="lazy"
+                      />
                       <button
                         onClick={() =>
                           setSelectedIds((prev) => prev.filter((x) => x !== id))
