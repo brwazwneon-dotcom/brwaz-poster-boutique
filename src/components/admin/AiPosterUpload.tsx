@@ -416,6 +416,66 @@ export function AiPosterUpload() {
   const publishSelected = () => insertPosters(Array.from(selected), false);
   const saveDraftSelected = () => insertPosters(Array.from(selected), true);
 
+  const approveAllNeedsReview = () => {
+    let n = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.status !== "needs_review") return r;
+        n++;
+        return { ...r, status: "ready", review_reasons: [] };
+      }),
+    );
+    if (n > 0) toast.success(`Approved ${n} row${n === 1 ? "" : "s"}`);
+    else toast.error("Nothing to approve");
+  };
+
+  const regenerateNeedsReview = async () => {
+    const ids = rowsRef.current
+      .filter((r) => r.status === "needs_review" && r.imageUrl)
+      .map((r) => r.id);
+    if (!ids.length) return toast.error("No rows need review");
+    setSelected(new Set(ids));
+    // Re-use existing regen worker path
+    setBusy(true);
+    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < ids.length) {
+        const i = cursor++;
+        const id = ids[i];
+        const r = rowsRef.current.find((x) => x.id === id);
+        if (!r || !r.imageUrl) continue;
+        try {
+          const meta = await runAi(r, r.imageUrl);
+          applyAiMeta(id, meta);
+        } catch (err) {
+          update(id, {
+            status: "needs_review",
+            error: err instanceof Error ? err.message : "AI failed",
+            review_reasons: ["ai_failed"],
+          });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, worker));
+    setBusy(false);
+    toast.success("Regeneration complete");
+  };
+
+  const markSelectedAsGenerated = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    let n = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!selected.has(r.id)) return r;
+        if (r.status === "published") return r;
+        n++;
+        return { ...r, status: "ready", review_reasons: [] };
+      }),
+    );
+    if (n > 0) toast.success(`Marked ${n} as generated`);
+  };
+
   const deleteSelected = () => {
     if (!selected.size) return;
     if (!confirm(`Remove ${selected.size} row(s) from the queue? Already published posters stay live.`))
