@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Sparkles, Zap } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Sparkles, Zap, ShieldCheck } from "lucide-react";
 import {
   getAiSettingsStatus,
   testAiConnection,
@@ -10,11 +10,46 @@ import {
   type AiTestResult,
   type AiTestProduct,
 } from "@/lib/ai-settings.functions";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AI_THRESHOLD_KEY,
+  AI_THRESHOLD_DEFAULT,
+  AI_THRESHOLD_MIN,
+  AI_THRESHOLD_MAX,
+  useAiAutoApproveThreshold,
+} from "@/lib/ai-review";
 
 export function AiSettingsTab() {
   const statusFn = useServerFn(getAiSettingsStatus);
   const testFn = useServerFn(testAiConnection);
   const sampleFn = useServerFn(generateTestProductData);
+  const qc = useQueryClient();
+  const savedThreshold = useAiAutoApproveThreshold();
+  const [threshold, setThreshold] = useState<number>(savedThreshold);
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  useEffect(() => {
+    setThreshold(savedThreshold);
+  }, [savedThreshold]);
+
+  async function saveThreshold(v?: number) {
+    const value = Math.max(AI_THRESHOLD_MIN, Math.min(AI_THRESHOLD_MAX, v ?? threshold));
+    setSavingThreshold(true);
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert(
+          { key: AI_THRESHOLD_KEY, value: value as unknown as never },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["ai-auto-approve-threshold"] });
+      toast.success(`Auto-approve threshold saved: ${Math.round(value * 100)}%`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["ai-settings-status"],
