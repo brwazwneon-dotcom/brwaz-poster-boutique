@@ -331,6 +331,7 @@ export function AiPosterUpload() {
           update(id, {
             status: "needs_review",
             error: msg,
+            review_reasons: ["ai_failed"],
           });
         }
       }
@@ -364,6 +365,7 @@ export function AiPosterUpload() {
           update(id, {
             status: "needs_review",
             error: err instanceof Error ? err.message : "AI failed",
+            review_reasons: ["ai_failed"],
           });
         }
       }
