@@ -61,6 +61,7 @@ type Row = {
   suggested_subcategory_name: string | null;
   suggested_category_name: string | null;
   detected_subject: string | null;
+  review_reasons?: ReviewReason[];
   edited: Record<string, boolean>;
 };
 
