@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
+import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
