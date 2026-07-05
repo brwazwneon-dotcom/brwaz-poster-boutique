@@ -94,6 +94,7 @@ const AR: Dict = {
   "tab.reviews": "المراجعات",
   "tab.before-after": "قبل / بعد",
   "tab.marketing": "التسويق",
+  "tab.social-proof": "الدليل الاجتماعي",
   "tab.announcement": "الشريط الإعلاني",
   "tab.size-guide": "دليل المقاسات",
   "tab.notifications": "الإشعارات",
