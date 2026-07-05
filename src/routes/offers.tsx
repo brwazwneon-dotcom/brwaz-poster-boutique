@@ -12,6 +12,7 @@ import { FRAME_COLORS, FRAME_TYPES, type FrameColorId, type FrameTypeId, type Si
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { usePricing } from "@/lib/use-settings";
+import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 
 export const Route = createFileRoute("/offers")({
   head: () => {
@@ -77,6 +78,10 @@ function OffersPage() {
         Pick a bundle, then choose your exact set of posters. Mix any
         categories — pay one flat price.
       </p>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <LiveVisitors variant="offer" />
+        <RecentOrdersBadge surface="offer" />
+      </div>
 
       <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
         {bundles.map((b) => {
