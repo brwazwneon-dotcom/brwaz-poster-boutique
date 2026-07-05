@@ -222,6 +222,10 @@ function CategoryPage() {
           Tap any poster to select. Select multiple to add a matching set.
         </p>
       </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <LiveVisitors variant="product" />
+        <RecentOrdersBadge surface="product" />
+      </div>
 
       {subcategories.length > 0 && (
         <div
