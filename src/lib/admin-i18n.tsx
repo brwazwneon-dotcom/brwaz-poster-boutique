@@ -44,6 +44,7 @@ const EN: Dict = {
   "tab.reviews": "Reviews",
   "tab.before-after": "Before / After",
   "tab.marketing": "Marketing",
+  "tab.social-proof": "Social Proof",
   "tab.announcement": "Announcement",
   "tab.size-guide": "Size Guide",
   "tab.notifications": "Notifications",
