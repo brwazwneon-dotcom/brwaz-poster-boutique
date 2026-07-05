@@ -156,6 +156,12 @@ function AdminPage() {
     })();
   }, [ensureAdmin, navigate]);
 
+  useEffect(() => {
+    if (isAdmin) {
+      try { window.localStorage.setItem("brw-admin-seen", "1"); } catch { /* ignore */ }
+    }
+  }, [isAdmin]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/auth" });
