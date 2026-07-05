@@ -71,7 +71,10 @@ export function SocialProofTab() {
     try {
       const { error } = await supabase
         .from("site_settings")
-        .upsert({ key: SOCIAL_PROOF_KEY, value: next as unknown as object }, { onConflict: "key" });
+        .upsert(
+          { key: SOCIAL_PROOF_KEY, value: JSON.parse(JSON.stringify(next)) },
+          { onConflict: "key" },
+        );
       if (error) throw error;
       toast.success("Social proof settings saved");
       qc.invalidateQueries({ queryKey: ["social-proof-config"] });
