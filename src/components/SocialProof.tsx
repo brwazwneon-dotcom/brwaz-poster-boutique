@@ -68,7 +68,7 @@ export function SalesNotifications() {
       const { data } = await supabase
         .from("posters")
         .select("id,title,image_url")
-        .eq("published", true)
+        .eq("hidden", false)
         .limit(40);
       return (data ?? []) as Poster[];
     },
