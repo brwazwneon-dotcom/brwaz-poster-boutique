@@ -77,6 +77,7 @@ function OffersPage() {
         Pick a bundle, then choose your exact set of posters. Mix any
         categories — pay one flat price.
       </p>
+      <SocialProofOffersRow />
 
       <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
         {bundles.map((b) => {
