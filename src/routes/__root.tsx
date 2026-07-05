@@ -24,6 +24,7 @@ import { PwaBoot } from "@/components/PwaBoot";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { PreviewBadge } from "@/components/PreviewBadge";
+import { SalesNotifications } from "@/components/SocialProof";
 
 function NotFoundComponent() {
   return (
@@ -202,6 +203,7 @@ function RootComponent() {
             <PwaBoot />
             <InstallPrompt />
             <PreviewBadge />
+            <SalesNotifications />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
