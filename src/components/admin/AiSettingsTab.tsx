@@ -7,8 +7,12 @@ import {
   getAiSettingsStatus,
   testAiConnection,
   generateTestProductData,
+  getGeminiKeys,
+  testAllGeminiKeys,
   type AiTestResult,
   type AiTestProduct,
+  type GeminiKeyStatusRow,
+  type GeminiKeyTest,
 } from "@/lib/ai-settings.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -23,6 +27,8 @@ export function AiSettingsTab() {
   const statusFn = useServerFn(getAiSettingsStatus);
   const testFn = useServerFn(testAiConnection);
   const sampleFn = useServerFn(generateTestProductData);
+  const keysFn = useServerFn(getGeminiKeys);
+  const testAllFn = useServerFn(testAllGeminiKeys);
   const qc = useQueryClient();
   const savedThreshold = useAiAutoApproveThreshold();
   const [threshold, setThreshold] = useState<number>(savedThreshold);
@@ -55,6 +61,43 @@ export function AiSettingsTab() {
     queryKey: ["ai-settings-status"],
     queryFn: () => statusFn(),
   });
+
+  const {
+    data: keys,
+    isLoading: keysLoading,
+    refetch: refetchKeys,
+  } = useQuery({
+    queryKey: ["ai-gemini-keys"],
+    queryFn: () => keysFn(),
+    refetchInterval: 30_000,
+  });
+
+  const [testingAll, setTestingAll] = useState(false);
+  const [keyTests, setKeyTests] = useState<GeminiKeyTest[] | null>(null);
+
+  async function runTestAll() {
+    setTestingAll(true);
+    setKeyTests(null);
+    try {
+      const r = await testAllFn();
+      setKeyTests(r);
+      const okCount = r.filter((x) => x.ok).length;
+      const totalPresent = r.filter((x) => x.present).length;
+      if (okCount === totalPresent && totalPresent > 0) {
+        toast.success(`All ${okCount} keys OK`);
+      } else {
+        toast.warning(`${okCount}/${totalPresent} keys OK`);
+      }
+      refetchKeys();
+    } finally {
+      setTestingAll(false);
+    }
+  }
+
+  function fmtTime(ts: number | null) {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleTimeString();
+  }
 
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<AiTestResult | null>(null);
@@ -138,9 +181,83 @@ export function AiSettingsTab() {
         <div className="rounded border p-3 text-xs text-muted-foreground">
           <div className="font-medium text-foreground mb-1">API key</div>
           Stored in server environment as{" "}
-          <code className="font-mono">GEMINI_API_KEY</code>. The key is never
+          <code className="font-mono">GEMINI_API_KEY_1</code> …{" "}
+          <code className="font-mono">GEMINI_API_KEY_5</code>. Keys are never
           exposed to the browser or written to the database. To rotate or
-          replace it, use the project's Secrets panel.
+          replace them, use the project's Secrets panel.
+        </div>
+
+        <div className="rounded border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <div className="text-sm font-semibold">Gemini API Keys (rotation)</div>
+              <div className="text-xs text-muted-foreground">
+                Requests try keys 1 → 5 in order. On 429 / quota-exceeded, the next key
+                is used automatically. Other errors do not rotate.
+              </div>
+            </div>
+            <button
+              onClick={runTestAll}
+              disabled={testingAll}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+            >
+              {testingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Test All Gemini Keys
+            </button>
+          </div>
+          <div className="grid gap-2">
+            {(keys ?? []).map((k: GeminiKeyStatusRow) => {
+              const test = keyTests?.find((t) => t.label === k.label);
+              const state = test ? (test.ok ? "available" : "failed") : k.state;
+              const stateStyles = !k.present
+                ? "bg-muted text-muted-foreground"
+                : state === "available"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : state === "rate_limited"
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : state === "failed"
+                ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                : "bg-muted text-muted-foreground";
+              const stateLabel = !k.present
+                ? "Not configured"
+                : state === "available"
+                ? "Available"
+                : state === "rate_limited"
+                ? "Rate limited"
+                : state === "failed"
+                ? "Failed"
+                : "Unknown";
+              return (
+                <div
+                  key={k.label}
+                  className="flex flex-wrap items-center gap-3 rounded border px-3 py-2 text-sm"
+                >
+                  <div className="font-mono text-xs">{k.label}</div>
+                  <div className="font-mono text-xs text-muted-foreground">
+                    {k.present ? k.masked : "—"}
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stateStyles}`}
+                  >
+                    {stateLabel}
+                  </span>
+                  <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>Last used: {fmtTime(k.lastUsedAt)}</span>
+                    {test && (
+                      <span className={test.ok ? "text-emerald-600" : "text-red-600"}>
+                        {test.ok ? `${test.latencyMs}ms` : test.error}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!keysLoading && (keys?.length ?? 0) === 0 && (
+              <div className="text-xs text-muted-foreground">
+                No Gemini keys detected. Add GEMINI_API_KEY_1 … GEMINI_API_KEY_5 in Secrets.
+              </div>
+            )}
+          </div>
         </div>
 
         {!connected && (
