@@ -11,7 +11,6 @@ import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
-import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import * as XLSX from "xlsx";
 import {
   IMAGE_FALLBACK,
