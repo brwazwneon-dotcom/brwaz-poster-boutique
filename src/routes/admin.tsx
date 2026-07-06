@@ -1000,28 +1000,37 @@ function EditPosterModal({
   const runAi = async () => {
     setAiBusy(true);
     try {
-      const meta = await generatePosterMeta({
-        data: {
-          imageUrl: currentImageUrl,
-          filename: poster.title,
-          categories: categories.map((c) => ({
-            id: c.id,
-            name: c.name,
-            slug: c.slug,
-            parent_id: c.parent_id ?? null,
-          })),
+      const currentCat = categories.find((c) => c.id === categoryId);
+      const parentCat = currentCat?.parent_id
+        ? categories.find((c) => c.id === currentCat.parent_id)
+        : null;
+      const categoryLabel = [parentCat?.name, currentCat?.name].filter(Boolean).join(" › ");
+      const existingTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+      const { data, error } = await supabase.functions.invoke("seo-generator", {
+        body: {
+          title: title || poster.title,
+          subject: title || poster.title,
+          category: categoryLabel || undefined,
+          tags: existingTags,
         },
       });
-      setTitle(meta.title);
-      setDescription(meta.description);
-      setSeoTitle(meta.seo_title);
-      setSeoDescription(meta.seo_description);
-      if (meta.tags.length) {
-        const existing = tags.split(",").map((t) => t.trim()).filter(Boolean);
-        setTags(Array.from(new Set([...existing, ...meta.tags])).join(", "));
+      if (error) throw error;
+      const meta = data as {
+        title?: string;
+        description?: string;
+        seo_title?: string;
+        seo_description?: string;
+        tags?: string[];
+        error?: string;
+      };
+      if (meta?.error) throw new Error(meta.error);
+      if (meta.title) setTitle(meta.title);
+      if (meta.description) setDescription(meta.description);
+      if (meta.seo_title) setSeoTitle(meta.seo_title);
+      if (meta.seo_description) setSeoDescription(meta.seo_description);
+      if (Array.isArray(meta.tags) && meta.tags.length) {
+        setTags(Array.from(new Set([...existingTags, ...meta.tags])).join(", "));
       }
-      if (meta.subcategory_id) setCategoryId(meta.subcategory_id);
-      else if (meta.category_id && !categoryId) setCategoryId(meta.category_id);
       toast.success("AI generated — review and Save");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "AI failed");
