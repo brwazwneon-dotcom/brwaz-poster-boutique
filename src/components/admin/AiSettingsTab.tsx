@@ -62,6 +62,43 @@ export function AiSettingsTab() {
     queryFn: () => statusFn(),
   });
 
+  const {
+    data: keys,
+    isLoading: keysLoading,
+    refetch: refetchKeys,
+  } = useQuery({
+    queryKey: ["ai-gemini-keys"],
+    queryFn: () => keysFn(),
+    refetchInterval: 30_000,
+  });
+
+  const [testingAll, setTestingAll] = useState(false);
+  const [keyTests, setKeyTests] = useState<GeminiKeyTest[] | null>(null);
+
+  async function runTestAll() {
+    setTestingAll(true);
+    setKeyTests(null);
+    try {
+      const r = await testAllFn();
+      setKeyTests(r);
+      const okCount = r.filter((x) => x.ok).length;
+      const totalPresent = r.filter((x) => x.present).length;
+      if (okCount === totalPresent && totalPresent > 0) {
+        toast.success(`All ${okCount} keys OK`);
+      } else {
+        toast.warning(`${okCount}/${totalPresent} keys OK`);
+      }
+      refetchKeys();
+    } finally {
+      setTestingAll(false);
+    }
+  }
+
+  function fmtTime(ts: number | null) {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleTimeString();
+  }
+
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<AiTestResult | null>(null);
   const [gen, setGen] = useState<AiTestProduct | null>(null);
