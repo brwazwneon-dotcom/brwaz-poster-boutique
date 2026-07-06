@@ -32,6 +32,109 @@ export const getAiSettingsStatus = createServerFn({ method: "GET" })
     };
   });
 
+export type GeminiKeyStatusRow = {
+  label: string;
+  masked: string;
+  present: boolean;
+  state: "available" | "rate_limited" | "failed" | "unknown";
+  lastUsedAt: number | null;
+  lastErrorAt: number | null;
+  lastError: string | null;
+  rateLimitedUntil: number | null;
+};
+
+export const getGeminiKeys = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<GeminiKeyStatusRow[]> => {
+    await assertAdmin(context.supabase, context.userId);
+    const { getGeminiKeysStatus } = await import("@/lib/gemini.server");
+    return getGeminiKeysStatus();
+  });
+
+export type GeminiKeyTest = {
+  label: string;
+  masked: string;
+  present: boolean;
+  ok: boolean;
+  latencyMs: number;
+  error?: string;
+};
+
+export const testAllGeminiKeys = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<GeminiKeyTest[]> => {
+    await assertAdmin(context.supabase, context.userId);
+    const { getGeminiKeysStatus, GEMINI_TEXT_MODEL } = await import("@/lib/gemini.server");
+    const rows = getGeminiKeysStatus();
+    const out: GeminiKeyTest[] = [];
+    for (const row of rows) {
+      if (!row.present) {
+        out.push({
+          label: row.label,
+          masked: "",
+          present: false,
+          ok: false,
+          latencyMs: 0,
+          error: "not configured",
+        });
+        continue;
+      }
+      const key = process.env[row.label];
+      if (!key) {
+        out.push({
+          label: row.label,
+          masked: row.masked,
+          present: false,
+          ok: false,
+          latencyMs: 0,
+          error: "not configured",
+        });
+        continue;
+      }
+      const started = Date.now();
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
+            generationConfig: { temperature: 0 },
+          }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          out.push({
+            label: row.label,
+            masked: row.masked,
+            present: true,
+            ok: false,
+            latencyMs: Date.now() - started,
+            error: `${res.status}: ${txt.slice(0, 120)}`,
+          });
+        } else {
+          out.push({
+            label: row.label,
+            masked: row.masked,
+            present: true,
+            ok: true,
+            latencyMs: Date.now() - started,
+          });
+        }
+      } catch (e) {
+        out.push({
+          label: row.label,
+          masked: row.masked,
+          present: true,
+          ok: false,
+          latencyMs: Date.now() - started,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    return out;
+  });
+
 export type AiTestResult = {
   ok: boolean;
   latencyMs: number;
