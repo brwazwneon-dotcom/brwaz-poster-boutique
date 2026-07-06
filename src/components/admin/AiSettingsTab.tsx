@@ -7,8 +7,12 @@ import {
   getAiSettingsStatus,
   testAiConnection,
   generateTestProductData,
+  getGeminiKeys,
+  testAllGeminiKeys,
   type AiTestResult,
   type AiTestProduct,
+  type GeminiKeyStatusRow,
+  type GeminiKeyTest,
 } from "@/lib/ai-settings.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
