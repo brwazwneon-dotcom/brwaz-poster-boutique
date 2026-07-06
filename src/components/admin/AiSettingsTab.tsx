@@ -27,6 +27,8 @@ export function AiSettingsTab() {
   const statusFn = useServerFn(getAiSettingsStatus);
   const testFn = useServerFn(testAiConnection);
   const sampleFn = useServerFn(generateTestProductData);
+  const keysFn = useServerFn(getGeminiKeys);
+  const testAllFn = useServerFn(testAllGeminiKeys);
   const qc = useQueryClient();
   const savedThreshold = useAiAutoApproveThreshold();
   const [threshold, setThreshold] = useState<number>(savedThreshold);
