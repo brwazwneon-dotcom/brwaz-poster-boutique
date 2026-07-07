@@ -29,7 +29,7 @@ export function SiteHeader() {
         <Link to="/" aria-label="BRWAZWNEON home" className="flex items-center">
           <img
             src={logo.src}
-            alt="BRWAZWNEON"
+            alt="BRWAZWNEON – Custom Posters, Frames & Photo Printing"
             style={logo.style}
             loading="eager"
             decoding="async"
