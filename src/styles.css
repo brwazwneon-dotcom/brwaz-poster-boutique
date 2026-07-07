@@ -188,6 +188,28 @@ svg {
   overflow-x: clip;
 }
 
+/* Slim, themed scrollbar so any scroll surface looks intentional */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 30%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklch, var(--foreground) 25%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+
 /* Hide the "Edit with Lovable" badge on published deployments */
 #lovable-badge,
 a[href*="lovable.dev/projects" i],
