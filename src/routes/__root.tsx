@@ -18,6 +18,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { FloatingOfferBubble } from "@/components/FloatingOfferBubble";
+import { AssistantButton } from "@/components/AssistantButton";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Toaster } from "@/components/ui/sonner";
 import { MarketingBoot } from "@/components/MarketingBoot";
@@ -201,6 +202,7 @@ function RootComponent() {
             </div>
             <WhatsAppButton />
             <FloatingOfferBubble />
+            <AssistantButton />
             </MaintenanceGate>
             <Toaster richColors position="top-center" />
             <MarketingBoot />
