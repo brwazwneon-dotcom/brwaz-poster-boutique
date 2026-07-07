@@ -27,6 +27,7 @@ import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { SalesNotifications } from "@/components/SocialProof";
 import { BehaviorBoot } from "@/components/BehaviorBoot";
+import { TestModeBadge } from "@/components/TestModeBadge";
 
 function NotFoundComponent() {
   return (
