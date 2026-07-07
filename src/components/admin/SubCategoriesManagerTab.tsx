@@ -423,6 +423,13 @@ export function SubCategoriesManagerTab() {
                         </>
                       )}
                       <button
+                        onClick={() => setSeoFor(c)}
+                        className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/5 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10"
+                        title="Generate AI SEO for all posters in this sub category"
+                      >
+                        <Sparkles className="h-3 w-3" /> AI SEO
+                      </button>
+                      <button
                         onClick={() => setMerging(c)}
                         className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
                         title="Merge into another"
