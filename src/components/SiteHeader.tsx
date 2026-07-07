@@ -31,8 +31,11 @@ export function SiteHeader() {
             src={logo.src}
             alt="BRWAZWNEON – Custom Posters, Frames & Photo Printing"
             style={logo.style}
+            width={160}
+            height={48}
             loading="eager"
             decoding="async"
+            fetchPriority="high"
           />
         </Link>
         <div className="relative hidden flex-1 max-w-xl md:block">
