@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles } from "lucide-react";
+import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -31,6 +31,9 @@ type UploadItem = {
   ai?: AiStatus;
   aiError?: string;
   aiTitle?: string;
+  size?: { w: number; h: number; ratio: number };
+  aspectWarning?: "square" | "tall" | "wide";
+  aspectAccepted?: boolean;
 };
 
 const CONCURRENCY = 4;
@@ -81,6 +84,21 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
       status: "pending",
     }));
     setItems((prev) => [...prev, ...next]);
+    // Measure natural dimensions and flag off-ratio images (target 2:3 ≈ 0.667).
+    next.forEach((it) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const ratio = w / h;
+        let warning: UploadItem["aspectWarning"];
+        if (Math.abs(ratio - 1) < 0.08) warning = "square";
+        else if (ratio < 0.55) warning = "tall";
+        else if (ratio > 0.82) warning = "wide";
+        update(it.id, { size: { w, h, ratio }, aspectWarning: warning });
+      };
+      img.src = it.preview;
+    });
   };
 
   const removeItem = (id: string) => {
@@ -253,6 +271,15 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
     const ids = items.filter((i) => i.status === "pending").map((i) => i.id);
     if (ids.length === 0) {
       toast.error("No new files to upload");
+      return;
+    }
+    const pendingWarnings = items.filter(
+      (i) => i.status === "pending" && i.aspectWarning && !i.aspectAccepted && !i.edit,
+    );
+    if (pendingWarnings.length > 0) {
+      toast.error(
+        `${pendingWarnings.length} صورة مقاسها مش 2:3 — عدّلها أو اختار "اقبل كما هي" قبل الرفع`,
+      );
       return;
     }
     processIds(ids);
@@ -448,6 +475,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
                 item={it}
                 onRemove={() => removeItem(it.id)}
                 onEdit={() => setEditingId(it.id)}
+                onAcceptAspect={() => update(it.id, { aspectAccepted: true })}
                 disabled={running}
               />
             ))}
@@ -476,9 +504,17 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
 }
 
 function ItemTile({
-  item, onRemove, onEdit, disabled,
-}: { item: UploadItem; onRemove: () => void; onEdit: () => void; disabled: boolean }) {
+  item, onRemove, onEdit, onAcceptAspect, disabled,
+}: { item: UploadItem; onRemove: () => void; onEdit: () => void; onAcceptAspect: () => void; disabled: boolean }) {
   const edited = !!item.edit && !isDefaultEdit({ ...DEFAULT_EDIT_SETTINGS, ...item.edit });
+  const showWarning =
+    !!item.aspectWarning && !item.aspectAccepted && !item.edit && item.status !== "done" && item.status !== "uploading";
+  const warnLabel =
+    item.aspectWarning === "square"
+      ? "مقاس مربع"
+      : item.aspectWarning === "tall"
+        ? "طويلة جدًا"
+        : "عريضة جدًا";
   return (
     <div
       className={cn(
@@ -487,7 +523,7 @@ function ItemTile({
         item.status === "failed" && "border-destructive",
         item.status === "uploading" && "border-primary",
         item.status === "optimizing" && "border-primary/60",
-        item.status === "pending" && "border-border",
+        item.status === "pending" && (showWarning ? "border-amber-500" : "border-border"),
       )}
       title={item.aiError ?? item.aiTitle ?? item.error ?? item.file.name}
     >
@@ -498,6 +534,29 @@ function ItemTile({
         <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">
           Edited
         </span>
+      )}
+      {showWarning && (
+        <div className="absolute inset-x-0 top-0 flex flex-col gap-1 bg-amber-500/95 px-1.5 py-1 text-[10px] font-semibold text-black">
+          <span className="inline-flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" /> {warnLabel} {item.size ? `(${item.size.w}×${item.size.h})` : ""}
+          </span>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex-1 rounded-sm bg-black/80 px-1 py-0.5 text-[9px] uppercase tracking-widest text-white hover:bg-black"
+            >
+              اظبطها
+            </button>
+            <button
+              type="button"
+              onClick={onAcceptAspect}
+              className="flex-1 rounded-sm bg-black/20 px-1 py-0.5 text-[9px] uppercase tracking-widest text-black hover:bg-black/30"
+            >
+              سيبها
+            </button>
+          </div>
+        </div>
       )}
       {!disabled && item.status !== "done" && item.status !== "uploading" && (
         <button

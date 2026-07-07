@@ -3,7 +3,6 @@ import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 /**
  * Picks which mockup variant applies for a given frame type + color.
@@ -54,10 +53,10 @@ export function FramePreview({
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
-  const [frameErrored, setFrameErrored] = useState(false);
-  // Always prefer the uploaded frame mockup PNGs, including product-card
-  // thumbnails. If a mockup cannot load, fall back to a CSS frame instead.
-  const useCssFrame = !m.image || frameErrored;
+  // Always use the uploaded PNG mockups. No CSS-based fallback is drawn
+  // so the visual is consistent across desktop and mobile — even during
+  // the brief image load the matte color reads as the frame edge.
+  const useCssFrame = !m.image;
 
   // Swatch fallback so the matte/frame still reads when no mockup image is set.
   const matte =
@@ -158,7 +157,7 @@ export function FramePreview({
       </div>
 
       {/* Transparent PNG frame overlay — sits on top of the artwork like a clipping mask */}
-      {m.image && !frameErrored && (
+      {m.image && (
         <img
           src={m.image}
           alt=""
@@ -167,7 +166,6 @@ export function FramePreview({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full object-fill select-none"
           draggable={false}
-          onError={() => setFrameErrored(true)}
         />
       )}
     </div>
