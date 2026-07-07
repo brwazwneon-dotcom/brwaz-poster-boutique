@@ -15,6 +15,7 @@ import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
+import { isTestMode } from "@/lib/test-mode";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
