@@ -273,6 +273,15 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
       toast.error("No new files to upload");
       return;
     }
+    const pendingWarnings = items.filter(
+      (i) => i.status === "pending" && i.aspectWarning && !i.aspectAccepted && !i.edit,
+    );
+    if (pendingWarnings.length > 0) {
+      toast.error(
+        `${pendingWarnings.length} صورة مقاسها مش 2:3 — عدّلها أو اختار "اقبل كما هي" قبل الرفع`,
+      );
+      return;
+    }
     processIds(ids);
   };
 
