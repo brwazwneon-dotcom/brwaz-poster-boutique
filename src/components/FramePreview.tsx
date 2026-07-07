@@ -66,8 +66,8 @@ export function FramePreview({
   const adminScale = Math.max(0.1, m.scale ?? 1);
   const flipX = m.flipX ? -1 : 1;
   const flipY = m.flipY ? -1 : 1;
-  const sx = Math.max(0.1, s.stretchX || 1) * scale * adminScale * flipX;
-  const sy = Math.max(0.1, s.stretchY || 1) * scale * adminScale * flipY;
+  const sx = scale * adminScale * flipX;
+  const sy = scale * adminScale * flipY;
   const rotate = (s.rotate || 0) + (m.rotate ?? 0);
   const skewX = m.skewX ?? 0;
   const skewY = m.skewY ?? 0;
@@ -75,6 +75,7 @@ export function FramePreview({
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
   const objectFit = s.fit === "fit" ? "contain" : "cover";
+  const showExtendedBackground = s.fit === "fit";
   const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
@@ -104,16 +105,31 @@ export function FramePreview({
           borderRadius,
           perspective: `${perspective}px`,
           transformStyle: "preserve-3d",
+          background:
+            "linear-gradient(180deg, rgba(239,237,230,0.96), rgba(218,214,204,0.96))",
         }}
       >
         <SafeImage
           src={posterUrl}
+          alt=""
+          aria-hidden="true"
+          loading={loading}
+          className={cn(
+            "pointer-events-none absolute inset-0 h-full w-full select-none object-cover opacity-70 blur-xl scale-110",
+            showExtendedBackground ? "block" : "hidden",
+          )}
+          draggable={false}
+          style={{ objectPosition: "center center" }}
+        />
+        <SafeImage
+          src={posterUrl}
           alt={title ?? ""}
           loading={loading}
-          className="h-full w-full select-none"
+          className="relative z-[1] h-full w-full select-none"
           draggable={false}
           style={{
             objectFit,
+            objectPosition: "center center",
             transform: posterTransform,
             transformOrigin: "center center",
             willChange: "transform",

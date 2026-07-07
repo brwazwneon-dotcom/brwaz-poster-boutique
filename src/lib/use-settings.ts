@@ -228,7 +228,7 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     return Number.isFinite(n) ? n : fb;
   };
   return {
-    image: fallback.image,
+    image: typeof v.image === "string" && v.image.trim() ? v.image : fallback.image,
     top: numOr(v.top, fallback.top),
     left: numOr(v.left, fallback.left),
     width: numOr(v.width, fallback.width),
