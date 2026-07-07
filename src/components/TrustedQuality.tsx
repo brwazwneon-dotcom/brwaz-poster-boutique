@@ -88,12 +88,27 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
             </span>
             <span className="h-px w-10" style={{ background: `linear-gradient(to left, transparent, ${GOLD})` }} />
           </div>
+
+          {/* 25 years of experience — chic gold badge */}
+          <div className="mx-auto mb-8 inline-flex items-center gap-4 rounded-full border border-white/10 bg-white/[0.03] px-6 py-2.5 backdrop-blur-md">
+            <span
+              className="text-display text-2xl leading-none"
+              style={{ color: GOLD }}
+            >
+              25
+            </span>
+            <span className="h-6 w-px bg-white/15" />
+            <span className="text-left text-[10px] font-medium uppercase leading-tight tracking-[0.35em] text-white/70">
+              Years<br />of Craftsmanship
+            </span>
+          </div>
+
           <h2 className="text-display text-4xl leading-[1.05] sm:text-6xl">
             {title ?? "Crafted With Uncompromising Care."}
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-white/60 sm:text-base">
             {subtitle ??
-              "Every frame that leaves our studio is reviewed, refined and finished by hand — a quiet obsession with the small details that make the difference."}
+              "For over 25 years we've been framing memories — every piece reviewed, refined and finished by hand with a quiet obsession for the smallest detail."}
           </p>
         </div>
 
