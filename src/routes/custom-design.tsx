@@ -77,6 +77,8 @@ type Pic = {
   preview: string;
   rotate: number;
   color: FrameColorId;
+  frameType: FrameTypeId;
+  size: SizeId;
 };
 
 function isAcceptedFile(f: File): boolean {
@@ -118,10 +120,41 @@ function CustomDesignPage() {
     if (id === "wood") {
       // Wooden Portrait has no color options — clear any PVC color.
       setColor("wood");
-      setPics((prev) => prev.map((p) => ({ ...p, color: "wood" })));
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame("wood");
+          return {
+            ...p,
+            color: "wood",
+            frameType: "wood",
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
     } else if (color === "wood") {
       setColor("black");
-      setPics((prev) => prev.map((p) => ({ ...p, color: p.color === "wood" ? "black" : p.color })));
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame(id);
+          return {
+            ...p,
+            color: p.color === "wood" ? "black" : p.color,
+            frameType: id,
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
+    } else {
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame(id);
+          return {
+            ...p,
+            frameType: id,
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
     }
   };
 
@@ -138,21 +171,80 @@ function CustomDesignPage() {
     setEditing((cur) => (cur && cur.id === id ? { ...cur, color: next } : cur));
   };
 
+  const setPicSize = (id: string, next: SizeId) => {
+    setPics((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const allowed = sizesForFrame(p.frameType);
+        if (!allowed.includes(next)) return p;
+        return { ...p, size: next };
+      }),
+    );
+    setEditing((cur) => (cur && cur.id === id ? { ...cur, size: next } : cur));
+  };
+
+  const setPicFrameType = (id: string, next: FrameTypeId) => {
+    setPics((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const allowed = sizesForFrame(next);
+        const nextColor: FrameColorId =
+          next === "wood" ? "wood" : p.color === "wood" ? "black" : p.color;
+        return {
+          ...p,
+          frameType: next,
+          color: nextColor,
+          size: allowed.includes(p.size) ? p.size : allowed[0],
+        };
+      }),
+    );
+    setEditing((cur) => {
+      if (!cur || cur.id !== id) return cur;
+      const allowed = sizesForFrame(next);
+      const nextColor: FrameColorId =
+        next === "wood" ? "wood" : cur.color === "wood" ? "black" : cur.color;
+      return {
+        ...cur,
+        frameType: next,
+        color: nextColor,
+        size: allowed.includes(cur.size) ? cur.size : allowed[0],
+      };
+    });
+  };
+
   const availableSizes = useMemo(
     () => SIZES.filter((s) => sizesForFrame(frameType).includes(s.id)),
     [frameType],
   );
 
+  const unitPriceFor = (ft: FrameTypeId, sz: SizeId) =>
+    priceForFrame(pricing, ft, sz) + pricing.customDesignFee;
   const unit = useMemo(
-    () => priceForFrame(pricing, frameType, size) + pricing.customDesignFee,
+    () => unitPriceFor(frameType, size),
     [pricing, frameType, size],
   );
-  const subtotal = unit * pics.length;
+  const subtotal = useMemo(
+    () => pics.reduce((sum, p) => sum + unitPriceFor(p.frameType, p.size), 0),
+    [pics, pricing],
+  );
   const shipping = computeShipping(subtotal, settings);
   const packaging = pics.length > 0 ? PACKAGING_FEE : 0;
-  const offer = useMemo(() => customOfferFor(size, pics.length), [size, pics.length]);
-  const discountAmount = offer ? Math.round((subtotal * offer.percent) / 100) : 0;
-  const nextOffer = useMemo(() => nextCustomOffer(size, pics.length), [size, pics.length]);
+  // Apply size-gated offers per-size across all pics.
+  const { discountAmount, appliedOffers } = useMemo(() => {
+    let total = 0;
+    const applied: { label: string; percent: number; amount: number }[] = [];
+    for (const o of CUSTOM_OFFERS) {
+      const matching = pics.filter((p) => p.size === o.size);
+      if (matching.length >= o.minQty) {
+        const sub = matching.reduce((s, p) => s + unitPriceFor(p.frameType, p.size), 0);
+        const amt = Math.round((sub * o.percent) / 100);
+        total += amt;
+        applied.push({ label: o.label, percent: o.percent, amount: amt });
+      }
+    }
+    return { discountAmount: total, appliedOffers: applied };
+  }, [pics, pricing]);
+  const nextOffer = useMemo(() => nextCustomOffer(size, pics.filter((p) => p.size === size).length), [size, pics]);
   const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
 
   const openPicker = () => addInputRef.current?.click();
@@ -173,6 +265,8 @@ function CustomDesignPage() {
         preview: URL.createObjectURL(f),
         rotate: 0,
         color: frameType === "wood" ? "wood" : color,
+        frameType,
+        size,
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
@@ -273,7 +367,7 @@ function CustomDesignPage() {
       // combine with ready-made posters, and check out from the cart page.
       uploaded.forEach((u, idx) => {
         const pic = pics[u.index];
-        const unitPrice = priceForFrame(pricing, frameType, size) + pricing.customDesignFee;
+        const unitPrice = unitPriceFor(pic.frameType, pic.size);
         cart.add({
           posterId: `custom-${orderId}-${idx}`,
           title: `Custom Design #${idx + 1}`,
@@ -281,8 +375,8 @@ function CustomDesignPage() {
           customImagePath: u.path,
           categoryId: null,
           categoryName: "Custom Design",
-          frameType,
-          size,
+          frameType: pic.frameType,
+          size: pic.size,
           color: pic.color,
           price: unitPrice,
         });
