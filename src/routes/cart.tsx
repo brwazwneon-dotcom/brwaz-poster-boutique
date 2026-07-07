@@ -666,7 +666,7 @@ function CartPage() {
                         <span className="text-muted-foreground">
                           ناقصك{" "}
                           <span className="font-bold text-foreground">{missing}</span>{" "}
-                          {missing === 1 ? "برواز" : "بروازات"} بس
+                          برواز بس
                         </span>
                         {n.savings > 0 ? (
                           <span className="text-muted-foreground">
@@ -683,7 +683,7 @@ function CartPage() {
                           <span className="text-muted-foreground">
                             ناقص{" "}
                             <span className="text-foreground">{missing}</span>{" "}
-                            {missing === 1 ? "برواز" : "بروازات"}
+                            برواز
                           </span>
                           <span className="text-primary">
                             {n.progressPct}%
