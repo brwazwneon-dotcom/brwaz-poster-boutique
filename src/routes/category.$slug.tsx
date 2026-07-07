@@ -536,6 +536,11 @@ function Customizer({
           {(primary.views_count ?? 0) > 0 && (
             <span>👁 {formatCount(primary.views_count)} views</span>
           )}
+          {primary.is_best_seller ? (
+            <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
+              ⭐ Best Seller
+            </span>
+          ) : null}
         </div>
       ) : null}
       {posters.length > 1 && (
