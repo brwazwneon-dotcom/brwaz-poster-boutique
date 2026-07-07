@@ -21,36 +21,122 @@ const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CHECKOUT_DEBUG = true;
 
 function asUuid(value: string | null | undefined): string | null {
   return value && UUID_RE.test(value) ? value : null;
 }
 
-function logCheckoutWrite(
-  stage: string,
-  table: string,
-  payload: unknown,
-  error?: unknown,
-) {
-  const sanitize = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(sanitize);
-    if (value && typeof value === "object") {
-      return Object.fromEntries(
-        Object.entries(value as Record<string, unknown>).map(([key, val]) => {
-          if (key === "phone") return [key, typeof val === "string" ? `${val.slice(0, 3)}***${val.slice(-2)}` : val];
-          if (key === "customer_name") return [key, typeof val === "string" ? "[customer_name]" : val];
-          if (key === "address") return [key, typeof val === "string" ? "[address]" : val];
-          if (key === "poster_image" || key === "payment_screenshot") return [key, val ? "[path/url]" : val];
-          return [key, sanitize(val)];
-        }),
-      );
-    }
-    return value;
-  };
+type CheckoutDebugInfo = {
+  step: string;
+  table?: string;
+  operation?: string;
+  payload?: unknown;
+  error?: unknown;
+  result?: unknown;
+};
 
-  const details = { table, payload: sanitize(payload), error };
-  if (stage === "error") console.error("[checkout-write:error]", details);
-  else console.info("[checkout-write]", details);
+function sanitizeCheckoutDebug(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeCheckoutDebug);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => {
+        if (key === "phone") return [key, typeof val === "string" ? `${val.slice(0, 3)}***${val.slice(-2)}` : val];
+        if (key === "customer_name" || key === "name") return [key, typeof val === "string" ? "[customer_name]" : val];
+        if (key === "address") return [key, typeof val === "string" ? "[address]" : val];
+        if (key === "poster_image" || key === "payment_screenshot" || key === "image" || key === "customImagePath") {
+          return [key, val ? "[path/url]" : val];
+        }
+        if (key === "file") return [key, "[File]"];
+        return [key, sanitizeCheckoutDebug(val)];
+      }),
+    );
+  }
+  return value;
+}
+
+function errorFields(error: unknown) {
+  const e = (error ?? {}) as Record<string, unknown>;
+  const message = typeof e.message === "string" ? e.message : error instanceof Error ? error.message : String(error);
+  const code = typeof e.code === "string" ? e.code : undefined;
+  const details = typeof e.details === "string" ? e.details : undefined;
+  const hint = typeof e.hint === "string" ? e.hint : undefined;
+  const name = typeof e.name === "string" ? e.name : error instanceof Error ? error.name : undefined;
+  const status = typeof e.status === "number" || typeof e.status === "string" ? e.status : undefined;
+  const statusCode = typeof e.statusCode === "number" || typeof e.statusCode === "string" ? e.statusCode : undefined;
+  const constraint =
+    /constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /violates foreign key constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /violates check constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    null;
+  const missingColumn =
+    /column "([^"]+)".*does not exist/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /Could not find the '([^']+)' column/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    null;
+  const isRls = /row-level security|rls/i.test(`${message} ${details ?? ""}`) || code === "42501";
+  const isForeignKey = /foreign key/i.test(`${message} ${details ?? ""}`) || code === "23503";
+  const isValidation = /check constraint|not-null|null value|invalid input|violates/i.test(`${message} ${details ?? ""}`);
+
+  return {
+    name,
+    message,
+    code,
+    postgresCode: code,
+    details,
+    hint,
+    status,
+    statusCode,
+    constraint,
+    rlsPolicyName: isRls ? "not returned by PostgREST; inspect the table INSERT policy shown with this failing table" : null,
+    missingColumn,
+    foreignKeyError: isForeignKey ? message : null,
+    validationError: isValidation ? message : null,
+    raw: e,
+  };
+}
+
+function formatCheckoutError(info: CheckoutDebugInfo) {
+  const fields = errorFields(info.error);
+  return [
+    `Checkout failed at: ${info.step}`,
+    info.table ? `Table: ${info.table}` : null,
+    info.operation ? `Operation: ${info.operation}` : null,
+    `Supabase error: ${fields.message}`,
+    fields.postgresCode ? `Postgres code: ${fields.postgresCode}` : null,
+    fields.details ? `SQL error/details: ${fields.details}` : null,
+    fields.hint ? `Hint: ${fields.hint}` : null,
+    fields.constraint ? `Constraint: ${fields.constraint}` : null,
+    fields.rlsPolicyName ? `RLS policy: ${fields.rlsPolicyName}` : null,
+    fields.missingColumn ? `Missing column: ${fields.missingColumn}` : null,
+    fields.foreignKeyError ? `Foreign key error: ${fields.foreignKeyError}` : null,
+    fields.validationError ? `Validation error: ${fields.validationError}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+class CheckoutDebugError extends Error {
+  info: CheckoutDebugInfo;
+  constructor(info: CheckoutDebugInfo) {
+    super(formatCheckoutError(info));
+    this.name = "CheckoutDebugError";
+    this.info = info;
+  }
+}
+
+function logCheckoutStep(info: CheckoutDebugInfo) {
+  if (!CHECKOUT_DEBUG) return;
+  const safeInfo = {
+    ...info,
+    payload: sanitizeCheckoutDebug(info.payload),
+    result: sanitizeCheckoutDebug(info.result),
+    error: info.error ? errorFields(info.error) : undefined,
+  };
+  if (info.error) console.error("[checkout-debug:error]", safeInfo);
+  else console.info("[checkout-debug]", safeInfo);
+}
+
+function throwCheckoutError(info: CheckoutDebugInfo): never {
+  logCheckoutStep(info);
+  throw new CheckoutDebugError(info);
 }
 
 export const Route = createFileRoute("/cart")({
