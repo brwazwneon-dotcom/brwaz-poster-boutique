@@ -50,6 +50,7 @@ const STORAGE_KEY = "brwazwneon_cart_v1";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -58,13 +59,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore */
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  }, [hydrated, items]);
+
+  const persist = (next: CartItem[]) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+    }
+    return next;
+  };
 
   const value = useMemo<CartCtx>(
     () => ({
@@ -101,10 +116,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
               }, true, 1),
             );
           } catch { /* noop */ }
-          return [
-          ...prev,
-          { ...item, id: crypto.randomUUID(), qty: 1 },
-          ];
+          return persist([
+            ...prev,
+            { ...item, id: crypto.randomUUID(), qty: 1 },
+          ]);
         }),
       remove: (id) => setItems((prev) => {
         const item = prev.find((i) => i.id === id);
@@ -122,13 +137,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
             );
           }
         } catch { /* noop */ }
-        return prev.filter((i) => i.id !== id);
+        return persist(prev.filter((i) => i.id !== id));
       }),
       setQty: (id, qty) =>
         setItems((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i)),
+          persist(prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i))),
         ),
-      clear: () => setItems([]),
+      clear: () => setItems(persist([])),
       total: items.reduce((s, i) => s + i.price * i.qty, 0),
       count: items.reduce((s, i) => s + i.qty, 0),
     }),
