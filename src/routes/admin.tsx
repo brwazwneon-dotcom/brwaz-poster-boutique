@@ -5534,6 +5534,24 @@ type BSAdminRow = {
 function BestSellersTab() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState<"" | "refresh" | "recalc" | "export">("");
+
+  const { data: analytics } = useQuery({
+    queryKey: ["admin-bs-analytics"],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("best_sellers_analytics");
+      if (error) throw error;
+      return data as {
+        top_viewed: Array<{ id: string; title: string; image_url: string; views_count: number }>;
+        top_purchased: Array<{ id: string; title: string; image_url: string; sales_count: number }>;
+        top_wishlisted: Array<{ id: string; title: string; image_url: string; wishlist_count: number }>;
+        trending_today: Array<{ id: string; title: string; image_url: string; score: number }>;
+        trending_week: Array<{ id: string; title: string; image_url: string; score: number }>;
+        trending_month: Array<{ id: string; title: string; image_url: string; score: number }>;
+      };
+    },
+  });
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["admin-best-sellers"],
