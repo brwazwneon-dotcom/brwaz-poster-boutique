@@ -89,20 +89,6 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
             <span className="h-px w-10" style={{ background: `linear-gradient(to left, transparent, ${GOLD})` }} />
           </div>
 
-          {/* 25 years of experience — chic gold badge */}
-          <div className="mx-auto mb-8 inline-flex items-center gap-4 rounded-full border border-white/10 bg-white/[0.03] px-6 py-2.5 backdrop-blur-md">
-            <span
-              className="text-display text-2xl leading-none"
-              style={{ color: GOLD }}
-            >
-              25
-            </span>
-            <span className="h-6 w-px bg-white/15" />
-            <span className="text-left text-[10px] font-medium uppercase leading-tight tracking-[0.35em] text-white/70">
-              Years<br />of Craftsmanship
-            </span>
-          </div>
-
           <h2 className="text-display text-4xl leading-[1.05] sm:text-6xl">
             {title ?? "Crafted With Uncompromising Care."}
           </h2>
@@ -110,6 +96,15 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
             {subtitle ??
               "For over 25 years we've been framing memories — every piece reviewed, refined and finished by hand with a quiet obsession for the smallest detail."}
           </p>
+        </div>
+
+        {/* Stat strip — 25-year badge flanked by proof stats */}
+        <div className="mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 sm:mt-14 sm:gap-4">
+          <StatCard value="7M+" label={"Photos\nPrinted"} />
+          <StatCard value="50K+" label={"Happy\nClients"} />
+          <YearsBadge />
+          <StatCard value="100%" label={"Hand\nFinished"} />
+          <StatCard value="27" label={"Governorates\nDelivered"} />
         </div>
 
         {/* Feature blocks — staggered 2-col on desktop, single column on mobile */}
@@ -209,5 +204,53 @@ function FeatureBlock({ card, index }: { card: Card; index: number }) {
         </div>
       </div>
     </li>
+  );
+}
+
+function YearsBadge() {
+  return (
+    <div
+      className="relative flex items-center gap-4 rounded-md border border-white/15 bg-white/[0.04] px-6 py-4 backdrop-blur-md sm:px-7 sm:py-5"
+      style={{
+        boxShadow:
+          "inset 0 0 30px rgba(201,162,74,0.08), 0 20px 40px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,162,74,0.18)",
+      }}
+    >
+      {/* Gold corner accents */}
+      <span aria-hidden className="absolute left-1.5 top-1.5 h-2 w-2 border-l border-t" style={{ borderColor: GOLD }} />
+      <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 border-r border-t" style={{ borderColor: GOLD }} />
+      <span aria-hidden className="absolute bottom-1.5 left-1.5 h-2 w-2 border-b border-l" style={{ borderColor: GOLD }} />
+      <span aria-hidden className="absolute bottom-1.5 right-1.5 h-2 w-2 border-b border-r" style={{ borderColor: GOLD }} />
+
+      <span
+        className="text-display text-5xl leading-none sm:text-6xl"
+        style={{
+          color: GOLD,
+          textShadow: "0 0 30px rgba(201,162,74,0.35)",
+        }}
+      >
+        25
+      </span>
+      <span className="h-10 w-px bg-white/20" />
+      <span className="text-left text-[10px] font-medium uppercase leading-[1.5] tracking-[0.35em] text-white/80">
+        Years<br />of Craft
+      </span>
+    </div>
+  );
+}
+
+function StatCard({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex min-w-[110px] flex-col items-center justify-center rounded-md border border-white/10 bg-white/[0.02] px-5 py-4 backdrop-blur-md transition-colors hover:border-white/20 hover:bg-white/[0.04] sm:min-w-[130px] sm:px-6 sm:py-5">
+      <span
+        className="text-display text-3xl leading-none sm:text-4xl"
+        style={{ color: GOLD }}
+      >
+        {value}
+      </span>
+      <span className="mt-3 whitespace-pre-line text-center text-[9px] font-medium uppercase leading-[1.5] tracking-[0.3em] text-white/55">
+        {label}
+      </span>
+    </div>
   );
 }
