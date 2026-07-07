@@ -592,6 +592,7 @@ export type Database = {
           frame_color: string
           frame_type: string
           governorate: string
+          guest_session_id: string | null
           id: string
           is_test: boolean
           notes: string | null
@@ -613,6 +614,7 @@ export type Database = {
           status: string
           subtotal: number | null
           total_price: number
+          user_id: string | null
         }
         Insert: {
           address: string
@@ -621,6 +623,7 @@ export type Database = {
           frame_color: string
           frame_type: string
           governorate: string
+          guest_session_id?: string | null
           id?: string
           is_test?: boolean
           notes?: string | null
@@ -642,6 +645,7 @@ export type Database = {
           status?: string
           subtotal?: number | null
           total_price: number
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -650,6 +654,7 @@ export type Database = {
           frame_color?: string
           frame_type?: string
           governorate?: string
+          guest_session_id?: string | null
           id?: string
           is_test?: boolean
           notes?: string | null
@@ -671,6 +676,7 @@ export type Database = {
           status?: string
           subtotal?: number | null
           total_price?: number
+          user_id?: string | null
         }
         Relationships: [
           {
