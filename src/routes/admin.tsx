@@ -5578,7 +5578,23 @@ function BestSellersTab() {
       const max = allowed.includes(v.max as (typeof allowed)[number])
         ? (v.max as BestSellersConfig["max"])
         : DEFAULT_BS_CONFIG.max;
-      return { max, autoplay: v.autoplay === true, loop: v.loop !== false };
+      const hc = Number(v.homepage_count);
+      return {
+        ...DEFAULT_BS_CONFIG,
+        max,
+        autoplay: v.autoplay === true,
+        loop: v.loop !== false,
+        enabled: v.enabled !== false,
+        title: typeof v.title === "string" && v.title.trim() ? v.title : DEFAULT_BS_CONFIG.title,
+        subtitle: typeof v.subtitle === "string" ? v.subtitle : DEFAULT_BS_CONFIG.subtitle,
+        homepage_count: Number.isFinite(hc) && hc > 0 && hc <= 24 ? Math.floor(hc) : DEFAULT_BS_CONFIG.homepage_count,
+        auto: v.auto !== false,
+        show_badges: v.show_badges !== false,
+        show_price: v.show_price !== false,
+        show_cart: v.show_cart !== false,
+        show_wishlist: v.show_wishlist !== false,
+        show_quick_view: v.show_quick_view !== false,
+      };
     },
   });
 
