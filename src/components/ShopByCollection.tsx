@@ -22,15 +22,24 @@ export type CollectionCard = {
   overlayOpacity?: number;
 };
 
+const COVER_DEFAULTS = {
+  coverMode: "auto" as const,
+  coverPosterIds: [] as string[],
+  bw: false,
+  transitionMs: 6000,
+  overlayOpacity: 0.55,
+  enabled: true,
+};
+
 export const DEFAULT_COLLECTIONS: CollectionCard[] = [
-  { id: "football",      title: "Football",      subtitle: "Legends of the game",          image: "", link: "/category/football",      enabled: true },
-  { id: "movies",        title: "Movies",        subtitle: "Cinema on your wall",          image: "", link: "/category/movies",        enabled: true },
-  { id: "tv-series",     title: "TV Series",     subtitle: "Binge-worthy artwork",         image: "", link: "/category/tv-series",     enabled: true },
-  { id: "marvel-dc",     title: "Marvel & DC",   subtitle: "Heroes & villains",            image: "", link: "/category/marvel-dc",     enabled: true },
-  { id: "anime",         title: "Anime",         subtitle: "Iconic anime moments",         image: "", link: "/category/anime",         enabled: true },
-  { id: "cars",          title: "Cars",          subtitle: "Machines & motorsport",        image: "", link: "/category/cars",          enabled: true },
-  { id: "custom-design", title: "Custom Design", subtitle: "Your image, framed",           image: "", link: "/custom-design",          enabled: true },
-  { id: "photo-printing",title: "Photo Printing",subtitle: "Print your memories",          image: "", link: "/photo-printing",         enabled: true },
+  { id: "football",      title: "Football",      subtitle: "Legends of the game",   image: "", link: "/category/football",      ...COVER_DEFAULTS },
+  { id: "movies",        title: "Movies",        subtitle: "Cinema on your wall",   image: "", link: "/category/movies",        ...COVER_DEFAULTS },
+  { id: "tv-series",     title: "TV Series",     subtitle: "Binge-worthy artwork",  image: "", link: "/category/tv-series",     ...COVER_DEFAULTS },
+  { id: "marvel-dc",     title: "Marvel & DC",   subtitle: "Heroes & villains",     image: "", link: "/category/marvel-dc",     ...COVER_DEFAULTS },
+  { id: "anime",         title: "Anime",         subtitle: "Iconic anime moments",  image: "", link: "/category/anime",         ...COVER_DEFAULTS },
+  { id: "cars",          title: "Cars",          subtitle: "Machines & motorsport", image: "", link: "/category/cars",          ...COVER_DEFAULTS },
+  { id: "custom-design", title: "Custom Design", subtitle: "Your image, framed",    image: "", link: "/custom-design",          ...COVER_DEFAULTS },
+  { id: "photo-printing",title: "Photo Printing",subtitle: "Print your memories",   image: "", link: "/photo-printing",         ...COVER_DEFAULTS },
 ];
 
 function extractCategorySlug(link: string): string | null {
@@ -100,10 +109,23 @@ function useCoverImages(card: CollectionCard) {
       }
       // auto
       if (!slug) return card.image ? [card.image] : [];
+      // Resolve category + child ids (posters may live under subcategories)
+      const { data: cat, error: catErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (catErr) throw catErr;
+      if (!cat) return card.image ? [card.image] : [];
+      const { data: kids } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("parent_id", cat.id);
+      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("image_url,categories!inner(slug)")
-        .eq("categories.slug", slug)
+        .select("image_url")
+        .in("category_id", ids)
         .eq("hidden", false)
         .not("image_url", "is", null)
         .order("created_at", { ascending: false })
