@@ -517,7 +517,7 @@ function CustomDesignPage() {
           </div>
           {pics.length > 0 && (
             <p className="mt-3 text-center text-xs text-muted-foreground sm:text-sm">
-              متقلقش لو الصورة مش مظبوطة أوي في الـ Preview — الديزاينر بيظبطها قبل الطباعة.
+              Don't worry if the preview isn't perfectly aligned — our designer fine-tunes every image by hand before printing.
             </p>
           )}
         </div>
