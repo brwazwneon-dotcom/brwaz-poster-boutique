@@ -19,8 +19,7 @@ import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
-
-const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
+import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +37,7 @@ function Index() {
   const { data: categories = [] } = useCategories();
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
+  const { data: picks = {} } = useHomeCategoryPicks();
 
   const RENDERERS: Record<HomeSectionKey, (title?: string, subtitle?: string) => React.ReactNode> = {
     hero: () => <HeroSection key="hero" />,
@@ -57,6 +57,7 @@ function Index() {
               slug={slug}
               name={cat?.name ?? defaultName(slug)}
               index={i}
+              pickedIds={picks[slug] ?? []}
             />
           );
         })}
@@ -240,11 +241,23 @@ function defaultName(slug: string) {
     .join(" ");
 }
 
-function CategorySection({ slug, name, index }: { slug: string; name: string; index: number }) {
+function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
+  const picksKey = pickedIds.join(",");
   const { data: posters = [] } = useQuery({
-    queryKey: ["home-posters", slug],
+    queryKey: ["home-posters", slug, picksKey],
     staleTime: 60_000,
     queryFn: async () => {
+      // Admin-picked posters take priority (fixed order).
+      if (pickedIds.length > 0) {
+        const { data, error } = await supabase
+          .from("posters")
+          .select("id,title,image_url")
+          .in("id", pickedIds)
+          .not("image_url", "is", null);
+        if (error) throw error;
+        const map = new Map((data ?? []).map((p) => [p.id, p]));
+        return pickedIds.map((id) => map.get(id)).filter(Boolean).slice(0, 6);
+      }
       // Resolve category and its descendants (posters may live under subcategories).
       const { data: cat, error: catErr } = await supabase
         .from("categories")
