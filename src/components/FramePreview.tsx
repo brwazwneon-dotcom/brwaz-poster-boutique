@@ -133,7 +133,7 @@ export function FramePreview({
 
       {/* Transparent PNG frame overlay — sits on top of the artwork like a clipping mask */}
       {m.image && (
-        <img
+        <SafeImage
           src={m.image}
           alt=""
           loading={loading}
