@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-import frameBlackAsset from "@/assets/frames/frame-black.png.asset.json";
-import frameWhiteAsset from "@/assets/frames/frame-white.png.asset.json";
-import frameWoodAsset from "@/assets/frames/frame-wood.png.asset.json";
-
+// Frame mockups are served from /public so they work on every host
+// (Lovable preview, Lovable published, custom domains on Vercel, etc.).
+// The Lovable CDN paths (/__l5e/...) return 404 on non-Lovable hosts.
 import type { FrameTypeId, SizeId } from "@/lib/poster-options";
 
 export type SiteSettings = {
@@ -207,9 +206,9 @@ export type FrameMockups = {
 };
 
 const LOCAL_MOCKUP_IMAGES: Record<keyof FrameMockups, string> = {
-  black: frameBlackAsset.url,
-  white: frameWhiteAsset.url,
-  wood: frameWoodAsset.url,
+  black: "/mockups/frame-black.png",
+  white: "/mockups/frame-white.png",
+  wood: "/mockups/frame-wood.png",
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
@@ -232,9 +231,14 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     return Number.isFinite(n) ? n : fb;
   };
   const imgRaw = typeof v.image === "string" ? v.image.trim() : "";
-  // Ignore legacy broken paths (e.g. "/assets/mockups/...") that were stored
-  // before the uploaded CDN mockups existed — fall back to the bundled asset.
-  const isLegacy = imgRaw.startsWith("/assets/mockups/");
+  // Ignore host-specific URLs that only work on Lovable's preview/CDN
+  // (they 404 on custom-domain / Vercel deploys). Fall back to the
+  // locally-served /mockups/*.png file so every host renders correctly.
+  const isLegacy =
+    imgRaw.startsWith("/assets/mockups/") ||
+    imgRaw.startsWith("/__l5e/") ||
+    imgRaw.includes(".lovable.app/__l5e/") ||
+    imgRaw.includes(".lovableproject.com/__l5e/");
   return {
     image: imgRaw && !isLegacy ? imgRaw : fallback.image,
     top: numOr(v.top, fallback.top),
