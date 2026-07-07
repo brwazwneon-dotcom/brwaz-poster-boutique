@@ -109,10 +109,23 @@ function useCoverImages(card: CollectionCard) {
       }
       // auto
       if (!slug) return card.image ? [card.image] : [];
+      // Resolve category + child ids (posters may live under subcategories)
+      const { data: cat, error: catErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (catErr) throw catErr;
+      if (!cat) return card.image ? [card.image] : [];
+      const { data: kids } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("parent_id", cat.id);
+      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("image_url,categories!inner(slug)")
-        .eq("categories.slug", slug)
+        .select("image_url")
+        .in("category_id", ids)
         .eq("hidden", false)
         .not("image_url", "is", null)
         .order("created_at", { ascending: false })
