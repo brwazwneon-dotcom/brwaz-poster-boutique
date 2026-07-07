@@ -881,6 +881,11 @@ export function AiPosterUpload() {
                     subsOf={subsOf}
                     onChange={(patch) => editField(r.id, patch)}
                     onCreateSuggested={() => createSuggestedSubcategory(r.id)}
+                    onCreateMain={(cb) => openCreateMain(cb)}
+                    onCreateSub={(parentId, cb) => openCreateSub(parentId, cb)}
+                    onEditCategory={(cat) => openEdit(cat)}
+                    onDeleteCategory={(cat) => setDeleteState(cat)}
+                    findCategory={(id) => categoriesRef.current.find((c) => c.id === id) ?? null}
                   />
                 ))}
               </tbody>
