@@ -286,7 +286,8 @@ function CustomDesignPage() {
           ? `Image rotations: ${pics.map((p, i) => `#${i + 1}=${p.rotate}°`).filter((_, i) => pics[i].rotate).join(", ")}`
           : "",
         `Frame colors per image: ${pics.map((p, i) => `#${i + 1}=${labelForColor(p.color)}`).join(", ")}`,
-        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
+        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
+        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
       ].filter(Boolean).join("\n");
 
       // Summarise per-image frame colors into a single field for the order row.
