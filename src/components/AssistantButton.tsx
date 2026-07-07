@@ -48,7 +48,7 @@ function logRequest(payload: {
       selected_poster_id: payload.selected_poster_id ?? null,
       action: payload.action,
       session_id: sessionId(),
-      meta: payload.meta ?? null,
+      meta: (payload.meta ?? null) as never,
     });
   } catch {
     /* noop */
