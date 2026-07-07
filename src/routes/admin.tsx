@@ -279,6 +279,274 @@ function AdminPage() {
   );
 }
 
+/* ---------- HOME CATEGORY PICKS (posters shown in each home category section) ---------- */
+
+type PickPoster = { id: string; title: string; image_url: string | null };
+
+function HomeCategoryPicksTab() {
+  const qc = useQueryClient();
+  const [picks, setPicks] = useState<HomeCategoryPicks | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [activeSlug, setActiveSlug] = useState<string>(FEATURED_SLUGS[0]);
+  const [search, setSearch] = useState("");
+
+  const { data: initial, isLoading } = useQuery({
+    queryKey: ["admin-home-category-picks"],
+    queryFn: async (): Promise<HomeCategoryPicks> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", HOME_CATEGORY_PICKS_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      const raw = data?.value as Record<string, unknown> | null;
+      const out: HomeCategoryPicks = {};
+      if (raw && typeof raw === "object") {
+        for (const [k, v] of Object.entries(raw)) {
+          if (Array.isArray(v)) {
+            out[k] = v.filter((x): x is string => typeof x === "string" && !!x);
+          }
+        }
+      }
+      return out;
+    },
+  });
+
+  useEffect(() => {
+    if (initial && picks === null) setPicks(initial);
+  }, [initial, picks]);
+
+  const { data: cats = [] } = useQuery({
+    queryKey: ["admin-home-cats"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id,slug,name,parent_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const categoryIds = useMemo(() => {
+    const root = cats.find((c) => c.slug === activeSlug);
+    if (!root) return [] as string[];
+    const children = cats.filter((c) => c.parent_id === root.id).map((c) => c.id);
+    return [root.id, ...children];
+  }, [cats, activeSlug]);
+
+  const { data: posters = [] } = useQuery({
+    queryKey: ["admin-home-cat-posters", activeSlug, categoryIds.join(",")],
+    enabled: categoryIds.length > 0,
+    queryFn: async (): Promise<PickPoster[]> => {
+      const { data, error } = await supabase
+        .from("posters")
+        .select("id,title,image_url")
+        .in("category_id", categoryIds)
+        .eq("hidden", false)
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(300);
+      if (error) throw error;
+      return (data ?? []) as PickPoster[];
+    },
+  });
+
+  const selected = picks?.[activeSlug] ?? [];
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return posters;
+    return posters.filter((p) => (p.title ?? "").toLowerCase().includes(q));
+  }, [posters, search]);
+
+  const toggle = (id: string) => {
+    setPicks((prev) => {
+      const base = prev ?? {};
+      const cur = base[activeSlug] ?? [];
+      const next = cur.includes(id)
+        ? cur.filter((x) => x !== id)
+        : cur.length >= 6
+          ? (toast.error("Maximum 6 posters per collection"), cur)
+          : [...cur, id];
+      return { ...base, [activeSlug]: next };
+    });
+  };
+
+  const move = (id: string, dir: -1 | 1) => {
+    setPicks((prev) => {
+      const base = prev ?? {};
+      const cur = [...(base[activeSlug] ?? [])];
+      const i = cur.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= cur.length) return prev;
+      [cur[i], cur[j]] = [cur[j], cur[i]];
+      return { ...base, [activeSlug]: cur };
+    });
+  };
+
+  const clearActive = () => {
+    setPicks((prev) => ({ ...(prev ?? {}), [activeSlug]: [] }));
+  };
+
+  const save = async () => {
+    if (!picks) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: HOME_CATEGORY_PICKS_KEY, value: picks as unknown as never });
+      if (error) throw error;
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["admin-home-category-picks"] });
+      qc.invalidateQueries({ queryKey: ["home-category-picks"] });
+      qc.invalidateQueries({ queryKey: ["home-posters"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading || picks === null) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  const selectedPosters = selected
+    .map((id) => posters.find((p) => p.id === id))
+    .filter((p): p is PickPoster => !!p);
+
+  return (
+    <div>
+      <div className="rounded-sm border border-border bg-card p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="text-sm">
+            Pick up to <b>6</b> posters per collection. When empty, the homepage rotates random posters from that category.
+          </div>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="ml-auto inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {FEATURED_SLUGS.map((s) => {
+            const count = (picks[s] ?? []).length;
+            return (
+              <button
+                key={s}
+                onClick={() => setActiveSlug(s)}
+                className={cn(
+                  "rounded-sm border px-3 py-2 text-xs uppercase tracking-widest transition",
+                  activeSlug === s
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border hover:bg-accent",
+                )}
+              >
+                {s} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="rounded-sm border border-border bg-card p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search posters…"
+              className="w-64 rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="text-xs text-muted-foreground">
+              {filtered.length} posters in this collection
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              No posters found for this category yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              {filtered.map((p) => {
+                const isSel = selected.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => toggle(p.id)}
+                    className={cn(
+                      "group relative aspect-[3/4] overflow-hidden rounded-sm border-2 bg-muted transition",
+                      isSel ? "border-primary" : "border-transparent hover:border-border",
+                    )}
+                    title={p.title}
+                  >
+                    {p.image_url && (
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                    {isSel && (
+                      <div className="absolute inset-x-0 top-0 bg-primary px-1 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
+                        Picked #{selected.indexOf(p.id) + 1}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-sm border border-border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold uppercase tracking-widest">Selected ({selectedPosters.length}/6)</div>
+            {selectedPosters.length > 0 && (
+              <button
+                onClick={clearActive}
+                className="ml-auto text-xs text-muted-foreground hover:text-destructive"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {selectedPosters.length === 0 ? (
+            <div className="mt-4 rounded-sm border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+              Nothing picked — homepage will show random posters from this category.
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {selectedPosters.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-2 rounded-sm border border-border p-2">
+                  <div className="h-12 w-9 shrink-0 overflow-hidden rounded-sm bg-muted">
+                    {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1 truncate text-xs">{p.title}</div>
+                  <div className="flex gap-1">
+                    <button onClick={() => move(p.id, -1)} disabled={i === 0} className="rounded-sm border border-border p-1 disabled:opacity-30" aria-label="Move up">
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => move(p.id, 1)} disabled={i === selectedPosters.length - 1} className="rounded-sm border border-border p-1 disabled:opacity-30" aria-label="Move down">
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => toggle(p.id)} className="rounded-sm border border-border p-1 text-muted-foreground hover:text-destructive" aria-label="Remove">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function QuickBarTab() {
   const qc = useQueryClient();
   const [cfg, setCfg] = useState<QuickBarConfig>(DEFAULT_QUICKBAR);
