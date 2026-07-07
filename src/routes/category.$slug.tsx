@@ -303,6 +303,7 @@ function CategoryPage() {
                 {filteredPosters.map((p) => {
                   const active = selectedIds.includes(p.id);
                   const idx = selectedIds.indexOf(p.id);
+                  void idx;
                   return (
                     <div
                       key={p.id}
