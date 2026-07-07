@@ -3,6 +3,7 @@ import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 /**
  * Picks which mockup variant applies for a given frame type + color.
@@ -53,6 +54,7 @@ export function FramePreview({
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
+  const [posterLoaded, setPosterLoaded] = useState(false);
   // Always use the uploaded PNG mockups. No CSS-based fallback is drawn
   // so the visual is consistent across desktop and mobile — even during
   // the brief image load the matte color reads as the frame edge.
@@ -141,7 +143,21 @@ export function FramePreview({
             willChange: "transform",
             backfaceVisibility: "hidden",
           }}
+          onLoad={() => setPosterLoaded(true)}
         />
+        {/* Skeleton shimmer while the poster image is loading — prevents
+            the black matte from reading as a broken/empty card. */}
+        {!posterLoaded && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 animate-pulse"
+            style={{
+              background:
+                "linear-gradient(110deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.06) 100%)",
+              backgroundColor: "rgba(255,255,255,0.08)",
+            }}
+          />
+        )}
         {/* Glass reflection across the print area */}
         {!bare && (
           <div
