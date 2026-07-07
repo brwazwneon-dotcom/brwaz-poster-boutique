@@ -357,7 +357,8 @@ function CustomDesignPage() {
         `Address: ${address}`,
         `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${frameColorSummary}`,
         `Images: ${pics.length}`,
-        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
+        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
+        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
         `Total: ${total} EGP (Cash on delivery)`,
       ].filter(Boolean).join("\n");
       window.location.href = whatsappLink(msg);
