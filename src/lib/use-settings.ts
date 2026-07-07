@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+import frameBlackAsset from "@/assets/frames/frame-black.png.asset.json";
+import frameWhiteAsset from "@/assets/frames/frame-white.png.asset.json";
+import frameWoodAsset from "@/assets/frames/frame-wood.png.asset.json";
+
 import type { FrameTypeId, SizeId } from "@/lib/poster-options";
 
 export type SiteSettings = {
@@ -203,9 +207,9 @@ export type FrameMockups = {
 };
 
 const LOCAL_MOCKUP_IMAGES: Record<keyof FrameMockups, string> = {
-  black: "/assets/mockups/frame-black.png",
-  white: "/assets/mockups/frame-white.png",
-  wood: "/assets/mockups/frame-wood.png",
+  black: frameBlackAsset.url,
+  white: frameWhiteAsset.url,
+  wood: frameWoodAsset.url,
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
