@@ -25,6 +25,8 @@ type GenInput = {
   subject?: string;
   tags?: string[];
   notes?: string;
+  include_hashtags?: boolean;
+  include_alt_text?: boolean;
 };
 
 type SeoResult = {
@@ -33,6 +35,8 @@ type SeoResult = {
   seo_title: string;
   seo_description: string;
   tags: string[];
+  hashtags?: string[];
+  alt_text?: string;
 };
 
 function json(status: number, body: unknown) {
@@ -60,7 +64,7 @@ Return STRICT JSON only, no markdown, no commentary. Shape:
   "description": "80-150 word marketing paragraph. Mention FujiFilm Crystal Archive chemical paper, PVC frame or Wooden Portrait finish, fade-resistant colors, gallery finish, and gift/wall decor use.",
   "seo_title": "max 60 chars, ends with ' | BRWAZWNEON'",
   "seo_description": "max 155 chars, action-oriented, mentions framed poster and Egypt / cash on delivery when it fits",
-  "tags": ["10 to 20 short lowercase keywords, include subject, franchise, style, room, gift, brwazwneon"]
+  "tags": ["10 to 20 short lowercase keywords, include subject, franchise, style, room, gift, brwazwneon"]${input.include_hashtags ? `,\n  "hashtags": ["8-15 social hashtags without the # symbol, lowercase, no spaces"]` : ""}${input.include_alt_text ? `,\n  "alt_text": "single descriptive alt text under 120 chars, plain text, no emoji"` : ""}
 }`;
 
   const user = `Generate premium SEO content for this poster.\n${hints || "No specific hints — infer a strong generic listing."}`;
@@ -129,7 +133,19 @@ function normalize(parsed: Partial<SeoResult>, fallbackTitle: string): SeoResult
         ),
       ).slice(0, 20)
     : [];
-  return { title, description, seo_title, seo_description, tags };
+  const hashtags = Array.isArray(parsed.hashtags)
+    ? Array.from(
+        new Set(
+          parsed.hashtags
+            .map((t) => String(t).toLowerCase().replace(/^#+/, "").replace(/\s+/g, "").trim())
+            .filter((t) => t && t.length <= 40),
+        ),
+      ).slice(0, 15)
+    : undefined;
+  const alt_text = typeof parsed.alt_text === "string"
+    ? parsed.alt_text.trim().slice(0, 160) || undefined
+    : undefined;
+  return { title, description, seo_title, seo_description, tags, hashtags, alt_text };
 }
 
 Deno.serve(async (req) => {
