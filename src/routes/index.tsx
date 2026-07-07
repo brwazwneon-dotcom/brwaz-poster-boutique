@@ -245,10 +245,25 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
     queryKey: ["home-posters", slug],
     staleTime: 60_000,
     queryFn: async () => {
+      // Resolve category and its descendants (posters may live under subcategories).
+      const { data: cat, error: catErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (catErr) throw catErr;
+      if (!cat) return [];
+      const { data: kids } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("parent_id", cat.id);
+      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,categories!inner(slug)")
-        .eq("categories.slug", slug)
+        .select("id,title,image_url")
+        .in("category_id", ids)
+        .eq("hidden", false)
+        .not("image_url", "is", null)
         .order("created_at", { ascending: false })
         .limit(6);
       if (error) throw error;
