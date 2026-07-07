@@ -190,6 +190,45 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_requests: {
+        Row: {
+          action: string
+          category: string | null
+          created_at: string
+          id: string
+          keyword: string
+          meta: Json | null
+          selected_poster_id: string | null
+          selected_title: string | null
+          session_id: string | null
+          size: string | null
+        }
+        Insert: {
+          action?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          keyword: string
+          meta?: Json | null
+          selected_poster_id?: string | null
+          selected_title?: string | null
+          session_id?: string | null
+          size?: string | null
+        }
+        Update: {
+          action?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          keyword?: string
+          meta?: Json | null
+          selected_poster_id?: string | null
+          selected_title?: string | null
+          session_id?: string | null
+          size?: string | null
+        }
+        Relationships: []
+      }
       backups: {
         Row: {
           backup_type: string
