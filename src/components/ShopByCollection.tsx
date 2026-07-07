@@ -175,6 +175,15 @@ function CollectionCover({ card }: { card: CollectionCard }) {
       {/* Framed poster cover — centered inside the card */}
       <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-7">
         <div className="relative mx-auto aspect-[2/3] h-full max-h-full w-auto max-w-full transition-transform duration-700 group-hover:scale-[1.04]">
+          {valid.length === 0 && (
+            <FramePreview
+              posterUrl=""
+              title={card.title}
+              aspectClassName="aspect-[2/3]"
+              loading="lazy"
+              editSettings={{ fit: "cover", offsetX: 0, offsetY: 0, zoom: 1, stretchX: 1, stretchY: 1, rotate: 0 }}
+            />
+          )}
           {valid.map((url, i) => (
             <div
               key={url + i}
