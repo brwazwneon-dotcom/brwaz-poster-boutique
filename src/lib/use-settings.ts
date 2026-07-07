@@ -202,9 +202,9 @@ export type FrameMockups = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  white: { image: "", top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  wood:  { image: "", top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  black: { image: "/assets/frame-black.webp", top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  white: { image: "/assets/frame-white.webp", top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  wood:  { image: "/assets/frame-wood.webp",  top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
