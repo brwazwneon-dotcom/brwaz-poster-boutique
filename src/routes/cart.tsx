@@ -383,11 +383,10 @@ function CartPage() {
         } as (typeof rows)[number]);
       }
       logCheckoutWrite("insert", "orders", rows);
-      const { data: inserted, error } = await supabase
+      const { error } = await supabase
         .from("orders")
         // is_test flag isn't in generated types yet — safe cast.
-        .insert(rows as unknown as never)
-        .select("id");
+        .insert(rows as unknown as never);
       if (error) {
         logCheckoutWrite("error", "orders", rows, error);
         throw error;
@@ -399,11 +398,8 @@ function CartPage() {
         new URLSearchParams(window.location.search).get("send_test_notification") === "1";
       try {
         if (testFlag && !wantsTestNotify) throw new Error("skip test notify");
-        const ids = (inserted ?? []).map((r) => r.id).filter(Boolean);
-        if (ids.length) {
-          const { notifyNewOrder } = await import("@/lib/notifications.functions");
-          void Promise.allSettled(ids.map((orderId) => notifyNewOrder({ data: { orderId } })));
-        }
+        // The order insert intentionally does not request returned rows; guest
+        // customers should be able to create orders without gaining read access.
       } catch (e) {
         console.warn("order notification failed", e);
       }
