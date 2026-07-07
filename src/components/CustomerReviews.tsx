@@ -1,10 +1,9 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
 import { Star, BadgeCheck, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useInView } from "@/hooks/use-in-view";
 import { buildSampleReviews, relativeDate, shuffle } from "@/lib/sample-reviews";
 
 type Review = {
@@ -76,7 +75,15 @@ export function CustomerReviews({
     return { avg: sum / source.length, count: source.length };
   }, [reviews, displayed]);
 
-  const [sectionRef, inView] = useInView<HTMLDivElement>({ rootMargin: "-10% 0px" });
+  // Small entrance stagger, but never gate visibility on IntersectionObserver —
+  // some environments (embedded iframes, background tabs) never fire it and the
+  // whole section would stay invisible. Show reviews immediately.
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setInView(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   if (displayed.length === 0) return null;
 
