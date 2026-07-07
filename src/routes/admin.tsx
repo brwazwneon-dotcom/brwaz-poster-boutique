@@ -2189,6 +2189,7 @@ type Order = {
   payment_screenshot: string | null;
   payment_notes: string | null;
   payment_verified_at: string | null;
+  is_test?: boolean | null;
 };
 
 const STATUSES = ["new", "processing", "printed", "shipped", "delivered", "cancelled"];
