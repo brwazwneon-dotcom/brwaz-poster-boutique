@@ -734,13 +734,18 @@ function CartPage() {
                       {i.bundle && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {i.bundle.posters.map((p) => (
-                            <SafeImage
-                              key={p.posterId}
-                              src={p.image}
-                              alt={p.title}
-                              title={p.title}
-                              className="h-12 w-9 rounded-sm border border-border object-cover"
-                            />
+                            <div key={p.posterId} className="h-12 w-9 overflow-hidden rounded-sm border border-border">
+                              <FramePreview
+                                posterUrl={p.image}
+                                title={p.title}
+                                frameType={i.frameType}
+                                color={i.color}
+                                editSettings={i.editSettings}
+                                bare
+                                loading="lazy"
+                                className="h-full w-full"
+                              />
+                            </div>
                           ))}
                         </div>
                       )}

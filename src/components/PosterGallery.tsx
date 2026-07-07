@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, ZoomIn, X } from "lucide-react";
@@ -61,10 +60,10 @@ export function PosterGallery({
     return base;
   }, [extras, posterUrl]);
 
-  const defaultIndex = useMemo(() => {
-    const i = extras.findIndex((e) => e.is_default);
-    return i >= 0 ? i + 1 : 0;
-  }, [extras]);
+  // Product previews must always open on the real uploaded frame mockup.
+  // Extra images remain selectable, but they are composited with the same
+  // mockup renderer so desktop never shows a raw poster image by itself.
+  const defaultIndex = 0;
 
   const [index, setIndex] = useState(defaultIndex);
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -80,25 +79,14 @@ export function PosterGallery({
   return (
     <div>
       <div className="relative">
-        {current.kind === "frame" ? (
-          <FramePreview
-            posterUrl={current.url}
-            title={title}
-            frameType={frameType}
-            color={color}
-            editSettings={editSettings}
-            loading="eager"
-          />
-        ) : (
-          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-sm bg-card">
-            <SafeImage
-              src={current.url}
-              alt={`${title} — ${current.label}`}
-              className="h-full w-full object-cover"
-              loading="eager"
-            />
-          </div>
-        )}
+        <FramePreview
+          posterUrl={current.url}
+          title={current.kind === "frame" ? title : `${title} — ${current.label}`}
+          frameType={frameType}
+          color={color}
+          editSettings={editSettings}
+          loading="eager"
+        />
 
         {slides.length > 1 && (
           <>
@@ -144,19 +132,16 @@ export function PosterGallery({
               )}
               title={s.label}
             >
-              {s.kind === "frame" ? (
-                <FramePreview
-                  posterUrl={s.url}
-                  frameType={frameType}
-                  color={color}
-                  editSettings={editSettings}
-                  aspectClassName="aspect-square"
-                  bare
-                  className="h-full w-full"
-                />
-              ) : (
-                <SafeImage src={s.url} alt={s.label} className="h-full w-full object-cover" loading="lazy" />
-              )}
+              <FramePreview
+                posterUrl={s.url}
+                frameType={frameType}
+                color={color}
+                editSettings={editSettings}
+                aspectClassName="aspect-square"
+                bare
+                loading="lazy"
+                className="h-full w-full"
+              />
             </button>
           ))}
         </div>
@@ -174,14 +159,32 @@ export function PosterGallery({
           >
             <X className="h-5 w-5" />
           </button>
-          <ZoomViewer src={current.url} alt={title} />
+          <ZoomViewer
+            src={current.url}
+            alt={title}
+            frameType={frameType}
+            color={color}
+            editSettings={editSettings}
+          />
         </div>
       )}
     </div>
   );
 }
 
-function ZoomViewer({ src, alt }: { src: string; alt: string }) {
+function ZoomViewer({
+  src,
+  alt,
+  frameType,
+  color,
+  editSettings,
+}: {
+  src: string;
+  alt: string;
+  frameType: FrameTypeId;
+  color: FrameColorId;
+  editSettings?: unknown;
+}) {
   const [scale, setScale] = useState(1);
   return (
     <div
@@ -193,13 +196,19 @@ function ZoomViewer({ src, alt }: { src: string; alt: string }) {
         setScale((s) => Math.max(1, Math.min(5, s + (e.deltaY < 0 ? 0.2 : -0.2))));
       }}
     >
-      <img
-        src={src}
-        alt={alt}
+      <div
         style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform 0.15s" }}
-        className="max-h-[90vh] max-w-[95vw] select-none"
-        draggable={false}
-      />
+        className="w-[min(70vh,95vw)] max-w-[560px] select-none"
+      >
+        <FramePreview
+          posterUrl={src}
+          title={alt}
+          frameType={frameType}
+          color={color}
+          editSettings={editSettings}
+          loading="eager"
+        />
+      </div>
       <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-sm bg-background/85 px-2 py-1 text-[10px] uppercase tracking-widest">
         Scroll or double-tap to zoom
       </div>
