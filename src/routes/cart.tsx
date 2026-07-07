@@ -371,7 +371,9 @@ function CartPage() {
       } catch { /* noop */ }
 
       // Bump purchase counts for posters in this order (non-blocking).
+      // Skip for test orders so they don't inflate sales counters.
       try {
+        if (testFlag) throw new Error("skip test sales tracking");
         const { trackPosterSales } = await import("@/lib/poster-tracking");
         const ids: string[] = [];
         const qtyById = new Map<string, number>();
