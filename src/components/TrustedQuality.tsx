@@ -54,8 +54,33 @@ const CARDS: Card[] = [
 const GOLD = "#c9a24a";
 
 export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?: string }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setInView(true);
+            io.disconnect();
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -80px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <section className="relative isolate overflow-hidden border-t border-border bg-black text-white">
+    <section ref={sectionRef} className="relative isolate overflow-hidden border-t border-border bg-black text-white">
       {/* Ambient depth — subtle radial + top/bottom fades */}
       <div
         aria-hidden="true"
@@ -77,7 +102,12 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
 
       <div className="container-page py-24 sm:py-32">
         {/* Header */}
-        <div className="mx-auto max-w-2xl text-center">
+        <div
+          className={[
+            "mx-auto max-w-2xl text-center transition-all duration-1000 ease-out",
+            inView ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0",
+          ].join(" ")}
+        >
           <div className="mx-auto mb-6 flex items-center justify-center gap-3">
             <span className="h-px w-10" style={{ background: `linear-gradient(to right, transparent, ${GOLD})` }} />
             <span
@@ -99,7 +129,13 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
         </div>
 
         {/* Stat strip — 25-year badge flanked by proof stats */}
-        <div className="mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 sm:mt-14 sm:gap-4">
+        <div
+          className={[
+            "mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 transition-all duration-1000 ease-out sm:mt-14 sm:gap-4",
+            inView ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0",
+          ].join(" ")}
+          style={{ transitionDelay: inView ? "180ms" : "0ms" }}
+        >
           <StatCard value="7M+" label={"Photos\nPrinted"} />
           <StatCard value="50K+" label={"Happy\nClients"} />
           <YearsBadge />
