@@ -187,7 +187,7 @@ function CartPage() {
       ...lines,
       "",
       `Subtotal: ${subtotal} EGP`,
-      ...(bundle.tier ? [`Bundle Discount (${bundle.tier.percent}%): −${bundle.amount} EGP`] : []),
+      ...(bundle.tier ? [`Bundle Discount: −${bundle.amount} EGP`] : []),
       ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
       ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
@@ -700,21 +700,6 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
-                {bundle.tier && (
-                  <div className="flex items-center justify-between text-emerald-500">
-                    <span className="flex items-center gap-2">
-                      <span aria-hidden>🎁</span>
-                      Bundle discount ({bundle.tier.percent}% · {posterCount} posters)
-                    </span>
-                    <span>− {bundle.amount} EGP</span>
-                  </div>
-                )}
-                {nextBundleTier && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Add {nextBundleTier.minPosters - posterCount} more poster
-                    {nextBundleTier.minPosters - posterCount === 1 ? "" : "s"} to save {nextBundleTier.percent}%.
-                  </p>
-                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
