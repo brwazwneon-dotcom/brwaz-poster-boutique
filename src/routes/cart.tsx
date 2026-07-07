@@ -72,22 +72,46 @@ function CartPage() {
     (s, i) => s + (!i.bundle && i.size === "30x40" ? i.qty : 0),
     0,
   );
-  const bundleNudges = [
-    {
-      key: "bundle-6-20x30" as const,
-      size: "20 × 30",
-      have: indiv20x30,
-      need: 6,
-      price: pricing.offers.bundle6_20x30,
-    },
-    {
-      key: "bundle-4-30x40" as const,
-      size: "30 × 40",
-      have: indiv30x40,
-      need: 4,
-      price: pricing.offers.bundle4_30x40,
-    },
-  ].filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3);
+  // Average unit price the customer is currently paying for a given size —
+  // used to estimate how much they would save by completing the bundle.
+  const avgUnitFor = (size: "20x30" | "30x40") => {
+    let qty = 0;
+    let sum = 0;
+    for (const i of items) {
+      if (!i.bundle && i.size === size) {
+        qty += i.qty;
+        sum += i.price * i.qty;
+      }
+    }
+    return qty > 0 ? sum / qty : 0;
+  };
+  const bundleNudges = (
+    [
+      {
+        key: "bundle-6-20x30" as const,
+        size: "20 × 30",
+        sizeId: "20x30" as const,
+        have: indiv20x30,
+        need: 6,
+        price: pricing.offers.bundle6_20x30,
+      },
+      {
+        key: "bundle-4-30x40" as const,
+        size: "30 × 40",
+        sizeId: "30x40" as const,
+        have: indiv30x40,
+        need: 4,
+        price: pricing.offers.bundle4_30x40,
+      },
+    ]
+      .filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3)
+      .map((n) => {
+        const unit = avgUnitFor(n.sizeId);
+        const wouldPay = unit * n.need;
+        const savings = Math.max(0, Math.round(wouldPay - n.price));
+        return { ...n, savings };
+      })
+  );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
