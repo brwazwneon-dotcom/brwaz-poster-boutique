@@ -21,6 +21,8 @@ import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.fu
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { CategoryEditorDialog } from "./CategoryEditorDialog";
+import { CategoryDeleteDialog } from "./CategoryDeleteDialog";
 import {
   useAiAutoApproveThreshold,
   computeReviewReasons,
