@@ -21,6 +21,7 @@ const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EG_PHONE_RE = /^01\d{9}$/;
 const CHECKOUT_DEBUG = true;
 
 function asUuid(value: string | null | undefined): string | null {
@@ -337,6 +338,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (!EG_PHONE_RE.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
     // Show the upsell popup once per checkout session, only if enabled.
@@ -369,6 +372,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (!EG_PHONE_RE.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
 
