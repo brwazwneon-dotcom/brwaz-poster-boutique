@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useState } from "react";
+import { FramePreview } from "@/components/FramePreview";
 
 export type CollectionCard = {
   id: string;
@@ -63,7 +64,7 @@ export function useHomeCollections() {
           enabled: c.enabled !== false,
           coverMode: c.coverMode ?? "auto",
           coverPosterIds: Array.isArray(c.coverPosterIds) ? c.coverPosterIds : [],
-          bw: c.bw !== false,
+          bw: c.bw === true,
           transitionMs: typeof c.transitionMs === "number" ? c.transitionMs : 6000,
           overlayOpacity:
             typeof c.overlayOpacity === "number" ? c.overlayOpacity : 0.55,
@@ -127,7 +128,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
   const valid = useMemo(() => images.filter((u) => !broken[u]), [images, broken]);
   const [index, setIndex] = useState(0);
   const interval = Math.max(2000, card.transitionMs ?? 6000);
-  const bw = card.bw !== false;
+  const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
 
   useEffect(() => {
@@ -142,31 +143,41 @@ function CollectionCover({ card }: { card: CollectionCard }) {
     if (index >= valid.length) setIndex(0);
   }, [valid.length, index]);
 
-  const grayscale = bw
-    ? "grayscale group-hover:grayscale-[40%]"
-    : "group-hover:brightness-110";
-
   return (
     <>
       {/* Fallback gradient — always present so gaps are never blank */}
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
 
-      {valid.map((url, i) => (
-        <img
-          key={url + i}
-          src={url}
-          alt=""
-          aria-hidden="true"
-          loading="lazy"
-          onError={() => setBroken((b) => ({ ...b, [url]: true }))}
-          className={[
-            "absolute inset-0 h-full w-full object-cover transition-all duration-[1400ms] ease-in-out will-change-[opacity,transform]",
-            grayscale,
-            "group-hover:scale-[1.04]",
-            i === index ? "opacity-100" : "opacity-0",
-          ].join(" ")}
-        />
-      ))}
+      {/* Framed poster cover — centered inside the card */}
+      <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8">
+        <div className="relative aspect-[2/3] h-full max-h-full w-auto transition-transform duration-700 group-hover:scale-[1.04]">
+          {valid.map((url, i) => (
+            <div
+              key={url + i}
+              className={[
+                "absolute inset-0 transition-opacity duration-[1400ms] ease-in-out",
+                bw ? "grayscale group-hover:grayscale-[30%]" : "",
+                i === index ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+            >
+              <FramePreview
+                posterUrl={url}
+                title={card.title}
+                aspectClassName="aspect-[2/3]"
+                loading="lazy"
+              />
+              {/* Detect broken source so we can drop it from rotation */}
+              <img
+                src={url}
+                alt=""
+                aria-hidden="true"
+                className="hidden"
+                onError={() => setBroken((b) => ({ ...b, [url]: true }))}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Dark overlay */}
       <div
