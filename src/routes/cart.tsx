@@ -374,8 +374,39 @@ function CartPage() {
     const contentIds = items.flatMap((i) =>
       i.bundle ? i.bundle.posters.map((p) => p.posterId) : [i.posterId],
     );
+    const checkoutTotals = {
+      subtotal,
+      discount: bundle.amount,
+      shipping,
+      packaging: packagingFee,
+      tape: tapeTotal,
+      total: grand,
+      paymentMethod,
+      itemCount: items.length,
+      posterCount,
+      frameCount,
+    };
+    logCheckoutStep({
+      step: "checkout_clicked",
+      payload: {
+        customer: { name, phone, governorate, address },
+        items,
+        totals: checkoutTotals,
+      },
+    });
     setUserData({ phone, city: governorate, country: "EG" });
     try {
+      logCheckoutStep({
+        step: "meta_pixel_initiate_checkout",
+        operation: "trackEvent",
+        payload: {
+          content_ids: contentIds,
+          contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
+          num_items: items.reduce((s, i) => s + i.qty, 0),
+          value: grand,
+          currency: "EGP",
+        },
+      });
       trackEvent("InitiateCheckout", {
         content_ids: contentIds,
         contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
@@ -383,26 +414,41 @@ function CartPage() {
         value: grand,
         currency: "EGP",
       }, { phone, city: governorate, country: "EG" });
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "meta_pixel_initiate_checkout", operation: "trackEvent", error: err });
+    }
     try {
       const { logCheckoutStart } = await import("@/lib/analytics");
+      logCheckoutStep({ step: "analytics_checkout_start", table: "analytics_poster_events", operation: "insert" });
       logCheckoutStart();
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "analytics_checkout_start", table: "analytics_poster_events", operation: "insert", error: err });
+    }
     try {
       const { track } = await import("@/lib/behavior");
+      logCheckoutStep({ step: "behavior_checkout_start", table: "visitor_cart_events", operation: "insert" });
       track.checkoutStart();
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "behavior_checkout_start", table: "visitor_cart_events", operation: "insert", error: err });
+    }
     try {
       let screenshotPath: string | null = null;
       if (paymentMethod === "instapay" && screenshot) {
         const folder = crypto.randomUUID();
         const rawExt = (screenshot.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "jpg";
         const path = `${folder}/receipt.${rawExt}`;
+        const storagePayload = {
+          bucket: "payment-screenshots",
+          path,
+          file: { name: screenshot.name, type: screenshot.type, size: screenshot.size },
+        };
+        logCheckoutStep({ step: "payment_screenshot_upload", table: "storage.objects", operation: "upload", payload: storagePayload });
         const { error: upErr } = await supabase.storage
           .from("payment-screenshots")
           .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
-        if (upErr) throw upErr;
+        if (upErr) throwCheckoutError({ step: "payment_screenshot_upload", table: "storage.objects", operation: "upload", payload: storagePayload, error: upErr });
         screenshotPath = path;
+        logCheckoutStep({ step: "payment_screenshot_upload_complete", table: "storage.objects", operation: "upload", result: { path: screenshotPath } });
       }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
@@ -468,15 +514,26 @@ function CartPage() {
           is_test: testFlag,
         } as (typeof rows)[number]);
       }
-      logCheckoutWrite("insert", "orders", rows);
+      const orderPayloadDebug = {
+        customer: { name, phone, governorate, address },
+        order: {
+          payment_method: paymentMethod,
+          payment_screenshot: screenshotPath,
+          is_test: testFlag,
+          guest_session_id: guestSessionId,
+        },
+        order_items: rows,
+        totals: checkoutTotals,
+      };
+      logCheckoutStep({ step: "orders_insert_start", table: "orders", operation: "insert", payload: orderPayloadDebug });
       const { error } = await supabase
         .from("orders")
         // is_test flag isn't in generated types yet — safe cast.
         .insert(rows as unknown as never);
       if (error) {
-        logCheckoutWrite("error", "orders", rows, error);
-        throw error;
+        throwCheckoutError({ step: "orders_insert", table: "orders", operation: "insert", payload: orderPayloadDebug, error });
       }
+      logCheckoutStep({ step: "orders_insert_complete", table: "orders", operation: "insert", result: { insertedRows: rows.length } });
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
       // Skip notifications for test orders unless caller opts in via ?send_test_notification=1.
@@ -505,7 +562,9 @@ function CartPage() {
           currency: "EGP",
           order_id: `BRW-${Date.now()}`,
         }, { phone, city: governorate, country: "EG" });
-      } catch { /* noop */ }
+      } catch (err) {
+        logCheckoutStep({ step: "meta_pixel_purchase", operation: "trackEvent", error: err });
+      }
 
       // Bump purchase counts for posters in this order (non-blocking).
       // Skip for test orders so they don't inflate sales counters.
@@ -537,22 +596,26 @@ function CartPage() {
           Array.from(byQty.entries()).map(([q, pids]) => trackPosterSales(pids, q)),
         );
       } catch (e) {
-        console.warn("sales tracking failed", e);
+        logCheckoutStep({ step: "poster_sales_tracking", table: "posters", operation: "rpc increment_poster_sales", error: e });
       }
 
       toast.success("Order placed! Opening WhatsApp…");
       try {
         const { track } = await import("@/lib/behavior");
         const pids = items.flatMap((i) => i.bundle ? i.bundle.posters.map((p) => p.posterId) : (i.posterId ? [i.posterId] : []));
+        logCheckoutStep({ step: "behavior_purchase", table: "visitor_cart_events", operation: "insert/rpc", payload: { posterIds: pids } });
         track.purchase(phone, pids);
-      } catch { /* noop */ }
+      } catch (err) {
+        logCheckoutStep({ step: "behavior_purchase", table: "visitor_cart_events", operation: "insert/rpc", error: err });
+      }
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
       setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
       setTapeChoice(null); setTapeOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to place order");
+      logCheckoutStep({ step: "checkout_failed", error: err });
+      toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
