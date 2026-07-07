@@ -77,6 +77,11 @@ import {
   type BestSellersConfig,
 } from "@/lib/homepage-sections";
 import {
+  FEATURED_SLUGS,
+  HOME_CATEGORY_PICKS_KEY,
+  type HomeCategoryPicks,
+} from "@/lib/home-category-picks";
+import {
   SIZE_GUIDE_KEY,
   DEFAULT_SIZE_GUIDE,
   type SizeGuideConfig,
