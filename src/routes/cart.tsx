@@ -61,6 +61,33 @@ function CartPage() {
   );
   const bundle = computeBundleDiscount(subtotal, posterCount);
   const nextBundleTier = nextTier(posterCount);
+  // Bundle-offer nudges: detect near-completion of the 20x30 (6-pack) or
+  // 30x40 (4-pack) bundle so we can suggest adding the missing posters
+  // and unlocking the flat bundle price on /offers.
+  const indiv20x30 = items.reduce(
+    (s, i) => s + (!i.bundle && i.size === "20x30" ? i.qty : 0),
+    0,
+  );
+  const indiv30x40 = items.reduce(
+    (s, i) => s + (!i.bundle && i.size === "30x40" ? i.qty : 0),
+    0,
+  );
+  const bundleNudges = [
+    {
+      key: "bundle-6-20x30" as const,
+      size: "20 × 30",
+      have: indiv20x30,
+      need: 6,
+      price: pricing.offers.bundle6_20x30,
+    },
+    {
+      key: "bundle-4-30x40" as const,
+      size: "30 × 40",
+      have: indiv30x40,
+      need: 4,
+      price: pricing.offers.bundle4_30x40,
+    },
+  ].filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3);
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
