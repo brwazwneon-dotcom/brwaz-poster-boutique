@@ -59,8 +59,9 @@ function CartPage() {
     (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
     0,
   );
-  const bundle = computeBundleDiscount(subtotal, posterCount);
-  const nextBundleTier = nextTier(posterCount);
+  // Discounts only apply to the two flat-priced bundle offers (already
+  // reflected in each bundle line's price). No automatic tiered discount.
+  const bundle = { tier: null as null, amount: 0 };
   // Bundle-offer nudges: detect near-completion of the 20x30 (6-pack) or
   // 30x40 (4-pack) bundle so we can suggest adding the missing posters
   // and unlocking the flat bundle price on /offers.
