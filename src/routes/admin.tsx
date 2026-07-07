@@ -4127,6 +4127,7 @@ function CollectionsTab() {
                   Enabled
                 </label>
               </div>
+              <CoverSettingsEditor card={c} onChange={(patch) => update(i, patch)} />
             </div>
             <div className="flex flex-col items-end gap-1">
               <button
