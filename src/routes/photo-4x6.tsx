@@ -201,6 +201,8 @@ function Photo4x6Page() {
       return toast.error(`This package includes ${pkg.photos} photos. Remove ${pics.length - pkg.photos}.`);
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
       return toast.error("Please fill in all delivery details");
+    if (!/^01\d{9}$/.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
 
     setSubmitting(true);
     setProgress(0);
@@ -459,7 +461,25 @@ function Photo4x6Page() {
                 <h3 className="text-display text-2xl">Checkout</h3>
                 <div className="mt-4 space-y-3">
                   <Input label="Full name" value={name} onChange={setName} />
-                  <Input label="Phone" value={phone} onChange={setPhone} />
+                  <label className="block">
+                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Phone · رقم الموبايل
+                    </span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={11}
+                      placeholder="01xxxxxxxxx"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                      className={`mt-1 w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:border-primary ${phone && !/^01\d{9}$/.test(phone) ? "border-destructive" : "border-border"}`}
+                    />
+                    {phone.length > 0 && !/^01\d{9}$/.test(phone) && (
+                      <span className="mt-1 block text-[11px] text-destructive">
+                        رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01
+                      </span>
+                    )}
+                  </label>
                   <label className="block">
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">Governorate</span>
                     <select
