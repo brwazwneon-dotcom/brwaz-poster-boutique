@@ -21,6 +21,8 @@ import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.fu
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { CategoryEditorDialog } from "./CategoryEditorDialog";
+import { CategoryDeleteDialog } from "./CategoryDeleteDialog";
 import {
   useAiAutoApproveThreshold,
   computeReviewReasons,
@@ -118,6 +120,32 @@ export function AiPosterUpload() {
   const [bulkSub, setBulkSub] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
   const [bulkTags, setBulkTags] = useState("");
+
+  // Inline category management
+  type EditorState =
+    | { mode: "create"; parentId: string | null; parentName?: string | null; onSaved: (row: Category) => void }
+    | { mode: "edit"; category: Category; onSaved: (row: Category) => void }
+    | null;
+  const [editorState, setEditorState] = useState<EditorState>(null);
+  const [deleteState, setDeleteState] = useState<Category | null>(null);
+  const editorSiblings = useMemo(() => {
+    if (!editorState) return [] as Category[];
+    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    return categories.filter((c) => (c.parent_id ?? null) === pid);
+  }, [editorState, categories]);
+  const editorParentName = useMemo(() => {
+    if (!editorState) return null;
+    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    if (!pid) return null;
+    return categories.find((c) => c.id === pid)?.name ?? null;
+  }, [editorState, categories]);
+
+  const openCreateMain = (onSaved: (row: Category) => void) =>
+    setEditorState({ mode: "create", parentId: null, onSaved });
+  const openCreateSub = (parentId: string, onSaved: (row: Category) => void) =>
+    setEditorState({ mode: "create", parentId, onSaved });
+  const openEdit = (category: Category, onSaved?: (row: Category) => void) =>
+    setEditorState({ mode: "edit", category, onSaved: onSaved ?? (() => {}) });
 
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -767,34 +795,40 @@ export function AiPosterUpload() {
             <div className="md:col-span-5 text-[10px] uppercase tracking-widest text-muted-foreground">
               Bulk edit (applied to selected)
             </div>
-            <select
+            <CategorySelect
               value={bulkCat}
-              onChange={(e) => {
-                setBulkCat(e.target.value);
+              mains={mains}
+              placeholder="Category…"
+              onChange={(v) => {
+                setBulkCat(v);
                 setBulkSub("");
               }}
-              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
-            >
-              <option value="">Category…</option>
-              {mains.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
+              onCreate={() => openCreateMain((row) => setBulkCat(row.id))}
+              onEdit={bulkCat ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                if (c) openEdit(c);
+              } : undefined}
+              onDelete={bulkCat ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                if (c) setDeleteState(c);
+              } : undefined}
+            />
+            <CategorySelect
               value={bulkSub}
-              onChange={(e) => setBulkSub(e.target.value)}
+              mains={subsOf(bulkCat)}
+              placeholder="Sub-category…"
               disabled={!bulkCat}
-              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs disabled:opacity-50"
-            >
-              <option value="">Sub-category…</option>
-              {subsOf(bulkCat).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={setBulkSub}
+              onCreate={bulkCat ? () => openCreateSub(bulkCat, (row) => setBulkSub(row.id)) : undefined}
+              onEdit={bulkSub ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                if (c) openEdit(c);
+              } : undefined}
+              onDelete={bulkSub ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                if (c) setDeleteState(c);
+              } : undefined}
+            />
             <select
               value={bulkBadge}
               onChange={(e) => setBulkBadge(e.target.value)}
@@ -847,12 +881,120 @@ export function AiPosterUpload() {
                     subsOf={subsOf}
                     onChange={(patch) => editField(r.id, patch)}
                     onCreateSuggested={() => createSuggestedSubcategory(r.id)}
+                    onCreateMain={(cb) => openCreateMain(cb)}
+                    onCreateSub={(parentId, cb) => openCreateSub(parentId, cb)}
+                    onEditCategory={(cat) => openEdit(cat)}
+                    onDeleteCategory={(cat) => setDeleteState(cat)}
+                    findCategory={(id) => categoriesRef.current.find((c) => c.id === id) ?? null}
                   />
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+      )}
+
+      <CategoryEditorDialog
+        open={!!editorState}
+        onOpenChange={(o) => { if (!o) setEditorState(null); }}
+        category={editorState?.mode === "edit" ? editorState.category : null}
+        parentId={
+          editorState
+            ? (editorState.mode === "create" ? editorState.parentId : editorState.category.parent_id ?? null)
+            : null
+        }
+        parentName={editorParentName}
+        siblings={editorSiblings}
+        onSaved={(row) => editorState?.onSaved(row)}
+      />
+      <CategoryDeleteDialog
+        open={!!deleteState}
+        onOpenChange={(o) => { if (!o) setDeleteState(null); }}
+        category={deleteState}
+        allCategories={categories}
+        onDeleted={(id) => {
+          if (bulkCat === id) setBulkCat("");
+          if (bulkSub === id) setBulkSub("");
+          setRows((prev) => prev.map((r) => ({
+            ...r,
+            category_id: r.category_id === id ? null : r.category_id,
+            subcategory_id: r.subcategory_id === id ? null : r.subcategory_id,
+          })));
+        }}
+      />
+    </div>
+  );
+}
+
+function CategorySelect({
+  value,
+  mains,
+  placeholder,
+  disabled,
+  onChange,
+  onCreate,
+  onEdit,
+  onDelete,
+}: {
+  value: string;
+  mains: Category[];
+  placeholder: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  onCreate?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const NEW = "__new__";
+  return (
+    <div className="flex items-stretch gap-1">
+      <select
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === NEW) {
+            if (onCreate) onCreate();
+            return;
+          }
+          onChange(e.target.value);
+        }}
+        disabled={disabled}
+        className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs disabled:opacity-50"
+      >
+        <option value="">{placeholder}</option>
+        {mains.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+        {onCreate && (
+          <option value={NEW} className="font-medium text-emerald-500">
+            ➕ Add New
+          </option>
+        )}
+      </select>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={disabled}
+          title="Edit category"
+          aria-label="Edit category"
+          className="rounded-sm border border-border bg-background px-1.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        >
+          ✎
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          title="Delete category"
+          aria-label="Delete category"
+          className="rounded-sm border border-border bg-background px-1.5 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-40"
+        >
+          🗑
+        </button>
       )}
     </div>
   );
@@ -866,14 +1008,24 @@ function RowEditor({
   subsOf,
   onChange,
   onCreateSuggested,
+  onCreateMain,
+  onCreateSub,
+  onEditCategory,
+  onDeleteCategory,
+  findCategory,
 }: {
   row: Row;
   selected: boolean;
   onToggleSelect: () => void;
-  mains: { id: string; name: string }[];
-  subsOf: (id: string | null) => { id: string; name: string }[];
+  mains: Category[];
+  subsOf: (id: string | null) => Category[];
   onChange: (patch: Partial<Row>) => void;
   onCreateSuggested: () => void;
+  onCreateMain: (onSaved: (row: Category) => void) => void;
+  onCreateSub: (parentId: string, onSaved: (row: Category) => void) => void;
+  onEditCategory: (cat: Category) => void;
+  onDeleteCategory: (cat: Category) => void;
+  findCategory: (id: string) => Category | null;
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
@@ -926,34 +1078,42 @@ function RowEditor({
         />
       </td>
       <td className="space-y-1 pr-2">
-        <select
+        <CategorySelect
           value={row.category_id ?? ""}
-          onChange={(e) =>
-            onChange({ category_id: e.target.value || null, subcategory_id: null })
-          }
+          mains={mains}
+          placeholder="Main…"
           disabled={isLocked}
-          className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-        >
-          <option value="">Main…</option>
-          {mains.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={(v) => onChange({ category_id: v || null, subcategory_id: null })}
+          onCreate={() =>
+            onCreateMain((cat) => onChange({ category_id: cat.id, subcategory_id: null }))
+          }
+          onEdit={row.category_id ? () => {
+            const c = findCategory(row.category_id!);
+            if (c) onEditCategory(c);
+          } : undefined}
+          onDelete={row.category_id ? () => {
+            const c = findCategory(row.category_id!);
+            if (c) onDeleteCategory(c);
+          } : undefined}
+        />
+        <CategorySelect
           value={row.subcategory_id ?? ""}
-          onChange={(e) => onChange({ subcategory_id: e.target.value || null })}
-          disabled={isLocked || subs.length === 0}
-          className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs disabled:opacity-50"
-        >
-          <option value="">{subs.length === 0 ? "— None —" : "Sub…"}</option>
-          {subs.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          mains={subs}
+          placeholder={subs.length === 0 && !row.category_id ? "— Pick main first —" : "Sub…"}
+          disabled={isLocked || !row.category_id}
+          onChange={(v) => onChange({ subcategory_id: v || null })}
+          onCreate={row.category_id ? () =>
+            onCreateSub(row.category_id!, (cat) => onChange({ subcategory_id: cat.id }))
+          : undefined}
+          onEdit={row.subcategory_id ? () => {
+            const c = findCategory(row.subcategory_id!);
+            if (c) onEditCategory(c);
+          } : undefined}
+          onDelete={row.subcategory_id ? () => {
+            const c = findCategory(row.subcategory_id!);
+            if (c) onDeleteCategory(c);
+          } : undefined}
+        />
         {showSuggestion && (
           <button
             type="button"
