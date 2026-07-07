@@ -8,7 +8,24 @@ import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
 import { FramePreview } from "@/components/FramePreview";
-import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
+// Custom-design uses its own size-gated offers, not the generic bundle tiers.
+
+const PACKAGING_FEE = 20;
+
+// Only these exact combos get a discount — no random bundle discounts.
+const CUSTOM_OFFERS = [
+  { size: "30x40" as SizeId, minQty: 4, percent: 15, label: "4 posters at 30×40" },
+  { size: "20x30" as SizeId, minQty: 6, percent: 15, label: "6 posters at 20×30" },
+];
+
+function customOfferFor(size: SizeId, qty: number) {
+  return CUSTOM_OFFERS.find((o) => o.size === size && qty >= o.minQty) ?? null;
+}
+
+function nextCustomOffer(size: SizeId, qty: number) {
+  const match = CUSTOM_OFFERS.find((o) => o.size === size && qty < o.minQty);
+  return match ? { ...match, missing: match.minQty - qty } : null;
+}
 import {
   useSiteSettings,
   computeShipping,
@@ -144,12 +161,11 @@ function CustomDesignPage() {
   );
   const subtotal = unit * pics.length;
   const shipping = computeShipping(subtotal, settings);
-  const bundle = useMemo(
-    () => computeBundleDiscount(subtotal, pics.length),
-    [subtotal, pics.length],
-  );
-  const nextBundle = useMemo(() => nextTier(pics.length), [pics.length]);
-  const total = Math.max(0, subtotal - bundle.amount) + shipping;
+  const packaging = pics.length > 0 ? PACKAGING_FEE : 0;
+  const offer = useMemo(() => customOfferFor(size, pics.length), [size, pics.length]);
+  const discountAmount = offer ? Math.round((subtotal * offer.percent) / 100) : 0;
+  const nextOffer = useMemo(() => nextCustomOffer(size, pics.length), [size, pics.length]);
+  const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
 
   const openPicker = () => addInputRef.current?.click();
 
