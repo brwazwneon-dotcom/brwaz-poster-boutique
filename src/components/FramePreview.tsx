@@ -3,7 +3,6 @@ import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 /**
  * Picks which mockup variant applies for a given frame type + color.
