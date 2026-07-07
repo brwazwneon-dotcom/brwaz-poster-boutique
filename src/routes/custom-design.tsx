@@ -626,10 +626,10 @@ function CustomDesignPage() {
                     <span>Subtotal ({pics.length} × {unit} EGP)</span>
                     <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                  {bundle.tier && (
+                  {offer && (
                     <div className="flex items-center justify-between font-semibold text-primary">
-                      <span>Bundle discount ({bundle.tier.percent}% off)</span>
-                      <span>-{bundle.amount} EGP</span>
+                      <span>Offer: {offer.label} ({offer.percent}% off)</span>
+                      <span>-{discountAmount} EGP</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-muted-foreground">
@@ -638,15 +638,21 @@ function CustomDesignPage() {
                       {shipping === 0 ? "Free" : `${shipping} EGP`}
                     </span>
                   </div>
+                  {packaging > 0 && (
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Packaging</span>
+                      <span className="text-foreground">{packaging} EGP</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
                     <span>Total</span>
                     <span>{total} EGP</span>
                   </div>
                 </div>
-                {!bundle.tier && nextBundle && pics.length > 0 && (
+                {!offer && nextOffer && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
-                    Add {nextBundle.minPosters - pics.length} more image
-                    {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
+                    Add {nextOffer.missing} more {labelForSize(nextOffer.size)} image
+                    {nextOffer.missing === 1 ? "" : "s"} for {nextOffer.percent}% off
                   </div>
                 )}
               </div>
