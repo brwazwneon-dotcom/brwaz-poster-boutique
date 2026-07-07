@@ -333,7 +333,7 @@ function CategoryPage() {
                         frameType={gridMode === "wood" ? "wood" : "pvc"}
                         color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
                         bare
-                        loading="lazy"
+                        loading={idx < 8 ? "eager" : "lazy"}
                         className={cn(
                           "h-full w-full transition",
                           active && "scale-[1.02]",
