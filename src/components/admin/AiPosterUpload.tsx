@@ -1106,7 +1106,7 @@ function RowEditor({
           value={row.subcategory_id ?? ""}
           mains={subs}
           placeholder={subs.length === 0 && !row.category_id ? "— Pick main first —" : "Sub…"}
-          disabled={isLocked || !row.category_id}
+          disabled={isLocked}
           onChange={(v) => onChange({ subcategory_id: v || null })}
           onCreate={() => {
             if (!row.category_id) {
