@@ -163,6 +163,18 @@
   padding-inline: 1.25rem;
 }
 
+/* Prevent horizontal scrolling on mobile */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Hide the "Edit with Lovable" badge on published deployments */
 #lovable-badge,
 a[href*="lovable.dev/projects" i],
