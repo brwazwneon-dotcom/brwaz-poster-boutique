@@ -17,6 +17,7 @@ import { Highlights } from "@/components/Highlights";
 import { BestSellers } from "@/components/BestSellers";
 import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
+import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
@@ -43,6 +44,7 @@ function Index() {
     hero: () => <HeroSection key="hero" />,
     trust: () => <TrustSection key="trust" />,
     "trusted-quality": (t, s) => <TrustedQuality key="trusted-quality" title={t} subtitle={s} />,
+    about: () => <AboutBrwaz key="about" />,
     highlights: () => <Highlights key="highlights" />,
     "best-sellers": (t, s) => <BestSellers key="best-sellers" title={t} subtitle={s} />,
     benefits: () => <BenefitsBar key="benefits" />,
