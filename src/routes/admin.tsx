@@ -2463,6 +2463,16 @@ function OrdersTab() {
                         <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
                           <Eye className="h-4 w-4" />
                         </button>
+                        {o.is_test && (
+                          <button
+                            onClick={() => convertToReal(o)}
+                            className="rounded-sm p-1.5 text-muted-foreground hover:text-primary"
+                            aria-label="Convert to real order"
+                            title="Convert to real order"
+                          >
+                            <ShoppingBag className="h-4 w-4" />
+                          </button>
+                        )}
                         <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
