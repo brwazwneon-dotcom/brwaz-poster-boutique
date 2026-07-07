@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import frameBlackAsset from "@/assets/frames/frame-black.png.asset.json";
+import frameWhiteAsset from "@/assets/frames/frame-white.png.asset.json";
+import frameWoodAsset from "@/assets/frames/frame-wood.png.asset.json";
+
 import type { FrameTypeId, SizeId } from "@/lib/poster-options";
 
 export type SiteSettings = {
@@ -202,9 +206,9 @@ export type FrameMockups = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: "/assets/frame-black.webp", top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  white: { image: "/assets/frame-white.webp", top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  wood:  { image: "/assets/frame-wood.webp",  top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  black: { image: frameBlackAsset.url, top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  white: { image: frameWhiteAsset.url, top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  wood:  { image: frameWoodAsset.url,  top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
