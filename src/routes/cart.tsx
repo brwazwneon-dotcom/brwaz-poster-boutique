@@ -21,6 +21,7 @@ const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EG_PHONE_RE = /^01\d{9}$/;
 const CHECKOUT_DEBUG = true;
 
 function asUuid(value: string | null | undefined): string | null {
@@ -337,6 +338,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (!EG_PHONE_RE.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
     // Show the upsell popup once per checkout session, only if enabled.
@@ -369,6 +372,8 @@ function CartPage() {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
       return toast.error("Please fill in all delivery fields");
+    if (!EG_PHONE_RE.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
 
@@ -779,9 +784,89 @@ function CartPage() {
               <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
                 Cash on delivery · Instapay · Vodafone Cash
               </p>
+              {items.length > 0 && (
+                <div className="mt-5 rounded-sm border border-border bg-background/40 p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Your order · ملخص طلبك
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {items.reduce((s, i) => s + i.qty, 0)} item(s)
+                    </span>
+                  </div>
+                  <ul className="space-y-3">
+                    {items.map((i) => (
+                      <li key={`sum-${i.id}`} className="flex gap-3">
+                        <div className="w-12 shrink-0">
+                          <FramePreview
+                            posterUrl={i.image}
+                            title={i.title}
+                            frameType={i.frameType}
+                            color={i.color}
+                            editSettings={i.editSettings}
+                            bare
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="truncate text-xs font-semibold">{i.title}</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground">×{i.qty}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
+                              {labelForFrame(i.frameType)}
+                            </span>
+                            <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
+                              {labelForSize(i.size)}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
+                              <span
+                                aria-hidden
+                                className="inline-block h-2.5 w-2.5 rounded-full border border-border"
+                                style={{
+                                  background:
+                                    i.color === "white"
+                                      ? "#f5f5f2"
+                                      : i.color === "wood"
+                                      ? "#5a3a20"
+                                      : "#0a0a0a",
+                                }}
+                              />
+                              {labelForColor(i.color)}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {i.price * i.qty} EGP
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="mt-5 space-y-3">
                 <Field label="Full name" value={name} onChange={setName} />
-                <Field label="Phone" value={phone} onChange={setPhone} type="tel" />
+                <label className="block">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Phone · رقم الموبايل
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={11}
+                    placeholder="01xxxxxxxxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                    className={`mt-1 w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:border-primary ${phone && !EG_PHONE_RE.test(phone) ? "border-destructive" : "border-border"}`}
+                    aria-invalid={phone.length > 0 && !EG_PHONE_RE.test(phone)}
+                  />
+                  {phone.length > 0 && !EG_PHONE_RE.test(phone) && (
+                    <span className="mt-1 block text-[11px] text-destructive">
+                      رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01
+                    </span>
+                  )}
+                </label>
                 <label className="block">
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">
                     Governorate
