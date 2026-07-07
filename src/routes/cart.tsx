@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
-import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
 import { isTestMode } from "@/lib/test-mode";
 
 const INSTAPAY_NUMBER = "01090771294";
@@ -60,8 +59,9 @@ function CartPage() {
     (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
     0,
   );
-  const bundle = computeBundleDiscount(subtotal, posterCount);
-  const nextBundleTier = nextTier(posterCount);
+  // Discounts only apply to the two flat-priced bundle offers (already
+  // reflected in each bundle line's price). No automatic tiered discount.
+  const bundle = { tier: null as null, amount: 0 };
   // Bundle-offer nudges: detect near-completion of the 20x30 (6-pack) or
   // 30x40 (4-pack) bundle so we can suggest adding the missing posters
   // and unlocking the flat bundle price on /offers.
@@ -187,7 +187,7 @@ function CartPage() {
       ...lines,
       "",
       `Subtotal: ${subtotal} EGP`,
-      ...(bundle.tier ? [`Bundle Discount (${bundle.tier.percent}%): −${bundle.amount} EGP`] : []),
+      ...(bundle.tier ? [`Bundle Discount: −${bundle.amount} EGP`] : []),
       ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
       ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
@@ -700,21 +700,6 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
-                {bundle.tier && (
-                  <div className="flex items-center justify-between text-emerald-500">
-                    <span className="flex items-center gap-2">
-                      <span aria-hidden>🎁</span>
-                      Bundle discount ({bundle.tier.percent}% · {posterCount} posters)
-                    </span>
-                    <span>− {bundle.amount} EGP</span>
-                  </div>
-                )}
-                {nextBundleTier && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Add {nextBundleTier.minPosters - posterCount} more poster
-                    {nextBundleTier.minPosters - posterCount === 1 ? "" : "s"} to save {nextBundleTier.percent}%.
-                  </p>
-                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
