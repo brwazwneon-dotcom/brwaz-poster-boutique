@@ -93,6 +93,8 @@ function PhotoPrintingPage() {
     if (qty < MIN_QTY) return toast.error(`Minimum order is ${MIN_QTY} photos`);
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
       return toast.error("Please fill in all delivery details");
+    if (!/^01\d{9}$/.test(phone.trim()))
+      return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
 
     setSubmitting(true);
     setProgress(0);
@@ -342,11 +344,18 @@ function PhotoPrintingPage() {
                 <Field label="Phone number">
                   <input
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
                     required
                     inputMode="tel"
+                    maxLength={11}
+                    placeholder="01xxxxxxxxx"
                     className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   />
+                  {phone.length > 0 && !/^01\d{9}$/.test(phone) && (
+                    <span className="mt-1 block text-[11px] text-destructive">
+                      رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01
+                    </span>
+                  )}
                 </Field>
                 <Field label="Governorate">
                   <select
