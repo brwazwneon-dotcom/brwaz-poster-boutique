@@ -352,10 +352,10 @@ function HomeCategoryPicksTab() {
   });
 
   const selected = picks?.[activeSlug] ?? [];
-  const filtered = useMemo(() => {
+  const filtered = useMemo<PickPoster[]>(() => {
     const q = search.trim().toLowerCase();
     if (!q) return posters;
-    return posters.filter((p) => (p.title ?? "").toLowerCase().includes(q));
+    return posters.filter((p: PickPoster) => (p.title ?? "").toLowerCase().includes(q));
   }, [posters, search]);
 
   const toggle = (id: string) => {
