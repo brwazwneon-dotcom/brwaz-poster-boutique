@@ -656,15 +656,15 @@ function CustomDesignPage() {
                 </div>
                 <div className="mt-4 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Subtotal ({pics.length} × {unit} EGP)</span>
+                    <span>Subtotal ({pics.length} image{pics.length === 1 ? "" : "s"})</span>
                     <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                  {offer && (
-                    <div className="flex items-center justify-between font-semibold text-primary">
-                      <span>Offer: {offer.label} ({offer.percent}% off)</span>
-                      <span>-{discountAmount} EGP</span>
+                  {appliedOffers.map((o) => (
+                    <div key={o.label} className="flex items-center justify-between font-semibold text-primary">
+                      <span>Offer: {o.label} ({o.percent}% off)</span>
+                      <span>-{o.amount} EGP</span>
                     </div>
-                  )}
+                  ))}
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Shipping</span>
                     <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
@@ -682,7 +682,7 @@ function CustomDesignPage() {
                     <span>{total} EGP</span>
                   </div>
                 </div>
-                {!offer && nextOffer && pics.length > 0 && (
+                {appliedOffers.length === 0 && nextOffer && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     Add {nextOffer.missing} more {labelForSize(nextOffer.size)} image
                     {nextOffer.missing === 1 ? "" : "s"} for {nextOffer.percent}% off
