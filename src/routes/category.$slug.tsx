@@ -51,6 +51,7 @@ type Poster = {
   badge?: string | null;
   sales_count?: number | null;
   views_count?: number | null;
+  is_best_seller?: boolean | null;
 };
 
 const PAGE_SIZE = 48;
@@ -162,7 +163,7 @@ function CategoryPage() {
       const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count")
+        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller")
         .in("category_id", includedCategoryIds)
         .eq("hidden", false)
         .order(sortDef.col, { ascending: sortDef.asc })
@@ -527,7 +528,7 @@ function Customizer({
             />
           </div>
         </div>
-      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
+      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 || primary.is_best_seller ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {(primary.sales_count ?? 0) > 0 && (
             <span>✔ {formatCount(primary.sales_count)} sold</span>
@@ -535,6 +536,11 @@ function Customizer({
           {(primary.views_count ?? 0) > 0 && (
             <span>👁 {formatCount(primary.views_count)} views</span>
           )}
+          {primary.is_best_seller ? (
+            <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
+              ⭐ Best Seller
+            </span>
+          ) : null}
         </div>
       ) : null}
       {posters.length > 1 && (

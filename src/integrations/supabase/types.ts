@@ -853,6 +853,7 @@ export type Database = {
           hidden: boolean
           id: string
           image_url: string
+          is_best_seller: boolean
           last_viewed_at: string | null
           orientation: string | null
           original_url: string | null
@@ -884,6 +885,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url: string
+          is_best_seller?: boolean
           last_viewed_at?: string | null
           orientation?: string | null
           original_url?: string | null
@@ -915,6 +917,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url?: string
+          is_best_seller?: boolean
           last_viewed_at?: string | null
           orientation?: string | null
           original_url?: string | null
@@ -1390,6 +1393,7 @@ export type Database = {
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
       admin_reset_recommendation_engine: { Args: never; Returns: undefined }
       admin_storage_manifest: { Args: never; Returns: Json }
+      best_sellers_analytics: { Args: never; Returns: Json }
       get_recommendations: {
         Args: { _limit?: number; _visitor_id: string }
         Returns: Json
@@ -1419,6 +1423,7 @@ export type Database = {
         Returns: undefined
       }
       posters_tags_text: { Args: { p_tags: string[] }; Returns: string }
+      refresh_auto_best_sellers: { Args: { _top_n?: number }; Returns: Json }
       score_visitor_interest: {
         Args: {
           _delta?: number

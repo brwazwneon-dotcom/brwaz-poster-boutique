@@ -103,6 +103,16 @@ export type BestSellersConfig = {
   max: 8 | 12 | 16 | 24;
   autoplay: boolean;
   loop: boolean;
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  homepage_count: number;
+  auto: boolean;
+  show_badges: boolean;
+  show_price: boolean;
+  show_cart: boolean;
+  show_wishlist: boolean;
+  show_quick_view: boolean;
 };
 
 export const BEST_SELLERS_CONFIG_KEY = "best_sellers_config_v1";
@@ -111,6 +121,16 @@ const DEFAULT_BS_CONFIG: BestSellersConfig = {
   max: 12,
   autoplay: false,
   loop: true,
+  enabled: true,
+  title: "Best Sellers",
+  subtitle: "Our top picks — hand-selected.",
+  homepage_count: 6,
+  auto: true,
+  show_badges: true,
+  show_price: true,
+  show_cart: true,
+  show_wishlist: true,
+  show_quick_view: true,
 };
 
 export function useBestSellersConfig() {
@@ -129,10 +149,21 @@ export function useBestSellersConfig() {
       const max = allowed.includes(v.max as (typeof allowed)[number])
         ? (v.max as BestSellersConfig["max"])
         : DEFAULT_BS_CONFIG.max;
+      const hc = Number(v.homepage_count);
       return {
         max,
         autoplay: v.autoplay === true,
         loop: v.loop !== false,
+        enabled: v.enabled !== false,
+        title: typeof v.title === "string" && v.title.trim() ? v.title : DEFAULT_BS_CONFIG.title,
+        subtitle: typeof v.subtitle === "string" ? v.subtitle : DEFAULT_BS_CONFIG.subtitle,
+        homepage_count: Number.isFinite(hc) && hc > 0 && hc <= 24 ? Math.floor(hc) : DEFAULT_BS_CONFIG.homepage_count,
+        auto: v.auto !== false,
+        show_badges: v.show_badges !== false,
+        show_price: v.show_price !== false,
+        show_cart: v.show_cart !== false,
+        show_wishlist: v.show_wishlist !== false,
+        show_quick_view: v.show_quick_view !== false,
       };
     },
   });
