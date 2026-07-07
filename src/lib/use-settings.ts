@@ -231,8 +231,12 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     const n = Number(x);
     return Number.isFinite(n) ? n : fb;
   };
+  const imgRaw = typeof v.image === "string" ? v.image.trim() : "";
+  // Ignore legacy broken paths (e.g. "/assets/mockups/...") that were stored
+  // before the uploaded CDN mockups existed — fall back to the bundled asset.
+  const isLegacy = imgRaw.startsWith("/assets/mockups/");
   return {
-    image: typeof v.image === "string" && v.image.trim() ? v.image : fallback.image,
+    image: imgRaw && !isLegacy ? imgRaw : fallback.image,
     top: numOr(v.top, fallback.top),
     left: numOr(v.left, fallback.left),
     width: numOr(v.width, fallback.width),
