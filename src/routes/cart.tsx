@@ -717,6 +717,15 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
+                {bundle.amount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-500">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden>🎁</span>
+                      Bundle offer applied
+                    </span>
+                    <span>− {bundle.amount} EGP</span>
+                  </div>
+                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
