@@ -121,6 +121,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ...base,
             { ...item, id: crypto.randomUUID(), qty: 1 },
           ]);
+          console.info("[cart-debug] add", {
+            title: item.title,
+            posterId: item.posterId,
+            previousCount: base.length,
+            nextCount: next.length,
+            customImagePath: item.customImagePath ? "[path/url]" : null,
+          });
           setItems(next);
         },
       remove: (id) => setItems((prev) => {
