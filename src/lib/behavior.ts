@@ -85,9 +85,9 @@ export async function initBehavior(): Promise<void> {
     await supabase.rpc("upsert_visitor_profile", {
       _visitor_id: visitorId(),
       _device: detectDevice(),
-      _city: geo?.city ?? null,
-      _governorate: geo?.governorate ?? null,
-      _country: geo?.country ?? null,
+      _city: geo?.city ?? undefined,
+      _governorate: geo?.governorate ?? undefined,
+      _country: geo?.country ?? undefined,
     });
   } catch { /* noop */ }
 }
