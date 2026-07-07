@@ -385,7 +385,7 @@ async function processPoster(
       await logAttempt(poster.id, "needs_review", [], provider, "AI returned no usable fields");
       return { status: "needs_review", provider, error: "AI returned no usable fields" };
     }
-    const { error: upErr } = await supabase.from("posters").update(patch).eq("id", poster.id);
+    const { error: upErr } = await supabase.from("posters").update(patch as never).eq("id", poster.id);
     if (upErr) throw upErr;
     await logAttempt(poster.id, "ok", updated, provider, null);
     return { status: "ok", updated, provider };
