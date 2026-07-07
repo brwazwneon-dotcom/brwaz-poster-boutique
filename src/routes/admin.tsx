@@ -4191,10 +4191,16 @@ function CoverSettingsEditor({
     queryKey: ["admin-cover-posters", slug],
     enabled: !!slug && open,
     queryFn: async () => {
+      const { data: cat } = await supabase
+        .from("categories").select("id").eq("slug", slug!).maybeSingle();
+      if (!cat) return [];
+      const { data: kids } = await supabase
+        .from("categories").select("id").eq("parent_id", cat.id);
+      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,categories!inner(slug)")
-        .eq("categories.slug", slug!)
+        .select("id,title,image_url")
+        .in("category_id", ids)
         .eq("hidden", false)
         .order("sales_count", { ascending: false })
         .limit(60);
@@ -4219,10 +4225,16 @@ function CoverSettingsEditor({
         return (data ?? []).map((p) => p.image_url as string).filter(Boolean);
       }
       if (!slug) return card.image ? [card.image] : [];
+      const { data: cat } = await supabase
+        .from("categories").select("id").eq("slug", slug).maybeSingle();
+      if (!cat) return [];
+      const { data: kids } = await supabase
+        .from("categories").select("id").eq("parent_id", cat.id);
+      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("image_url,categories!inner(slug)")
-        .eq("categories.slug", slug)
+        .select("image_url")
+        .in("category_id", ids)
         .eq("hidden", false)
         .not("image_url", "is", null)
         .order("created_at", { ascending: false })
