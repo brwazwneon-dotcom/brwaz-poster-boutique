@@ -152,7 +152,9 @@ export function LiveVisitors({ variant = "product" }: { variant?: "product" | "o
     ((variant === "product" && cfg.visitors.onProduct) ||
       (variant === "offer" && cfg.visitors.onOffers));
   const count = useLiveVisitors(cfg.visitors.min, cfg.visitors.max, cfg.visitors.updateSec);
-  if (!show) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!show || !mounted) return null;
   const label =
     variant === "offer"
       ? `${count} customers are checking this offer now`
