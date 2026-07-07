@@ -39,7 +39,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
   const scroller = useRef<HTMLDivElement>(null);
 
   const { data = [] } = useQuery({
-    queryKey: ["best-sellers", cfg.max],
+    queryKey: ["best-sellers", cfg.homepage_count],
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -50,7 +50,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
         .eq("hidden", false)
         .order("pinned", { ascending: false })
         .order("position", { ascending: true })
-        .limit(cfg.max);
+        .limit(cfg.homepage_count);
       if (error) throw error;
       const now = Date.now();
       return (data as unknown as BSRow[]).filter((r) => {
@@ -80,6 +80,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
     return () => clearInterval(id);
   }, [cfg.autoplay, cfg.loop, data.length]);
 
+  if (!cfg.enabled) return null;
   if (data.length === 0) return null;
 
   const scroll = (dir: -1 | 1) => {
@@ -124,10 +125,10 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
               <Flame className="mr-1 inline h-3 w-3" /> Trending
             </p>
             <h2 className="text-display mt-3 text-4xl sm:text-6xl">
-              {title || "Best Sellers"}
+              {title || cfg.title || "Best Sellers"}
             </h2>
-            {subtitle ? (
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
+            {(subtitle ?? cfg.subtitle) ? (
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground">{subtitle ?? cfg.subtitle}</p>
             ) : null}
           </div>
           <div className="hidden gap-2 sm:flex">
@@ -163,13 +164,13 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                 className="group relative w-[70%] shrink-0 snap-start sm:w-[45%] md:w-[32%] lg:w-[19%]"
               >
                 <div className="relative overflow-hidden rounded-sm border border-border bg-muted">
-                  {badgeText ? <PosterBadge badge={badgeText} /> : null}
-                  {r.featured ? (
+                  {cfg.show_badges && badgeText ? <PosterBadge badge={badgeText} /> : null}
+                  {cfg.show_badges && r.featured ? (
                     <span className="absolute right-10 top-2 z-10 rounded-sm border border-border bg-background/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-widest">
                       Featured
                     </span>
                   ) : null}
-                  <WishlistHeart posterId={p.id} />
+                  {cfg.show_wishlist ? <WishlistHeart posterId={p.id} /> : null}
                   <FramePreview
                     posterUrl={p.image_url}
                     title={p.title}
@@ -180,13 +181,15 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                   />
                   {/* Hover quick actions */}
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-full flex-col gap-2 bg-background/95 p-3 transition group-hover:pointer-events-auto group-hover:translate-y-0">
-                    <button
-                      onClick={() => handleAdd(r)}
-                      className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
-                    >
-                      <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
-                    </button>
-                    {p.categories ? (
+                    {cfg.show_cart ? (
+                      <button
+                        onClick={() => handleAdd(r)}
+                        className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+                      >
+                        <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
+                      </button>
+                    ) : null}
+                    {cfg.show_quick_view && p.categories ? (
                       <Link
                         to="/category/$slug"
                         params={{ slug: p.categories.slug }}
@@ -200,12 +203,20 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
                     <span>{p.categories?.name ?? "Poster"}</span>
-                    <span className="text-foreground">{price} EGP</span>
+                    {cfg.show_price ? <span className="text-foreground">{price} EGP</span> : null}
                   </div>
                 </div>
               </article>
             );
           })}
+        </div>
+        <div className="mt-8 flex justify-center">
+          <Link
+            to="/best-sellers"
+            className="inline-flex items-center gap-2 rounded-sm border border-primary px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-primary hover:bg-primary hover:text-primary-foreground transition"
+          >
+            View All Best Sellers <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
     </section>
