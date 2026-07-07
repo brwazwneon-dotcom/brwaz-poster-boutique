@@ -96,7 +96,7 @@ export function FramePreview({
     >
       {/* Poster artwork — clipped to the printable area, *behind* the frame PNG */}
       <div
-        className="absolute overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
+        className="absolute z-0 overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
         style={{
           top: `${m.top}%`,
           left: `${m.left}%`,
@@ -115,7 +115,7 @@ export function FramePreview({
           aria-hidden="true"
           loading={loading}
           className={cn(
-            "pointer-events-none absolute inset-0 h-full w-full select-none object-cover opacity-70 blur-xl scale-110",
+            "pointer-events-none absolute inset-0 z-0 h-full w-full select-none object-cover opacity-70 blur-xl scale-110",
             showExtendedBackground ? "block" : "hidden",
           )}
           draggable={false}
@@ -142,7 +142,7 @@ export function FramePreview({
         {!posterLoaded && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 animate-pulse"
+            className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
             style={{
               background:
                 "linear-gradient(110deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.06) 100%)",
@@ -154,7 +154,7 @@ export function FramePreview({
         {!bare && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 z-[4]"
             style={{
               background:
                 "linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 22%, rgba(255,255,255,0) 45%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.08) 100%)",
@@ -172,7 +172,7 @@ export function FramePreview({
           loading={loading}
           decoding="async"
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-fill select-none"
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill select-none"
           draggable={false}
         />
       )}
