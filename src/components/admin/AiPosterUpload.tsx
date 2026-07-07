@@ -893,6 +893,109 @@ export function AiPosterUpload() {
           </div>
         </div>
       )}
+
+      <CategoryEditorDialog
+        open={!!editorState}
+        onOpenChange={(o) => { if (!o) setEditorState(null); }}
+        category={editorState?.mode === "edit" ? editorState.category : null}
+        parentId={
+          editorState
+            ? (editorState.mode === "create" ? editorState.parentId : editorState.category.parent_id ?? null)
+            : null
+        }
+        parentName={editorParentName}
+        siblings={editorSiblings}
+        onSaved={(row) => editorState?.onSaved(row)}
+      />
+      <CategoryDeleteDialog
+        open={!!deleteState}
+        onOpenChange={(o) => { if (!o) setDeleteState(null); }}
+        category={deleteState}
+        allCategories={categories}
+        onDeleted={(id) => {
+          if (bulkCat === id) setBulkCat("");
+          if (bulkSub === id) setBulkSub("");
+          setRows((prev) => prev.map((r) => ({
+            ...r,
+            category_id: r.category_id === id ? null : r.category_id,
+            subcategory_id: r.subcategory_id === id ? null : r.subcategory_id,
+          })));
+        }}
+      />
+    </div>
+  );
+}
+
+function CategorySelect({
+  value,
+  mains,
+  placeholder,
+  disabled,
+  onChange,
+  onCreate,
+  onEdit,
+  onDelete,
+}: {
+  value: string;
+  mains: Category[];
+  placeholder: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  onCreate?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const NEW = "__new__";
+  return (
+    <div className="flex items-stretch gap-1">
+      <select
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === NEW) {
+            if (onCreate) onCreate();
+            return;
+          }
+          onChange(e.target.value);
+        }}
+        disabled={disabled}
+        className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs disabled:opacity-50"
+      >
+        <option value="">{placeholder}</option>
+        {mains.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+        {onCreate && (
+          <option value={NEW} className="font-medium text-emerald-500">
+            ➕ Add New
+          </option>
+        )}
+      </select>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={disabled}
+          title="Edit category"
+          aria-label="Edit category"
+          className="rounded-sm border border-border bg-background px-1.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40"
+        >
+          ✎
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          title="Delete category"
+          aria-label="Delete category"
+          className="rounded-sm border border-border bg-background px-1.5 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-40"
+        >
+          🗑
+        </button>
+      )}
     </div>
   );
 }
