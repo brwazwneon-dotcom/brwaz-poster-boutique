@@ -109,7 +109,9 @@ function CartPage() {
         const unit = avgUnitFor(n.sizeId);
         const wouldPay = unit * n.need;
         const savings = Math.max(0, Math.round(wouldPay - n.price));
-        return { ...n, savings };
+        const savingsPct = wouldPay > 0 ? Math.round((savings / wouldPay) * 100) : 0;
+        const progressPct = Math.min(100, Math.round((n.have / n.need) * 100));
+        return { ...n, savings, savingsPct, progressPct };
       })
   );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
@@ -439,11 +441,29 @@ function CartPage() {
                           </>
                         ) : null}
                       </div>
-                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full bg-primary transition-all"
-                          style={{ width: `${(n.have / n.need) * 100}%` }}
-                        />
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em]">
+                          <span className="text-muted-foreground">
+                            ناقص{" "}
+                            <span className="text-foreground">{missing}</span>{" "}
+                            {missing === 1 ? "برواز" : "بروازات"}
+                          </span>
+                          <span className="text-primary">
+                            {n.progressPct}%
+                            {n.savingsPct > 0 ? (
+                              <span className="ms-2 text-muted-foreground">
+                                · توفير{" "}
+                                <span className="text-primary">{n.savingsPct}%</span>
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-primary/70 to-primary transition-all duration-300"
+                            style={{ width: `${n.progressPct}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
