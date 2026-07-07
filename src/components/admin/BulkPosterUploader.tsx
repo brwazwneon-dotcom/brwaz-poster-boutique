@@ -475,6 +475,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
                 item={it}
                 onRemove={() => removeItem(it.id)}
                 onEdit={() => setEditingId(it.id)}
+                onAcceptAspect={() => update(it.id, { aspectAccepted: true })}
                 disabled={running}
               />
             ))}
