@@ -376,17 +376,28 @@ function CustomDesignPage() {
 
           {/* Primary ADD IMAGES button */}
           <div className="mt-8 max-w-xl">
-            <button
-              type="button"
-              onClick={openPicker}
-              className="inline-flex w-full items-center justify-center gap-3 rounded-sm bg-primary px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground transition hover:opacity-90 sm:w-auto"
-            >
-              <Plus className="h-5 w-5" />
-              Add Images
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                onClick={openPicker}
+                className="inline-flex items-center justify-center gap-3 rounded-sm bg-primary px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground transition hover:opacity-90"
+              >
+                <Plus className="h-5 w-5" />
+                Add Images
+              </button>
+              <Link
+                to="/best-sellers"
+                className="inline-flex items-center justify-center gap-3 rounded-sm border border-border px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-foreground transition hover:bg-accent"
+              >
+                Browse Posters
+              </Link>
+            </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Our designer will professionally enhance your photos before printing
               to ensure the highest possible quality.
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Want ready-made designs too? Browse our shop and add posters to your cart alongside this order.
             </p>
             <p className="mt-1 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
               Up to {MAX_FILES_PER_BATCH} images per upload · Max 25 MB each · JPG, PNG, WEBP, HEIC
