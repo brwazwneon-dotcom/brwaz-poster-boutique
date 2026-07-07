@@ -905,14 +905,24 @@ function RowEditor({
   subsOf,
   onChange,
   onCreateSuggested,
+  onCreateMain,
+  onCreateSub,
+  onEditCategory,
+  onDeleteCategory,
+  findCategory,
 }: {
   row: Row;
   selected: boolean;
   onToggleSelect: () => void;
-  mains: { id: string; name: string }[];
-  subsOf: (id: string | null) => { id: string; name: string }[];
+  mains: Category[];
+  subsOf: (id: string | null) => Category[];
   onChange: (patch: Partial<Row>) => void;
   onCreateSuggested: () => void;
+  onCreateMain: (onSaved: (row: Category) => void) => void;
+  onCreateSub: (parentId: string, onSaved: (row: Category) => void) => void;
+  onEditCategory: (cat: Category) => void;
+  onDeleteCategory: (cat: Category) => void;
+  findCategory: (id: string) => Category | null;
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
