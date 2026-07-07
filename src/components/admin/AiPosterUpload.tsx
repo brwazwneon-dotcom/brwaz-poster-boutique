@@ -121,6 +121,32 @@ export function AiPosterUpload() {
   const [bulkBadge, setBulkBadge] = useState("");
   const [bulkTags, setBulkTags] = useState("");
 
+  // Inline category management
+  type EditorState =
+    | { mode: "create"; parentId: string | null; parentName?: string | null; onSaved: (row: Category) => void }
+    | { mode: "edit"; category: Category; onSaved: (row: Category) => void }
+    | null;
+  const [editorState, setEditorState] = useState<EditorState>(null);
+  const [deleteState, setDeleteState] = useState<Category | null>(null);
+  const editorSiblings = useMemo(() => {
+    if (!editorState) return [] as Category[];
+    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    return categories.filter((c) => (c.parent_id ?? null) === pid);
+  }, [editorState, categories]);
+  const editorParentName = useMemo(() => {
+    if (!editorState) return null;
+    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    if (!pid) return null;
+    return categories.find((c) => c.id === pid)?.name ?? null;
+  }, [editorState, categories]);
+
+  const openCreateMain = (onSaved: (row: Category) => void) =>
+    setEditorState({ mode: "create", parentId: null, onSaved });
+  const openCreateSub = (parentId: string, onSaved: (row: Category) => void) =>
+    setEditorState({ mode: "create", parentId, onSaved });
+  const openEdit = (category: Category, onSaved?: (row: Category) => void) =>
+    setEditorState({ mode: "edit", category, onSaved: onSaved ?? (() => {}) });
+
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
