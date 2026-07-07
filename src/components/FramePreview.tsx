@@ -74,8 +74,10 @@ export function FramePreview({
   const rotateX = m.rotateX ?? 0;
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
-  const objectFit = s.fit === "fit" ? "contain" : "cover";
-  const showExtendedBackground = s.fit === "fit";
+  // Always crop-cover so the printable area is fully filled and no black
+  // bars appear under posters with a different aspect ratio.
+  const objectFit = "cover" as const;
+  const showExtendedBackground = false;
   const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
