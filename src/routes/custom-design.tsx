@@ -764,7 +764,44 @@ function CustomDesignPage() {
                 className="max-h-full max-w-full object-contain transition-transform"
               />
             </div>
-            {frameType !== "wood" && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                Frame type for this image
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {FRAME_TYPES.map((f) => (
+                  <Chip
+                    key={f.id}
+                    active={editing.frameType === f.id}
+                    onClick={() => setPicFrameType(editing.id, f.id)}
+                  >
+                    {f.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  Size for this image
+                </div>
+                <div className="text-[11px] font-semibold text-primary">
+                  {unitPriceFor(editing.frameType, editing.size)} EGP
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {SIZES.filter((s) => sizesForFrame(editing.frameType).includes(s.id)).map((s) => (
+                  <Chip
+                    key={s.id}
+                    active={editing.size === s.id}
+                    onClick={() => setPicSize(editing.id, s.id)}
+                  >
+                    {s.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            {editing.frameType !== "wood" && (
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                   Frame color for this image
