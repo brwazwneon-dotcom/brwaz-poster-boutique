@@ -511,6 +511,15 @@ export function SubCategoriesManagerTab() {
           }}
         />
       )}
+
+      {seoFor && (
+        <BulkSeoRunner
+          open
+          subcategoryId={seoFor.id}
+          subcategoryName={seoFor.name}
+          onClose={() => setSeoFor(null)}
+        />
+      )}
     </div>
   );
 }
