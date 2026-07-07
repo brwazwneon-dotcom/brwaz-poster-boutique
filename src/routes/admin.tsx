@@ -2215,6 +2215,7 @@ function OrdersTab() {
   const [govFilter, setGovFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<Order | null>(null);
+  const [showTests, setShowTests] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders", statusFilter],
@@ -2232,7 +2233,12 @@ function OrdersTab() {
   });
 
   const governorates = Array.from(new Set(orders.map((o) => o.governorate).filter(Boolean))).sort();
+  const testCount = orders.filter((o) => o.is_test).length;
   const filtered = orders.filter((o) => {
+    // By default hide test orders from the main list. When "Show test orders"
+    // is on, only test orders are shown.
+    const isTest = !!o.is_test;
+    if (showTests !== isTest) return false;
     if (govFilter !== "all" && o.governorate !== govFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
