@@ -695,6 +695,31 @@ function CustomDesignPage() {
                 className="max-h-full max-w-full object-contain transition-transform"
               />
             </div>
+            {frameType !== "wood" && (
+              <div className="mt-4">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  Frame color for this image
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setPicColor(editing.id, c.id)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs uppercase tracking-widest transition",
+                        editing.color === c.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:bg-accent",
+                      )}
+                    >
+                      <span className="inline-block h-4 w-4 rounded-sm border border-border" style={{ background: c.swatch }} />
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
