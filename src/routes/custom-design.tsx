@@ -41,9 +41,7 @@ import {
   type FrameTypeId,
   type SizeId,
   type FrameColorId,
-  labelForFrame,
   labelForSize,
-  labelForColor,
 } from "@/lib/poster-options";
 import { cn } from "@/lib/utils";
 
@@ -720,15 +718,6 @@ function CustomDesignPage() {
       <BeforeAfter location="custom-design" />
       <ProductInfoSections variant="all" />
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
   );
 }
 
