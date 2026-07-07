@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
-import { X, Eye, Flame, Sparkles } from "lucide-react";
+import { X, Eye, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,8 +15,6 @@ import {
   randomInt,
   timeAgo,
 } from "@/lib/social-proof";
-import { SafeImage } from "@/components/SafeImage";
-
 type Poster = { id: string; title: string; image_url: string };
 type Notice = {
   id: string;
@@ -112,10 +110,10 @@ export function SalesNotifications() {
       role="status"
       aria-live="polite"
       className={
-        "fixed z-40 max-w-[calc(100vw-2rem)] w-[320px] sm:w-[340px] " +
+        "fixed z-40 max-w-[calc(100vw-2rem)] w-[260px] sm:w-[280px] " +
         "left-4 bottom-24 sm:left-6 sm:bottom-8 " +
         "md:left-6 md:bottom-8 " +
-        "animate-fade-in"
+        "animate-enter"
       }
       style={{
         // Mobile: bottom center above sticky/WhatsApp
@@ -124,27 +122,13 @@ export function SalesNotifications() {
           : {}),
       }}
     >
-      <div className="relative flex items-center gap-3 rounded-xl border border-white/10 bg-black/80 p-3 pr-8 text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-white/5">
-          {notice.poster ? (
-            <SafeImage
-              src={notice.poster.image_url}
-              alt={notice.poster.title}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-white/40">
-              <Sparkles className="h-5 w-5" />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold">
-            {notice.name} <span className="text-white/60">from {notice.city}</span>
+      <div className="relative rounded-xl border border-white/10 bg-black/80 px-3.5 py-2.5 pr-8 text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold leading-tight">
+            {notice.name} <span className="font-normal text-white/60">from {notice.city}</span>
           </div>
-          <div className="truncate text-[12px] text-white/80">{notice.message}</div>
-          <div className="mt-0.5 text-[10px] uppercase tracking-widest text-white/50">
+          <div className="truncate text-[12px] leading-snug text-white/80">{notice.message}</div>
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-white/50">
             {timeAgo(notice.minsAgo)}
           </div>
         </div>
