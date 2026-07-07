@@ -817,7 +817,7 @@ export function AiPosterUpload() {
               value={bulkSub}
               mains={subsOf(bulkCat)}
               placeholder="Sub-category…"
-              disabled={!bulkCat}
+              disabled={false}
               onChange={setBulkSub}
               onCreate={() => {
                 if (!bulkCat) {
