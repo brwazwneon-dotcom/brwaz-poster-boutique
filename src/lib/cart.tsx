@@ -81,11 +81,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return next;
   };
 
+  const readStored = (): CartItem[] | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as CartItem[]) : [];
+    } catch {
+      return null;
+    }
+  };
+
   const value = useMemo<CartCtx>(
     () => ({
       items,
-      add: (item) =>
-        setItems((prev) => {
+      add: (item) => {
           try {
             trackEvent("AddToCart", {
               content_ids: item.bundle
@@ -116,11 +125,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
               }, true, 1),
             );
           } catch { /* noop */ }
-          return persist([
-            ...prev,
+          const base = readStored() ?? items;
+          const next = persist([
+            ...base,
             { ...item, id: crypto.randomUUID(), qty: 1 },
           ]);
-        }),
+          setItems(next);
+        },
       remove: (id) => setItems((prev) => {
         const item = prev.find((i) => i.id === id);
         try {
