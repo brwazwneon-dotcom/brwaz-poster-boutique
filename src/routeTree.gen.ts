@@ -19,6 +19,7 @@ import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as CustomDesignRouteImport } from './routes/custom-design'
 import { Route as CartRouteImport } from './routes/cart'
+import { Route as BestSellersRouteImport } from './routes/best-sellers'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -75,6 +76,11 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BestSellersRoute = BestSellersRouteImport.update({
+  id: '/best-sellers',
+  path: '/best-sellers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/best-sellers'
     | '/cart'
     | '/custom-design'
     | '/offers'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/best-sellers'
     | '/cart'
     | '/custom-design'
     | '/offers'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/best-sellers'
     | '/cart'
     | '/custom-design'
     | '/offers'
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  BestSellersRoute: typeof BestSellersRoute
   CartRoute: typeof CartRoute
   CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/best-sellers': {
+      id: '/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/best-sellers'
+      preLoaderRoute: typeof BestSellersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -339,6 +359,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  BestSellersRoute: BestSellersRoute,
   CartRoute: CartRoute,
   CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
