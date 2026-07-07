@@ -504,9 +504,17 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
 }
 
 function ItemTile({
-  item, onRemove, onEdit, disabled,
-}: { item: UploadItem; onRemove: () => void; onEdit: () => void; disabled: boolean }) {
+  item, onRemove, onEdit, onAcceptAspect, disabled,
+}: { item: UploadItem; onRemove: () => void; onEdit: () => void; onAcceptAspect: () => void; disabled: boolean }) {
   const edited = !!item.edit && !isDefaultEdit({ ...DEFAULT_EDIT_SETTINGS, ...item.edit });
+  const showWarning =
+    !!item.aspectWarning && !item.aspectAccepted && !item.edit && item.status !== "done" && item.status !== "uploading";
+  const warnLabel =
+    item.aspectWarning === "square"
+      ? "مقاس مربع"
+      : item.aspectWarning === "tall"
+        ? "طويلة جدًا"
+        : "عريضة جدًا";
   return (
     <div
       className={cn(
@@ -515,7 +523,7 @@ function ItemTile({
         item.status === "failed" && "border-destructive",
         item.status === "uploading" && "border-primary",
         item.status === "optimizing" && "border-primary/60",
-        item.status === "pending" && "border-border",
+        item.status === "pending" && (showWarning ? "border-amber-500" : "border-border"),
       )}
       title={item.aiError ?? item.aiTitle ?? item.error ?? item.file.name}
     >
@@ -526,6 +534,29 @@ function ItemTile({
         <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">
           Edited
         </span>
+      )}
+      {showWarning && (
+        <div className="absolute inset-x-0 top-0 flex flex-col gap-1 bg-amber-500/95 px-1.5 py-1 text-[10px] font-semibold text-black">
+          <span className="inline-flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" /> {warnLabel} {item.size ? `(${item.size.w}×${item.size.h})` : ""}
+          </span>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex-1 rounded-sm bg-black/80 px-1 py-0.5 text-[9px] uppercase tracking-widest text-white hover:bg-black"
+            >
+              اظبطها
+            </button>
+            <button
+              type="button"
+              onClick={onAcceptAspect}
+              className="flex-1 rounded-sm bg-black/20 px-1 py-0.5 text-[9px] uppercase tracking-widest text-black hover:bg-black/30"
+            >
+              سيبها
+            </button>
+          </div>
+        </div>
       )}
       {!disabled && item.status !== "done" && item.status !== "uploading" && (
         <button
