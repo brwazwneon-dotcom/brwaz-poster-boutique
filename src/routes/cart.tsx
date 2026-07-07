@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
+import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -52,15 +53,27 @@ function CartPage() {
     (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
     0,
   );
+  // Total posters in cart (bundle posters count individually) — drives the
+  // tiered bundle discount and the "add N more to unlock" hint.
+  const posterCount = items.reduce(
+    (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
+    0,
+  );
+  const bundle = computeBundleDiscount(subtotal, posterCount);
+  const nextBundleTier = nextTier(posterCount);
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
   const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
   const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
-  const shipping = computeShipping(subtotal + tapeTotal, settings);
-  const grand = subtotal + packagingFee + tapeTotal + shipping;
-  const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
+  const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
+  const shipping = computeShipping(discountedSubtotal + tapeTotal, settings);
+  const grand = discountedSubtotal + packagingFee + tapeTotal + shipping;
+  const remainingForFree = Math.max(0, settings.freeShippingThreshold - discountedSubtotal);
+  const freeShipPct = settings.freeShippingThreshold > 0
+    ? Math.min(100, Math.round((discountedSubtotal / settings.freeShippingThreshold) * 100))
+    : 100;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
@@ -117,6 +130,7 @@ function CartPage() {
       ...lines,
       "",
       `Subtotal: ${subtotal} EGP`,
+      ...(bundle.tier ? [`Bundle Discount (${bundle.tier.percent}%): −${bundle.amount} EGP`] : []),
       ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
       ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
@@ -195,8 +209,14 @@ function CartPage() {
       }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
+      // Apply bundle discount pro-rata to each item so DB totals line up
+      // exactly with what the customer sees at checkout.
+      const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
       const rows = items.map((i) => {
         const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
+        const lineGross = i.price * i.qty;
+        const lineDiscount = Math.round(lineGross * discountRatio);
+        const lineNet = lineGross - lineDiscount;
         return ({
         customer_name: name,
         phone,
@@ -213,10 +233,10 @@ function CartPage() {
           ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
           : i.title,
         poster_image: i.image,
-        subtotal: i.price * i.qty,
+        subtotal: lineNet,
         packaging_fee: linePackaging,
         shipping_cost: shippingPerItem,
-        total_price: i.price * i.qty + linePackaging + shippingPerItem,
+        total_price: lineNet + linePackaging + shippingPerItem,
         status: "new",
         payment_method: paymentMethod,
         payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
@@ -538,6 +558,21 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
+                {bundle.tier && (
+                  <div className="flex items-center justify-between text-emerald-500">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden>🎁</span>
+                      Bundle discount ({bundle.tier.percent}% · {posterCount} posters)
+                    </span>
+                    <span>− {bundle.amount} EGP</span>
+                  </div>
+                )}
+                {nextBundleTier && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Add {nextBundleTier.minPosters - posterCount} more poster
+                    {nextBundleTier.minPosters - posterCount === 1 ? "" : "s"} to save {nextBundleTier.percent}%.
+                  </p>
+                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
@@ -554,13 +589,29 @@ function CartPage() {
                   <span className="text-muted-foreground">🚚 Shipping</span>
                   <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>
                 </div>
-                {remainingForFree > 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Add {remainingForFree} EGP more for free shipping.
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-foreground">🎉 Free shipping unlocked.</p>
-                )}
+                <div className="pt-1">
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className={remainingForFree > 0 ? "text-muted-foreground" : "text-foreground"}>
+                      {remainingForFree > 0
+                        ? `Add ${remainingForFree} EGP more for free shipping`
+                        : "🎉 Free shipping unlocked"}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{freeShipPct}%</span>
+                  </div>
+                  <div
+                    className="h-1.5 overflow-hidden rounded-full bg-muted"
+                    role="progressbar"
+                    aria-valuenow={freeShipPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Progress toward free shipping"
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out will-change-[width]"
+                      style={{ width: `${freeShipPct}%` }}
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center justify-between border-t border-border pt-3">
                   <span className="text-muted-foreground">Total</span>
                   <span className="text-display text-3xl">
