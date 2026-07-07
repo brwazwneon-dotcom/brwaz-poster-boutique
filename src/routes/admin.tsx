@@ -4170,6 +4170,239 @@ function CollectionsTab() {
   );
 }
 
+/* ---------- Cover settings for a single collection card ---------- */
+
+function CoverSettingsEditor({
+  card,
+  onChange,
+}: {
+  card: CollectionCard;
+  onChange: (patch: Partial<CollectionCard>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const mode = card.coverMode ?? "auto";
+  const bw = card.bw !== false;
+  const speed = card.transitionMs ?? 6000;
+  const overlay = card.overlayOpacity ?? 0.55;
+  const slug = (card.link.match(/^\/category\/([^/?#]+)/) ?? [])[1] ?? null;
+  const selectedIds = card.coverPosterIds ?? [];
+
+  const postersQ = useQuery({
+    queryKey: ["admin-cover-posters", slug],
+    enabled: !!slug && open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("posters")
+        .select("id,title,image_url,categories!inner(slug)")
+        .eq("categories.slug", slug!)
+        .eq("hidden", false)
+        .order("sales_count", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const previewQ = useQuery({
+    queryKey: ["admin-cover-preview", card.id, mode, slug, selectedIds.join(","), card.image],
+    enabled: open,
+    queryFn: async (): Promise<string[]> => {
+      if (mode === "manual") return card.image ? [card.image] : [];
+      if (mode === "selected") {
+        const ids = selectedIds.filter(Boolean);
+        if (ids.length === 0) return card.image ? [card.image] : [];
+        const { data, error } = await supabase
+          .from("posters")
+          .select("id,image_url")
+          .in("id", ids);
+        if (error) throw error;
+        return (data ?? []).map((p) => p.image_url as string).filter(Boolean);
+      }
+      if (!slug) return card.image ? [card.image] : [];
+      const { data, error } = await supabase
+        .from("posters")
+        .select("image_url,categories!inner(slug)")
+        .eq("categories.slug", slug)
+        .eq("hidden", false)
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []).map((p) => p.image_url as string).filter(Boolean);
+    },
+  });
+
+  const [previewIdx, setPreviewIdx] = useState(0);
+  useEffect(() => {
+    const imgs = previewQ.data ?? [];
+    if (imgs.length < 2) return;
+    const id = setInterval(
+      () => setPreviewIdx((i) => (i + 1) % imgs.length),
+      Math.max(2000, speed),
+    );
+    return () => clearInterval(id);
+  }, [previewQ.data, speed]);
+
+  const toggleId = (id: string) => {
+    const has = selectedIds.includes(id);
+    onChange({
+      coverPosterIds: has ? selectedIds.filter((x) => x !== id) : [...selectedIds, id],
+    });
+  };
+
+  return (
+    <div className="mt-2 rounded-sm border border-border bg-background/60">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+      >
+        <span>Cover settings · {mode}</span>
+        <span>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="space-y-4 border-t border-border p-3">
+          <div className="flex flex-wrap gap-2">
+            {(["auto", "manual", "selected"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onChange({ coverMode: m })}
+                className={cn(
+                  "rounded-sm border px-3 py-1.5 text-[10px] uppercase tracking-widest",
+                  mode === m
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border hover:bg-accent",
+                )}
+              >
+                {m === "auto" ? "Auto random" : m === "manual" ? "Manual upload" : "Pick products"}
+              </button>
+            ))}
+          </div>
+
+          {mode === "auto" && !slug && (
+            <p className="text-xs text-amber-500">
+              Auto mode needs a link like <code>/category/&lt;slug&gt;</code>.
+            </p>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={bw}
+                onChange={(e) => onChange({ bw: e.target.checked })}
+              />
+              Black &amp; white
+            </label>
+            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Transition speed · {(speed / 1000).toFixed(1)}s
+              <input
+                type="range"
+                min={2000}
+                max={12000}
+                step={500}
+                value={speed}
+                onChange={(e) => onChange({ transitionMs: Number(e.target.value) })}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Overlay darkness · {Math.round(overlay * 100)}%
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={overlay}
+                onChange={(e) => onChange({ overlayOpacity: Number(e.target.value) })}
+              />
+            </label>
+          </div>
+
+          {mode === "selected" && (
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Pick products from {slug ?? "—"} ({selectedIds.length} selected)
+              </p>
+              {!slug ? (
+                <p className="text-xs text-muted-foreground">Set a category link first.</p>
+              ) : postersQ.isLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : (
+                <div className="grid max-h-56 grid-cols-4 gap-2 overflow-auto rounded-sm border border-border p-2 sm:grid-cols-6">
+                  {(postersQ.data ?? []).map((p) => {
+                    const active = selectedIds.includes(p.id);
+                    return (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => toggleId(p.id)}
+                        className={cn(
+                          "relative aspect-[3/4] overflow-hidden rounded-sm border",
+                          active ? "border-primary ring-2 ring-primary" : "border-border",
+                        )}
+                        title={p.title}
+                      >
+                        <SafeImage
+                          src={p.image_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                        {active && (
+                          <span className="absolute right-1 top-1 rounded-full bg-primary px-1.5 text-[9px] font-bold text-primary-foreground">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {(postersQ.data ?? []).length === 0 && (
+                    <p className="col-span-full text-xs text-muted-foreground">No products.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Preview */}
+          <div>
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Preview
+            </p>
+            <div className="relative aspect-[4/5] w-40 overflow-hidden rounded-sm border border-border bg-muted">
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
+              {(previewQ.data ?? []).map((url, k) => (
+                <img
+                  key={url + k}
+                  src={url}
+                  alt=""
+                  className={cn(
+                    "absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms]",
+                    bw && "grayscale",
+                    k === previewIdx % Math.max(1, (previewQ.data ?? []).length)
+                      ? "opacity-100"
+                      : "opacity-0",
+                  )}
+                />
+              ))}
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"
+                style={{ opacity: 0.35 + overlay * 0.65 }}
+              />
+              <div className="absolute inset-x-0 bottom-0 p-2">
+                <p className="text-[8px] uppercase tracking-widest text-white/60">
+                  {card.subtitle}
+                </p>
+                <h4 className="text-sm font-semibold text-white">{card.title}</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============================ Marketing tab ============================ */
 
 function MarketingTab() {
