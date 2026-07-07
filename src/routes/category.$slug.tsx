@@ -304,12 +304,20 @@ function CategoryPage() {
                   const active = selectedIds.includes(p.id);
                   const idx = selectedIds.indexOf(p.id);
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggle(p)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggle(p);
+                        }
+                      }}
+                      aria-pressed={active}
                       className={cn(
-                        "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-card transition",
+                        "group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-sm border-2 bg-card transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                         active
                           ? "border-primary ring-4 ring-primary/30"
                           : "border-transparent hover:border-border",
@@ -341,7 +349,7 @@ function CategoryPage() {
                           ✔ {formatCount(p.sales_count)} sold
                         </span>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
