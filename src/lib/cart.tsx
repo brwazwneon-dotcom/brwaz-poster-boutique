@@ -61,16 +61,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  const persist = (next: CartItem[]) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+    }
+    return next;
+  };
+
+  const readStored = (): CartItem[] | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as CartItem[]) : [];
+    } catch {
+      return null;
+    }
+  };
 
   const value = useMemo<CartCtx>(
     () => ({
       items,
-      add: (item) =>
-        setItems((prev) => {
+      add: (item) => {
           try {
             trackEvent("AddToCart", {
               content_ids: item.bundle
@@ -101,11 +116,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
               }, true, 1),
             );
           } catch { /* noop */ }
-          return [
-          ...prev,
-          { ...item, id: crypto.randomUUID(), qty: 1 },
-          ];
-        }),
+          const base = readStored() ?? items;
+          const next = persist([
+            ...base,
+            { ...item, id: crypto.randomUUID(), qty: 1 },
+          ]);
+          console.info("[cart-debug] add", {
+            title: item.title,
+            posterId: item.posterId,
+            previousCount: base.length,
+            nextCount: next.length,
+            customImagePath: item.customImagePath ? "[path/url]" : null,
+          });
+          setItems(next);
+        },
       remove: (id) => setItems((prev) => {
         const item = prev.find((i) => i.id === id);
         try {
@@ -122,13 +146,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
             );
           }
         } catch { /* noop */ }
-        return prev.filter((i) => i.id !== id);
+        return persist(prev.filter((i) => i.id !== id));
       }),
       setQty: (id, qty) =>
         setItems((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i)),
+          persist(prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i))),
         ),
-      clear: () => setItems([]),
+      clear: () => setItems(persist([])),
       total: items.reduce((s, i) => s + i.price * i.qty, 0),
       count: items.reduce((s, i) => s + i.qty, 0),
     }),

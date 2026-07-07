@@ -21,36 +21,123 @@ const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CHECKOUT_DEBUG = true;
 
 function asUuid(value: string | null | undefined): string | null {
   return value && UUID_RE.test(value) ? value : null;
 }
 
-function logCheckoutWrite(
-  stage: string,
-  table: string,
-  payload: unknown,
-  error?: unknown,
-) {
-  const sanitize = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(sanitize);
-    if (value && typeof value === "object") {
-      return Object.fromEntries(
-        Object.entries(value as Record<string, unknown>).map(([key, val]) => {
-          if (key === "phone") return [key, typeof val === "string" ? `${val.slice(0, 3)}***${val.slice(-2)}` : val];
-          if (key === "customer_name") return [key, typeof val === "string" ? "[customer_name]" : val];
-          if (key === "address") return [key, typeof val === "string" ? "[address]" : val];
-          if (key === "poster_image" || key === "payment_screenshot") return [key, val ? "[path/url]" : val];
-          return [key, sanitize(val)];
-        }),
-      );
-    }
-    return value;
-  };
+type CheckoutDebugInfo = {
+  step: string;
+  table?: string;
+  operation?: string;
+  payload?: unknown;
+  error?: unknown;
+  result?: unknown;
+};
 
-  const details = { table, payload: sanitize(payload), error };
-  if (stage === "error") console.error("[checkout-write:error]", details);
-  else console.info("[checkout-write]", details);
+function sanitizeCheckoutDebug(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeCheckoutDebug);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => {
+        if (key === "phone") return [key, typeof val === "string" ? `${val.slice(0, 3)}***${val.slice(-2)}` : val];
+        if (key === "customer_name" || key === "name") return [key, typeof val === "string" ? "[customer_name]" : val];
+        if (key === "address") return [key, typeof val === "string" ? "[address]" : val];
+        if (key === "poster_image" || key === "payment_screenshot" || key === "image" || key === "customImagePath") {
+          return [key, val ? "[path/url]" : val];
+        }
+        if (key === "file") return [key, "[File]"];
+        return [key, sanitizeCheckoutDebug(val)];
+      }),
+    );
+  }
+  return value;
+}
+
+function errorFields(error: unknown) {
+  const e = (error ?? {}) as Record<string, unknown>;
+  const message = typeof e.message === "string" ? e.message : error instanceof Error ? error.message : String(error);
+  const code = typeof e.code === "string" ? e.code : undefined;
+  const details = typeof e.details === "string" ? e.details : undefined;
+  const hint = typeof e.hint === "string" ? e.hint : undefined;
+  const name = typeof e.name === "string" ? e.name : error instanceof Error ? error.name : undefined;
+  const status = typeof e.status === "number" || typeof e.status === "string" ? e.status : undefined;
+  const statusCode = typeof e.statusCode === "number" || typeof e.statusCode === "string" ? e.statusCode : undefined;
+  const constraint =
+    /constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /violates foreign key constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /violates check constraint "([^"]+)"/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    null;
+  const missingColumn =
+    /column "([^"]+)".*does not exist/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    /Could not find the '([^']+)' column/i.exec(`${message} ${details ?? ""}`)?.[1] ??
+    null;
+  const isRls = /row-level security|rls/i.test(`${message} ${details ?? ""}`) || code === "42501";
+  const isForeignKey = /foreign key/i.test(`${message} ${details ?? ""}`) || code === "23503";
+  const isValidation = /check constraint|not-null|null value|invalid input|violates/i.test(`${message} ${details ?? ""}`);
+
+  return {
+    name,
+    message,
+    code,
+    postgresCode: code,
+    details,
+    hint,
+    status,
+    statusCode,
+    constraint,
+    rlsPolicyName: isRls ? "not returned by PostgREST; inspect the table INSERT policy shown with this failing table" : null,
+    missingColumn,
+    foreignKeyError: isForeignKey ? message : null,
+    validationError: isValidation ? message : null,
+    raw: e,
+  };
+}
+
+function formatCheckoutError(info: CheckoutDebugInfo) {
+  const fields = errorFields(info.error);
+  return [
+    `Checkout failed at: ${info.step}`,
+    info.table ? `Table: ${info.table}` : null,
+    info.operation ? `Operation: ${info.operation}` : null,
+    `Supabase error: ${fields.message}`,
+    fields.postgresCode ? `Postgres code: ${fields.postgresCode}` : null,
+    fields.details ? `SQL error/details: ${fields.details}` : null,
+    fields.hint ? `Hint: ${fields.hint}` : null,
+    fields.constraint ? `Constraint: ${fields.constraint}` : null,
+    fields.rlsPolicyName ? `RLS policy: ${fields.rlsPolicyName}` : null,
+    fields.missingColumn ? `Missing column: ${fields.missingColumn}` : null,
+    fields.foreignKeyError ? `Foreign key error: ${fields.foreignKeyError}` : null,
+    fields.validationError ? `Validation error: ${fields.validationError}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+class CheckoutDebugError extends Error {
+  info: CheckoutDebugInfo;
+  constructor(info: CheckoutDebugInfo) {
+    super(formatCheckoutError(info));
+    this.name = "CheckoutDebugError";
+    this.info = info;
+  }
+}
+
+function logCheckoutStep(info: CheckoutDebugInfo) {
+  if (!CHECKOUT_DEBUG) return;
+  const safeInfo = {
+    ...info,
+    payload: sanitizeCheckoutDebug(info.payload),
+    result: sanitizeCheckoutDebug(info.result),
+    error: info.error ? errorFields(info.error) : undefined,
+  };
+  const message = `${info.error ? "[checkout-debug:error]" : "[checkout-debug]"} ${JSON.stringify(safeInfo, null, 2)}`;
+  if (info.error) console.error(message);
+  else console.info(message);
+}
+
+function throwCheckoutError(info: CheckoutDebugInfo): never {
+  logCheckoutStep(info);
+  throw new CheckoutDebugError(info);
 }
 
 export const Route = createFileRoute("/cart")({
@@ -190,6 +277,7 @@ function CartPage() {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const handleScreenshotChange = (file: File | null) => {
     if (!file) {
@@ -284,12 +372,44 @@ function CartPage() {
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
 
+    setCheckoutError(null);
     setSubmitting(true);
     const contentIds = items.flatMap((i) =>
       i.bundle ? i.bundle.posters.map((p) => p.posterId) : [i.posterId],
     );
+    const checkoutTotals = {
+      subtotal,
+      discount: bundle.amount,
+      shipping,
+      packaging: packagingFee,
+      tape: tapeTotal,
+      total: grand,
+      paymentMethod,
+      itemCount: items.length,
+      posterCount,
+      frameCount,
+    };
+    logCheckoutStep({
+      step: "checkout_clicked",
+      payload: {
+        customer: { name, phone, governorate, address },
+        items,
+        totals: checkoutTotals,
+      },
+    });
     setUserData({ phone, city: governorate, country: "EG" });
     try {
+      logCheckoutStep({
+        step: "meta_pixel_initiate_checkout",
+        operation: "trackEvent",
+        payload: {
+          content_ids: contentIds,
+          contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
+          num_items: items.reduce((s, i) => s + i.qty, 0),
+          value: grand,
+          currency: "EGP",
+        },
+      });
       trackEvent("InitiateCheckout", {
         content_ids: contentIds,
         contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
@@ -297,26 +417,41 @@ function CartPage() {
         value: grand,
         currency: "EGP",
       }, { phone, city: governorate, country: "EG" });
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "meta_pixel_initiate_checkout", operation: "trackEvent", error: err });
+    }
     try {
       const { logCheckoutStart } = await import("@/lib/analytics");
+      logCheckoutStep({ step: "analytics_checkout_start", table: "analytics_poster_events", operation: "insert" });
       logCheckoutStart();
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "analytics_checkout_start", table: "analytics_poster_events", operation: "insert", error: err });
+    }
     try {
       const { track } = await import("@/lib/behavior");
+      logCheckoutStep({ step: "behavior_checkout_start", table: "visitor_cart_events", operation: "insert" });
       track.checkoutStart();
-    } catch { /* noop */ }
+    } catch (err) {
+      logCheckoutStep({ step: "behavior_checkout_start", table: "visitor_cart_events", operation: "insert", error: err });
+    }
     try {
       let screenshotPath: string | null = null;
       if (paymentMethod === "instapay" && screenshot) {
         const folder = crypto.randomUUID();
         const rawExt = (screenshot.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "jpg";
         const path = `${folder}/receipt.${rawExt}`;
+        const storagePayload = {
+          bucket: "payment-screenshots",
+          path,
+          file: { name: screenshot.name, type: screenshot.type, size: screenshot.size },
+        };
+        logCheckoutStep({ step: "payment_screenshot_upload", table: "storage.objects", operation: "upload", payload: storagePayload });
         const { error: upErr } = await supabase.storage
           .from("payment-screenshots")
           .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
-        if (upErr) throw upErr;
+        if (upErr) throwCheckoutError({ step: "payment_screenshot_upload", table: "storage.objects", operation: "upload", payload: storagePayload, error: upErr });
         screenshotPath = path;
+        logCheckoutStep({ step: "payment_screenshot_upload_complete", table: "storage.objects", operation: "upload", result: { path: screenshotPath } });
       }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
@@ -382,15 +517,26 @@ function CartPage() {
           is_test: testFlag,
         } as (typeof rows)[number]);
       }
-      logCheckoutWrite("insert", "orders", rows);
+      const orderPayloadDebug = {
+        customer: { name, phone, governorate, address },
+        order: {
+          payment_method: paymentMethod,
+          payment_screenshot: screenshotPath,
+          is_test: testFlag,
+          guest_session_id: guestSessionId,
+        },
+        order_items: rows,
+        totals: checkoutTotals,
+      };
+      logCheckoutStep({ step: "orders_insert_start", table: "orders", operation: "insert", payload: orderPayloadDebug });
       const { error } = await supabase
         .from("orders")
         // is_test flag isn't in generated types yet — safe cast.
         .insert(rows as unknown as never);
       if (error) {
-        logCheckoutWrite("error", "orders", rows, error);
-        throw error;
+        throwCheckoutError({ step: "orders_insert", table: "orders", operation: "insert", payload: orderPayloadDebug, error });
       }
+      logCheckoutStep({ step: "orders_insert_complete", table: "orders", operation: "insert", result: { insertedRows: rows.length } });
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
       // Skip notifications for test orders unless caller opts in via ?send_test_notification=1.
@@ -419,7 +565,9 @@ function CartPage() {
           currency: "EGP",
           order_id: `BRW-${Date.now()}`,
         }, { phone, city: governorate, country: "EG" });
-      } catch { /* noop */ }
+      } catch (err) {
+        logCheckoutStep({ step: "meta_pixel_purchase", operation: "trackEvent", error: err });
+      }
 
       // Bump purchase counts for posters in this order (non-blocking).
       // Skip for test orders so they don't inflate sales counters.
@@ -451,22 +599,28 @@ function CartPage() {
           Array.from(byQty.entries()).map(([q, pids]) => trackPosterSales(pids, q)),
         );
       } catch (e) {
-        console.warn("sales tracking failed", e);
+        logCheckoutStep({ step: "poster_sales_tracking", table: "posters", operation: "rpc increment_poster_sales", error: e });
       }
 
       toast.success("Order placed! Opening WhatsApp…");
       try {
         const { track } = await import("@/lib/behavior");
         const pids = items.flatMap((i) => i.bundle ? i.bundle.posters.map((p) => p.posterId) : (i.posterId ? [i.posterId] : []));
+        logCheckoutStep({ step: "behavior_purchase", table: "visitor_cart_events", operation: "insert/rpc", payload: { posterIds: pids } });
         track.purchase(phone, pids);
-      } catch { /* noop */ }
+      } catch (err) {
+        logCheckoutStep({ step: "behavior_purchase", table: "visitor_cart_events", operation: "insert/rpc", error: err });
+      }
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
       setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
       setTapeChoice(null); setTapeOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to place order");
+      logCheckoutStep({ step: "checkout_failed", error: err });
+      const message = err instanceof Error ? err.message : String(err);
+      setCheckoutError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -814,6 +968,11 @@ function CartPage() {
               >
                 {submitting ? "Placing order…" : "Place order · WhatsApp"}
               </button>
+              {checkoutError && (
+                <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-sm border border-destructive/40 bg-destructive/10 p-3 text-left text-[11px] leading-relaxed text-destructive">
+                  {checkoutError}
+                </pre>
+              )}
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
                 Your order is saved and WhatsApp opens to confirm.
               </p>
