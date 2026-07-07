@@ -509,15 +509,20 @@ function CustomDesignPage() {
                     <div className="w-full overflow-hidden bg-background">
                       <FramePreview
                         posterUrl={p.preview}
-                        frameType={frameType}
+                        frameType={p.frameType}
                         color={p.color}
                         aspectClassName="aspect-[2/3]"
                         editSettings={{ rotate: p.rotate }}
                         loading="lazy"
                       />
                     </div>
-                    <div className="absolute left-1 top-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
-                      #{i + 1}
+                    <div className="absolute left-1 top-1 flex flex-col items-start gap-1">
+                      <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
+                        #{i + 1}
+                      </span>
+                      <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        {labelForSize(p.size)}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -527,7 +532,7 @@ function CustomDesignPage() {
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
-                    {frameType !== "wood" && (
+                    {p.frameType !== "wood" && (
                       <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
                         {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
                           <button
