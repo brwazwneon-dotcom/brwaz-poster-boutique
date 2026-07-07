@@ -209,6 +209,7 @@ function RootComponent() {
             <PreviewBadge />
             <SalesNotifications />
             <BehaviorBoot />
+            <TestModeBadge />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
