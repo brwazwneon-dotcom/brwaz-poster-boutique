@@ -590,6 +590,17 @@ function CustomDesignPage() {
                 <div className="mt-2 text-xs text-muted-foreground">
                   {pics.length} × {labelForSize(size)} @ {unit} EGP
                 </div>
+                {bundle.tier && (
+                  <div className="mt-1 text-[11px] font-semibold text-primary">
+                    Bundle offer: −{bundle.amount} EGP ({bundle.tier.percent}% off)
+                  </div>
+                )}
+                {!bundle.tier && nextBundle && pics.length > 0 && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Add {nextBundle.minPosters - pics.length} more image
+                    {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
+                  </div>
+                )}
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   Shipping: {shipping === 0 ? "Free" : `${shipping} EGP`}
                 </div>
