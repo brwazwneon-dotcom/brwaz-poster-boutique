@@ -147,7 +147,9 @@ function useCoverImages(card: CollectionCard) {
 function CollectionCover({ card }: { card: CollectionCard }) {
   const { data: images = [] } = useCoverImages(card);
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const valid = useMemo(() => images.filter((u) => !broken[u]), [images, broken]);
+  const validImages = useMemo(() => images.filter((u) => !broken[u]), [images, broken]);
+  const fallback = card.image ? [card.image] : [];
+  const valid = validImages.length > 0 ? validImages : fallback;
   const [index, setIndex] = useState(0);
   const interval = Math.max(2000, card.transitionMs ?? 6000);
   const bw = card.bw === true;
