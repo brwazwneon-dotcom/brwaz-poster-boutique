@@ -458,13 +458,14 @@ function CustomDesignPage() {
                     key={p.id}
                     className="group relative overflow-hidden rounded-sm border border-border bg-muted"
                   >
-                    <div className="aspect-square w-full overflow-hidden">
-                      <img
-                        src={p.preview}
-                        alt=""
+                    <div className="w-full overflow-hidden bg-background">
+                      <FramePreview
+                        posterUrl={p.preview}
+                        frameType={frameType}
+                        color={p.color}
+                        aspectClassName="aspect-[2/3]"
+                        editSettings={{ rotate: p.rotate }}
                         loading="lazy"
-                        className="h-full w-full object-cover transition-transform"
-                        style={{ transform: `rotate(${p.rotate}deg)` }}
                       />
                     </div>
                     <div className="absolute left-1 top-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
@@ -478,6 +479,26 @@ function CustomDesignPage() {
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
+                    {frameType !== "wood" && (
+                      <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
+                        {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setPicColor(p.id, c.id)}
+                            className={cn(
+                              "h-4 w-4 rounded-full border-2 transition",
+                              p.color === c.id
+                                ? "border-primary scale-110"
+                                : "border-background/70 opacity-80 hover:opacity-100",
+                            )}
+                            style={{ background: c.swatch }}
+                            aria-label={`Set frame color to ${c.label}`}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-background/85 px-1 py-1 opacity-0 transition group-hover:opacity-100">
                       <IconAction onClick={() => setLightbox(p)} label="Preview">
                         <Eye className="h-3.5 w-3.5" />
