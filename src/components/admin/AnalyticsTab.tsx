@@ -62,7 +62,12 @@ type Dashboard = {
   top_viewed: (PosterRow & { views_count: number })[];
   top_cart: (PosterRow & { cart_adds_count: number })[];
   top_wishlisted: (PosterRow & { wishlist_count: number })[];
-  lowest_performing: (PosterRow & { views_count: number; sales_count: number })[];
+  lowest_performing: (PosterRow & {
+    views_count: number;
+    sales_count: number;
+    cart_adds_count?: number | null;
+    total_view_seconds?: number | null;
+  })[];
   top_categories: CategoryRow[];
   top_subcategories: CategoryRow[];
   top_sizes: SizeRow[];
