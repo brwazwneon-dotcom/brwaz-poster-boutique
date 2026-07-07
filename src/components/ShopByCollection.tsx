@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
+import { useEffect, useMemo, useState } from "react";
 
 export type CollectionCard = {
   id: string;
@@ -9,6 +10,16 @@ export type CollectionCard = {
   image: string;
   link: string;
   enabled?: boolean;
+  /** Cover behavior */
+  coverMode?: "auto" | "manual" | "selected";
+  /** When coverMode = "selected" */
+  coverPosterIds?: string[];
+  /** Apply grayscale by default (default true) */
+  bw?: boolean;
+  /** Milliseconds between rotations (default 6000) */
+  transitionMs?: number;
+  /** 0..1 dark overlay strength (default 0.55) */
+  overlayOpacity?: number;
 };
 
 export const DEFAULT_COLLECTIONS: CollectionCard[] = [
@@ -21,6 +32,11 @@ export const DEFAULT_COLLECTIONS: CollectionCard[] = [
   { id: "custom-design", title: "Custom Design", subtitle: "Your image, framed",           image: "", link: "/custom-design",          enabled: true },
   { id: "photo-printing",title: "Photo Printing",subtitle: "Print your memories",          image: "", link: "/photo-printing",         enabled: true },
 ];
+
+function extractCategorySlug(link: string): string | null {
+  const m = link.match(/^\/category\/([^/?#]+)/);
+  return m ? m[1] : null;
+}
 
 export function useHomeCollections() {
   return useQuery({
@@ -46,11 +62,120 @@ export function useHomeCollections() {
           image: c.image ?? "",
           link: c.link ?? "/",
           enabled: c.enabled !== false,
+          coverMode: c.coverMode ?? "auto",
+          coverPosterIds: Array.isArray(c.coverPosterIds) ? c.coverPosterIds : [],
+          bw: c.bw !== false,
+          transitionMs: typeof c.transitionMs === "number" ? c.transitionMs : 6000,
+          overlayOpacity:
+            typeof c.overlayOpacity === "number" ? c.overlayOpacity : 0.55,
         }));
       }
       return { visible, cards };
     },
   });
+}
+
+/** Fetch rotating cover images for a card according to its cover settings. */
+function useCoverImages(card: CollectionCard) {
+  const mode = card.coverMode ?? "auto";
+  const slug = extractCategorySlug(card.link);
+  const idsKey = (card.coverPosterIds ?? []).join(",");
+
+  return useQuery({
+    queryKey: ["collection-cover", card.id, mode, slug, idsKey, card.image],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<string[]> => {
+      if (mode === "manual") return card.image ? [card.image] : [];
+      if (mode === "selected") {
+        const ids = (card.coverPosterIds ?? []).filter(Boolean);
+        if (ids.length === 0) return card.image ? [card.image] : [];
+        const { data, error } = await supabase
+          .from("posters")
+          .select("id,image_url")
+          .in("id", ids);
+        if (error) throw error;
+        return (data ?? [])
+          .map((p) => p.image_url as string)
+          .filter((u): u is string => !!u);
+      }
+      // auto
+      if (!slug) return card.image ? [card.image] : [];
+      const { data, error } = await supabase
+        .from("posters")
+        .select("image_url,categories!inner(slug)")
+        .eq("categories.slug", slug)
+        .eq("hidden", false)
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(24);
+      if (error) throw error;
+      const urls = (data ?? [])
+        .map((p) => p.image_url as string)
+        .filter((u): u is string => !!u);
+      // shuffle
+      for (let i = urls.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [urls[i], urls[j]] = [urls[j], urls[i]];
+      }
+      return urls.slice(0, 8);
+    },
+  });
+}
+
+function CollectionCover({ card }: { card: CollectionCard }) {
+  const { data: images = [] } = useCoverImages(card);
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
+  const valid = useMemo(() => images.filter((u) => !broken[u]), [images, broken]);
+  const [index, setIndex] = useState(0);
+  const interval = Math.max(2000, card.transitionMs ?? 6000);
+  const bw = card.bw !== false;
+  const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
+
+  useEffect(() => {
+    if (valid.length < 2) return;
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % valid.length);
+    }, interval);
+    return () => clearInterval(id);
+  }, [valid.length, interval]);
+
+  useEffect(() => {
+    if (index >= valid.length) setIndex(0);
+  }, [valid.length, index]);
+
+  const grayscale = bw
+    ? "grayscale group-hover:grayscale-[40%]"
+    : "group-hover:brightness-110";
+
+  return (
+    <>
+      {/* Fallback gradient — always present so gaps are never blank */}
+      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
+
+      {valid.map((url, i) => (
+        <img
+          key={url + i}
+          src={url}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          onError={() => setBroken((b) => ({ ...b, [url]: true }))}
+          className={[
+            "absolute inset-0 h-full w-full object-cover transition-all duration-[1400ms] ease-in-out will-change-[opacity,transform]",
+            grayscale,
+            "group-hover:scale-[1.04]",
+            i === index ? "opacity-100" : "opacity-0",
+          ].join(" ")}
+        />
+      ))}
+
+      {/* Dark overlay */}
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent transition-opacity duration-500 group-hover:opacity-90"
+        style={{ opacity: 0.35 + overlay * 0.65 }}
+      />
+    </>
+  );
 }
 
 export function ShopByCollection() {
@@ -79,17 +204,7 @@ export function ShopByCollection() {
               href={c.link}
               className="group relative block aspect-[4/5] min-w-[78%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:min-w-0"
             >
-              {c.image ? (
-                <SafeImage
-                  src={c.image}
-                  alt={c.title}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover grayscale transition duration-700 group-hover:scale-105 group-hover:grayscale-0"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+              <CollectionCover card={c} />
               <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
                 <p className="text-[10px] uppercase tracking-[0.4em] text-white/60">
                   {c.subtitle}
