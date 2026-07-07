@@ -55,11 +55,9 @@ export function FramePreview({
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [frameErrored, setFrameErrored] = useState(false);
-  // Bare thumbnails (grid tiles, cart summary) always use the reliable
-  // CSS-based frame so the mockup renders identically on every device,
-  // regardless of whether the frame PNG loads. Non-bare (product page)
-  // still uses the realistic PNG overlay when available.
-  const useCssFrame = bare || !m.image || frameErrored;
+  // Always prefer the uploaded frame mockup PNGs, including product-card
+  // thumbnails. If a mockup cannot load, fall back to a CSS frame instead.
+  const useCssFrame = !m.image || frameErrored;
 
   // Swatch fallback so the matte/frame still reads when no mockup image is set.
   const matte =
@@ -99,7 +97,9 @@ export function FramePreview({
       className={cn(
         "relative isolate w-full overflow-hidden",
         aspectClassName,
-        !bare && "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
+        bare
+          ? "drop-shadow-[0_12px_18px_rgba(0,0,0,0.35)]"
+          : "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
         className,
       )}
       style={{
