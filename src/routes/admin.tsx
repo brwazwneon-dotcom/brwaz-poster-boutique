@@ -2396,7 +2396,6 @@ function OrdersTab() {
                 {filtered.map((o) => (
                   <tr key={o.id} className="border-t border-border align-top">
                     <td className="px-3 py-3 font-mono text-xs">{o.order_number ?? "—"}</td>
-                    {/* TEST chip is inline via the "When" column below to keep header count stable. */}
                     <td className="px-3 py-3 text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleString()}
                       {o.is_test && (
