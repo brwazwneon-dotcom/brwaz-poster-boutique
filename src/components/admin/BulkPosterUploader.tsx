@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles } from "lucide-react";
+import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -31,6 +31,9 @@ type UploadItem = {
   ai?: AiStatus;
   aiError?: string;
   aiTitle?: string;
+  size?: { w: number; h: number; ratio: number };
+  aspectWarning?: "square" | "tall" | "wide";
+  aspectAccepted?: boolean;
 };
 
 const CONCURRENCY = 4;
@@ -81,6 +84,21 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
       status: "pending",
     }));
     setItems((prev) => [...prev, ...next]);
+    // Measure natural dimensions and flag off-ratio images (target 2:3 ≈ 0.667).
+    next.forEach((it) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const ratio = w / h;
+        let warning: UploadItem["aspectWarning"];
+        if (Math.abs(ratio - 1) < 0.08) warning = "square";
+        else if (ratio < 0.55) warning = "tall";
+        else if (ratio > 0.82) warning = "wide";
+        update(it.id, { size: { w, h, ratio }, aspectWarning: warning });
+      };
+      img.src = it.preview;
+    });
   };
 
   const removeItem = (id: string) => {
