@@ -786,7 +786,27 @@ function CartPage() {
               </p>
               <div className="mt-5 space-y-3">
                 <Field label="Full name" value={name} onChange={setName} />
-                <Field label="Phone" value={phone} onChange={setPhone} type="tel" />
+                <label className="block">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Phone · رقم الموبايل
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={11}
+                    placeholder="01xxxxxxxxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                    className={`mt-1 w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:border-primary ${phone && !EG_PHONE_RE.test(phone) ? "border-destructive" : "border-border"}`}
+                    aria-invalid={phone.length > 0 && !EG_PHONE_RE.test(phone)}
+                  />
+                  {phone.length > 0 && !EG_PHONE_RE.test(phone) && (
+                    <span className="mt-1 block text-[11px] text-destructive">
+                      رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01
+                    </span>
+                  )}
+                </label>
                 <label className="block">
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">
                     Governorate
