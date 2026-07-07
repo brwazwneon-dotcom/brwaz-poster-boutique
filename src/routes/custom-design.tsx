@@ -7,6 +7,8 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
+import { FramePreview } from "@/components/FramePreview";
+import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
 import {
   useSiteSettings,
   computeShipping,
@@ -66,6 +68,7 @@ type Pic = {
   file: File;
   preview: string;
   rotate: number;
+  color: FrameColorId;
 };
 
 function isAcceptedFile(f: File): boolean {
@@ -110,9 +113,24 @@ function CustomDesignPage() {
     if (id === "wood") {
       // Wooden Portrait has no color options — clear any PVC color.
       setColor("wood");
+      setPics((prev) => prev.map((p) => ({ ...p, color: "wood" })));
     } else if (color === "wood") {
       setColor("black");
+      setPics((prev) => prev.map((p) => ({ ...p, color: p.color === "wood" ? "black" : p.color })));
     }
+  };
+
+  // Changing the global color updates any images still on that previous color
+  // (customers who explicitly picked a per-image color keep their choice).
+  const handleGlobalColor = (next: FrameColorId) => {
+    const prevColor = color;
+    setColor(next);
+    setPics((prev) => prev.map((p) => (p.color === prevColor ? { ...p, color: next } : p)));
+  };
+
+  const setPicColor = (id: string, next: FrameColorId) => {
+    setPics((prev) => prev.map((p) => (p.id === id ? { ...p, color: next } : p)));
+    setEditing((cur) => (cur && cur.id === id ? { ...cur, color: next } : cur));
   };
 
   const availableSizes = useMemo(
@@ -126,7 +144,12 @@ function CustomDesignPage() {
   );
   const subtotal = unit * pics.length;
   const shipping = computeShipping(subtotal, settings);
-  const total = subtotal + shipping;
+  const bundle = useMemo(
+    () => computeBundleDiscount(subtotal, pics.length),
+    [subtotal, pics.length],
+  );
+  const nextBundle = useMemo(() => nextTier(pics.length), [pics.length]);
+  const total = Math.max(0, subtotal - bundle.amount) + shipping;
 
   const openPicker = () => addInputRef.current?.click();
 
@@ -145,6 +168,7 @@ function CustomDesignPage() {
         file: f,
         preview: URL.createObjectURL(f),
         rotate: 0,
+        color: frameType === "wood" ? "wood" : color,
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
@@ -245,7 +269,22 @@ function CustomDesignPage() {
         pics.some((p) => p.rotate)
           ? `Image rotations: ${pics.map((p, i) => `#${i + 1}=${p.rotate}°`).filter((_, i) => pics[i].rotate).join(", ")}`
           : "",
+        `Frame colors per image: ${pics.map((p, i) => `#${i + 1}=${labelForColor(p.color)}`).join(", ")}`,
+        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
       ].filter(Boolean).join("\n");
+
+      // Summarise per-image frame colors into a single field for the order row.
+      const colorCounts = pics.reduce<Record<string, number>>((acc, p) => {
+        acc[p.color] = (acc[p.color] ?? 0) + 1;
+        return acc;
+      }, {});
+      const colorKeys = Object.keys(colorCounts);
+      const frameColorSummary =
+        colorKeys.length === 1
+          ? labelForColor(colorKeys[0] as FrameColorId)
+          : `Mixed: ${colorKeys
+              .map((k) => `${labelForColor(k as FrameColorId)}×${colorCounts[k]}`)
+              .join(", ")}`;
 
       const { data: inserted, error: insErr } = await supabase
         .from("custom_design_orders")
@@ -256,7 +295,7 @@ function CustomDesignPage() {
           governorate,
           address: address.trim(),
           frame_type: labelForFrame(frameType),
-          frame_color: labelForColor(color),
+          frame_color: frameColorSummary,
           size: labelForSize(size),
           quantity: pics.length,
           image_paths: imagePaths,
@@ -299,10 +338,11 @@ function CustomDesignPage() {
         `Phone: ${phone}`,
         `Governorate: ${governorate}`,
         `Address: ${address}`,
-        `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${labelForColor(color)}`,
+        `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${frameColorSummary}`,
         `Images: ${pics.length}`,
+        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
         `Total: ${total} EGP (Cash on delivery)`,
-      ].join("\n");
+      ].filter(Boolean).join("\n");
       window.location.href = whatsappLink(msg);
 
       toast.success("Order submitted! Opening WhatsApp…");
