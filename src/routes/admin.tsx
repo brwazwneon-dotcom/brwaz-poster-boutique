@@ -5672,16 +5672,109 @@ function BestSellersTab() {
 
   const existingIds = new Set(rows.map((r) => r.poster_id));
 
+  const recalculate = async () => {
+    setBusy("recalc");
+    try {
+      const { data, error } = await supabase.rpc("refresh_auto_best_sellers", { _top_n: currentCfg.max });
+      if (error) throw error;
+      const r = data as { added: number; removed: number; kept: number };
+      toast.success(`Recalculated — ${r.added} added, ${r.removed} removed, ${r.kept} kept`);
+      invalidate();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const refresh = () => {
+    setBusy("refresh");
+    invalidate();
+    qc.invalidateQueries({ queryKey: ["admin-bs-analytics"] });
+    setTimeout(() => setBusy(""), 400);
+  };
+
+  const exportCsv = () => {
+    setBusy("export");
+    const header = ["position", "title", "category", "pinned", "featured", "hidden"].join(",");
+    const lines = rows.map((r) =>
+      [
+        r.position,
+        JSON.stringify(r.posters?.title ?? ""),
+        JSON.stringify(r.posters?.categories?.name ?? ""),
+        r.pinned,
+        r.featured,
+        r.hidden,
+      ].join(","),
+    );
+    const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `best-sellers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setBusy("");
+  };
+
   return (
     <div>
       {/* Display settings */}
       <div className="rounded-sm border border-border bg-card p-4">
         <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
-          Display settings
+          Best Sellers settings
         </p>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            Max products
+            <input
+              type="checkbox"
+              checked={currentCfg.enabled}
+              onChange={(e) => saveConfig({ enabled: e.target.checked })}
+            />
+            Section enabled
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input
+              type="checkbox"
+              checked={currentCfg.auto}
+              onChange={(e) => saveConfig({ auto: e.target.checked })}
+            />
+            Auto ranking
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+            Section title
+            <input
+              type="text"
+              defaultValue={currentCfg.title}
+              onBlur={(e) => e.target.value !== currentCfg.title && saveConfig({ title: e.target.value })}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+            Section subtitle
+            <input
+              type="text"
+              defaultValue={currentCfg.subtitle}
+              onBlur={(e) => e.target.value !== currentCfg.subtitle && saveConfig({ subtitle: e.target.value })}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+            Products on homepage
+            <input
+              type="number"
+              min={1}
+              max={24}
+              defaultValue={currentCfg.homepage_count}
+              onBlur={(e) => {
+                const n = Math.max(1, Math.min(24, Number(e.target.value) || 6));
+                if (n !== currentCfg.homepage_count) saveConfig({ homepage_count: n });
+              }}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            Auto rank size
             <select
               value={currentCfg.max}
               onChange={(e) =>
@@ -5712,8 +5805,97 @@ function BestSellersTab() {
             />
             Loop
           </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input type="checkbox" checked={currentCfg.show_badges} onChange={(e) => saveConfig({ show_badges: e.target.checked })} />
+            Show badges
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input type="checkbox" checked={currentCfg.show_price} onChange={(e) => saveConfig({ show_price: e.target.checked })} />
+            Show price
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input type="checkbox" checked={currentCfg.show_cart} onChange={(e) => saveConfig({ show_cart: e.target.checked })} />
+            Show Add to Cart
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input type="checkbox" checked={currentCfg.show_wishlist} onChange={(e) => saveConfig({ show_wishlist: e.target.checked })} />
+            Show Wishlist
+          </label>
+          <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
+            <input type="checkbox" checked={currentCfg.show_quick_view} onChange={(e) => saveConfig({ show_quick_view: e.target.checked })} />
+            Show Quick View
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+          <button
+            onClick={refresh}
+            disabled={!!busy}
+            className="rounded-sm border border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+          >
+            {busy === "refresh" ? "Refreshing…" : "Refresh Ranking"}
+          </button>
+          <button
+            onClick={recalculate}
+            disabled={!!busy}
+            className="rounded-sm bg-primary px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            {busy === "recalc" ? "Recalculating…" : "Recalculate Best Sellers"}
+          </button>
+          <button
+            onClick={exportCsv}
+            disabled={!!busy || rows.length === 0}
+            className="rounded-sm border border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+          >
+            Export CSV
+          </button>
         </div>
       </div>
+
+      {/* Analytics */}
+      {analytics ? (
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {([
+            ["Top viewed", analytics.top_viewed.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.views_count} views` }))],
+            ["Top purchased", analytics.top_purchased.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.sales_count} sold` }))],
+            ["Top wishlisted", analytics.top_wishlisted.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.wishlist_count} saves` }))],
+            ["Trending today", analytics.trending_today.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
+            ["Trending this week", analytics.trending_week.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
+            ["Trending this month", analytics.trending_month.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
+          ] as const).map(([label, items]) => (
+            <div key={label} className="rounded-sm border border-border bg-card p-4">
+              <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+              {items.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No data yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {items.slice(0, 5).map((it) => {
+                    const already = existingIds.has(it.id);
+                    return (
+                      <li key={it.id} className="flex items-center gap-2">
+                        <div className="h-10 w-8 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                          <SafeImage src={it.image_url} alt="" className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs">{it.title}</div>
+                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{it.meta}</div>
+                        </div>
+                        <button
+                          onClick={() => !already && addPoster(it.id)}
+                          disabled={already}
+                          className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+                        >
+                          {already ? "In list" : "Add"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Add poster */}
       <div className="mt-6 rounded-sm border border-border bg-card p-4">
