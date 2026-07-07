@@ -15,6 +15,7 @@ import {
 } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
+import { CategoryPicker } from "@/components/admin/CategoryPicker";
 
 type ItemStatus = "pending" | "optimizing" | "uploading" | "done" | "failed";
 type AiStatus = "idle" | "pending" | "generated" | "needs_review" | "failed";
@@ -277,40 +278,34 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
   return (
     <div className="rounded-sm border border-border bg-card p-6">
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Main category</span>
-          <select
-            value={mainCategoryId}
-            onChange={(e) => {
-              setMainCategoryId(e.target.value);
-              setSubCategoryId("");
-            }}
-            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          >
-            <option value="">Select…</option>
-            {mainCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Sub category (optional)
-          </span>
-          <select
-            value={subCategoryId}
-            onChange={(e) => setSubCategoryId(e.target.value)}
-            disabled={!mainCategoryId || subCategories.length === 0}
-            className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
-          >
-            <option value="">
-              {subCategories.length === 0 ? "— None available —" : "— None —"}
-            </option>
-            {subCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
+        <CategoryPicker
+          label="Main category"
+          value={mainCategoryId}
+          onChange={(id) => {
+            setMainCategoryId(id);
+            setSubCategoryId("");
+          }}
+          options={mainCategories}
+          parentId={null}
+          emptyText="No main categories yet"
+        />
+        <CategoryPicker
+          label="Sub category (optional)"
+          placeholder={
+            !mainCategoryId
+              ? "Pick a main category first"
+              : subCategories.length === 0
+              ? "— None available —"
+              : "— None —"
+          }
+          value={subCategoryId}
+          onChange={setSubCategoryId}
+          options={subCategories}
+          parentId={mainCategoryId || null}
+          addDisabledReason={
+            mainCategoryId ? undefined : "Please select a Main Category first."
+          }
+        />
         <label className="block lg:col-span-2">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
             Tags (comma separated)
