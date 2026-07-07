@@ -15,6 +15,7 @@ import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
+import { isTestMode } from "@/lib/test-mode";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -269,6 +270,7 @@ function CartPage() {
       }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
+      const testFlag = isTestMode();
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
@@ -301,6 +303,7 @@ function CartPage() {
         payment_method: paymentMethod,
         payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
         payment_screenshot: screenshotPath,
+        is_test: testFlag,
       });
       });
       // Append the double-face-tape line as its own order row when chosen.
@@ -325,16 +328,22 @@ function CartPage() {
           payment_method: paymentMethod,
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
           payment_screenshot: screenshotPath,
+          is_test: testFlag,
         } as (typeof rows)[number]);
       }
       const { data: inserted, error } = await supabase
         .from("orders")
-        .insert(rows)
+        // is_test flag isn't in generated types yet — safe cast.
+        .insert(rows as unknown as never)
         .select("id");
       if (error) throw error;
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
+      // Skip notifications for test orders unless caller opts in via ?send_test_notification=1.
+      const wantsTestNotify = typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("send_test_notification") === "1";
       try {
+        if (testFlag && !wantsTestNotify) throw new Error("skip test notify");
         const ids = (inserted ?? []).map((r) => r.id).filter(Boolean);
         if (ids.length) {
           const { notifyNewOrder } = await import("@/lib/notifications.functions");
@@ -362,7 +371,9 @@ function CartPage() {
       } catch { /* noop */ }
 
       // Bump purchase counts for posters in this order (non-blocking).
+      // Skip for test orders so they don't inflate sales counters.
       try {
+        if (testFlag) throw new Error("skip test sales tracking");
         const { trackPosterSales } = await import("@/lib/poster-tracking");
         const ids: string[] = [];
         const qtyById = new Map<string, number>();

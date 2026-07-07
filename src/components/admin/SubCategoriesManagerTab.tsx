@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Eye, EyeOff, Pencil, Trash2, Star, Search, GripVertical,
-  Merge, ArrowUp, ArrowDown, Check, X, CheckCircle2, Loader2,
+  Merge, ArrowUp, ArrowDown, Check, X, CheckCircle2, Loader2, Sparkles,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 
 type Filter = "all" | "visible" | "hidden" | "draft" | "empty" | "most";
 
@@ -25,6 +26,7 @@ export function SubCategoriesManagerTab() {
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [merging, setMerging] = useState<Category | null>(null);
   const [bulkMerge, setBulkMerge] = useState(false);
+  const [seoFor, setSeoFor] = useState<Category | null>(null);
 
   const roots = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subs = useMemo(() => categories.filter((c) => !!c.parent_id), [categories]);
@@ -421,6 +423,13 @@ export function SubCategoriesManagerTab() {
                         </>
                       )}
                       <button
+                        onClick={() => setSeoFor(c)}
+                        className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/5 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10"
+                        title="Generate AI SEO for all posters in this sub category"
+                      >
+                        <Sparkles className="h-3 w-3" /> AI SEO
+                      </button>
+                      <button
                         onClick={() => setMerging(c)}
                         className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
                         title="Merge into another"
@@ -500,6 +509,15 @@ export function SubCategoriesManagerTab() {
             setSelected(new Set());
             invalidate();
           }}
+        />
+      )}
+
+      {seoFor && (
+        <BulkSeoRunner
+          open
+          subcategoryId={seoFor.id}
+          subcategoryName={seoFor.name}
+          onClose={() => setSeoFor(null)}
         />
       )}
     </div>

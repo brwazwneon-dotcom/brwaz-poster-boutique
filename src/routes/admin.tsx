@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
+import { TestModeControls } from "@/components/admin/TestModeControls";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,7 +10,7 @@ import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import * as XLSX from "xlsx";
 import {
@@ -2188,6 +2189,7 @@ type Order = {
   payment_screenshot: string | null;
   payment_notes: string | null;
   payment_verified_at: string | null;
+  is_test?: boolean | null;
 };
 
 const STATUSES = ["new", "processing", "printed", "shipped", "delivered", "cancelled"];
@@ -2213,13 +2215,14 @@ function OrdersTab() {
   const [govFilter, setGovFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<Order | null>(null);
+  const [showTests, setShowTests] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders", statusFilter],
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
@@ -2230,7 +2233,12 @@ function OrdersTab() {
   });
 
   const governorates = Array.from(new Set(orders.map((o) => o.governorate).filter(Boolean))).sort();
+  const testCount = orders.filter((o) => o.is_test).length;
   const filtered = orders.filter((o) => {
+    // By default hide test orders from the main list. When "Show test orders"
+    // is on, only test orders are shown.
+    const isTest = !!o.is_test;
+    if (showTests !== isTest) return false;
     if (govFilter !== "all" && o.governorate !== govFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -2274,6 +2282,14 @@ function OrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
+  const convertToReal = async (o: Order) => {
+    if (!confirm("Convert this test order into a real one? It will start counting in analytics and sales.")) return;
+    const { error } = await supabase.from("orders").update({ is_test: false } as never).eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Converted to real order");
+    qc.invalidateQueries({ queryKey: ["admin-orders"] });
+  };
+
   const exportExcel = () => {
     const rows = filtered.map((o) => ({
       "Order Number": o.order_number ?? o.id.slice(0, 8),
@@ -2300,6 +2316,21 @@ function OrdersTab() {
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-card/50 p-3">
+        <TestModeControls />
+        <button
+          type="button"
+          onClick={() => setShowTests((v) => !v)}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-[11px] font-semibold uppercase tracking-widest transition",
+            showTests
+              ? "border-primary bg-primary/15 text-primary"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {showTests ? "Viewing test orders" : `Show test orders (${testCount})`}
+        </button>
+      </div>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total orders" value={stats.total} />
         <StatCard label="Revenue" value={`${Math.round(stats.revenue)} EGP`} />
@@ -2375,6 +2406,11 @@ function OrdersTab() {
                     <td className="px-3 py-3 font-mono text-xs">{o.order_number ?? "—"}</td>
                     <td className="px-3 py-3 text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleString()}
+                      {o.is_test && (
+                        <span className="ml-2 inline-flex items-center rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
+                          TEST
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-medium">{o.customer_name}</div>
@@ -2427,6 +2463,16 @@ function OrdersTab() {
                         <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
                           <Eye className="h-4 w-4" />
                         </button>
+                        {o.is_test && (
+                          <button
+                            onClick={() => convertToReal(o)}
+                            className="rounded-sm p-1.5 text-muted-foreground hover:text-primary"
+                            aria-label="Convert to real order"
+                            title="Convert to real order"
+                          >
+                            <ShoppingBag className="h-4 w-4" />
+                          </button>
+                        )}
                         <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
