@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { PosterPerformanceStats } from "@/components/admin/PosterPerformanceStats";
 
 type PosterRow = { id: string; title: string; image_url: string } & Record<string, number>;
 type CategoryRow = { id: string; name: string; slug: string; sales: number; views: number };
