@@ -819,7 +819,13 @@ export function AiPosterUpload() {
               placeholder="Sub-category…"
               disabled={!bulkCat}
               onChange={setBulkSub}
-              onCreate={bulkCat ? () => openCreateSub(bulkCat, (row) => setBulkSub(row.id)) : undefined}
+              onCreate={() => {
+                if (!bulkCat) {
+                  toast.error("Please select a Main Category first.");
+                  return;
+                }
+                openCreateSub(bulkCat, (row) => setBulkSub(row.id));
+              }}
               onEdit={bulkSub ? () => {
                 const c = categoriesRef.current.find((x) => x.id === bulkSub);
                 if (c) openEdit(c);
