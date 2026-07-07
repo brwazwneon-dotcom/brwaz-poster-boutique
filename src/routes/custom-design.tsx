@@ -592,23 +592,34 @@ function CustomDesignPage() {
                   <span className="text-display text-5xl">{total}</span>
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">EGP</span>
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {pics.length} × {labelForSize(size)} @ {unit} EGP
-                </div>
-                {bundle.tier && (
-                  <div className="mt-1 text-[11px] font-semibold text-primary">
-                    Bundle offer: −{bundle.amount} EGP ({bundle.tier.percent}% off)
+                <div className="mt-4 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Subtotal ({pics.length} × {unit} EGP)</span>
+                    <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                )}
+                  {bundle.tier && (
+                    <div className="flex items-center justify-between font-semibold text-primary">
+                      <span>Bundle discount ({bundle.tier.percent}% off)</span>
+                      <span>-{bundle.amount} EGP</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
+                      {shipping === 0 ? "Free" : `${shipping} EGP`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
+                    <span>Total</span>
+                    <span>{total} EGP</span>
+                  </div>
+                </div>
                 {!bundle.tier && nextBundle && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     Add {nextBundle.minPosters - pics.length} more image
                     {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
                   </div>
                 )}
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Shipping: {shipping === 0 ? "Free" : `${shipping} EGP`}
-                </div>
               </div>
 
               <div className="mt-5 space-y-3">
