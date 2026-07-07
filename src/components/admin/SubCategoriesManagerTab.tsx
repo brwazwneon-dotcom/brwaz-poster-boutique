@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Eye, EyeOff, Pencil, Trash2, Star, Search, GripVertical,
-  Merge, ArrowUp, ArrowDown, Check, X, CheckCircle2, Loader2,
+  Merge, ArrowUp, ArrowDown, Check, X, CheckCircle2, Loader2, Sparkles,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 
 type Filter = "all" | "visible" | "hidden" | "draft" | "empty" | "most";
 
@@ -25,6 +26,7 @@ export function SubCategoriesManagerTab() {
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [merging, setMerging] = useState<Category | null>(null);
   const [bulkMerge, setBulkMerge] = useState(false);
+  const [seoFor, setSeoFor] = useState<Category | null>(null);
 
   const roots = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subs = useMemo(() => categories.filter((c) => !!c.parent_id), [categories]);
