@@ -975,34 +975,42 @@ function RowEditor({
         />
       </td>
       <td className="space-y-1 pr-2">
-        <select
+        <CategorySelect
           value={row.category_id ?? ""}
-          onChange={(e) =>
-            onChange({ category_id: e.target.value || null, subcategory_id: null })
-          }
+          mains={mains}
+          placeholder="Main…"
           disabled={isLocked}
-          className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-        >
-          <option value="">Main…</option>
-          {mains.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={(v) => onChange({ category_id: v || null, subcategory_id: null })}
+          onCreate={() =>
+            onCreateMain((cat) => onChange({ category_id: cat.id, subcategory_id: null }))
+          }
+          onEdit={row.category_id ? () => {
+            const c = findCategory(row.category_id!);
+            if (c) onEditCategory(c);
+          } : undefined}
+          onDelete={row.category_id ? () => {
+            const c = findCategory(row.category_id!);
+            if (c) onDeleteCategory(c);
+          } : undefined}
+        />
+        <CategorySelect
           value={row.subcategory_id ?? ""}
-          onChange={(e) => onChange({ subcategory_id: e.target.value || null })}
-          disabled={isLocked || subs.length === 0}
-          className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs disabled:opacity-50"
-        >
-          <option value="">{subs.length === 0 ? "— None —" : "Sub…"}</option>
-          {subs.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          mains={subs}
+          placeholder={subs.length === 0 && !row.category_id ? "— Pick main first —" : "Sub…"}
+          disabled={isLocked || !row.category_id}
+          onChange={(v) => onChange({ subcategory_id: v || null })}
+          onCreate={row.category_id ? () =>
+            onCreateSub(row.category_id!, (cat) => onChange({ subcategory_id: cat.id }))
+          : undefined}
+          onEdit={row.subcategory_id ? () => {
+            const c = findCategory(row.subcategory_id!);
+            if (c) onEditCategory(c);
+          } : undefined}
+          onDelete={row.subcategory_id ? () => {
+            const c = findCategory(row.subcategory_id!);
+            if (c) onDeleteCategory(c);
+          } : undefined}
+        />
         {showSuggestion && (
           <button
             type="button"
