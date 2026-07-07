@@ -551,6 +551,21 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
+                {bundle.tier && (
+                  <div className="flex items-center justify-between text-emerald-500">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden>🎁</span>
+                      Bundle discount ({bundle.tier.percent}% · {posterCount} posters)
+                    </span>
+                    <span>− {bundle.amount} EGP</span>
+                  </div>
+                )}
+                {nextBundleTier && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Add {nextBundleTier.minPosters - posterCount} more poster
+                    {nextBundleTier.minPosters - posterCount === 1 ? "" : "s"} to save {nextBundleTier.percent}%.
+                  </p>
+                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
@@ -567,13 +582,29 @@ function CartPage() {
                   <span className="text-muted-foreground">🚚 Shipping</span>
                   <span>{shipping === 0 ? "FREE" : `${shipping} EGP`}</span>
                 </div>
-                {remainingForFree > 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Add {remainingForFree} EGP more for free shipping.
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-foreground">🎉 Free shipping unlocked.</p>
-                )}
+                <div className="pt-1">
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className={remainingForFree > 0 ? "text-muted-foreground" : "text-foreground"}>
+                      {remainingForFree > 0
+                        ? `Add ${remainingForFree} EGP more for free shipping`
+                        : "🎉 Free shipping unlocked"}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{freeShipPct}%</span>
+                  </div>
+                  <div
+                    className="h-1.5 overflow-hidden rounded-full bg-muted"
+                    role="progressbar"
+                    aria-valuenow={freeShipPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Progress toward free shipping"
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out will-change-[width]"
+                      style={{ width: `${freeShipPct}%` }}
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center justify-between border-t border-border pt-3">
                   <span className="text-muted-foreground">Total</span>
                   <span className="text-display text-3xl">
