@@ -9,6 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { isPreviewMode } from "@/lib/preview-mode";
 import { visitorId, detectDevice } from "@/lib/analytics";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function asUuid(value: string | null | undefined): string | null {
+  return value && UUID_RE.test(value) ? value : null;
+}
+
 type BehaviorSettings = {
   tracking: boolean;
   personalization: boolean;
@@ -139,7 +145,7 @@ export const track = {
       try {
         await supabase.from("visitor_cart_events").insert({
           visitor_id: visitorId(),
-          poster_id: posterId || null,
+          poster_id: asUuid(posterId),
           event: added ? "add" : "remove",
           qty,
           size: meta.size ?? null,
@@ -169,7 +175,7 @@ export const track = {
       try {
         if (posterIds.length) {
           await supabase.from("visitor_cart_events").insert(
-            posterIds.map((pid) => ({ visitor_id: vid, poster_id: pid, event: "purchase" })),
+            posterIds.map((pid) => ({ visitor_id: vid, poster_id: asUuid(pid), event: "purchase" })),
           );
         } else {
           await supabase.from("visitor_cart_events").insert({ visitor_id: vid, event: "purchase" });

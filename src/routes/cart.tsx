@@ -15,10 +15,43 @@ import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
+import { visitorId } from "@/lib/analytics";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function asUuid(value: string | null | undefined): string | null {
+  return value && UUID_RE.test(value) ? value : null;
+}
+
+function logCheckoutWrite(
+  stage: string,
+  table: string,
+  payload: unknown,
+  error?: unknown,
+) {
+  const sanitize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sanitize);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([key, val]) => {
+          if (key === "phone") return [key, typeof val === "string" ? `${val.slice(0, 3)}***${val.slice(-2)}` : val];
+          if (key === "customer_name") return [key, typeof val === "string" ? "[customer_name]" : val];
+          if (key === "address") return [key, typeof val === "string" ? "[address]" : val];
+          if (key === "poster_image" || key === "payment_screenshot") return [key, val ? "[path/url]" : val];
+          return [key, sanitize(val)];
+        }),
+      );
+    }
+    return value;
+  };
+
+  const details = { table, payload: sanitize(payload), error };
+  if (stage === "error") console.error("[checkout-write:error]", details);
+  else console.info("[checkout-write]", details);
+}
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -288,6 +321,7 @@ function CartPage() {
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
+      const guestSessionId = visitorId();
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
@@ -297,6 +331,7 @@ function CartPage() {
         const lineDiscount = Math.round(lineGross * discountRatio);
         const lineNet = lineGross - lineDiscount;
         return ({
+        guest_session_id: guestSessionId,
         customer_name: name,
         phone,
         governorate,
@@ -305,13 +340,11 @@ function CartPage() {
         frame_color: labelForColor(i.color),
         size: labelForSize(i.size),
         quantity: i.qty,
-        selected_poster: i.bundle
-          ? i.bundle.posters.map((p) => p.posterId).join(",")
-          : i.posterId,
+        selected_poster: i.bundle ? null : asUuid(i.posterId),
         poster_title: i.bundle
           ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
           : i.title,
-        poster_image: i.image,
+        poster_image: i.customImagePath ?? i.image,
         subtotal: lineNet,
         packaging_fee: linePackaging,
         shipping_cost: shippingPerItem,
@@ -326,6 +359,7 @@ function CartPage() {
       // Append the double-face-tape line as its own order row when chosen.
       if (tapeChoice === true && tapeTotal > 0) {
         rows.push({
+          guest_session_id: guestSessionId,
           customer_name: name,
           phone,
           governorate,
@@ -334,7 +368,7 @@ function CartPage() {
           frame_color: labelForColor("black"),
           size: labelForSize("20x30"),
           quantity: frameCount,
-          selected_poster: "double-face-tape",
+          selected_poster: null,
           poster_title: "Double Face Tape",
           poster_image: "",
           subtotal: tapeTotal,
@@ -348,12 +382,15 @@ function CartPage() {
           is_test: testFlag,
         } as (typeof rows)[number]);
       }
-      const { data: inserted, error } = await supabase
+      logCheckoutWrite("insert", "orders", rows);
+      const { error } = await supabase
         .from("orders")
         // is_test flag isn't in generated types yet — safe cast.
-        .insert(rows as unknown as never)
-        .select("id");
-      if (error) throw error;
+        .insert(rows as unknown as never);
+      if (error) {
+        logCheckoutWrite("error", "orders", rows, error);
+        throw error;
+      }
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
       // Skip notifications for test orders unless caller opts in via ?send_test_notification=1.
@@ -361,11 +398,8 @@ function CartPage() {
         new URLSearchParams(window.location.search).get("send_test_notification") === "1";
       try {
         if (testFlag && !wantsTestNotify) throw new Error("skip test notify");
-        const ids = (inserted ?? []).map((r) => r.id).filter(Boolean);
-        if (ids.length) {
-          const { notifyNewOrder } = await import("@/lib/notifications.functions");
-          void Promise.allSettled(ids.map((orderId) => notifyNewOrder({ data: { orderId } })));
-        }
+        // The order insert intentionally does not request returned rows; guest
+        // customers should be able to create orders without gaining read access.
       } catch (e) {
         console.warn("order notification failed", e);
       }
@@ -397,10 +431,11 @@ function CartPage() {
         for (const i of items) {
           if (i.bundle) {
             for (const p of i.bundle.posters) {
+              if (!asUuid(p.posterId)) continue;
               qtyById.set(p.posterId, (qtyById.get(p.posterId) ?? 0) + i.qty);
               ids.push(p.posterId);
             }
-          } else if (i.posterId) {
+          } else if (asUuid(i.posterId)) {
             qtyById.set(i.posterId, (qtyById.get(i.posterId) ?? 0) + i.qty);
             ids.push(i.posterId);
           }

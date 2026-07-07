@@ -278,6 +278,7 @@ function CustomDesignPage() {
           posterId: `custom-${orderId}-${idx}`,
           title: `Custom Design #${idx + 1}`,
           image: u.url,
+          customImagePath: u.path,
           categoryId: null,
           categoryName: "Custom Design",
           frameType,
