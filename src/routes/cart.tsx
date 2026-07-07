@@ -61,6 +61,33 @@ function CartPage() {
   );
   const bundle = computeBundleDiscount(subtotal, posterCount);
   const nextBundleTier = nextTier(posterCount);
+  // Bundle-offer nudges: detect near-completion of the 20x30 (6-pack) or
+  // 30x40 (4-pack) bundle so we can suggest adding the missing posters
+  // and unlocking the flat bundle price on /offers.
+  const indiv20x30 = items.reduce(
+    (s, i) => s + (!i.bundle && i.size === "20x30" ? i.qty : 0),
+    0,
+  );
+  const indiv30x40 = items.reduce(
+    (s, i) => s + (!i.bundle && i.size === "30x40" ? i.qty : 0),
+    0,
+  );
+  const bundleNudges = [
+    {
+      key: "bundle-6-20x30" as const,
+      size: "20 × 30",
+      have: indiv20x30,
+      need: 6,
+      price: pricing.offers.bundle6_20x30,
+    },
+    {
+      key: "bundle-4-30x40" as const,
+      size: "30 × 40",
+      have: indiv30x40,
+      need: 4,
+      price: pricing.offers.bundle4_30x40,
+    },
+  ].filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3);
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
@@ -359,6 +386,42 @@ function CartPage() {
       ) : (
         <div className="mt-12 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-3">
+            {bundleNudges.map((n) => {
+              const missing = n.need - n.have;
+              return (
+                <Link
+                  key={n.key}
+                  to="/offers"
+                  className="group relative block overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 transition hover:border-primary"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
+                      🎁
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
+                        Bundle offer · {n.size} cm
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-foreground">
+                        أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس {n.size} واحصل على الـ{n.need} بسعر {n.price} EGP فقط
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        عندك {n.have} من أصل {n.need} — اختار باقات جاهزة من صفحة العروض ووفر أكتر.
+                      </div>
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${(n.have / n.need) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="hidden shrink-0 items-center rounded-sm border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground group-hover:opacity-90 sm:inline-flex">
+                      استفيد بالخصم
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
                 <div className="w-20 shrink-0">
