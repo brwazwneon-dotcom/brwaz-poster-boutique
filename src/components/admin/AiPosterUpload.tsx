@@ -1108,9 +1108,13 @@ function RowEditor({
           placeholder={subs.length === 0 && !row.category_id ? "— Pick main first —" : "Sub…"}
           disabled={isLocked || !row.category_id}
           onChange={(v) => onChange({ subcategory_id: v || null })}
-          onCreate={row.category_id ? () =>
-            onCreateSub(row.category_id!, (cat) => onChange({ subcategory_id: cat.id }))
-          : undefined}
+          onCreate={() => {
+            if (!row.category_id) {
+              toast.error("Please select a Main Category first.");
+              return;
+            }
+            onCreateSub(row.category_id, (cat) => onChange({ subcategory_id: cat.id }));
+          }}
           onEdit={row.subcategory_id ? () => {
             const c = findCategory(row.subcategory_id!);
             if (c) onEditCategory(c);
