@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { PosterPerformanceStats } from "@/components/admin/PosterPerformanceStats";
 
 type PosterRow = { id: string; title: string; image_url: string } & Record<string, number>;
 type CategoryRow = { id: string; name: string; slug: string; sales: number; views: number };
@@ -62,7 +63,12 @@ type Dashboard = {
   top_viewed: (PosterRow & { views_count: number })[];
   top_cart: (PosterRow & { cart_adds_count: number })[];
   top_wishlisted: (PosterRow & { wishlist_count: number })[];
-  lowest_performing: (PosterRow & { views_count: number; sales_count: number })[];
+  lowest_performing: (PosterRow & {
+    views_count: number;
+    sales_count: number;
+    cart_adds_count?: number | null;
+    total_view_seconds?: number | null;
+  })[];
   top_categories: CategoryRow[];
   top_subcategories: CategoryRow[];
   top_sizes: SizeRow[];
@@ -673,9 +679,17 @@ export function AnalyticsTab({ onNavigate }: { onNavigate?: (tab: AdminTab) => v
           ) : (
             <ul className="divide-y divide-border/60 text-sm">
               {(data.lowest_performing ?? []).slice(0, 6).map((p) => (
-                <li key={p.id} className="flex items-center gap-3 py-2">
+                <li key={p.id} data-testid="lowest-performing-row" className="flex items-center gap-3 py-2">
                   <SafeImage src={p.image_url} alt={p.title} className="h-10 w-8 rounded-sm border border-border object-cover" loading="lazy" />
-                  <span className="flex-1 truncate">{p.title}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{p.title}</div>
+                    <PosterPerformanceStats
+                      viewsCount={p.views_count}
+                      salesCount={p.sales_count}
+                      cartAddsCount={p.cart_adds_count ?? 0}
+                      totalViewSeconds={p.total_view_seconds ?? 0}
+                    />
+                  </div>
                   <span className="rounded-sm bg-rose-500/15 px-2 py-0.5 text-[11px] text-rose-200">{fmtNum(p.views_count)} views · 0 sales</span>
                 </li>
               ))}
