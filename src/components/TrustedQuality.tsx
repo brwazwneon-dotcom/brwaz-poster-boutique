@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo } from "react";
 import {
   Sparkles,
   Frame,
@@ -9,6 +9,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useInView } from "@/hooks/use-in-view";
 
 type Card = { icon: LucideIcon; title: string; body: string };
 
@@ -54,30 +55,7 @@ const CARDS: Card[] = [
 const GOLD = "#c9a24a";
 
 export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?: string }) {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setInView(true);
-            io.disconnect();
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -80px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const [sectionRef, inView] = useInView<HTMLElement>({ rootMargin: "0px 0px -80px 0px" });
 
   return (
     <section ref={sectionRef} className="relative isolate overflow-hidden border-t border-border bg-black text-white">
@@ -105,6 +83,7 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
         <div
           className={[
             "mx-auto max-w-2xl text-center transition-all duration-1000 ease-out",
+            "will-change-transform",
             inView ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0",
           ].join(" ")}
         >
@@ -132,6 +111,7 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
         <div
           className={[
             "mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 transition-all duration-1000 ease-out sm:mt-14 sm:gap-4",
+            "will-change-transform",
             inView ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0",
           ].join(" ")}
           style={{ transitionDelay: inView ? "180ms" : "0ms" }}
@@ -163,32 +143,9 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
   );
 }
 
-function FeatureBlock({ card, index }: { card: Card; index: number }) {
+const FeatureBlock = memo(function FeatureBlock({ card, index }: { card: Card; index: number }) {
   const { icon: Icon, title, body } = card;
-  const ref = useRef<HTMLLIElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true);
-            io.disconnect();
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const [ref, visible] = useInView<HTMLLIElement>();
 
   // Every second card on desktop is nudged downward for a staggered rhythm.
   const offset = index % 2 === 1 ? "md:mt-16" : "";
@@ -241,7 +198,7 @@ function FeatureBlock({ card, index }: { card: Card; index: number }) {
       </div>
     </li>
   );
-}
+});
 
 function YearsBadge() {
   return (
