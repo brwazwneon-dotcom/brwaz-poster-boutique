@@ -2308,6 +2308,21 @@ function OrdersTab() {
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-card/50 p-3">
+        <TestModeControls />
+        <button
+          type="button"
+          onClick={() => setShowTests((v) => !v)}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-[11px] font-semibold uppercase tracking-widest transition",
+            showTests
+              ? "border-primary bg-primary/15 text-primary"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {showTests ? "Viewing test orders" : `Show test orders (${testCount})`}
+        </button>
+      </div>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total orders" value={stats.total} />
         <StatCard label="Revenue" value={`${Math.round(stats.revenue)} EGP`} />
