@@ -64,12 +64,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [hydrated, items]);
-
   const persist = (next: CartItem[]) => {
     if (typeof window !== "undefined") {
       try {
