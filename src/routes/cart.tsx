@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
+import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -52,15 +53,27 @@ function CartPage() {
     (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
     0,
   );
+  // Total posters in cart (bundle posters count individually) — drives the
+  // tiered bundle discount and the "add N more to unlock" hint.
+  const posterCount = items.reduce(
+    (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
+    0,
+  );
+  const bundle = computeBundleDiscount(subtotal, posterCount);
+  const nextBundleTier = nextTier(posterCount);
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
   const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
   const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
-  const shipping = computeShipping(subtotal + tapeTotal, settings);
-  const grand = subtotal + packagingFee + tapeTotal + shipping;
-  const remainingForFree = Math.max(0, settings.freeShippingThreshold - subtotal);
+  const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
+  const shipping = computeShipping(discountedSubtotal + tapeTotal, settings);
+  const grand = discountedSubtotal + packagingFee + tapeTotal + shipping;
+  const remainingForFree = Math.max(0, settings.freeShippingThreshold - discountedSubtotal);
+  const freeShipPct = settings.freeShippingThreshold > 0
+    ? Math.min(100, Math.round((discountedSubtotal / settings.freeShippingThreshold) * 100))
+    : 100;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
