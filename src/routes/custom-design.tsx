@@ -376,17 +376,28 @@ function CustomDesignPage() {
 
           {/* Primary ADD IMAGES button */}
           <div className="mt-8 max-w-xl">
-            <button
-              type="button"
-              onClick={openPicker}
-              className="inline-flex w-full items-center justify-center gap-3 rounded-sm bg-primary px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground transition hover:opacity-90 sm:w-auto"
-            >
-              <Plus className="h-5 w-5" />
-              Add Images
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                onClick={openPicker}
+                className="inline-flex items-center justify-center gap-3 rounded-sm bg-primary px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground transition hover:opacity-90"
+              >
+                <Plus className="h-5 w-5" />
+                Add Images
+              </button>
+              <Link
+                to="/best-sellers"
+                className="inline-flex items-center justify-center gap-3 rounded-sm border border-border px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-foreground transition hover:bg-accent"
+              >
+                Browse Posters
+              </Link>
+            </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Our designer will professionally enhance your photos before printing
               to ensure the highest possible quality.
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Want ready-made designs too? Browse our shop and add posters to your cart alongside this order.
             </p>
             <p className="mt-1 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
               Up to {MAX_FILES_PER_BATCH} images per upload · Max 25 MB each · JPG, PNG, WEBP, HEIC
@@ -592,23 +603,34 @@ function CustomDesignPage() {
                   <span className="text-display text-5xl">{total}</span>
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">EGP</span>
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {pics.length} × {labelForSize(size)} @ {unit} EGP
-                </div>
-                {bundle.tier && (
-                  <div className="mt-1 text-[11px] font-semibold text-primary">
-                    Bundle offer: −{bundle.amount} EGP ({bundle.tier.percent}% off)
+                <div className="mt-4 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Subtotal ({pics.length} × {unit} EGP)</span>
+                    <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                )}
+                  {bundle.tier && (
+                    <div className="flex items-center justify-between font-semibold text-primary">
+                      <span>Bundle discount ({bundle.tier.percent}% off)</span>
+                      <span>-{bundle.amount} EGP</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
+                      {shipping === 0 ? "Free" : `${shipping} EGP`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
+                    <span>Total</span>
+                    <span>{total} EGP</span>
+                  </div>
+                </div>
                 {!bundle.tier && nextBundle && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     Add {nextBundle.minPosters - pics.length} more image
                     {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
                   </div>
                 )}
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Shipping: {shipping === 0 ? "Free" : `${shipping} EGP`}
-                </div>
               </div>
 
               <div className="mt-5 space-y-3">
@@ -646,6 +668,12 @@ function CustomDesignPage() {
               <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
                 We'll confirm your order on WhatsApp
               </p>
+              <Link
+                to="/best-sellers"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:bg-accent"
+              >
+                <Plus className="h-4 w-4" /> Add ready-made posters
+              </Link>
               <div className="mt-4 text-center">
                 <Link to="/" className="text-xs text-muted-foreground underline-offset-4 hover:underline">
                   ← Back to home
