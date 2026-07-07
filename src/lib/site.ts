@@ -1,6 +1,4 @@
-import logoAsset from "@/assets/brwazwneon-logo.png.asset.json";
-
-export const LOGO_URL = logoAsset.url;
+export const LOGO_URL = "/assets/brwazwneon-logo.png";
 
 export const BRANCH = "Alexandria Branch Available";
 
