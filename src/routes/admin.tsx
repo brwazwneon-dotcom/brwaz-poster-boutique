@@ -37,6 +37,7 @@ import { SubCategoriesManagerTab } from "@/components/admin/SubCategoriesManager
 import { BrandingTab } from "@/components/admin/BrandingTab";
 import { AiSettingsTab } from "@/components/admin/AiSettingsTab";
 import { SocialProofTab } from "@/components/admin/SocialProofTab";
+import { BehaviorTab } from "@/components/admin/BehaviorTab";
 import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
 import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
@@ -113,7 +114,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "posters" | "ai-upload" | "ai-settings" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -221,7 +222,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "realtime", "posters", "ai-upload", "ai-settings", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -240,6 +241,7 @@ function AdminPage() {
       <div className="mt-8">
         {tab === "analytics" && <AnalyticsTab onNavigate={setTab} />}
         {tab === "realtime" && <RealtimeAnalyticsTab />}
+        {tab === "behavior" && <BehaviorTab />}
         {tab === "posters" && <PostersTab />}
         {tab === "ai-upload" && <AiPosterUpload />}
         {tab === "categories" && <CategoriesTab />}

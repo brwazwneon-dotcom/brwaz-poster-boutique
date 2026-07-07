@@ -10,6 +10,7 @@ import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
 import { trackEvent } from "./meta-pixel";
 import { trackPosterCartAdd } from "./poster-tracking";
+import { track as behavior } from "./behavior";
 
 export type BundlePoster = { posterId: string; title: string; image: string };
 
@@ -87,12 +88,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
               : (item.posterId ? [item.posterId] : []);
             if (ids.length) trackPosterCartAdd(ids, 1);
           } catch { /* noop */ }
+          try {
+            const ids = item.bundle
+              ? item.bundle.posters.map((p) => p.posterId)
+              : (item.posterId ? [item.posterId] : []);
+            ids.forEach((pid) =>
+              behavior.cart(pid, {
+                categoryId: item.categoryId,
+                size: item.size,
+                frameType: item.frameType,
+              }, true, 1),
+            );
+          } catch { /* noop */ }
           return [
           ...prev,
           { ...item, id: crypto.randomUUID(), qty: 1 },
           ];
         }),
-      remove: (id) => setItems((prev) => prev.filter((i) => i.id !== id)),
+      remove: (id) => setItems((prev) => {
+        const item = prev.find((i) => i.id === id);
+        try {
+          if (item) {
+            const ids = item.bundle
+              ? item.bundle.posters.map((p) => p.posterId)
+              : (item.posterId ? [item.posterId] : []);
+            ids.forEach((pid) =>
+              behavior.cart(pid, {
+                categoryId: item.categoryId,
+                size: item.size,
+                frameType: item.frameType,
+              }, false, item.qty),
+            );
+          }
+        } catch { /* noop */ }
+        return prev.filter((i) => i.id !== id);
+      }),
       setQty: (id, qty) =>
         setItems((prev) =>
           prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i)),

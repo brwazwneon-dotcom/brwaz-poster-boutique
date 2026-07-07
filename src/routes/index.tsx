@@ -19,6 +19,7 @@ import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
 import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
+import { PersonalizedSections } from "@/components/PersonalizedSections";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 
@@ -75,6 +76,7 @@ function Index() {
     <div className="bg-background text-foreground">
       <HomeSlider />
       <CollectionsQuickBar />
+      <PersonalizedSections />
       {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
         .map((s) => RENDERERS[s.key](s.title, s.subtitle))}

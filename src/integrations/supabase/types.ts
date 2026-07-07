@@ -50,6 +50,7 @@ export type Database = {
           duration_seconds: number | null
           event_type: string
           id: string
+          metadata: Json | null
           poster_id: string | null
           session_id: string | null
           visitor_id: string | null
@@ -59,6 +60,7 @@ export type Database = {
           duration_seconds?: number | null
           event_type: string
           id?: string
+          metadata?: Json | null
           poster_id?: string | null
           session_id?: string | null
           visitor_id?: string | null
@@ -68,6 +70,7 @@ export type Database = {
           duration_seconds?: number | null
           event_type?: string
           id?: string
+          metadata?: Json | null
           poster_id?: string | null
           session_id?: string | null
           visitor_id?: string | null
@@ -1098,6 +1101,89 @@ export type Database = {
         }
         Relationships: []
       }
+      visitor_cart_events: {
+        Row: {
+          created_at: string
+          event: string
+          frame_type: string | null
+          id: string
+          poster_id: string | null
+          qty: number | null
+          size: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          frame_type?: string | null
+          id?: string
+          poster_id?: string | null
+          qty?: number | null
+          size?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          frame_type?: string | null
+          id?: string
+          poster_id?: string | null
+          qty?: number | null
+          size?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_cart_events_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitor_profiles: {
+        Row: {
+          city: string | null
+          country: string | null
+          device: string | null
+          first_seen: string
+          governorate: string | null
+          interests: Json
+          last_seen: string
+          phone: string | null
+          updated_at: string
+          visitor_id: string
+          visits_count: number
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          device?: string | null
+          first_seen?: string
+          governorate?: string | null
+          interests?: Json
+          last_seen?: string
+          phone?: string | null
+          updated_at?: string
+          visitor_id: string
+          visits_count?: number
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          device?: string | null
+          first_seen?: string
+          governorate?: string | null
+          interests?: Json
+          last_seen?: string
+          phone?: string | null
+          updated_at?: string
+          visitor_id?: string
+          visits_count?: number
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -1136,13 +1222,24 @@ export type Database = {
         Args: { p_id: string; p_seconds: number }
         Returns: undefined
       }
+      admin_behavior_dashboard: { Args: never; Returns: Json }
+      admin_clear_anonymous_behavior: {
+        Args: { _older_than_days?: number }
+        Returns: number
+      }
+      admin_customer_profile: { Args: { _phone: string }; Returns: Json }
       admin_dashboard: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
       admin_live_visitors: { Args: never; Returns: number }
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
+      admin_reset_recommendation_engine: { Args: never; Returns: undefined }
       admin_storage_manifest: { Args: never; Returns: Json }
+      get_recommendations: {
+        Args: { _limit?: number; _visitor_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1163,7 +1260,20 @@ export type Database = {
         Returns: undefined
       }
       increment_poster_views: { Args: { p_id: string }; Returns: undefined }
+      merge_visitor_to_phone: {
+        Args: { _phone: string; _visitor_id: string }
+        Returns: undefined
+      }
       posters_tags_text: { Args: { p_tags: string[] }; Returns: string }
+      score_visitor_interest: {
+        Args: {
+          _delta?: number
+          _key: string
+          _kind: string
+          _visitor_id: string
+        }
+        Returns: undefined
+      }
       search_posters: {
         Args: { lim?: number; q: string }
         Returns: {
@@ -1184,6 +1294,16 @@ export type Database = {
           count: number
           query: string
         }[]
+      }
+      upsert_visitor_profile: {
+        Args: {
+          _city?: string
+          _country?: string
+          _device?: string
+          _governorate?: string
+          _visitor_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

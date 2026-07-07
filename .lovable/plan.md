@@ -1,52 +1,100 @@
-# Conversion Optimization Rollout
+# Customer Behavior Tracking & Personalization
 
-This is a large scope (20 features). To keep the black luxury design intact and avoid one giant unreviewable change, I'll ship it in **4 focused phases**. Each phase is independently testable. Confirm the order or tell me to reprioritize.
+The site already has a solid analytics base — `analytics_visits`, `analytics_poster_events`, `search_queries`, `wishlists`, `recently_viewed`, plus per-poster counters (views, cart_adds, sales). I'll build on top of that instead of duplicating tables, and add the missing pieces (interest profile, personalized sections, admin behavior tab, controls).
 
-## Foundation (built in Phase 1, reused everywhere)
+## 1. Data model (one migration)
 
-- **`marketing_settings` table** (single row, JSON blob) — every feature has: `enabled`, `text` (overridable copy), `timer` (frequency/cooldown), `colors`. Managed under **Admin → Marketing**.
-- **`useMarketingSetting(key)` hook** — reads settings, cached via TanStack Query, invalidated on admin save.
-- Shared UI primitives: `SavingsBar`, `TrustBadgeRow`, `LiveBadge` — reused by many features to stay consistent with existing gold/black tokens.
-- All animations ≤ 300ms, `will-change` only on transform/opacity, lazy-loaded images, no layout shift.
+- `visitor_profiles` — one row per anonymous visitor id (localStorage). Columns: `visitor_id`, `phone` (nullable, merged on order), `first_seen`, `last_seen`, `visits_count`, `device`, `city`, `governorate`, `interests` (jsonb: `{ categories: {id: score}, tags: {tag: score}, sizes: {size: count}, frames: {frame: count} }`), `updated_at`.
+- `visitor_cart_events` — lightweight log for add/remove/checkout_start with `visitor_id`, `poster_id`, `event`, `qty`, `created_at`. (Cart abandonment = latest add_to_cart with no matching checkout/order within N minutes.)
+- Extend `analytics_poster_events` usage — already has `event_type`, `visitor_id`, `poster_id`, `metadata`. New event types: `time_spent`, `size_selected`, `frame_selected`, `offer_viewed`, `category_viewed`. No schema change needed.
+- RPC `merge_visitor_to_phone(_visitor uuid, _phone text)` — copies/merges profile rows when checkout finishes.
+- RPC `get_customer_profile(_phone text)` — returns aggregated behavior for admin drawer.
+- RPC `admin_behavior_dashboard()` — totals, top interests, top searches, abandoned carts, most viewed/wishlisted/cart‑added.
+- GRANTs + RLS: anon can INSERT into event/profile tables (already the case for existing analytics), admin‑only SELECT via `has_role`.
 
-## Phase 1 — Product page conversion core
-The highest-impact block; every item lives on the product detail page.
+## 2. Tracking layer (`src/lib/behavior.ts`)
 
-1. **Sticky Add to Cart bar (mobile)** — thumb + title + price + discount + CTA. Appears after main CTA scrolls out.
-2. **Live Stock Counter** — deterministic per poster (`4–15`, seed = poster.id + hour) so it doesn't jitter on re-render.
-3. **Visitor Counter** — "🔥 N people viewing" (seed = poster.id + 5-min bucket).
-4. **Bestseller / Popular / New / Limited badges** — auto-derived from `sales_count`, `views_count`, `created_at`; admin override column on `posters`.
-5. **Trust Section row** — 5 icons under the CTA.
-6. **Fast Checkout ("Buy Now")** — skips cart, pushes item + jumps to checkout.
+Single client module with a debounced/queued batch sender (max 1 request per 3s or on `visibilitychange`), respecting an "Enable tracking" flag from `site_settings.behavior_tracking`.
 
-## Phase 2 — Cart & site-wide upsell
-7. **Bundle Discount** — tiered 10/15/20% applied in cart, savings line shown live.
-8. **Free Shipping Progress** — sticky slim bar above footer; animates on cart change.
-9. **Floating Offer Bubble** — bottom-right, opens current-promotions sheet.
-10. **Wishlist Reminder** — small toast on home after 15s if wishlist has items.
+API:
+```ts
+track.pageView(path)
+track.productView(posterId, meta)
+track.categoryView(categoryId)
+track.search(query, resultsCount)
+track.wishlist(posterId, added)
+track.cart(posterId, added, qty)
+track.checkoutStart()
+track.offerView(offerKey)
+track.sizeSelected(posterId, size)
+track.frameSelected(posterId, frame)
+track.timeOnProduct(posterId, seconds)
+```
 
-## Phase 3 — Social proof & discovery
-11. **Recent Purchases popup** — Egyptian names + governorates pool, cooldown from admin, enable/disable.
-12. **Customer Reviews block** — verified badge, optional photo, admin-editable (reuse existing `reviews` table + admin curation flag).
-13. **Recently Viewed strip** — reuse existing `recently_viewed` table.
-14. **Smart Recommendations "You may also like"** — server fn scoring by category + tag overlap.
-15. **Collection Covers** — rotating B&W fade covers (extends existing home-category-picks logic).
-16. **Premium Hover** — subtle zoom + gold glow on `PosterCard` (CSS only, GPU).
+Wire into existing places (no duplicate events): PDP mount + IntersectionObserver dwell timer, `useCart` add/remove, wishlist toggle, search box, cart page checkout button, offers page, size/frame selectors.
 
-## Phase 4 — Retention & admin polish
-17. **Exit Intent Popup (desktop)** — `WELCOME10`, `localStorage` 7-day cooldown, `mouseleave` toward top.
-18. **Admin → Marketing panel** — full toggles/text/timer/colors form for every feature above, grouped by section, live preview links.
-19. **Performance sweep** — audit LCP image preload, `loading="lazy"` + `decoding="async"` on all card images, verify no CLS.
-20. **Mobile QA pass** — Playwright screenshots at 375px for each feature; fix overlaps.
+Profile scoring runs server-side on ingest (small RPC) so client stays lightweight.
 
-## Technical details
+## 3. Guest → customer merge
 
-- **Data model**: `marketing_settings(key text pk, value jsonb, updated_at)` + `GRANT SELECT TO anon` (public reads), full CRUD to `authenticated` gated by `has_role(admin)` policy. `posters.badge_override text` for manual badges.
-- **Reads**: public server fn using publishable-key client for marketing settings (SSR-safe). Admin writes via `requireSupabaseAuth` + admin role check.
-- **No new libraries** — everything with existing shadcn + Tailwind + Motion primitives already in the project.
-- **No redesign** — all new UI uses existing gold `#c9a24a`, black surfaces, current typography.
+- `visitor_id` in `localStorage` (already used by analytics).
+- On successful order in `cart.tsx`, call `merge_visitor_to_phone(visitor_id, phone)` — non-blocking.
+- Next visit with same phone hydrates prior interests.
 
-## Ask before I start
+## 4. Personalized homepage sections
 
-- OK to ship in these 4 phases (Phase 1 next turn), or do you want a different order?
-- Any feature to drop? (e.g. Exit Intent can feel spammy on a luxury brand.)
+New component `PersonalizedSections.tsx` mounted on `/` above generic sections. Renders only when the profile has enough signal (≥3 events); otherwise silent.
+
+Sections (each is a horizontal row of posters):
+- Recently viewed (from `recently_viewed` + `visitor_id`)
+- Because you liked <TopCategoryName>
+- Recommended for you (blend: top interest categories + similar tags to viewed posters, excluding already-owned)
+- Popular in <TopTag>
+- Continue where you left off (last cart-abandoned posters)
+
+Recommendation source = one server fn `getRecommendations({ visitorId, phone? })` that runs a single RPC returning ~5 keyed lists.
+
+## 5. PDP additions
+
+- "You may also like" row (same category + shared tags, ordered by sales_count).
+- "Still interested in this frame?" reminder banner if this poster is in the abandoned-cart list.
+
+## 6. Admin → Customers / Behavior tab
+
+New tab in `admin.tsx`:
+- Top cards: total visitors, returning, abandoned carts (7d), avg session dwell.
+- Top interests (categories + tags), top searches, most viewed/wishlisted/cart‑added products.
+- Customers table (searchable by phone/name) with a drawer showing that customer's orders, wishlist, cart history, viewed products, search history, favorite categories, interest score, last activity.
+- Actions: Export CSV, Clear anonymous data (>90d), Reset recommendation engine (truncate scores).
+
+## 7. Admin controls (site_settings keys)
+
+New keys with UI toggles in Admin → Settings:
+- `behavior.tracking_enabled` (default true)
+- `behavior.personalization_enabled` (default true)
+- `behavior.retention_days` (default 180)
+
+Client reads these via existing `useSiteSettings`; when tracking is off, `track.*` becomes a no-op; when personalization is off, `PersonalizedSections` returns null.
+
+## 8. Privacy & performance
+
+- Only `visitor_id` (random UUID), phone (hashed for logs), coarse city — no IP or PII in client payloads.
+- Batched sendBeacon on hide; single POST per 3s otherwise; all tracking wrapped in try/catch and never awaited by user actions.
+- No layout shift: personalized sections render skeletons at fixed heights.
+
+## Delivery order
+
+1. Migration (tables, RPCs, grants, RLS).
+2. `src/lib/behavior.ts` + wiring into existing surfaces.
+3. `PersonalizedSections` + PDP additions.
+4. Admin Behavior tab + settings toggles.
+5. CSV export + cleanup actions.
+
+## Scope check before I start
+
+This is ~5–7 files of new code plus edits across cart/PDP/home/admin, and one migration. Confirm two things:
+
+- **Ship in one go, or phased?** Recommend phased (migration + tracking first, then personalization UI, then admin tab) so each step is verifiable in preview.
+- **Personalized sections placement** — above the current homepage collections, or replacing the generic "Featured" row when the profile has enough signal?
+
+Reply "go" for phased delivery with sections above (defaults), or tell me what to change.

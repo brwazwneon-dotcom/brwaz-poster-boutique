@@ -33,6 +33,7 @@ import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
+import { track as behavior } from "@/lib/behavior";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { useGridDisplayMode } from "@/lib/use-settings";
@@ -194,6 +195,9 @@ function CategoryPage() {
         category_name: category.name,
       });
       trackPosterView(p.id);
+      try {
+        behavior.productView(p.id, { categoryId: p.category_id, tags: p.tags });
+      } catch { /* noop */ }
       try {
         trackEvent("ViewContent", {
           content_ids: [p.id],
