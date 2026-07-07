@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SafeImage } from "@/components/SafeImage";
 import { useEffect, useMemo, useState } from "react";
 
 export type CollectionCard = {
