@@ -106,6 +106,14 @@ async function score(kind: "category" | "tag" | "size" | "frame", key: string | 
 }
 
 export const track = {
+  categoryBrowse(categoryId: string | null | undefined, tags?: string[] | null) {
+    if (!categoryId) return;
+    void (async () => {
+      if (!(await guard())) return;
+      void score("category", categoryId, 2);
+      (tags ?? []).slice(0, 3).forEach((t) => void score("tag", t.toLowerCase(), 0.3));
+    })();
+  },
   productView(posterId: string, meta: { categoryId?: string | null; tags?: string[] | null }) {
     if (!posterId) return;
     void (async () => {
