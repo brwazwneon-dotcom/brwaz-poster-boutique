@@ -597,7 +597,7 @@ function CustomDesignPage() {
             <div>
               <h2 className="text-display text-3xl sm:text-4xl">Frame Options</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Every image will be printed using these settings.
+                Default settings for new uploads — tap the pencil icon on any image to change its own size, frame type or color.
               </p>
 
               <OptionBlock label="Frame Type">
