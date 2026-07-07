@@ -130,6 +130,8 @@ function CategoryPage() {
       category_slug: category.slug,
       category_name: category.name,
     });
+    // Personalization: browsing a category is a strong interest signal.
+    behavior.categoryBrowse(category.id);
   }, [category?.id]);
 
   const includedCategoryIds = useMemo(
