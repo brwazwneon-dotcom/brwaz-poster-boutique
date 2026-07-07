@@ -265,9 +265,15 @@ function CategorySection({ slug, name, index }: { slug: string; name: string; in
         .eq("hidden", false)
         .not("image_url", "is", null)
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(48);
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      // Shuffle so the homepage shows a random mix across subcategories.
+      for (let i = rows.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rows[i], rows[j]] = [rows[j], rows[i]];
+      }
+      return rows.slice(0, 6);
     },
   });
 
