@@ -45,8 +45,6 @@ function CartPage() {
   const photo4x6 = usePhoto4x6Config();
   const navigate = useNavigate();
   const subtotal = total;
-  const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
-  const packagingFee = bundleQty * pricing.packagingFee;
   // Frame count for double-face-tape upsell: each item is one frame per qty,
   // bundles count all posters inside the bundle × qty.
   const frameCount = items.reduce(
@@ -59,12 +57,8 @@ function CartPage() {
     (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
     0,
   );
-  // Discounts only apply to the two flat-priced bundle offers (already
-  // reflected in each bundle line's price). No automatic tiered discount.
-  const bundle = { tier: null as null, amount: 0 };
-  // Bundle-offer nudges: detect near-completion of the 20x30 (6-pack) or
-  // 30x40 (4-pack) bundle so we can suggest adding the missing posters
-  // and unlocking the flat bundle price on /offers.
+  // Individual same-size counts — duplicates of the same poster (qty > 1)
+  // count as separate frames toward the bundle offers.
   const indiv20x30 = items.reduce(
     (s, i) => s + (!i.bundle && i.size === "20x30" ? i.qty : 0),
     0,
@@ -74,7 +68,7 @@ function CartPage() {
     0,
   );
   // Average unit price the customer is currently paying for a given size —
-  // used to estimate how much they would save by completing the bundle.
+  // used to compute the exact bundle discount when a full set is present.
   const avgUnitFor = (size: "20x30" | "30x40") => {
     let qty = 0;
     let sum = 0;
@@ -86,13 +80,36 @@ function CartPage() {
     }
     return qty > 0 ? sum / qty : 0;
   };
+  // Auto-apply the bundle offer once the customer reaches a full set of the
+  // same size (duplicates count). Discount = (regular total for N frames) −
+  // (flat offer price), per completed set.
+  const autoOffer20Sets = Math.floor(indiv20x30 / 6);
+  const autoOffer30Sets = Math.floor(indiv30x40 / 4);
+  const autoOffer20Discount = Math.max(
+    0,
+    Math.round((avgUnitFor("20x30") * 6 - pricing.offers.bundle6_20x30) * autoOffer20Sets),
+  );
+  const autoOffer30Discount = Math.max(
+    0,
+    Math.round((avgUnitFor("30x40") * 4 - pricing.offers.bundle4_30x40) * autoOffer30Sets),
+  );
+  const autoOfferSets = autoOffer20Sets + autoOffer30Sets;
+  const bundle = {
+    tier: autoOfferSets > 0 ? ("auto" as const) : null,
+    amount: autoOffer20Discount + autoOffer30Discount,
+  };
+  // Packaging: 20 EGP per bundle (explicit /offers bundles + auto-detected sets).
+  const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
+  const packagingFee = (bundleQty + autoOfferSets) * pricing.packagingFee;
   const bundleNudges = (
     [
       {
         key: "bundle-6-20x30" as const,
         size: "20 × 30",
         sizeId: "20x30" as const,
-        have: indiv20x30,
+        // Only count the leftover toward the NEXT bundle — full sets are
+        // already auto-discounted, no need to nudge for them.
+        have: indiv20x30 % 6,
         need: 6,
         price: pricing.offers.bundle6_20x30,
       },
@@ -100,7 +117,7 @@ function CartPage() {
         key: "bundle-4-30x40" as const,
         size: "30 × 40",
         sizeId: "30x40" as const,
-        have: indiv30x40,
+        have: indiv30x40 % 4,
         need: 4,
         price: pricing.offers.bundle4_30x40,
       },
@@ -700,6 +717,15 @@ function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{subtotal} EGP</span>
                 </div>
+                {bundle.amount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-500">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden>🎁</span>
+                      Bundle offer applied
+                    </span>
+                    <span>− {bundle.amount} EGP</span>
+                  </div>
+                )}
                 {packagingFee > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">📦 Packaging Fee</span>
