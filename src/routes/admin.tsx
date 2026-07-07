@@ -2220,7 +2220,7 @@ function OrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
