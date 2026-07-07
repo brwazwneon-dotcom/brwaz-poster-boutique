@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useInView } from "@/hooks/use-in-view";
 
 const GOLD = "#c9a24a";
 
@@ -12,29 +12,7 @@ const CLIENTS = [
 ];
 
 export function AboutBrwaz() {
-  const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            setVisible(true);
-            io.disconnect();
-          }
-        });
-      },
-      { threshold: 0.15 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const [ref, visible] = useInView<HTMLElement>({ rootMargin: "0px" });
 
   return (
     <section
