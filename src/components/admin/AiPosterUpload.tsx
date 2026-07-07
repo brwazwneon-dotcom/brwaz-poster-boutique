@@ -795,34 +795,40 @@ export function AiPosterUpload() {
             <div className="md:col-span-5 text-[10px] uppercase tracking-widest text-muted-foreground">
               Bulk edit (applied to selected)
             </div>
-            <select
+            <CategorySelect
               value={bulkCat}
-              onChange={(e) => {
-                setBulkCat(e.target.value);
+              mains={mains}
+              placeholder="Category…"
+              onChange={(v) => {
+                setBulkCat(v);
                 setBulkSub("");
               }}
-              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
-            >
-              <option value="">Category…</option>
-              {mains.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
+              onCreate={() => openCreateMain((row) => setBulkCat(row.id))}
+              onEdit={bulkCat ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                if (c) openEdit(c);
+              } : undefined}
+              onDelete={bulkCat ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                if (c) setDeleteState(c);
+              } : undefined}
+            />
+            <CategorySelect
               value={bulkSub}
-              onChange={(e) => setBulkSub(e.target.value)}
+              mains={subsOf(bulkCat)}
+              placeholder="Sub-category…"
               disabled={!bulkCat}
-              className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs disabled:opacity-50"
-            >
-              <option value="">Sub-category…</option>
-              {subsOf(bulkCat).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={setBulkSub}
+              onCreate={bulkCat ? () => openCreateSub(bulkCat, (row) => setBulkSub(row.id)) : undefined}
+              onEdit={bulkSub ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                if (c) openEdit(c);
+              } : undefined}
+              onDelete={bulkSub ? () => {
+                const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                if (c) setDeleteState(c);
+              } : undefined}
+            />
             <select
               value={bulkBadge}
               onChange={(e) => setBulkBadge(e.target.value)}
