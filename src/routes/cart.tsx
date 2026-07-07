@@ -104,7 +104,10 @@ function CartPage() {
         price: pricing.offers.bundle4_30x40,
       },
     ]
-      .filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3)
+      // Show a nudge for EACH size independently so the customer can see
+      // both the 20×30 (6-pack) and 30×40 (4-pack) offers at the same time
+      // when they're close to either bundle.
+      .filter((n) => n.have > 0 && n.have < n.need)
       .map((n) => {
         const unit = avgUnitFor(n.sizeId);
         const wouldPay = unit * n.need;
