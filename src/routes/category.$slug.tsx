@@ -51,6 +51,7 @@ type Poster = {
   badge?: string | null;
   sales_count?: number | null;
   views_count?: number | null;
+  is_best_seller?: boolean | null;
 };
 
 const PAGE_SIZE = 48;
@@ -162,7 +163,7 @@ function CategoryPage() {
       const sortDef = SORTS.find((s) => s.id === sort)!;
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count")
+        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller")
         .in("category_id", includedCategoryIds)
         .eq("hidden", false)
         .order(sortDef.col, { ascending: sortDef.asc })
