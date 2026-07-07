@@ -2282,6 +2282,14 @@ function OrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
+  const convertToReal = async (o: Order) => {
+    if (!confirm("Convert this test order into a real one? It will start counting in analytics and sales.")) return;
+    const { error } = await supabase.from("orders").update({ is_test: false } as never).eq("id", o.id);
+    if (error) return toast.error(error.message);
+    toast.success("Converted to real order");
+    qc.invalidateQueries({ queryKey: ["admin-orders"] });
+  };
+
   const exportExcel = () => {
     const rows = filtered.map((o) => ({
       "Order Number": o.order_number ?? o.id.slice(0, 8),
