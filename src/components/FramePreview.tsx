@@ -55,7 +55,11 @@ export function FramePreview({
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [frameErrored, setFrameErrored] = useState(false);
-  const useCssFrame = !m.image || frameErrored;
+  // Bare thumbnails (grid tiles, cart summary) always use the reliable
+  // CSS-based frame so the mockup renders identically on every device,
+  // regardless of whether the frame PNG loads. Non-bare (product page)
+  // still uses the realistic PNG overlay when available.
+  const useCssFrame = bare || !m.image || frameErrored;
 
   // Swatch fallback so the matte/frame still reads when no mockup image is set.
   const matte =
