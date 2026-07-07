@@ -19,8 +19,7 @@ import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
-
-const FEATURED_SLUGS = ["football", "movies", "tv-series", "anime", "cars"] as const;
+import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +37,7 @@ function Index() {
   const { data: categories = [] } = useCategories();
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
+  const { data: picks = {} } = useHomeCategoryPicks();
 
   const RENDERERS: Record<HomeSectionKey, (title?: string, subtitle?: string) => React.ReactNode> = {
     hero: () => <HeroSection key="hero" />,
@@ -57,6 +57,7 @@ function Index() {
               slug={slug}
               name={cat?.name ?? defaultName(slug)}
               index={i}
+              pickedIds={picks[slug] ?? []}
             />
           );
         })}
