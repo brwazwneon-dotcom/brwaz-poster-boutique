@@ -528,7 +528,7 @@ function Customizer({
             />
           </div>
         </div>
-      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 ? (
+      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 || primary.is_best_seller ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {(primary.sales_count ?? 0) > 0 && (
             <span>✔ {formatCount(primary.sales_count)} sold</span>
