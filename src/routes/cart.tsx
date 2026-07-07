@@ -386,6 +386,42 @@ function CartPage() {
       ) : (
         <div className="mt-12 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-3">
+            {bundleNudges.map((n) => {
+              const missing = n.need - n.have;
+              return (
+                <Link
+                  key={n.key}
+                  to="/offers"
+                  className="group relative block overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 transition hover:border-primary"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
+                      🎁
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
+                        Bundle offer · {n.size} cm
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-foreground">
+                        أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس {n.size} واحصل على الـ{n.need} بسعر {n.price} EGP فقط
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        عندك {n.have} من أصل {n.need} — اختار باقات جاهزة من صفحة العروض ووفر أكتر.
+                      </div>
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${(n.have / n.need) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="hidden shrink-0 items-center rounded-sm border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground group-hover:opacity-90 sm:inline-flex">
+                      استفيد بالخصم
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
                 <div className="w-20 shrink-0">
