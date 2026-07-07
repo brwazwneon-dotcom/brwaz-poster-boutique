@@ -89,20 +89,6 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
             <span className="h-px w-10" style={{ background: `linear-gradient(to left, transparent, ${GOLD})` }} />
           </div>
 
-          {/* 25 years of experience — chic gold badge */}
-          <div className="mx-auto mb-8 inline-flex items-center gap-4 rounded-full border border-white/10 bg-white/[0.03] px-6 py-2.5 backdrop-blur-md">
-            <span
-              className="text-display text-2xl leading-none"
-              style={{ color: GOLD }}
-            >
-              25
-            </span>
-            <span className="h-6 w-px bg-white/15" />
-            <span className="text-left text-[10px] font-medium uppercase leading-tight tracking-[0.35em] text-white/70">
-              Years<br />of Craftsmanship
-            </span>
-          </div>
-
           <h2 className="text-display text-4xl leading-[1.05] sm:text-6xl">
             {title ?? "Crafted With Uncompromising Care."}
           </h2>
@@ -110,6 +96,15 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
             {subtitle ??
               "For over 25 years we've been framing memories — every piece reviewed, refined and finished by hand with a quiet obsession for the smallest detail."}
           </p>
+        </div>
+
+        {/* Stat strip — 25-year badge flanked by proof stats */}
+        <div className="mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 sm:mt-14 sm:gap-4">
+          <StatCard value="7M+" label={"Photos\nPrinted"} />
+          <StatCard value="50K+" label={"Happy\nClients"} />
+          <YearsBadge />
+          <StatCard value="100%" label={"Hand\nFinished"} />
+          <StatCard value="27" label={"Governorates\nDelivered"} />
         </div>
 
         {/* Feature blocks — staggered 2-col on desktop, single column on mobile */}
