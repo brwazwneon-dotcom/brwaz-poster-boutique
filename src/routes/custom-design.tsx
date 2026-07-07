@@ -77,6 +77,8 @@ type Pic = {
   preview: string;
   rotate: number;
   color: FrameColorId;
+  frameType: FrameTypeId;
+  size: SizeId;
 };
 
 function isAcceptedFile(f: File): boolean {
@@ -118,10 +120,41 @@ function CustomDesignPage() {
     if (id === "wood") {
       // Wooden Portrait has no color options — clear any PVC color.
       setColor("wood");
-      setPics((prev) => prev.map((p) => ({ ...p, color: "wood" })));
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame("wood");
+          return {
+            ...p,
+            color: "wood",
+            frameType: "wood",
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
     } else if (color === "wood") {
       setColor("black");
-      setPics((prev) => prev.map((p) => ({ ...p, color: p.color === "wood" ? "black" : p.color })));
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame(id);
+          return {
+            ...p,
+            color: p.color === "wood" ? "black" : p.color,
+            frameType: id,
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
+    } else {
+      setPics((prev) =>
+        prev.map((p) => {
+          const allowedForPic = sizesForFrame(id);
+          return {
+            ...p,
+            frameType: id,
+            size: allowedForPic.includes(p.size) ? p.size : allowedForPic[0],
+          };
+        }),
+      );
     }
   };
 
@@ -138,21 +171,80 @@ function CustomDesignPage() {
     setEditing((cur) => (cur && cur.id === id ? { ...cur, color: next } : cur));
   };
 
+  const setPicSize = (id: string, next: SizeId) => {
+    setPics((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const allowed = sizesForFrame(p.frameType);
+        if (!allowed.includes(next)) return p;
+        return { ...p, size: next };
+      }),
+    );
+    setEditing((cur) => (cur && cur.id === id ? { ...cur, size: next } : cur));
+  };
+
+  const setPicFrameType = (id: string, next: FrameTypeId) => {
+    setPics((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const allowed = sizesForFrame(next);
+        const nextColor: FrameColorId =
+          next === "wood" ? "wood" : p.color === "wood" ? "black" : p.color;
+        return {
+          ...p,
+          frameType: next,
+          color: nextColor,
+          size: allowed.includes(p.size) ? p.size : allowed[0],
+        };
+      }),
+    );
+    setEditing((cur) => {
+      if (!cur || cur.id !== id) return cur;
+      const allowed = sizesForFrame(next);
+      const nextColor: FrameColorId =
+        next === "wood" ? "wood" : cur.color === "wood" ? "black" : cur.color;
+      return {
+        ...cur,
+        frameType: next,
+        color: nextColor,
+        size: allowed.includes(cur.size) ? cur.size : allowed[0],
+      };
+    });
+  };
+
   const availableSizes = useMemo(
     () => SIZES.filter((s) => sizesForFrame(frameType).includes(s.id)),
     [frameType],
   );
 
+  const unitPriceFor = (ft: FrameTypeId, sz: SizeId) =>
+    priceForFrame(pricing, ft, sz) + pricing.customDesignFee;
   const unit = useMemo(
-    () => priceForFrame(pricing, frameType, size) + pricing.customDesignFee,
+    () => unitPriceFor(frameType, size),
     [pricing, frameType, size],
   );
-  const subtotal = unit * pics.length;
+  const subtotal = useMemo(
+    () => pics.reduce((sum, p) => sum + unitPriceFor(p.frameType, p.size), 0),
+    [pics, pricing],
+  );
   const shipping = computeShipping(subtotal, settings);
   const packaging = pics.length > 0 ? PACKAGING_FEE : 0;
-  const offer = useMemo(() => customOfferFor(size, pics.length), [size, pics.length]);
-  const discountAmount = offer ? Math.round((subtotal * offer.percent) / 100) : 0;
-  const nextOffer = useMemo(() => nextCustomOffer(size, pics.length), [size, pics.length]);
+  // Apply size-gated offers per-size across all pics.
+  const { discountAmount, appliedOffers } = useMemo(() => {
+    let total = 0;
+    const applied: { label: string; percent: number; amount: number }[] = [];
+    for (const o of CUSTOM_OFFERS) {
+      const matching = pics.filter((p) => p.size === o.size);
+      if (matching.length >= o.minQty) {
+        const sub = matching.reduce((s, p) => s + unitPriceFor(p.frameType, p.size), 0);
+        const amt = Math.round((sub * o.percent) / 100);
+        total += amt;
+        applied.push({ label: o.label, percent: o.percent, amount: amt });
+      }
+    }
+    return { discountAmount: total, appliedOffers: applied };
+  }, [pics, pricing]);
+  const nextOffer = useMemo(() => nextCustomOffer(size, pics.filter((p) => p.size === size).length), [size, pics]);
   const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
 
   const openPicker = () => addInputRef.current?.click();
@@ -173,6 +265,8 @@ function CustomDesignPage() {
         preview: URL.createObjectURL(f),
         rotate: 0,
         color: frameType === "wood" ? "wood" : color,
+        frameType,
+        size,
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
@@ -273,7 +367,7 @@ function CustomDesignPage() {
       // combine with ready-made posters, and check out from the cart page.
       uploaded.forEach((u, idx) => {
         const pic = pics[u.index];
-        const unitPrice = priceForFrame(pricing, frameType, size) + pricing.customDesignFee;
+        const unitPrice = unitPriceFor(pic.frameType, pic.size);
         cart.add({
           posterId: `custom-${orderId}-${idx}`,
           title: `Custom Design #${idx + 1}`,
@@ -281,8 +375,8 @@ function CustomDesignPage() {
           customImagePath: u.path,
           categoryId: null,
           categoryName: "Custom Design",
-          frameType,
-          size,
+          frameType: pic.frameType,
+          size: pic.size,
           color: pic.color,
           price: unitPrice,
         });
@@ -415,15 +509,20 @@ function CustomDesignPage() {
                     <div className="w-full overflow-hidden bg-background">
                       <FramePreview
                         posterUrl={p.preview}
-                        frameType={frameType}
+                        frameType={p.frameType}
                         color={p.color}
                         aspectClassName="aspect-[2/3]"
                         editSettings={{ rotate: p.rotate }}
                         loading="lazy"
                       />
                     </div>
-                    <div className="absolute left-1 top-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
-                      #{i + 1}
+                    <div className="absolute left-1 top-1 flex flex-col items-start gap-1">
+                      <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
+                        #{i + 1}
+                      </span>
+                      <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        {labelForSize(p.size)}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -433,7 +532,7 @@ function CustomDesignPage() {
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
-                    {frameType !== "wood" && (
+                    {p.frameType !== "wood" && (
                       <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
                         {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
                           <button
@@ -498,7 +597,7 @@ function CustomDesignPage() {
             <div>
               <h2 className="text-display text-3xl sm:text-4xl">Frame Options</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Every image will be printed using these settings.
+                Default settings for new uploads — tap the pencil icon on any image to change its own size, frame type or color.
               </p>
 
               <OptionBlock label="Frame Type">
@@ -562,15 +661,15 @@ function CustomDesignPage() {
                 </div>
                 <div className="mt-4 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Subtotal ({pics.length} × {unit} EGP)</span>
+                    <span>Subtotal ({pics.length} image{pics.length === 1 ? "" : "s"})</span>
                     <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                  {offer && (
-                    <div className="flex items-center justify-between font-semibold text-primary">
-                      <span>Offer: {offer.label} ({offer.percent}% off)</span>
-                      <span>-{discountAmount} EGP</span>
+                  {appliedOffers.map((o) => (
+                    <div key={o.label} className="flex items-center justify-between font-semibold text-primary">
+                      <span>Offer: {o.label} ({o.percent}% off)</span>
+                      <span>-{o.amount} EGP</span>
                     </div>
-                  )}
+                  ))}
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Shipping</span>
                     <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
@@ -588,7 +687,7 @@ function CustomDesignPage() {
                     <span>{total} EGP</span>
                   </div>
                 </div>
-                {!offer && nextOffer && pics.length > 0 && (
+                {appliedOffers.length === 0 && nextOffer && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     Add {nextOffer.missing} more {labelForSize(nextOffer.size)} image
                     {nextOffer.missing === 1 ? "" : "s"} for {nextOffer.percent}% off
@@ -670,7 +769,44 @@ function CustomDesignPage() {
                 className="max-h-full max-w-full object-contain transition-transform"
               />
             </div>
-            {frameType !== "wood" && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                Frame type for this image
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {FRAME_TYPES.map((f) => (
+                  <Chip
+                    key={f.id}
+                    active={editing.frameType === f.id}
+                    onClick={() => setPicFrameType(editing.id, f.id)}
+                  >
+                    {f.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  Size for this image
+                </div>
+                <div className="text-[11px] font-semibold text-primary">
+                  {unitPriceFor(editing.frameType, editing.size)} EGP
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {SIZES.filter((s) => sizesForFrame(editing.frameType).includes(s.id)).map((s) => (
+                  <Chip
+                    key={s.id}
+                    active={editing.size === s.id}
+                    onClick={() => setPicSize(editing.id, s.id)}
+                  >
+                    {s.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            {editing.frameType !== "wood" && (
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                   Frame color for this image
