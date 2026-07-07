@@ -56,7 +56,7 @@ export type Pricing = {
 
 export const PRICING_DEFAULTS: Pricing = {
   frame: {
-    pvc:  { "20x30": 150, "30x40": 250, "40x50": 350 },
+    pvc:  { "20x30": 190, "30x40": 250, "40x50": 350 },
     wood: {
       "20x30": 190,
       "30x40": 270,
