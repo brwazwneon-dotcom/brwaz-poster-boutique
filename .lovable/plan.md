@@ -1,100 +1,108 @@
-# Customer Behavior Tracking & Personalization
+# Two new Admin tools
 
-The site already has a solid analytics base — `analytics_visits`, `analytics_poster_events`, `search_queries`, `wishlists`, `recently_viewed`, plus per-poster counters (views, cart_adds, sales). I'll build on top of that instead of duplicating tables, and add the missing pieces (interest profile, personalized sections, admin behavior tab, controls).
+Both live under the existing Admin panel and reuse the current premium black styling. No changes to the storefront checkout, cart, prices, or upload logic.
 
-## 1. Data model (one migration)
+---
 
-- `visitor_profiles` — one row per anonymous visitor id (localStorage). Columns: `visitor_id`, `phone` (nullable, merged on order), `first_seen`, `last_seen`, `visits_count`, `device`, `city`, `governorate`, `interests` (jsonb: `{ categories: {id: score}, tags: {tag: score}, sizes: {size: count}, frames: {frame: count} }`), `updated_at`.
-- `visitor_cart_events` — lightweight log for add/remove/checkout_start with `visitor_id`, `poster_id`, `event`, `qty`, `created_at`. (Cart abandonment = latest add_to_cart with no matching checkout/order within N minutes.)
-- Extend `analytics_poster_events` usage — already has `event_type`, `visitor_id`, `poster_id`, `metadata`. New event types: `time_spent`, `size_selected`, `frame_selected`, `offer_viewed`, `category_viewed`. No schema change needed.
-- RPC `merge_visitor_to_phone(_visitor uuid, _phone text)` — copies/merges profile rows when checkout finishes.
-- RPC `get_customer_profile(_phone text)` — returns aggregated behavior for admin drawer.
-- RPC `admin_behavior_dashboard()` — totals, top interests, top searches, abandoned carts, most viewed/wishlisted/cart‑added.
-- GRANTs + RLS: anon can INSERT into event/profile tables (already the case for existing analytics), admin‑only SELECT via `has_role`.
+## 1) Bulk AI SEO per Sub Category
 
-## 2. Tracking layer (`src/lib/behavior.ts`)
+### Where it appears
+Admin → **Categories** tab, in the sub-category rows under each main category.
 
-Single client module with a debounced/queued batch sender (max 1 request per 3s or on `visibilitychange`), respecting an "Enable tracking" flag from `site_settings.behavior_tracking`.
+- New button on every sub-category row: `✨ Generate SEO for all posters`
+- Shown only for sub-categories (rows with `parent_id`), never on main categories.
 
-API:
-```ts
-track.pageView(path)
-track.productView(posterId, meta)
-track.categoryView(categoryId)
-track.search(query, resultsCount)
-track.wishlist(posterId, added)
-track.cart(posterId, added, qty)
-track.checkoutStart()
-track.offerView(offerKey)
-track.sizeSelected(posterId, size)
-track.frameSelected(posterId, frame)
-track.timeOnProduct(posterId, seconds)
+### Confirmation modal (opens on click)
+Header: sub-category name.
+
+Body:
+- Posters in this sub-category: **N**
+- Estimated AI requests: **N** (or N×fields when "Regenerate all")
+- Warning line about overwrite behavior.
+
+Options block:
+- Mode (radio): **Only fill missing fields** (default) · **Regenerate everything**
+- Fields (checkboxes, all on by default): title, description, seo_title, seo_description, tags, hashtags, alt_text
+- "Send a test notification when done" (optional toggle)
+
+Buttons: Cancel · **Start SEO Generation**.
+
+### Runner UI (drawer / inline panel)
+Persistent while the batch runs:
+
+```text
+Processing 12 / 85 posters
+✔ 10 completed   ⚠ 1 needs review   ✖ 1 failed   ↷ 0 skipped
+[ Pause ] [ Resume ] [ Retry failed ] [ Stop ]
 ```
 
-Wire into existing places (no duplicate events): PDP mount + IntersectionObserver dwell timer, `useCart` add/remove, wishlist toggle, search box, cart page checkout button, offers page, size/frame selectors.
+- Live poster list with per-row status chip and the fields that were updated.
+- Errors expand to show the provider message.
+- Progress persists across tab switches inside Admin while the browser stays open (in-memory queue in a React context).
 
-Profile scoring runs server-side on ingest (small RPC) so client stays lightweight.
+### Backend
+- New Supabase Edge Function `bulk-seo-generate` (single poster per invocation, batched from the client).
+- Provider order: **OpenRouter** → **Gemini key rotation** on failure. No Lovable AI Gateway.
+- Reuses the existing SEO prompt/system used by the current single-poster SEO tool; only difference is field-selection + overwrite mode.
+- Safe update rule enforced server-side:
+  - `Only fill missing` → the function reads the row first and writes ONLY the requested fields where the current value is null/empty.
+  - `Regenerate everything` → overwrites the requested fields.
+- Original image, price, category, sku, all other product data are never touched.
 
-## 3. Guest → customer merge
+### Logs
+New table `ai_seo_logs`:
+- poster_id, category_id (sub-cat), status (`ok` / `failed` / `skipped` / `needs_review`), fields_updated (text[]), provider (`openrouter` / `gemini`), error (text, nullable), admin_user_id, created_at.
 
-- `visitor_id` in `localStorage` (already used by analytics).
-- On successful order in `cart.tsx`, call `merge_visitor_to_phone(visitor_id, phone)` — non-blocking.
-- Next visit with same phone hydrates prior interests.
+RLS: admins can select/insert; nobody else. Grants: `authenticated` + `service_role`.
 
-## 4. Personalized homepage sections
+New Admin sub-tab **AI SEO Logs** with a filterable table (by sub-category, status, date) and a CSV export.
 
-New component `PersonalizedSections.tsx` mounted on `/` above generic sections. Renders only when the profile has enough signal (≥3 events); otherwise silent.
+---
 
-Sections (each is a horizontal row of posters):
-- Recently viewed (from `recently_viewed` + `visitor_id`)
-- Because you liked <TopCategoryName>
-- Recommended for you (blend: top interest categories + similar tags to viewed posters, excluding already-owned)
-- Popular in <TopTag>
-- Continue where you left off (last cart-abandoned posters)
+## 2) Customer Purchase Test / Order Flow Preview
 
-Recommendation source = one server fn `getRecommendations({ visitorId, phone? })` that runs a single RPC returning ~5 keyed lists.
+### Entry points
+- Admin → **Orders** tab → new button `🧪 Preview as Buyer`
+- Admin top-bar shortcut with same button.
 
-## 5. PDP additions
+### Test Mode
+- Global toggle in Admin → **Settings** (persisted in `site_settings` key `test_mode`).
+- Only visible to admins. Sends a signed `test_mode=1` cookie for the current admin session, so the storefront can detect it without leaking to real customers.
+- When active:
+  - A subtle black/gold `TEST MODE` badge sticks to the bottom-left of every storefront page (admin-only, via the cookie).
+  - Any order the storefront submits while the cookie is present is flagged `is_test = true` on insert (via a signed request param the server verifies against the admin session).
+  - Test orders are **excluded** from all analytics and admin dashboard aggregates (add `WHERE is_test = false` to `admin_dashboard`, `admin_realtime_analytics`, `admin_behavior_dashboard`).
+  - Sales counters (`sales_count`, `cart_adds_count`, `views_count`) are NOT incremented for test orders.
+  - No customer notifications (WhatsApp/email) are sent unless the admin explicitly opted in per-test (see next section).
 
-- "You may also like" row (same category + shared tags, ordered by sales_count).
-- "Still interested in this frame?" reminder banner if this poster is in the abandoned-cart list.
+### Preview as Buyer flow
+Clicking the button opens the real storefront in a new tab with the cookie set, so the admin walks the actual customer journey end-to-end:
+product → frame → size → cart → checkout → name/phone/governorate/address → payment screenshot upload → submit.
 
-## 6. Admin → Customers / Behavior tab
+Every screen is the real one; nothing is mocked. The only differences are the badge, the `is_test` flag, and the notification suppression above.
 
-New tab in `admin.tsx`:
-- Top cards: total visitors, returning, abandoned carts (7d), avg session dwell.
-- Top interests (categories + tags), top searches, most viewed/wishlisted/cart‑added products.
-- Customers table (searchable by phone/name) with a drawer showing that customer's orders, wishlist, cart history, viewed products, search history, favorite categories, interest score, last activity.
-- Actions: Export CSV, Clear anonymous data (>90d), Reset recommendation engine (truncate scores).
+After submit the admin sees the actual thank-you page a real customer sees (order number, payment instructions, WhatsApp button, estimated delivery, double-face-tape upsell, 4x6 upsell) — unchanged.
 
-## 7. Admin controls (site_settings keys)
+### Admin test result panel
+Back in Admin → Orders, test orders show in a dedicated **Test Orders** section (isolated from real orders list) with:
+- Order details, payment screenshot preview.
+- "What the customer saw" — live iframe of `/order/success/{id}?admin_preview=1`.
+- "What admin receives" — WhatsApp message preview, email preview (if email templates are enabled), push preview (if enabled).
+- Actions: `Delete test order` · `Convert to real order` (clears `is_test`, ships) · `Run another test` (re-opens the flow) · `Send test notification to admin` (fires a one-off notification to the current admin only).
 
-New keys with UI toggles in Admin → Settings:
-- `behavior.tracking_enabled` (default true)
-- `behavior.personalization_enabled` (default true)
-- `behavior.retention_days` (default 180)
+### Data changes
+- `orders` gets `is_test boolean not null default false`.
+- Analytics/aggregate views/functions updated to filter it out.
+- No changes to prices, cart code, checkout logic, or order structure otherwise.
 
-Client reads these via existing `useSiteSettings`; when tracking is off, `track.*` becomes a no-op; when personalization is off, `PersonalizedSections` returns null.
+---
 
-## 8. Privacy & performance
+## Rollout order
 
-- Only `visitor_id` (random UUID), phone (hashed for logs), coarse city — no IP or PII in client payloads.
-- Batched sendBeacon on hide; single POST per 3s otherwise; all tracking wrapped in try/catch and never awaited by user actions.
-- No layout shift: personalized sections render skeletons at fixed heights.
+1. Migration: `orders.is_test`, `ai_seo_logs` table + policies + grants, filter updates in `admin_dashboard` / `admin_realtime_analytics` / `admin_behavior_dashboard`.
+2. Edge function `bulk-seo-generate` (OpenRouter + Gemini fallback).
+3. Admin: `CategoryPicker` row button + confirmation modal + batch runner + AI SEO Logs sub-tab.
+4. Test Mode toggle + admin cookie + storefront detection + badge + `is_test` write path.
+5. Preview-as-Buyer buttons + Test Orders section + actions.
 
-## Delivery order
-
-1. Migration (tables, RPCs, grants, RLS).
-2. `src/lib/behavior.ts` + wiring into existing surfaces.
-3. `PersonalizedSections` + PDP additions.
-4. Admin Behavior tab + settings toggles.
-5. CSV export + cleanup actions.
-
-## Scope check before I start
-
-This is ~5–7 files of new code plus edits across cart/PDP/home/admin, and one migration. Confirm two things:
-
-- **Ship in one go, or phased?** Recommend phased (migration + tracking first, then personalization UI, then admin tab) so each step is verifiable in preview.
-- **Personalized sections placement** — above the current homepage collections, or replacing the generic "Featured" row when the profile has enough signal?
-
-Reply "go" for phased delivery with sections above (defaults), or tell me what to change.
+Everything ships behind admin-only surfaces; the storefront is otherwise untouched.
