@@ -55,14 +55,7 @@ export function FramePreview({
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [posterLoaded, setPosterLoaded] = useState(false);
-  // Always use the uploaded PNG mockups. No CSS-based fallback is drawn
-  // so the visual is consistent across desktop and mobile — even during
-  // the brief image load the matte color reads as the frame edge.
-  const useCssFrame = !m.image;
-
-  // Swatch fallback so the matte/frame still reads when no mockup image is set.
-  const matte =
-    key === "white" ? "#f3f3f0" : key === "wood" ? "#3a2515" : "#0a0a0a";
+  // Always use the uploaded PNG mockups — no CSS-based frame fallback.
 
   const s: EditSettings = normalizeEditSettings(editSettings);
   // Translate as % so it scales with the printable area size.
@@ -85,14 +78,6 @@ export function FramePreview({
   const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
-  // CSS-based realistic frame fallback (used when the mockup PNG is missing or fails to load).
-  const cssFrame =
-    key === "white"
-      ? { border: "#f5f5f2", inner: "#111", bevel: "rgba(0,0,0,0.25)" }
-      : key === "wood"
-        ? { border: "#5a3a20", inner: "#2a180c", bevel: "rgba(0,0,0,0.45)" }
-        : { border: "#0a0a0a", inner: "#000", bevel: "rgba(255,255,255,0.08)" };
-
   return (
     <div
       className={cn(
@@ -104,12 +89,7 @@ export function FramePreview({
         className,
       )}
       style={{
-        backgroundColor: useCssFrame ? cssFrame.border : matte,
-        padding: useCssFrame ? "6.5%" : undefined,
-        boxShadow: useCssFrame
-          ? `inset 0 0 0 1px ${cssFrame.bevel}, inset 0 0 12px rgba(0,0,0,0.55)`
-          : undefined,
-        borderRadius: useCssFrame ? "4px" : undefined,
+        backgroundColor: "transparent",
       }}
       title={title}
     >
@@ -117,17 +97,13 @@ export function FramePreview({
       <div
         className="absolute overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
         style={{
-          top: useCssFrame ? "6.5%" : `${m.top}%`,
-          left: useCssFrame ? "6.5%" : `${m.left}%`,
-          width: useCssFrame ? "87%" : `${m.width}%`,
-          height: useCssFrame ? "87%" : `${m.height}%`,
+          top: `${m.top}%`,
+          left: `${m.left}%`,
+          width: `${m.width}%`,
+          height: `${m.height}%`,
           borderRadius,
           perspective: `${perspective}px`,
           transformStyle: "preserve-3d",
-          backgroundColor: useCssFrame ? cssFrame.inner : undefined,
-          boxShadow: useCssFrame
-            ? "inset 0 0 0 2px rgba(0,0,0,0.6), inset 0 0 25px rgba(0,0,0,0.5)"
-            : undefined,
         }}
       >
         <SafeImage
