@@ -5,6 +5,7 @@ export type HomeSectionKey =
   | "hero"
   | "trust"
   | "trusted-quality"
+  | "about"
   | "highlights"
   | "best-sellers"
   | "benefits"
@@ -26,6 +27,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   hero: "Hero",
   trust: "Trust statement",
   "trusted-quality": "Trusted Quality",
+  about: "About BRWAZWNEON",
   highlights: "Highlights",
   "best-sellers": "Best Sellers",
   benefits: "Benefits bar",
@@ -43,6 +45,7 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { key: "collections", enabled: true },
   { key: "offers", enabled: true },
   { key: "trusted-quality", enabled: true, title: "Trusted Quality", subtitle: "Why BRWAZWNEON" },
+  { key: "about", enabled: true },
   { key: "best-sellers", enabled: true, title: "Best Sellers", subtitle: "Our top picks — hand-selected." },
   { key: "highlights", enabled: true },
   { key: "benefits", enabled: true },
