@@ -26,6 +26,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { SalesNotifications } from "@/components/SocialProof";
+import { BehaviorBoot } from "@/components/BehaviorBoot";
 
 function NotFoundComponent() {
   return (
@@ -206,6 +207,7 @@ function RootComponent() {
             <InstallPrompt />
             <PreviewBadge />
             <SalesNotifications />
+            <BehaviorBoot />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
