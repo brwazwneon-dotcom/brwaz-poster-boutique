@@ -252,6 +252,10 @@ function CartPage() {
       logCheckoutStart();
     } catch { /* noop */ }
     try {
+      const { track } = await import("@/lib/behavior");
+      track.checkoutStart();
+    } catch { /* noop */ }
+    try {
       let screenshotPath: string | null = null;
       if (paymentMethod === "instapay" && screenshot) {
         const folder = crypto.randomUUID();
@@ -388,6 +392,11 @@ function CartPage() {
       }
 
       toast.success("Order placed! Opening WhatsApp…");
+      try {
+        const { track } = await import("@/lib/behavior");
+        const pids = items.flatMap((i) => i.bundle ? i.bundle.posters.map((p) => p.posterId) : (i.posterId ? [i.posterId] : []));
+        track.purchase(phone, pids);
+      } catch { /* noop */ }
       window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
