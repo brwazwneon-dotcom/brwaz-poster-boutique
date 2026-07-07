@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw, ShoppingBag } from "lucide-react";
+import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw, ShoppingBag, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
@@ -473,6 +473,20 @@ function CustomDesignPage() {
               Don't worry if the preview isn't perfectly aligned — our designer fine-tunes every image by hand before printing.
             </p>
           )}
+
+          {/* Privacy assurance — a core promise to our customers */}
+          <div className="mx-auto mt-6 max-w-2xl rounded-sm border border-border bg-card p-5 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-foreground">
+              <ShieldCheck className="h-4 w-4" />
+              Your Privacy Is Our Red Line
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Your photos are strictly confidential. They are stored securely, accessed only
+              by our design team for the sole purpose of preparing your order, and are never
+              shared, published, or used for any other purpose. Protecting your images is a
+              non-negotiable standard — and one of the core reasons our customers trust us.
+            </p>
+          </div>
         </div>
       </section>
 
