@@ -34,6 +34,7 @@ export default defineConfig({
           navigateFallback: "/offline",
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/admin/],
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
