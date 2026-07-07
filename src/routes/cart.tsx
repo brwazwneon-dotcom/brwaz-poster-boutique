@@ -130,8 +130,9 @@ function logCheckoutStep(info: CheckoutDebugInfo) {
     result: sanitizeCheckoutDebug(info.result),
     error: info.error ? errorFields(info.error) : undefined,
   };
-  if (info.error) console.error("[checkout-debug:error]", safeInfo);
-  else console.info("[checkout-debug]", safeInfo);
+  const message = `${info.error ? "[checkout-debug:error]" : "[checkout-debug]"} ${JSON.stringify(safeInfo, null, 2)}`;
+  if (info.error) console.error(message);
+  else console.info(message);
 }
 
 function throwCheckoutError(info: CheckoutDebugInfo): never {
@@ -276,6 +277,7 @@ function CartPage() {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const handleScreenshotChange = (file: File | null) => {
     if (!file) {
@@ -370,6 +372,7 @@ function CartPage() {
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error("Please upload your payment screenshot");
 
+    setCheckoutError(null);
     setSubmitting(true);
     const contentIds = items.flatMap((i) =>
       i.bundle ? i.bundle.posters.map((p) => p.posterId) : [i.posterId],
@@ -615,7 +618,9 @@ function CartPage() {
       setTapeChoice(null); setTapeOpen(false);
     } catch (err) {
       logCheckoutStep({ step: "checkout_failed", error: err });
-      toast.error(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setCheckoutError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -963,6 +968,11 @@ function CartPage() {
               >
                 {submitting ? "Placing order…" : "Place order · WhatsApp"}
               </button>
+              {checkoutError && (
+                <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-sm border border-destructive/40 bg-destructive/10 p-3 text-left text-[11px] leading-relaxed text-destructive">
+                  {checkoutError}
+                </pre>
+              )}
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
                 Your order is saved and WhatsApp opens to confirm.
               </p>
