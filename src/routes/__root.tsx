@@ -122,6 +122,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
+      { rel: "preload", as: "image", href: "/assets/mockups/frame-black.png" },
+      { rel: "preload", as: "image", href: "/assets/mockups/frame-white.png" },
+      { rel: "preload", as: "image", href: "/assets/mockups/frame-wood.png" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap",
