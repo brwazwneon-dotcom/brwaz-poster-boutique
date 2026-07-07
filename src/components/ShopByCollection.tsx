@@ -171,8 +171,8 @@ function CollectionCover({ card }: { card: CollectionCard }) {
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
 
       {/* Framed poster cover — centered inside the card */}
-      <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8">
-        <div className="relative aspect-[2/3] h-full max-h-full w-auto transition-transform duration-700 group-hover:scale-[1.04]">
+      <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-7">
+        <div className="relative mx-auto aspect-[2/3] h-full max-h-full w-auto max-w-full transition-transform duration-700 group-hover:scale-[1.04]">
           {valid.map((url, i) => (
             <div
               key={url + i}
@@ -187,6 +187,15 @@ function CollectionCover({ card }: { card: CollectionCard }) {
                 title={card.title}
                 aspectClassName="aspect-[2/3]"
                 loading="lazy"
+                editSettings={{
+                  fit: "cover",
+                  offsetX: 0,
+                  offsetY: 0,
+                  zoom: 1,
+                  stretchX: 1,
+                  stretchY: 1,
+                  rotate: 0,
+                }}
               />
               {/* Detect broken source so we can drop it from rotation */}
               <img
