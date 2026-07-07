@@ -109,7 +109,9 @@ function CartPage() {
         const unit = avgUnitFor(n.sizeId);
         const wouldPay = unit * n.need;
         const savings = Math.max(0, Math.round(wouldPay - n.price));
-        return { ...n, savings };
+        const savingsPct = wouldPay > 0 ? Math.round((savings / wouldPay) * 100) : 0;
+        const progressPct = Math.min(100, Math.round((n.have / n.need) * 100));
+        return { ...n, savings, savingsPct, progressPct };
       })
   );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
