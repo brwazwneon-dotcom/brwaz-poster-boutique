@@ -431,10 +431,11 @@ function CartPage() {
         for (const i of items) {
           if (i.bundle) {
             for (const p of i.bundle.posters) {
+              if (!asUuid(p.posterId)) continue;
               qtyById.set(p.posterId, (qtyById.get(p.posterId) ?? 0) + i.qty);
               ids.push(p.posterId);
             }
-          } else if (i.posterId) {
+          } else if (asUuid(i.posterId)) {
             qtyById.set(i.posterId, (qtyById.get(i.posterId) ?? 0) + i.qty);
             ids.push(i.posterId);
           }
