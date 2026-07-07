@@ -3878,6 +3878,72 @@ function ReviewsTab() {
           >
             <Plus className="h-4 w-4" /> Add Review
           </button>
+          <button
+            onClick={async () => {
+              const { buildInsertableReviews } = await import("@/lib/sample-reviews");
+              const rows = buildInsertableReviews(10);
+              const { error } = await supabase.from("reviews").insert(rows);
+              if (error) return toast.error(error.message);
+              toast.success("Generated 10 sample reviews");
+              qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+              qc.invalidateQueries({ queryKey: ["reviews"] });
+            }}
+            className="inline-flex items-center gap-2 rounded-sm border border-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary hover:bg-primary/10"
+          >
+            <Sparkles className="h-4 w-4" /> Generate 10
+          </button>
+          <button
+            onClick={() => {
+              const payload = JSON.stringify(reviews, null, 2);
+              const blob = new Blob([payload], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `reviews-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+          >
+            <Download className="h-4 w-4" /> Export
+          </button>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest hover:bg-accent">
+            <Upload className="h-4 w-4" /> Import
+            <input
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                try {
+                  const text = await file.text();
+                  const parsed = JSON.parse(text);
+                  if (!Array.isArray(parsed)) throw new Error("File must be a JSON array");
+                  const rows = parsed
+                    .filter((r) => r && typeof r === "object" && typeof r.customer_name === "string")
+                    .map((r) => ({
+                      customer_name: String(r.customer_name).slice(0, 100),
+                      governorate: r.governorate ? String(r.governorate).slice(0, 60) : null,
+                      rating: Math.max(1, Math.min(5, Number(r.rating) || 5)),
+                      review_text: r.review_text ? String(r.review_text).slice(0, 1000) : null,
+                      photo_url: r.photo_url ? String(r.photo_url) : null,
+                      approved: r.approved !== false,
+                      featured: !!r.featured,
+                    }));
+                  if (rows.length === 0) return toast.error("No valid reviews found in file");
+                  const { error } = await supabase.from("reviews").insert(rows);
+                  if (error) throw error;
+                  toast.success(`Imported ${rows.length} review(s)`);
+                  qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+                  qc.invalidateQueries({ queryKey: ["reviews"] });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Import failed");
+                }
+              }}
+            />
+          </label>
           {selected.size > 0 && (
             <button
               onClick={() => remove(Array.from(selected))}
