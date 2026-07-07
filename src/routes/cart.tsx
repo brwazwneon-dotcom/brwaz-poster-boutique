@@ -130,6 +130,7 @@ function CartPage() {
       ...lines,
       "",
       `Subtotal: ${subtotal} EGP`,
+      ...(bundle.tier ? [`Bundle Discount (${bundle.tier.percent}%): −${bundle.amount} EGP`] : []),
       ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
       ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
       `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
@@ -208,8 +209,14 @@ function CartPage() {
       }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
+      // Apply bundle discount pro-rata to each item so DB totals line up
+      // exactly with what the customer sees at checkout.
+      const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
       const rows = items.map((i) => {
         const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
+        const lineGross = i.price * i.qty;
+        const lineDiscount = Math.round(lineGross * discountRatio);
+        const lineNet = lineGross - lineDiscount;
         return ({
         customer_name: name,
         phone,
@@ -226,10 +233,10 @@ function CartPage() {
           ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
           : i.title,
         poster_image: i.image,
-        subtotal: i.price * i.qty,
+        subtotal: lineNet,
         packaging_fee: linePackaging,
         shipping_cost: shippingPerItem,
-        total_price: i.price * i.qty + linePackaging + shippingPerItem,
+        total_price: lineNet + linePackaging + shippingPerItem,
         status: "new",
         payment_method: paymentMethod,
         payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
