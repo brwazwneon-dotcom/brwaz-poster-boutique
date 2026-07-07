@@ -7,6 +7,8 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
+import { FramePreview } from "@/components/FramePreview";
+import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
 import {
   useSiteSettings,
   computeShipping,
@@ -66,6 +68,7 @@ type Pic = {
   file: File;
   preview: string;
   rotate: number;
+  color: FrameColorId;
 };
 
 function isAcceptedFile(f: File): boolean {
@@ -110,9 +113,24 @@ function CustomDesignPage() {
     if (id === "wood") {
       // Wooden Portrait has no color options — clear any PVC color.
       setColor("wood");
+      setPics((prev) => prev.map((p) => ({ ...p, color: "wood" })));
     } else if (color === "wood") {
       setColor("black");
+      setPics((prev) => prev.map((p) => ({ ...p, color: p.color === "wood" ? "black" : p.color })));
     }
+  };
+
+  // Changing the global color updates any images still on that previous color
+  // (customers who explicitly picked a per-image color keep their choice).
+  const handleGlobalColor = (next: FrameColorId) => {
+    const prevColor = color;
+    setColor(next);
+    setPics((prev) => prev.map((p) => (p.color === prevColor ? { ...p, color: next } : p)));
+  };
+
+  const setPicColor = (id: string, next: FrameColorId) => {
+    setPics((prev) => prev.map((p) => (p.id === id ? { ...p, color: next } : p)));
+    setEditing((cur) => (cur && cur.id === id ? { ...cur, color: next } : cur));
   };
 
   const availableSizes = useMemo(
@@ -126,7 +144,12 @@ function CustomDesignPage() {
   );
   const subtotal = unit * pics.length;
   const shipping = computeShipping(subtotal, settings);
-  const total = subtotal + shipping;
+  const bundle = useMemo(
+    () => computeBundleDiscount(subtotal, pics.length),
+    [subtotal, pics.length],
+  );
+  const nextBundle = useMemo(() => nextTier(pics.length), [pics.length]);
+  const total = Math.max(0, subtotal - bundle.amount) + shipping;
 
   const openPicker = () => addInputRef.current?.click();
 
@@ -145,6 +168,7 @@ function CustomDesignPage() {
         file: f,
         preview: URL.createObjectURL(f),
         rotate: 0,
+        color: frameType === "wood" ? "wood" : color,
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
@@ -245,7 +269,22 @@ function CustomDesignPage() {
         pics.some((p) => p.rotate)
           ? `Image rotations: ${pics.map((p, i) => `#${i + 1}=${p.rotate}°`).filter((_, i) => pics[i].rotate).join(", ")}`
           : "",
+        `Frame colors per image: ${pics.map((p, i) => `#${i + 1}=${labelForColor(p.color)}`).join(", ")}`,
+        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
       ].filter(Boolean).join("\n");
+
+      // Summarise per-image frame colors into a single field for the order row.
+      const colorCounts = pics.reduce<Record<string, number>>((acc, p) => {
+        acc[p.color] = (acc[p.color] ?? 0) + 1;
+        return acc;
+      }, {});
+      const colorKeys = Object.keys(colorCounts);
+      const frameColorSummary =
+        colorKeys.length === 1
+          ? labelForColor(colorKeys[0] as FrameColorId)
+          : `Mixed: ${colorKeys
+              .map((k) => `${labelForColor(k as FrameColorId)}×${colorCounts[k]}`)
+              .join(", ")}`;
 
       const { data: inserted, error: insErr } = await supabase
         .from("custom_design_orders")
@@ -256,7 +295,7 @@ function CustomDesignPage() {
           governorate,
           address: address.trim(),
           frame_type: labelForFrame(frameType),
-          frame_color: labelForColor(color),
+          frame_color: frameColorSummary,
           size: labelForSize(size),
           quantity: pics.length,
           image_paths: imagePaths,
@@ -299,10 +338,11 @@ function CustomDesignPage() {
         `Phone: ${phone}`,
         `Governorate: ${governorate}`,
         `Address: ${address}`,
-        `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${labelForColor(color)}`,
+        `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${frameColorSummary}`,
         `Images: ${pics.length}`,
+        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
         `Total: ${total} EGP (Cash on delivery)`,
-      ].join("\n");
+      ].filter(Boolean).join("\n");
       window.location.href = whatsappLink(msg);
 
       toast.success("Order submitted! Opening WhatsApp…");
@@ -418,13 +458,14 @@ function CustomDesignPage() {
                     key={p.id}
                     className="group relative overflow-hidden rounded-sm border border-border bg-muted"
                   >
-                    <div className="aspect-square w-full overflow-hidden">
-                      <img
-                        src={p.preview}
-                        alt=""
+                    <div className="w-full overflow-hidden bg-background">
+                      <FramePreview
+                        posterUrl={p.preview}
+                        frameType={frameType}
+                        color={p.color}
+                        aspectClassName="aspect-[2/3]"
+                        editSettings={{ rotate: p.rotate }}
                         loading="lazy"
-                        className="h-full w-full object-cover transition-transform"
-                        style={{ transform: `rotate(${p.rotate}deg)` }}
                       />
                     </div>
                     <div className="absolute left-1 top-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold">
@@ -438,6 +479,26 @@ function CustomDesignPage() {
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
+                    {frameType !== "wood" && (
+                      <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
+                        {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setPicColor(p.id, c.id)}
+                            className={cn(
+                              "h-4 w-4 rounded-full border-2 transition",
+                              p.color === c.id
+                                ? "border-primary scale-110"
+                                : "border-background/70 opacity-80 hover:opacity-100",
+                            )}
+                            style={{ background: c.swatch }}
+                            aria-label={`Set frame color to ${c.label}`}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-background/85 px-1 py-1 opacity-0 transition group-hover:opacity-100">
                       <IconAction onClick={() => setLightbox(p)} label="Preview">
                         <Eye className="h-3.5 w-3.5" />
@@ -495,7 +556,7 @@ function CustomDesignPage() {
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => setColor(c.id)}
+                        onClick={() => handleGlobalColor(c.id)}
                         className={cn(
                           "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs uppercase tracking-widest transition",
                           color === c.id
@@ -508,6 +569,9 @@ function CustomDesignPage() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Tip: tap the color dots on each image to pick a different frame per photo.
+                  </p>
                 </OptionBlock>
               )}
             </div>
@@ -526,6 +590,17 @@ function CustomDesignPage() {
                 <div className="mt-2 text-xs text-muted-foreground">
                   {pics.length} × {labelForSize(size)} @ {unit} EGP
                 </div>
+                {bundle.tier && (
+                  <div className="mt-1 text-[11px] font-semibold text-primary">
+                    Bundle offer: −{bundle.amount} EGP ({bundle.tier.percent}% off)
+                  </div>
+                )}
+                {!bundle.tier && nextBundle && pics.length > 0 && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Add {nextBundle.minPosters - pics.length} more image
+                    {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
+                  </div>
+                )}
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   Shipping: {shipping === 0 ? "Free" : `${shipping} EGP`}
                 </div>
@@ -620,6 +695,31 @@ function CustomDesignPage() {
                 className="max-h-full max-w-full object-contain transition-transform"
               />
             </div>
+            {frameType !== "wood" && (
+              <div className="mt-4">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                  Frame color for this image
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setPicColor(editing.id, c.id)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs uppercase tracking-widest transition",
+                        editing.color === c.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:bg-accent",
+                      )}
+                    >
+                      <span className="inline-block h-4 w-4 rounded-sm border border-border" style={{ background: c.swatch }} />
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
