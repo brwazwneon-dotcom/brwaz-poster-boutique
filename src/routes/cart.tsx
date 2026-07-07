@@ -72,22 +72,46 @@ function CartPage() {
     (s, i) => s + (!i.bundle && i.size === "30x40" ? i.qty : 0),
     0,
   );
-  const bundleNudges = [
-    {
-      key: "bundle-6-20x30" as const,
-      size: "20 × 30",
-      have: indiv20x30,
-      need: 6,
-      price: pricing.offers.bundle6_20x30,
-    },
-    {
-      key: "bundle-4-30x40" as const,
-      size: "30 × 40",
-      have: indiv30x40,
-      need: 4,
-      price: pricing.offers.bundle4_30x40,
-    },
-  ].filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3);
+  // Average unit price the customer is currently paying for a given size —
+  // used to estimate how much they would save by completing the bundle.
+  const avgUnitFor = (size: "20x30" | "30x40") => {
+    let qty = 0;
+    let sum = 0;
+    for (const i of items) {
+      if (!i.bundle && i.size === size) {
+        qty += i.qty;
+        sum += i.price * i.qty;
+      }
+    }
+    return qty > 0 ? sum / qty : 0;
+  };
+  const bundleNudges = (
+    [
+      {
+        key: "bundle-6-20x30" as const,
+        size: "20 × 30",
+        sizeId: "20x30" as const,
+        have: indiv20x30,
+        need: 6,
+        price: pricing.offers.bundle6_20x30,
+      },
+      {
+        key: "bundle-4-30x40" as const,
+        size: "30 × 40",
+        sizeId: "30x40" as const,
+        have: indiv30x40,
+        need: 4,
+        price: pricing.offers.bundle4_30x40,
+      },
+    ]
+      .filter((n) => n.have > 0 && n.have < n.need && n.need - n.have <= 3)
+      .map((n) => {
+        const unit = avgUnitFor(n.sizeId);
+        const wouldPay = unit * n.need;
+        const savings = Math.max(0, Math.round(wouldPay - n.price));
+        return { ...n, savings };
+      })
+  );
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
@@ -389,10 +413,9 @@ function CartPage() {
             {bundleNudges.map((n) => {
               const missing = n.need - n.have;
               return (
-                <Link
+                <div
                   key={n.key}
-                  to="/offers"
-                  className="group relative block overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 transition hover:border-primary"
+                  className="relative overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
@@ -406,7 +429,15 @@ function CartPage() {
                         أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس {n.size} واحصل على الـ{n.need} بسعر {n.price} EGP فقط
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        عندك {n.have} من أصل {n.need} — اختار باقات جاهزة من صفحة العروض ووفر أكتر.
+                        عندك {n.have} من أصل {n.need}
+                        {n.savings > 0 ? (
+                          <>
+                            {" "}— هتوفر{" "}
+                            <span className="font-semibold text-primary">
+                              {n.savings} EGP
+                            </span>
+                          </>
+                        ) : null}
                       </div>
                       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
                         <div
@@ -415,11 +446,8 @@ function CartPage() {
                         />
                       </div>
                     </div>
-                    <span className="hidden shrink-0 items-center rounded-sm border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground group-hover:opacity-90 sm:inline-flex">
-                      استفيد بالخصم
-                    </span>
                   </div>
-                </Link>
+                </div>
               );
             })}
             {items.map((i) => (
