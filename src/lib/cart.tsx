@@ -50,7 +50,6 @@ const STORAGE_KEY = "brwazwneon_cart_v1";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -59,8 +58,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore */
-    } finally {
-      setHydrated(true);
     }
   }, []);
 
