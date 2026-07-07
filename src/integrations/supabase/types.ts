@@ -44,6 +44,57 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_seo_logs: {
+        Row: {
+          admin_user_id: string | null
+          category_id: string | null
+          created_at: string
+          error: string | null
+          fields_updated: string[] | null
+          id: string
+          poster_id: string | null
+          provider: string | null
+          status: string
+        }
+        Insert: {
+          admin_user_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          error?: string | null
+          fields_updated?: string[] | null
+          id?: string
+          poster_id?: string | null
+          provider?: string | null
+          status: string
+        }
+        Update: {
+          admin_user_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          error?: string | null
+          fields_updated?: string[] | null
+          id?: string
+          poster_id?: string | null
+          provider?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_seo_logs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_seo_logs_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_poster_events: {
         Row: {
           created_at: string
@@ -542,6 +593,7 @@ export type Database = {
           frame_type: string
           governorate: string
           id: string
+          is_test: boolean
           notes: string | null
           order_number: string | null
           packaging_fee: number
@@ -570,6 +622,7 @@ export type Database = {
           frame_type: string
           governorate: string
           id?: string
+          is_test?: boolean
           notes?: string | null
           order_number?: string | null
           packaging_fee?: number
@@ -598,6 +651,7 @@ export type Database = {
           frame_type?: string
           governorate?: string
           id?: string
+          is_test?: boolean
           notes?: string | null
           order_number?: string | null
           packaging_fee?: number
@@ -795,6 +849,7 @@ export type Database = {
           description: string | null
           edit_settings: Json
           featured: boolean
+          hashtags: string[] | null
           hidden: boolean
           id: string
           image_url: string
@@ -825,6 +880,7 @@ export type Database = {
           description?: string | null
           edit_settings?: Json
           featured?: boolean
+          hashtags?: string[] | null
           hidden?: boolean
           id?: string
           image_url: string
@@ -855,6 +911,7 @@ export type Database = {
           description?: string | null
           edit_settings?: Json
           featured?: boolean
+          hashtags?: string[] | null
           hidden?: boolean
           id?: string
           image_url?: string
@@ -1215,7 +1272,104 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      real_orders: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          customer_name: string | null
+          frame_color: string | null
+          frame_type: string | null
+          governorate: string | null
+          id: string | null
+          is_test: boolean | null
+          notes: string | null
+          order_number: string | null
+          packaging_fee: number | null
+          payment_method: string | null
+          payment_notes: string | null
+          payment_reference: string | null
+          payment_screenshot: string | null
+          payment_status: string | null
+          payment_verified_at: string | null
+          phone: string | null
+          poster_image: string | null
+          poster_title: string | null
+          quantity: number | null
+          selected_poster: string | null
+          shipping_cost: number | null
+          size: string | null
+          status: string | null
+          subtotal: number | null
+          total_price: number | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          frame_color?: string | null
+          frame_type?: string | null
+          governorate?: string | null
+          id?: string | null
+          is_test?: boolean | null
+          notes?: string | null
+          order_number?: string | null
+          packaging_fee?: number | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_screenshot?: string | null
+          payment_status?: string | null
+          payment_verified_at?: string | null
+          phone?: string | null
+          poster_image?: string | null
+          poster_title?: string | null
+          quantity?: number | null
+          selected_poster?: string | null
+          shipping_cost?: number | null
+          size?: string | null
+          status?: string | null
+          subtotal?: number | null
+          total_price?: number | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          frame_color?: string | null
+          frame_type?: string | null
+          governorate?: string | null
+          id?: string | null
+          is_test?: boolean | null
+          notes?: string | null
+          order_number?: string | null
+          packaging_fee?: number | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_screenshot?: string | null
+          payment_status?: string | null
+          payment_verified_at?: string | null
+          phone?: string | null
+          poster_image?: string | null
+          poster_title?: string | null
+          quantity?: number | null
+          selected_poster?: string | null
+          shipping_cost?: number | null
+          size?: string | null
+          status?: string | null
+          subtotal?: number | null
+          total_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_selected_poster_fkey"
+            columns: ["selected_poster"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_poster_view_seconds: {
