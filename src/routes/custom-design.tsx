@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw } from "lucide-react";
+import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { whatsappLink } from "@/lib/whatsapp";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
 import { FramePreview } from "@/components/FramePreview";
+import { useCart } from "@/lib/cart";
+import { useNavigate } from "@tanstack/react-router";
 // Custom-design uses its own size-gated offers, not the generic bundle tiers.
 
 const PACKAGING_FEE = 20;
@@ -72,14 +73,6 @@ const ACCEPTED_EXT = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
 const ACCEPT_ATTR =
   "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 
-const GOVERNORATES = [
-  "Cairo", "Giza", "Alexandria", "Qalyubia", "Sharqia", "Dakahlia",
-  "Beheira", "Gharbia", "Monufia", "Kafr El Sheikh", "Damietta",
-  "Port Said", "Ismailia", "Suez", "Faiyum", "Beni Suef", "Minya",
-  "Asyut", "Sohag", "Qena", "Luxor", "Aswan", "Red Sea", "New Valley",
-  "Matrouh", "North Sinai", "South Sinai",
-];
-
 type Pic = {
   id: string;
   file: File;
@@ -101,17 +94,14 @@ function isAcceptedFile(f: File): boolean {
 function CustomDesignPage() {
   const pricing = usePricing();
   const settings = useSiteSettings();
+  const cart = useCart();
+  const navigate = useNavigate();
 
   const [pics, setPics] = useState<Pic[]>([]);
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [governorate, setGovernorate] = useState("");
-  const [address, setAddress] = useState("");
-  const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -242,14 +232,12 @@ function CustomDesignPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pics.length === 0) return toast.error("Please add at least one image");
-    if (!name.trim() || !phone.trim() || !governorate || !address.trim())
-      return toast.error("Please fill in all delivery details");
 
     setSubmitting(true);
     setProgress(0);
     try {
       const orderId = crypto.randomUUID();
-      const uploaded: { path: string; index: number }[] = [];
+      const uploaded: { path: string; index: number; url: string }[] = [];
       const CONCURRENCY = 4;
       let cursor = 0;
       let done = 0;
@@ -268,7 +256,11 @@ function CustomDesignPage() {
               upsert: false,
             });
           if (error) throw error;
-          uploaded.push({ path, index: i });
+          // Long-lived signed URL so cart + admin can render the image.
+          const { data: signed } = await supabase.storage
+            .from("custom-designs")
+            .createSignedUrl(path, 60 * 60 * 24 * 365);
+          uploaded.push({ path, index: i, url: signed?.signedUrl ?? p.preview });
           done++;
           setProgress(Math.round((done / total) * 100));
         }
@@ -278,95 +270,29 @@ function CustomDesignPage() {
       );
 
       uploaded.sort((a, b) => a.index - b.index);
-      const imagePaths = uploaded.map((u) => u.path);
 
-      const orderNotes = [
-        notes.trim(),
-        pics.some((p) => p.rotate)
-          ? `Image rotations: ${pics.map((p, i) => `#${i + 1}=${p.rotate}°`).filter((_, i) => pics[i].rotate).join(", ")}`
-          : "",
-        `Frame colors per image: ${pics.map((p, i) => `#${i + 1}=${labelForColor(p.color)}`).join(", ")}`,
-        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
-        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
-      ].filter(Boolean).join("\n");
-
-      // Summarise per-image frame colors into a single field for the order row.
-      const colorCounts = pics.reduce<Record<string, number>>((acc, p) => {
-        acc[p.color] = (acc[p.color] ?? 0) + 1;
-        return acc;
-      }, {});
-      const colorKeys = Object.keys(colorCounts);
-      const frameColorSummary =
-        colorKeys.length === 1
-          ? labelForColor(colorKeys[0] as FrameColorId)
-          : `Mixed: ${colorKeys
-              .map((k) => `${labelForColor(k as FrameColorId)}×${colorCounts[k]}`)
-              .join(", ")}`;
-
-      const { data: inserted, error: insErr } = await supabase
-        .from("custom_design_orders")
-        .insert({
-          id: orderId,
-          customer_name: name.trim(),
-          phone: phone.trim(),
-          governorate,
-          address: address.trim(),
-          frame_type: labelForFrame(frameType),
-          frame_color: frameColorSummary,
-          size: labelForSize(size),
-          quantity: pics.length,
-          image_paths: imagePaths,
-          image_urls: imagePaths, // signed on demand in admin
-          unit_price: unit,
-          subtotal,
-          shipping_cost: shipping,
-          total_price: total,
-          notes: orderNotes || null,
-        })
-        .select("order_number")
-        .single();
-      if (insErr) throw insErr;
-      try {
-        const { gaEvent } = await import("@/lib/ga4");
-        gaEvent("custom_design", {
-          currency: "EGP",
-          value: total,
-          quantity: pics.length,
-          frame_type: labelForFrame(frameType),
-          size: labelForSize(size),
-          frame_color: labelForColor(color),
+      // Add each uploaded image as its own cart line so the customer can review,
+      // combine with ready-made posters, and check out from the cart page.
+      uploaded.forEach((u, idx) => {
+        const pic = pics[u.index];
+        const unitPrice = priceForFrame(pricing, frameType, size) + pricing.customDesignFee;
+        cart.add({
+          posterId: `custom-${orderId}-${idx}`,
+          title: `Custom Design #${idx + 1}`,
+          image: u.url,
+          categoryId: null,
+          categoryName: "Custom Design",
+          frameType,
+          size,
+          color: pic.color,
+          price: unitPrice,
         });
-        const { enqueueEvent } = await import("@/lib/meta-pixel");
-        enqueueEvent("CustomDesignCustomer", {
-          currency: "EGP",
-          value: total,
-          quantity: pics.length,
-          frame_type: labelForFrame(frameType),
-          size: labelForSize(size),
-          order_id: orderId,
-        }, { phone: phone.trim(), city: governorate, country: "EG" });
-      } catch { /* noop */ }
+      });
 
-      const orderNumber = inserted?.order_number ?? orderId.slice(0, 8);
-      const msg = [
-        "New Custom Design order",
-        `Order #${orderNumber}`,
-        `Name: ${name}`,
-        `Phone: ${phone}`,
-        `Governorate: ${governorate}`,
-        `Address: ${address}`,
-        `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${frameColorSummary}`,
-        `Images: ${pics.length}`,
-        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
-        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
-        `Total: ${total} EGP (Cash on delivery)`,
-      ].filter(Boolean).join("\n");
-      window.location.href = whatsappLink(msg);
-
-      toast.success("Order submitted! Opening WhatsApp…");
+      toast.success(`${pics.length} custom image${pics.length === 1 ? "" : "s"} added to cart`);
       pics.forEach((p) => URL.revokeObjectURL(p.preview));
       setPics([]);
-      setName(""); setPhone(""); setGovernorate(""); setAddress(""); setNotes("");
+      navigate({ to: "/cart" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed");
     } finally {
@@ -657,27 +583,6 @@ function CustomDesignPage() {
                 )}
               </div>
 
-              <div className="mt-5 space-y-3">
-                <Field label="Full name">
-                  <input value={name} onChange={(e) => setName(e.target.value)} required className="inp" />
-                </Field>
-                <Field label="Phone number">
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} required inputMode="tel" className="inp" />
-                </Field>
-                <Field label="Governorate">
-                  <select value={governorate} onChange={(e) => setGovernorate(e.target.value)} required className="inp">
-                    <option value="">Select…</option>
-                    {GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </Field>
-                <Field label="Address">
-                  <textarea value={address} onChange={(e) => setAddress(e.target.value)} required rows={3} className="inp" />
-                </Field>
-                <Field label="Notes (optional)">
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="inp" placeholder="Anything our designer should know" />
-                </Field>
-              </div>
-
               <button
                 type="submit"
                 disabled={submitting || pics.length === 0}
@@ -686,11 +591,11 @@ function CustomDesignPage() {
                 {submitting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Uploading {progress}%</>
                 ) : (
-                  <>Place order · Cash on delivery</>
+                  <><ShoppingBag className="h-4 w-4" /> Add to cart</>
                 )}
               </button>
               <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-                We'll confirm your order on WhatsApp
+                Review your items in the cart, then place the order
               </p>
               <Link
                 to="/best-sellers"
