@@ -8,7 +8,24 @@ import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
 import { FramePreview } from "@/components/FramePreview";
-import { computeBundleDiscount, nextTier } from "@/lib/bundle-discount";
+// Custom-design uses its own size-gated offers, not the generic bundle tiers.
+
+const PACKAGING_FEE = 20;
+
+// Only these exact combos get a discount — no random bundle discounts.
+const CUSTOM_OFFERS = [
+  { size: "30x40" as SizeId, minQty: 4, percent: 15, label: "4 posters at 30×40" },
+  { size: "20x30" as SizeId, minQty: 6, percent: 15, label: "6 posters at 20×30" },
+];
+
+function customOfferFor(size: SizeId, qty: number) {
+  return CUSTOM_OFFERS.find((o) => o.size === size && qty >= o.minQty) ?? null;
+}
+
+function nextCustomOffer(size: SizeId, qty: number) {
+  const match = CUSTOM_OFFERS.find((o) => o.size === size && qty < o.minQty);
+  return match ? { ...match, missing: match.minQty - qty } : null;
+}
 import {
   useSiteSettings,
   computeShipping,
@@ -144,12 +161,11 @@ function CustomDesignPage() {
   );
   const subtotal = unit * pics.length;
   const shipping = computeShipping(subtotal, settings);
-  const bundle = useMemo(
-    () => computeBundleDiscount(subtotal, pics.length),
-    [subtotal, pics.length],
-  );
-  const nextBundle = useMemo(() => nextTier(pics.length), [pics.length]);
-  const total = Math.max(0, subtotal - bundle.amount) + shipping;
+  const packaging = pics.length > 0 ? PACKAGING_FEE : 0;
+  const offer = useMemo(() => customOfferFor(size, pics.length), [size, pics.length]);
+  const discountAmount = offer ? Math.round((subtotal * offer.percent) / 100) : 0;
+  const nextOffer = useMemo(() => nextCustomOffer(size, pics.length), [size, pics.length]);
+  const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
 
   const openPicker = () => addInputRef.current?.click();
 
@@ -270,7 +286,8 @@ function CustomDesignPage() {
           ? `Image rotations: ${pics.map((p, i) => `#${i + 1}=${p.rotate}°`).filter((_, i) => pics[i].rotate).join(", ")}`
           : "",
         `Frame colors per image: ${pics.map((p, i) => `#${i + 1}=${labelForColor(p.color)}`).join(", ")}`,
-        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
+        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
+        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
       ].filter(Boolean).join("\n");
 
       // Summarise per-image frame colors into a single field for the order row.
@@ -340,7 +357,8 @@ function CustomDesignPage() {
         `Address: ${address}`,
         `Frame: ${labelForFrame(frameType)} · ${labelForSize(size)} · ${frameColorSummary}`,
         `Images: ${pics.length}`,
-        bundle.tier ? `Bundle discount: ${bundle.tier.percent}% (-${bundle.amount} EGP)` : "",
+        offer ? `Offer: ${offer.label} — ${offer.percent}% off (-${discountAmount} EGP)` : "",
+        packaging > 0 ? `Packaging: ${packaging} EGP` : "",
         `Total: ${total} EGP (Cash on delivery)`,
       ].filter(Boolean).join("\n");
       window.location.href = whatsappLink(msg);
@@ -608,10 +626,10 @@ function CustomDesignPage() {
                     <span>Subtotal ({pics.length} × {unit} EGP)</span>
                     <span className="text-foreground">{subtotal} EGP</span>
                   </div>
-                  {bundle.tier && (
+                  {offer && (
                     <div className="flex items-center justify-between font-semibold text-primary">
-                      <span>Bundle discount ({bundle.tier.percent}% off)</span>
-                      <span>-{bundle.amount} EGP</span>
+                      <span>Offer: {offer.label} ({offer.percent}% off)</span>
+                      <span>-{discountAmount} EGP</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-muted-foreground">
@@ -620,15 +638,21 @@ function CustomDesignPage() {
                       {shipping === 0 ? "Free" : `${shipping} EGP`}
                     </span>
                   </div>
+                  {packaging > 0 && (
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Packaging</span>
+                      <span className="text-foreground">{packaging} EGP</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
                     <span>Total</span>
                     <span>{total} EGP</span>
                   </div>
                 </div>
-                {!bundle.tier && nextBundle && pics.length > 0 && (
+                {!offer && nextOffer && pics.length > 0 && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
-                    Add {nextBundle.minPosters - pics.length} more image
-                    {nextBundle.minPosters - pics.length === 1 ? "" : "s"} for {nextBundle.percent}% off
+                    Add {nextOffer.missing} more {labelForSize(nextOffer.size)} image
+                    {nextOffer.missing === 1 ? "" : "s"} for {nextOffer.percent}% off
                   </div>
                 )}
               </div>
