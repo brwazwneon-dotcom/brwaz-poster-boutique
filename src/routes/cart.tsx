@@ -435,13 +435,21 @@ function CartPage() {
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         عندك {n.have} من أصل {n.need}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-sm border border-primary/30 bg-primary/10 px-3 py-2 text-xs">
+                        <span className="text-muted-foreground">
+                          ناقصك{" "}
+                          <span className="font-bold text-foreground">{missing}</span>{" "}
+                          {missing === 1 ? "برواز" : "بروازات"} بس
+                        </span>
                         {n.savings > 0 ? (
-                          <>
-                            {" "}— هتوفر{" "}
-                            <span className="font-semibold text-primary">
-                              {n.savings} EGP
-                            </span>
-                          </>
+                          <span className="text-muted-foreground">
+                            · هتوفر{" "}
+                            <span className="font-bold text-primary">{n.savings} EGP</span>
+                            {n.savingsPct > 0 ? (
+                              <span className="text-primary/80"> ({n.savingsPct}%)</span>
+                            ) : null}
+                          </span>
                         ) : null}
                       </div>
                       <div className="mt-3">
