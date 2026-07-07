@@ -556,7 +556,7 @@ function CustomDesignPage() {
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => setColor(c.id)}
+                        onClick={() => handleGlobalColor(c.id)}
                         className={cn(
                           "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs uppercase tracking-widest transition",
                           color === c.id
@@ -569,6 +569,9 @@ function CustomDesignPage() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Tip: tap the color dots on each image to pick a different frame per photo.
+                  </p>
                 </OptionBlock>
               )}
             </div>
