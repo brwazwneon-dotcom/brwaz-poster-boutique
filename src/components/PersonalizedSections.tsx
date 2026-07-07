@@ -94,7 +94,7 @@ export function PersonalizedSections() {
                 >
                   <WishlistHeart posterId={p.id} />
                   <FramePreview
-                    posterUrl={p.image_url}
+                    posterUrl={p.image_url ?? ""}
                     title={p.title}
                     aspectClassName="aspect-[3/4]"
                     bare
