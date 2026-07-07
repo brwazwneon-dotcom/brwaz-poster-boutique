@@ -1,8 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import frameBlackAsset from "@/assets/frames/frame-black.png.asset.json";
-import frameWhiteAsset from "@/assets/frames/frame-white.png.asset.json";
-import frameWoodAsset from "@/assets/frames/frame-wood.png.asset.json";
 
 import type { FrameTypeId, SizeId } from "@/lib/poster-options";
 
@@ -205,10 +202,16 @@ export type FrameMockups = {
   wood: FrameMockup;
 };
 
+const LOCAL_MOCKUP_IMAGES: Record<keyof FrameMockups, string> = {
+  black: "/assets/mockups/frame-black.png",
+  white: "/assets/mockups/frame-white.png",
+  wood: "/assets/mockups/frame-wood.png",
+};
+
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: frameBlackAsset.url, top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  white: { image: frameWhiteAsset.url, top: 6, left: 6, width: 88, height: 88, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  wood:  { image: frameWoodAsset.url,  top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  black: { image: LOCAL_MOCKUP_IMAGES.black, top: 13.59, left: 14.19, width: 71.63, height: 70.78, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  white: { image: LOCAL_MOCKUP_IMAGES.white, top: 13.83, left: 14.07, width: 71.4, height: 70.47, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  wood:  { image: LOCAL_MOCKUP_IMAGES.wood, top: 14.06, left: 17.72, width: 69.72, height: 74.06, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
@@ -225,7 +228,7 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     return Number.isFinite(n) ? n : fb;
   };
   return {
-    image: typeof v.image === "string" ? v.image : fallback.image,
+    image: fallback.image,
     top: numOr(v.top, fallback.top),
     left: numOr(v.left, fallback.left),
     width: numOr(v.width, fallback.width),
