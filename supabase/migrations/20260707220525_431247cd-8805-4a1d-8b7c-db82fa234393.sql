@@ -1,0 +1,3 @@
+UPDATE public.site_settings SET value = to_jsonb((value::jsonb) || jsonb_build_object('image','/mockups/frame-black.png')) WHERE key='frame_mockup_black';
+UPDATE public.site_settings SET value = to_jsonb((value::jsonb) || jsonb_build_object('image','/mockups/frame-white.png')) WHERE key='frame_mockup_white';
+UPDATE public.site_settings SET value = to_jsonb((value::jsonb) || jsonb_build_object('image','/mockups/frame-wood.png'))  WHERE key='frame_mockup_wood';
