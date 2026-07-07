@@ -163,16 +163,29 @@
   padding-inline: 1.25rem;
 }
 
-/* Prevent horizontal scrolling on mobile */
+/* Prevent horizontal scrolling on every viewport.
+ * `overflow-x: clip` avoids creating a scroll container (unlike `hidden`),
+ * so `position: sticky` still works on the header while overflow is cut off. */
 html,
 body {
-  overflow-x: hidden;
-  max-width: 100%;
+  overflow-x: clip;
+  max-width: 100vw;
+}
+#root {
+  overflow-x: clip;
+  max-width: 100vw;
 }
 img,
-video {
+video,
+svg {
   max-width: 100%;
   height: auto;
+}
+/* Safety net for horizontal scrollers using negative margins to bleed edge-to-edge:
+ * on mobile, container-page has 20px padding; anything wider (e.g. -mx-4 = 16px)
+ * still fits, but rogue children can't push the page. */
+.container-page {
+  overflow-x: clip;
 }
 
 /* Hide the "Edit with Lovable" badge on published deployments */
