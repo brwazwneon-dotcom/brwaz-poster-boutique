@@ -413,10 +413,9 @@ function CartPage() {
             {bundleNudges.map((n) => {
               const missing = n.need - n.have;
               return (
-                <Link
+                <div
                   key={n.key}
-                  to="/offers"
-                  className="group relative block overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 transition hover:border-primary"
+                  className="relative overflow-hidden rounded-sm border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
@@ -430,7 +429,15 @@ function CartPage() {
                         أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس {n.size} واحصل على الـ{n.need} بسعر {n.price} EGP فقط
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        عندك {n.have} من أصل {n.need} — اختار باقات جاهزة من صفحة العروض ووفر أكتر.
+                        عندك {n.have} من أصل {n.need}
+                        {n.savings > 0 ? (
+                          <>
+                            {" "}— هتوفر{" "}
+                            <span className="font-semibold text-primary">
+                              {n.savings} EGP
+                            </span>
+                          </>
+                        ) : null}
                       </div>
                       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
                         <div
@@ -439,11 +446,8 @@ function CartPage() {
                         />
                       </div>
                     </div>
-                    <span className="hidden shrink-0 items-center rounded-sm border border-primary bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground group-hover:opacity-90 sm:inline-flex">
-                      استفيد بالخصم
-                    </span>
                   </div>
-                </Link>
+                </div>
               );
             })}
             {items.map((i) => (
