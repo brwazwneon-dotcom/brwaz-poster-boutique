@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBag, Search, Heart } from "lucide-react";
+import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useLogoSize } from "@/lib/branding";
+import { LOGO_URL } from "@/lib/site";
 
 const MAIN_MENU: { label: string; href: string }[] = [
   { label: "Football", href: "/category/football" },
@@ -23,20 +25,31 @@ export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
+  // Fallback chain: DB/branding logo -> bundled public asset -> text wordmark.
+  // Guards against stale/broken remote URLs (Lovable preview, blob, etc.).
+  const [logoStage, setLogoStage] = useState<0 | 1 | 2>(0);
+  const logoSrc = logoStage === 0 ? logo.src : LOGO_URL;
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <Link to="/" aria-label="BRWAZWNEON home" className="flex items-center">
-          <img
-            src={logo.src}
-            alt="BRWAZWNEON – Custom Posters, Frames & Photo Printing"
-            style={logo.style}
-            width={160}
-            height={48}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />
+          {logoStage === 2 ? (
+            <span className="text-display text-xl font-bold uppercase tracking-widest text-foreground">
+              BRWAZWNEON
+            </span>
+          ) : (
+            <img
+              src={logoSrc}
+              alt="BRWAZWNEON – Custom Posters, Frames & Photo Printing"
+              style={{ ...logo.style, display: "block", objectFit: "contain", maxHeight: 50, width: "auto" }}
+              width={160}
+              height={48}
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              onError={() => setLogoStage((s) => (s === 0 ? 1 : 2))}
+            />
+          )}
         </Link>
         <div className="relative hidden flex-1 max-w-xl md:block">
           <SearchBox variant="header" />

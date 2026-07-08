@@ -9,7 +9,6 @@ import {
   labelForFrame,
   labelForSize,
 } from "@/lib/poster-options";
-import { whatsappLink } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
@@ -298,42 +297,6 @@ function CartPage() {
     setScreenshotPreview(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
   };
 
-  const buildMessage = () => {
-    const lines = items.map((i, idx) => {
-      const head = `${idx + 1}. ${i.title} ×${i.qty}\n   ${labelForFrame(i.frameType)} · ${labelForSize(i.size)} · ${labelForColor(i.color)}\n   ${i.price * i.qty} EGP`;
-      if (i.bundle) {
-        return head + "\n   Posters: " + i.bundle.posters.map((p) => p.title).join(", ");
-      }
-      return head;
-    });
-    if (tapeChoice === true && tapeTotal > 0) {
-      lines.push(
-        `${items.length + 1}. Double Face Tape ×${frameCount}\n   ${tapeUnit} EGP each\n   ${tapeTotal} EGP`,
-      );
-    }
-    return [
-      `New order from BRWAZWNEON — ${paymentMethod === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"}`,
-      "",
-      `Name: ${name}`,
-      `Phone: ${phone}`,
-      `Governorate: ${governorate}`,
-      `Address: ${address}`,
-      paymentMethod === "instapay"
-        ? `Payment: Instapay / Vodafone Cash → ${INSTAPAY_NUMBER} (screenshot attached)`
-        : "Payment: Cash on delivery",
-      "",
-      "Items:",
-      ...lines,
-      "",
-      `Subtotal: ${subtotal} EGP`,
-      ...(bundle.tier ? [`Bundle Discount: −${bundle.amount} EGP`] : []),
-      ...(packagingFee > 0 ? [`Packaging Fee: ${packagingFee} EGP`] : []),
-      ...(tapeTotal > 0 ? [`Double Face Tape (${frameCount} × ${tapeUnit}): ${tapeTotal} EGP`] : []),
-      `Shipping: ${shipping === 0 ? "FREE" : `${shipping} EGP`}`,
-      `Total: ${grand} EGP`,
-    ].join("\n");
-  };
-
   const handlePlaceOrderClick = () => {
     if (items.length === 0) return toast.error("Your cart is empty");
     if (!name || !phone || !governorate || !address)
@@ -607,7 +570,7 @@ function CartPage() {
         logCheckoutStep({ step: "poster_sales_tracking", table: "posters", operation: "rpc increment_poster_sales", error: e });
       }
 
-      toast.success("Order placed! Opening WhatsApp…");
+      toast.success("تم استلام طلبك بنجاح، سنتواصل معك قريبًا لتأكيد التفاصيل.");
       try {
         const { track } = await import("@/lib/behavior");
         const pids = items.flatMap((i) => i.bundle ? i.bundle.posters.map((p) => p.posterId) : (i.posterId ? [i.posterId] : []));
@@ -616,7 +579,6 @@ function CartPage() {
       } catch (err) {
         logCheckoutStep({ step: "behavior_purchase", table: "visitor_cart_events", operation: "insert/rpc", error: err });
       }
-      window.open(whatsappLink(buildMessage()), "_blank");
       clear();
       setName(""); setPhone(""); setGovernorate(""); setAddress("");
       setScreenshot(null); setScreenshotPreview(null); setPaymentMethod("cod");
@@ -1056,7 +1018,7 @@ function CartPage() {
                 disabled={submitting}
                 className="mt-5 w-full rounded-sm bg-primary px-4 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {submitting ? "Placing order…" : "Place order · WhatsApp"}
+                {submitting ? "Placing order…" : "Confirm order · تأكيد الطلب"}
               </button>
               {checkoutError && (
                 <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-sm border border-destructive/40 bg-destructive/10 p-3 text-left text-[11px] leading-relaxed text-destructive">
@@ -1064,7 +1026,7 @@ function CartPage() {
                 </pre>
               )}
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Your order is saved and WhatsApp opens to confirm.
+                Your order has been received. We will contact you soon to confirm the details.
               </p>
             </div>
           </aside>
