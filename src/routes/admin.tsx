@@ -10,7 +10,7 @@ import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag, Copy, MessageCircle, Calendar, Package, MapPin, Phone as PhoneIcon, User as UserIcon, StickyNote, AlertCircle, RefreshCw } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import * as XLSX from "xlsx";
 import {
@@ -2211,58 +2211,229 @@ const PAYMENT_STATUS_TONE: Record<string, string> = {
   rejected: "bg-red-500/15 text-red-400",
 };
 
+/**
+ * Canonical order lifecycle exposed in the admin. Legacy DB values
+ * ("processing" / "printed") are still accepted from historical rows but the
+ * dashboard writes the new canonical values going forward.
+ */
+const ORDER_STATUSES = [
+  "new",
+  "confirmed",
+  "printing",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const;
+
+const STATUS_LABEL: Record<string, string> = {
+  new: "New Order",
+  confirmed: "Confirmed",
+  processing: "Confirmed", // legacy → shown as Confirmed
+  printing: "Printing",
+  printed: "Printing", // legacy → shown as Printing
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  new: "bg-blue-500/15 text-blue-400 border-blue-500/40",
+  confirmed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
+  processing: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
+  printing: "bg-orange-500/15 text-orange-400 border-orange-500/40",
+  printed: "bg-orange-500/15 text-orange-400 border-orange-500/40",
+  shipped: "bg-purple-500/15 text-purple-400 border-purple-500/40",
+  delivered: "bg-emerald-700/25 text-emerald-300 border-emerald-700/50",
+  cancelled: "bg-red-500/15 text-red-400 border-red-500/40",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const key = status || "new";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-sm border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest",
+        STATUS_TONE[key] ?? "bg-muted text-muted-foreground border-border",
+      )}
+    >
+      {STATUS_LABEL[key] ?? key}
+    </span>
+  );
+}
+
+/** Group order-rows into logical customer orders. Each cart-checkout inserts
+ * multiple rows (one per item) that share phone + guest_session_id and land in
+ * the same second; we bucket by (session/phone, 2-minute window). */
+type OrderGroup = {
+  groupId: string;
+  primaryNumber: string;
+  orderNumbers: string[];
+  customer_name: string;
+  phone: string;
+  governorate: string;
+  address: string;
+  created_at: string;
+  status: string;
+  payment_method: string | null;
+  payment_status: string | null;
+  is_test: boolean;
+  items: Order[];
+  itemsCount: number; // sum of quantities
+  linesCount: number; // number of DB rows
+  subtotal: number;
+  shipping: number;
+  packaging: number;
+  total: number;
+};
+
+type OrderRowRaw = Order & {
+  notes?: string | null;
+  guest_session_id?: string | null;
+  user_id?: string | null;
+  subtotal?: number | null;
+};
+
+function groupOrders(rows: OrderRowRaw[]): OrderGroup[] {
+  const byKey = new Map<string, OrderRowRaw[]>();
+  for (const r of rows) {
+    const ident = r.guest_session_id || r.user_id || r.phone || r.id;
+    const bucket = Math.floor(new Date(r.created_at).getTime() / 120_000); // 2 min
+    const key = `${ident}::${bucket}`;
+    const arr = byKey.get(key) ?? [];
+    arr.push(r);
+    byKey.set(key, arr);
+  }
+  const groups: OrderGroup[] = [];
+  for (const [key, arr] of byKey) {
+    const sorted = [...arr].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const first = sorted[0];
+    const numbers = sorted.map((r) => r.order_number).filter(Boolean) as string[];
+    // Majority status across items
+    const counts = new Map<string, number>();
+    sorted.forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
+    let status = first.status;
+    let best = 0;
+    counts.forEach((c, s) => { if (c > best) { best = c; status = s; } });
+    groups.push({
+      groupId: key,
+      primaryNumber: numbers[0] ?? first.id.slice(0, 8),
+      orderNumbers: numbers.length ? numbers : [first.id.slice(0, 8)],
+      customer_name: first.customer_name,
+      phone: first.phone,
+      governorate: first.governorate,
+      address: first.address,
+      created_at: first.created_at,
+      status,
+      payment_method: first.payment_method,
+      payment_status: first.payment_status,
+      is_test: !!first.is_test,
+      items: sorted,
+      linesCount: sorted.length,
+      itemsCount: sorted.reduce((s, r) => s + (Number(r.quantity) || 0), 0),
+      subtotal: sorted.reduce((s, r) => s + Number((r as OrderRowRaw).subtotal ?? 0), 0),
+      shipping: sorted.reduce((s, r) => s + Number(r.shipping_cost ?? 0), 0),
+      packaging: sorted.reduce((s, r) => s + Number(r.packaging_fee ?? 0), 0),
+      total: sorted.reduce((s, r) => s + Number(r.total_price ?? 0), 0),
+    });
+  }
+  groups.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return groups;
+}
+
+/** Build the customer WhatsApp confirmation message (Arabic). */
+function buildWhatsAppMessage(g: OrderGroup): string {
+  const lines = g.items
+    .map((i, idx) => {
+      const title = i.poster_title || "منتج";
+      return `${idx + 1}) ${title} — ${i.size} · ${i.frame_type} · ${i.frame_color} · الكمية: ${i.quantity}`;
+    })
+    .join("\n");
+  return (
+    `أهلًا بحضرتك يا ${g.customer_name} 👋\n` +
+    `معاك فريق Brwaz W Neon ❤️\n\n` +
+    `حابين نأكد مع حضرتك تفاصيل الأوردر رقم #${g.primaryNumber}:\n\n` +
+    `المنتجات المطلوبة:\n${lines}\n\n` +
+    `العنوان:\n${g.governorate} — ${g.address}\n\n` +
+    `إجمالي الطلب:\n${Math.round(g.total)} جنيه\n\n` +
+    `من فضلك أكد لنا إن كل البيانات تمام، وإن الصور والمقاسات صحيحة، عشان نبدأ تجهيز الأوردر للطباعة ✅\n\n` +
+    `شكرًا لثقتك في Brwaz W Neon ❤️`
+  );
+}
+
+function waLinkFor(phone: string, message: string) {
+  const digits = phone.replace(/\D/g, "");
+  // Egypt local format 01xxxxxxxxx → +20 1xxxxxxxxx
+  const intl = digits.startsWith("20") ? digits : digits.startsWith("0") ? `2${digits}` : digits;
+  return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`;
+}
+
 function OrdersTab() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [govFilter, setGovFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [viewing, setViewing] = useState<Order | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [viewing, setViewing] = useState<OrderGroup | null>(null);
   const [showTests, setShowTests] = useState(false);
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-orders", statusFilter],
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test")
+        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,subtotal,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test,notes,guest_session_id,user_id")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Order[];
+      return (data ?? []) as OrderRowRaw[];
     },
   });
 
+  const groups = useMemo(() => groupOrders(orders), [orders]);
   const governorates = Array.from(new Set(orders.map((o) => o.governorate).filter(Boolean))).sort();
-  const testCount = orders.filter((o) => o.is_test).length;
-  const filtered = orders.filter((o) => {
-    // By default hide test orders from the main list. When "Show test orders"
-    // is on, only test orders are shown.
-    const isTest = !!o.is_test;
-    if (showTests !== isTest) return false;
-    if (govFilter !== "all" && o.governorate !== govFilter) return false;
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      (o.order_number ?? "").toLowerCase().includes(q) ||
-      o.customer_name.toLowerCase().includes(q) ||
-      o.phone.toLowerCase().includes(q)
-    );
+  const testCount = groups.filter((g) => g.is_test).length;
+
+  const filtered = groups.filter((g) => {
+    if (showTests !== g.is_test) return false;
+    if (govFilter !== "all" && g.governorate !== govFilter) return false;
+    if (dateFrom && new Date(g.created_at) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(g.created_at) > new Date(`${dateTo}T23:59:59`)) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const hit =
+        g.orderNumbers.some((n) => n.toLowerCase().includes(q)) ||
+        g.customer_name.toLowerCase().includes(q) ||
+        g.phone.toLowerCase().includes(q);
+      if (!hit) return false;
+    }
+    return true;
   });
 
+  // Keep the currently-viewed group in sync with fresh fetches (status/payment
+  // changes trigger a refetch; re-select the same group by id).
+  useEffect(() => {
+    if (!viewing) return;
+    const fresh = groups.find((g) => g.groupId === viewing.groupId);
+    if (fresh && fresh !== viewing) setViewing(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups]);
+
   const stats = {
-    total: orders.length,
-    revenue: orders.reduce((s, o) => s + Number(o.total_price || 0), 0),
-    newCount: orders.filter((o) => o.status === "new").length,
-    processing: orders.filter((o) => o.status === "processing").length,
-    delivered: orders.filter((o) => o.status === "delivered").length,
+    total: groups.length,
+    revenue: groups.reduce((s, g) => s + g.total, 0),
+    newCount: groups.filter((g) => g.status === "new").length,
+    processing: groups.filter((g) => g.status === "confirmed" || g.status === "processing").length,
+    delivered: groups.filter((g) => g.status === "delivered").length,
   };
 
-  const setStatus = async (o: Order, status: string) => {
-    const { error } = await supabase.from("orders").update({ status }).eq("id", o.id);
+  const setGroupStatus = async (g: OrderGroup, status: string) => {
+    const ids = g.items.map((i) => i.id);
+    const { error } = await supabase.from("orders").update({ status }).in("id", ids);
     if (error) return toast.error(error.message);
-    toast.success("Updated");
+    toast.success(`Order marked ${STATUS_LABEL[status] ?? status}`);
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
@@ -2276,40 +2447,48 @@ function OrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
-  const remove = async (o: Order) => {
-    if (!confirm("Delete this order?")) return;
-    const { error } = await supabase.from("orders").delete().eq("id", o.id);
+  const removeGroup = async (g: OrderGroup) => {
+    if (!confirm(`Delete order ${g.primaryNumber}? This removes all ${g.linesCount} item row(s).`)) return;
+    const ids = g.items.map((i) => i.id);
+    const { error } = await supabase.from("orders").delete().in("id", ids);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
+    setViewing(null);
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
-  const convertToReal = async (o: Order) => {
+  const convertToReal = async (g: OrderGroup) => {
     if (!confirm("Convert this test order into a real one? It will start counting in analytics and sales.")) return;
-    const { error } = await supabase.from("orders").update({ is_test: false } as never).eq("id", o.id);
+    const ids = g.items.map((i) => i.id);
+    const { error } = await supabase.from("orders").update({ is_test: false } as never).in("id", ids);
     if (error) return toast.error(error.message);
     toast.success("Converted to real order");
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
   const exportExcel = () => {
-    const rows = filtered.map((o) => ({
-      "Order Number": o.order_number ?? o.id.slice(0, 8),
-      "Date": new Date(o.created_at).toLocaleString(),
-      "Customer": o.customer_name,
-      "Phone": o.phone,
-      "Governorate": o.governorate,
-      "Address": o.address,
-      "Poster": o.poster_title ?? "",
-      "Frame Type": o.frame_type,
-      "Frame Color": o.frame_color,
-      "Size": o.size,
-      "Quantity": o.quantity,
-      "Shipping": Number(o.shipping_cost ?? 0),
-      "Packaging": Number(o.packaging_fee ?? 0),
-      "Total": Number(o.total_price ?? 0),
-      "Status": o.status,
-    }));
+    const rows: Record<string, string | number>[] = [];
+    for (const g of filtered) {
+      for (const o of g.items) {
+        rows.push({
+          "Order Number": o.order_number ?? o.id.slice(0, 8),
+          "Date": new Date(o.created_at).toLocaleString(),
+          "Customer": o.customer_name,
+          "Phone": o.phone,
+          "Governorate": o.governorate,
+          "Address": o.address,
+          "Poster": o.poster_title ?? "",
+          "Frame Type": o.frame_type,
+          "Frame Color": o.frame_color,
+          "Size": o.size,
+          "Quantity": o.quantity,
+          "Shipping": Number(o.shipping_cost ?? 0),
+          "Packaging": Number(o.packaging_fee ?? 0),
+          "Total": Number(o.total_price ?? 0),
+          "Status": STATUS_LABEL[o.status] ?? o.status,
+        });
+      }
+    }
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
@@ -2333,15 +2512,16 @@ function OrdersTab() {
           {showTests ? "Viewing test orders" : `Show test orders (${testCount})`}
         </button>
       </div>
+
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total orders" value={stats.total} />
         <StatCard label="Revenue" value={`${Math.round(stats.revenue)} EGP`} />
         <StatCard label="New" value={stats.newCount} />
-        <StatCard label="Processing" value={stats.processing} />
+        <StatCard label="Confirmed" value={stats.processing} />
         <StatCard label="Delivered" value={stats.delivered} />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -2359,6 +2539,32 @@ function OrdersTab() {
           <option value="all">All governorates</option>
           {governorates.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
+        <label className="flex flex-col text-[10px] uppercase tracking-widest text-muted-foreground">
+          From
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="mt-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="flex flex-col text-[10px] uppercase tracking-widest text-muted-foreground">
+          To
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="mt-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+          />
+        </label>
+        {(dateFrom || dateTo || search || govFilter !== "all") && (
+          <button
+            onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setGovFilter("all"); }}
+            className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+          >
+            Clear
+          </button>
+        )}
         <button
           onClick={exportExcel}
           className="ml-auto inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
@@ -2371,147 +2577,502 @@ function OrdersTab() {
         <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
           All
         </FilterPill>
-        {STATUSES.map((s) => (
+        {ORDER_STATUSES.map((s) => (
           <FilterPill key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
-            {s}
+            {STATUS_LABEL[s] ?? s}
           </FilterPill>
         ))}
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>
+        <div className="flex flex-col items-center gap-3 py-20 text-sm text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          Loading orders…
+        </div>
+      ) : isError ? (
+        <div className="rounded-sm border border-red-500/40 bg-red-500/10 p-6 text-center">
+          <AlertCircle className="mx-auto h-8 w-8 text-red-400" />
+          <div className="mt-3 text-sm text-red-300">
+            Couldn't load orders: {(error as Error)?.message ?? "unknown error"}
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 inline-flex items-center gap-2 rounded-sm border border-red-500/40 bg-red-500/10 px-4 py-2 text-[11px] uppercase tracking-widest text-red-200 hover:bg-red-500/20"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Retry
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-          No orders match.
+        <div className="rounded-sm border border-dashed border-border p-12 text-center">
+          <Package className="mx-auto h-10 w-10 text-muted-foreground/50" />
+          <div className="mt-3 text-sm text-muted-foreground">
+            {orders.length === 0
+              ? "No orders yet. New customer orders will appear here automatically."
+              : "No orders match your filters."}
+          </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-sm border border-border">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-xs uppercase tracking-widest text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-3 text-left">Order #</th>
-                  <th className="px-3 py-3 text-left">When</th>
-                  <th className="px-3 py-3 text-left">Customer</th>
-                  <th className="px-3 py-3 text-left">Address</th>
-                  <th className="px-3 py-3 text-left">Poster</th>
-                  <th className="px-3 py-3 text-left">Spec</th>
-                  <th className="px-3 py-3 text-right">Total</th>
-                  <th className="px-3 py-3 text-left">Payment</th>
-                  <th className="px-3 py-3 text-left">Status</th>
-                  <th className="px-3 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((o) => (
-                  <tr key={o.id} className="border-t border-border align-top">
-                    <td className="px-3 py-3 font-mono text-xs">{o.order_number ?? "—"}</td>
-                    <td className="px-3 py-3 text-xs text-muted-foreground">
-                      {new Date(o.created_at).toLocaleString()}
-                      {o.is_test && (
-                        <span className="ml-2 inline-flex items-center rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
-                          TEST
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="font-medium">{o.customer_name}</div>
-                      <div className="text-xs text-muted-foreground">{o.phone}</div>
-                    </td>
-                    <td className="px-3 py-3 text-xs">
-                      <div>{o.governorate}</div>
-                      <div className="text-muted-foreground">{o.address}</div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        {o.poster_image && (
-                          <SafeImage src={o.poster_image} alt="" className="h-12 w-9 rounded-sm object-cover" />
-                        )}
-                        <span className="text-xs">{o.poster_title ?? "—"}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-xs">
-                      <div>{o.frame_type}</div>
-                      <div className="text-muted-foreground">{o.size} · {o.frame_color} · ×{o.quantity}</div>
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold">{o.total_price} EGP</td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                          {o.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}
-                        </span>
-                        <select
-                          value={o.payment_status ?? "not_required"}
-                          onChange={(e) => setPaymentStatus(o, e.target.value)}
-                          className={`rounded-sm border border-border bg-background px-2 py-1 text-[11px] ${PAYMENT_STATUS_TONE[o.payment_status ?? "not_required"] ?? ""}`}
-                        >
-                          {PAYMENT_STATUSES.map((s) => (
-                            <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <select
-                        value={o.status}
-                        onChange={(e) => setStatus(o, e.target.value)}
-                        className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                      >
-                        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex gap-1">
-                        <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {o.is_test && (
-                          <button
-                            onClick={() => convertToReal(o)}
-                            className="rounded-sm p-1.5 text-muted-foreground hover:text-primary"
-                            aria-label="Convert to real order"
-                            title="Convert to real order"
-                          >
-                            <ShoppingBag className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid gap-3">
+          {filtered.map((g) => (
+            <OrderCard
+              key={g.groupId}
+              g={g}
+              onView={() => setViewing(g)}
+              onDelete={() => removeGroup(g)}
+              onConvert={() => convertToReal(g)}
+              onStatus={(s) => setGroupStatus(g, s)}
+            />
+          ))}
         </div>
       )}
 
       {viewing && (
-        <Modal title={`Order ${viewing.order_number ?? viewing.id.slice(0, 8)}`} onClose={() => setViewing(null)}>
-          <div className="space-y-2 text-sm">
-            <Row k="Date" v={new Date(viewing.created_at).toLocaleString()} />
-            <Row k="Customer" v={viewing.customer_name} />
-            <Row k="Phone" v={viewing.phone} />
-            <Row k="Governorate" v={viewing.governorate} />
-            <Row k="Address" v={viewing.address} />
-            <Row k="Poster" v={viewing.poster_title ?? "—"} />
-            <Row k="Frame" v={`${viewing.frame_type} · ${viewing.size} · ${viewing.frame_color}`} />
-            <Row k="Quantity" v={String(viewing.quantity)} />
-            <Row k="Shipping" v={`${viewing.shipping_cost ?? 0} EGP`} />
-            <Row k="Packaging Fee" v={`${viewing.packaging_fee ?? 0} EGP`} />
-            <Row k="Total" v={`${viewing.total_price} EGP`} />
-            <Row k="Status" v={viewing.status} />
-            <Row k="Payment Method" v={viewing.payment_method === "instapay" ? "Instapay / Vodafone Cash" : "Cash on delivery"} />
-            <Row k="Payment Status" v={PAYMENT_STATUS_LABEL[viewing.payment_status ?? "not_required"]} />
-            {viewing.payment_verified_at && (
-              <Row k="Verified At" v={new Date(viewing.payment_verified_at).toLocaleString()} />
-            )}
-            <PaymentScreenshotBlock order={viewing} onUpdate={() => qc.invalidateQueries({ queryKey: ["admin-orders"] })} />
-          </div>
-        </Modal>
+        <OrderDetailsModal
+          g={viewing}
+          onClose={() => setViewing(null)}
+          onStatus={(s) => setGroupStatus(viewing, s)}
+          onPaymentStatus={setPaymentStatus}
+          onDelete={() => removeGroup(viewing)}
+        />
       )}
+    </div>
+  );
+}
+
+/* ---------- Order card (list row) ---------- */
+
+function OrderCard({
+  g,
+  onView,
+  onDelete,
+  onConvert,
+  onStatus,
+}: {
+  g: OrderGroup;
+  onView: () => void;
+  onDelete: () => void;
+  onConvert: () => void;
+  onStatus: (s: string) => void;
+}) {
+  const waHref = waLinkFor(g.phone, buildWhatsAppMessage(g));
+  return (
+    <div className="rounded-sm border border-border bg-card p-4 transition hover:border-primary/60">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={onView}
+              className="text-display text-xl font-semibold underline-offset-4 hover:underline"
+            >
+              #{g.primaryNumber}
+            </button>
+            <StatusBadge status={g.status} />
+            {g.is_test && (
+              <span className="inline-flex items-center rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
+                TEST
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(g.created_at).toLocaleString()}</span>
+            <span className="inline-flex items-center gap-1"><Package className="h-3 w-3" />{g.linesCount} item{g.linesCount === 1 ? "" : "s"} · {g.itemsCount} pc</span>
+            <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{g.governorate}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-display text-2xl">{Math.round(g.total)} EGP</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {g.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="min-w-0 text-sm">
+          <div className="flex items-center gap-2 font-medium">
+            <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            {g.customer_name}
+          </div>
+          <div className="mt-0.5 flex items-center gap-2 text-[12px] text-muted-foreground">
+            <PhoneIcon className="h-3 w-3" />
+            <span dir="ltr">{g.phone}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={g.status}
+            onChange={(e) => onStatus(e.target.value)}
+            className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+            aria-label="Change status"
+          >
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            ))}
+          </select>
+          <button
+            onClick={onView}
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent"
+          >
+            <Eye className="h-3.5 w-3.5" /> View Details
+          </button>
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          </a>
+          {g.is_test && (
+            <button
+              onClick={onConvert}
+              className="rounded-sm p-1.5 text-muted-foreground hover:text-primary"
+              title="Convert to real order"
+              aria-label="Convert to real order"
+            >
+              <ShoppingBag className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive"
+            aria-label="Delete order"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Order details modal (large) ---------- */
+
+function OrderDetailsModal({
+  g,
+  onClose,
+  onStatus,
+  onPaymentStatus,
+  onDelete,
+}: {
+  g: OrderGroup;
+  onClose: () => void;
+  onStatus: (s: string) => void;
+  onPaymentStatus: (o: Order, s: string) => void;
+  onDelete: () => void;
+}) {
+  const qc = useQueryClient();
+  const message = useMemo(() => buildWhatsAppMessage(g), [g]);
+  const waHref = waLinkFor(g.phone, message);
+  const customerNotes = (g.items[0] as OrderRowRaw).notes;
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success("Message copied successfully");
+    } catch {
+      toast.error("Could not copy — please copy manually");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="my-8 w-full max-w-4xl rounded-sm border border-border bg-card"
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/95 p-5 backdrop-blur">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-display text-2xl">Order #{g.primaryNumber}</h3>
+              <StatusBadge status={g.status} />
+              {g.is_test && (
+                <span className="rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary">
+                  TEST
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              <Calendar className="mr-1 inline h-3 w-3" />
+              {new Date(g.created_at).toLocaleString()}
+              {g.orderNumbers.length > 1 && (
+                <span className="ml-2">· Line refs: {g.orderNumbers.join(", ")}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 p-5">
+          {/* Customer + status column */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-sm border border-border bg-background p-4">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Customer</div>
+              <div className="mt-2 space-y-1.5 text-sm">
+                <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5 text-muted-foreground" />{g.customer_name}</div>
+                <div className="flex items-center gap-2"><PhoneIcon className="h-3.5 w-3.5 text-muted-foreground" /><span dir="ltr">{g.phone}</span></div>
+                <div className="flex items-start gap-2"><MapPin className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" /><div><div>{g.governorate}</div><div className="text-muted-foreground">{g.address}</div></div></div>
+                {customerNotes && (
+                  <div className="flex items-start gap-2 pt-1"><StickyNote className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" /><div className="text-muted-foreground">{customerNotes}</div></div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-sm border border-border bg-background p-4">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Order status</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {ORDER_STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onStatus(s)}
+                    className={cn(
+                      "rounded-sm border px-2 py-2 text-[11px] font-semibold uppercase tracking-widest transition",
+                      g.status === s
+                        ? STATUS_TONE[s]
+                        : "border-border text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-sm border border-border p-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Payment</div>
+                  <div className="mt-1">{g.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}</div>
+                </div>
+                <div className="rounded-sm border border-border p-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Payment status</div>
+                  <div className="mt-1">{PAYMENT_STATUS_LABEL[g.payment_status ?? "not_required"]}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-display text-lg">Items ({g.linesCount})</h4>
+              <div className="text-xs text-muted-foreground">Total pieces: {g.itemsCount}</div>
+            </div>
+            <div className="grid gap-3">
+              {g.items.map((it, idx) => <ItemCard key={it.id} item={it as OrderRowRaw} index={idx + 1} />)}
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="rounded-sm border border-border bg-background p-4">
+            <div className="grid gap-1 text-sm sm:grid-cols-4">
+              <TotalCell label="Subtotal" value={`${Math.round(g.subtotal || g.total - g.shipping - g.packaging)} EGP`} />
+              <TotalCell label="Shipping" value={`${Math.round(g.shipping)} EGP`} />
+              <TotalCell label="Packaging" value={`${Math.round(g.packaging)} EGP`} />
+              <TotalCell label="Total" value={`${Math.round(g.total)} EGP`} emphasize />
+            </div>
+          </div>
+
+          {/* Payment screenshot (only for instapay orders) */}
+          {g.items[0].payment_method === "instapay" && (
+            <PaymentScreenshotBlock
+              order={g.items[0]}
+              onUpdate={() => qc.invalidateQueries({ queryKey: ["admin-orders"] })}
+            />
+          )}
+          {g.payment_method === "instapay" && g.items.length > 1 && (
+            <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+              Additional payment lines:
+              <div className="grid gap-2 sm:grid-cols-2">
+                {g.items.slice(1).map((it) => (
+                  <div key={it.id} className="rounded-sm border border-border p-2">
+                    <div>Ref: {it.order_number ?? it.id.slice(0, 8)}</div>
+                    <select
+                      value={it.payment_status ?? "not_required"}
+                      onChange={(e) => onPaymentStatus(it, e.target.value)}
+                      className={`mt-1 w-full rounded-sm border border-border bg-background px-2 py-1 text-[11px] ${PAYMENT_STATUS_TONE[it.payment_status ?? "not_required"] ?? ""}`}
+                    >
+                      {PAYMENT_STATUSES.map((s) => (
+                        <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* WhatsApp confirmation */}
+          <div className="rounded-sm border border-emerald-500/30 bg-emerald-500/5 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <div className="text-display text-lg">WhatsApp confirmation template</div>
+                <div className="text-[11px] text-muted-foreground">Ready-to-send Arabic confirmation for the customer.</div>
+              </div>
+              <MessageCircle className="h-5 w-5 text-emerald-400" />
+            </div>
+            <textarea
+              readOnly
+              value={message}
+              dir="rtl"
+              rows={12}
+              className="w-full rounded-sm border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={copyMessage}
+                className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy WhatsApp Message
+              </button>
+              <a
+                href={waHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> Open WhatsApp
+              </a>
+              <button
+                onClick={onDelete}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-sm border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] uppercase tracking-widest text-red-300 hover:bg-red-500/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete order
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TotalCell({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={cn("mt-1", emphasize ? "text-display text-xl" : "text-sm")}>{value}</div>
+    </div>
+  );
+}
+
+function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
+  const [zoom, setZoom] = useState(false);
+  const download = async () => {
+    if (!item.poster_image) return;
+    try {
+      const res = await fetch(item.poster_image);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${item.order_number ?? item.id.slice(0, 8)}-${(item.poster_title ?? "poster").replace(/\W+/g, "-")}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(item.poster_image, "_blank");
+    }
+  };
+
+  return (
+    <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[140px_1fr]">
+      <div className="relative">
+        {item.poster_image ? (
+          <button
+            type="button"
+            onClick={() => setZoom(true)}
+            className="block w-full overflow-hidden rounded-sm bg-muted"
+          >
+            <SafeImage
+              src={item.poster_image}
+              alt={item.poster_title ?? "Item"}
+              className="aspect-[2/3] w-full object-cover"
+            />
+          </button>
+        ) : (
+          <div className="flex aspect-[2/3] w-full items-center justify-center rounded-sm bg-muted text-[10px] uppercase text-muted-foreground">
+            No image
+          </div>
+        )}
+        <div className="mt-2 flex gap-1">
+          <button
+            onClick={() => setZoom(true)}
+            className="flex-1 rounded-sm border border-border py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
+          >
+            <Eye className="mx-auto h-3 w-3" />
+          </button>
+          <button
+            onClick={download}
+            className="flex-1 rounded-sm border border-border py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
+          >
+            <Download className="mx-auto h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item {index}</div>
+            <div className="mt-0.5 text-display text-lg">{item.poster_title ?? "—"}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Line total</div>
+            <div className="text-lg font-semibold">{Math.round(Number(item.total_price ?? 0))} EGP</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+          <Spec label="Frame type" value={item.frame_type} />
+          <Spec label="Frame color" value={item.frame_color} />
+          <Spec label="Size" value={item.size} />
+          <Spec label="Quantity" value={`× ${item.quantity}`} />
+          {item.subtotal ? <Spec label="Unit / subtotal" value={`${Math.round(Number(item.subtotal))} EGP`} /> : null}
+          <Spec label="Ref" value={item.order_number ?? item.id.slice(0, 8)} />
+        </div>
+        {item.notes && (
+          <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item note</div>
+            <div className="mt-0.5">{item.notes}</div>
+          </div>
+        )}
+      </div>
+
+      {zoom && item.poster_image && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setZoom(false)}
+        >
+          <img
+            src={item.poster_image}
+            alt={item.poster_title ?? ""}
+            className="max-h-full max-w-full object-contain"
+          />
+          <button
+            onClick={() => setZoom(false)}
+            className="absolute right-4 top-4 rounded-sm border border-border bg-card/90 p-2 text-foreground hover:bg-card"
+            aria-label="Close preview"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Spec({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-sm border border-border bg-background/50 p-2">
+      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mt-0.5 truncate text-xs">{value}</div>
     </div>
   );
 }
