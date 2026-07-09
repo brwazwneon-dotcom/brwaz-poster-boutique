@@ -1,4 +1,4 @@
-export const LOGO_URL = "/assets/brwazwneon-logo.png";
+export const LOGO_URL = "/assets/brwazwneon-logo.webp";
 
 export const BRANCH = "Alexandria Branch Available";
 

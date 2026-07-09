@@ -5,7 +5,7 @@ import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useLogoSize } from "@/lib/branding";
-import { LOGO_URL } from "@/lib/site";
+const LOGO_PNG_FALLBACK = "/assets/brwazwneon-logo.png";
 
 const MAIN_MENU: { label: string; href: string }[] = [
   { label: "Football", href: "/category/football" },
@@ -25,10 +25,10 @@ export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
-  // Fallback chain: DB/branding logo -> bundled public asset -> text wordmark.
+  // Fallback chain: DB/branding logo (webp) -> bundled png -> text wordmark.
   // Guards against stale/broken remote URLs (Lovable preview, blob, etc.).
   const [logoStage, setLogoStage] = useState<0 | 1 | 2>(0);
-  const logoSrc = logoStage === 0 ? logo.src : LOGO_URL;
+  const logoSrc = logoStage === 0 ? logo.src : LOGO_PNG_FALLBACK;
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
