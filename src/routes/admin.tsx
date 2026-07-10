@@ -126,7 +126,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "customers" | "abandoned" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
