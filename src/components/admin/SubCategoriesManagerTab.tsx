@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
+import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
 
 type Filter = "all" | "visible" | "hidden" | "draft" | "empty" | "most";
 
@@ -27,6 +28,7 @@ export function SubCategoriesManagerTab() {
   const [merging, setMerging] = useState<Category | null>(null);
   const [bulkMerge, setBulkMerge] = useState(false);
   const [seoFor, setSeoFor] = useState<Category | null>(null);
+  const [reviewFor, setReviewFor] = useState<Category | null>(null);
 
   const roots = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subs = useMemo(() => categories.filter((c) => !!c.parent_id), [categories]);
@@ -346,7 +348,13 @@ export function SubCategoriesManagerTab() {
                     <GripVertical className="h-4 w-4 cursor-grab" />
                   </td>
                   <td className="px-2 py-2">
-                    <div className="font-medium">{c.name}</div>
+                    <button
+                      onClick={() => setReviewFor(c)}
+                      className="text-left font-medium hover:underline"
+                      title="Open Poster Review Manager"
+                    >
+                      {c.name}
+                    </button>
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       /{c.slug}
                       {isDraft && (
@@ -518,6 +526,14 @@ export function SubCategoriesManagerTab() {
           subcategoryId={seoFor.id}
           subcategoryName={seoFor.name}
           onClose={() => setSeoFor(null)}
+        />
+      )}
+
+      {reviewFor && (
+        <SubCategoryReviewManager
+          subCategory={reviewFor}
+          parent={roots.find((r) => r.id === reviewFor.parent_id) ?? null}
+          onClose={() => setReviewFor(null)}
         />
       )}
     </div>
