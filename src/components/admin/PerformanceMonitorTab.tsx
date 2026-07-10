@@ -31,16 +31,13 @@ function sinceFor(range: TimeRange): string | null {
 
 async function fetchPerf(range: TimeRange) {
   const since = sinceFor(range);
-  let q = supabase
-    .from("perf_metrics")
-    .select("page_path, metric, value_ms, created_at");
-  if (since) q = q.gte("created_at", since);
-  const { data, error } = await supabase
+  let query = supabase
     .from("perf_metrics")
     .select("page_path, metric, value_ms, created_at")
-    .gte("created_at", since ?? "1970-01-01")
     .order("created_at", { ascending: false })
     .limit(2000);
+  if (since) query = query.gte("created_at", since);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as PerfRow[];
 }
