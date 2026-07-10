@@ -1107,6 +1107,7 @@ export type Database = {
           orientation: string | null
           original_url: string | null
           price: number | null
+          review_status: string
           sales_count: number
           seo_description: string | null
           seo_title: string | null
@@ -1139,6 +1140,7 @@ export type Database = {
           orientation?: string | null
           original_url?: string | null
           price?: number | null
+          review_status?: string
           sales_count?: number
           seo_description?: string | null
           seo_title?: string | null
@@ -1171,6 +1173,7 @@ export type Database = {
           orientation?: string | null
           original_url?: string | null
           price?: number | null
+          review_status?: string
           sales_count?: number
           seo_description?: string | null
           seo_title?: string | null
