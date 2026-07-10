@@ -691,6 +691,13 @@ function MobileCustomizerBar({
   // Quick estimate at default 30x40 PVC for the bar
   const estUnit = priceForFrame(pricing, "pvc", "30x40") + (isCustom ? pricing.customDesignFee : 0);
   const estTotal = estUnit * posters.length;
+  // Expose bar height so floating buttons (WhatsApp / Offers / Assistant)
+  // can shift above it on mobile and not overlap the Customize action.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--mobile-bar-h", "76px");
+    return () => { root.style.removeProperty("--mobile-bar-h"); };
+  }, []);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">

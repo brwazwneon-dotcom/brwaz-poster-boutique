@@ -133,7 +133,7 @@ export function AssistantButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="مساعد اختيار الصور"
-        className="fixed bottom-24 right-5 z-50 flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-br from-neutral-900 to-black px-4 py-3 text-xs font-medium text-primary-foreground shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-[1.03] hover:shadow-[0_14px_36px_rgba(255,255,255,0.15)] sm:bottom-28 sm:right-8"
+        className="fixed bottom-[calc(6rem+var(--mobile-bar-h,0px))] right-5 z-50 flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-br from-neutral-900 to-black px-4 py-3 text-xs font-medium text-primary-foreground shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-[1.03] hover:shadow-[0_14px_36px_rgba(255,255,255,0.15)] sm:bottom-28 sm:right-8"
       >
         <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Sparkles className="h-3.5 w-3.5" />
