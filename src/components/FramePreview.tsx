@@ -1,9 +1,10 @@
-import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
-import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 
 /**
  * Picks which mockup variant applies for a given frame type + color.
