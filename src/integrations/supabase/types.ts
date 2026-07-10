@@ -44,6 +44,54 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          link: string | null
+          metadata: Json
+          priority: string
+          read_at: string | null
+          resolved_at: string | null
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          link?: string | null
+          metadata?: Json
+          priority?: string
+          read_at?: string | null
+          resolved_at?: string | null
+          status?: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          link?: string | null
+          metadata?: Json
+          priority?: string
+          read_at?: string | null
+          resolved_at?: string | null
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       ai_seo_logs: {
         Row: {
           admin_user_id: string | null
@@ -1185,6 +1233,51 @@ export type Database = {
         }
         Relationships: []
       }
+      system_logs: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          level: string
+          message: string
+          metadata: Json
+          source: string
+          stack: string | null
+          status: string
+          url: string | null
+          user_agent: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          metadata?: Json
+          source?: string
+          stack?: string | null
+          status?: string
+          url?: string | null
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          metadata?: Json
+          source?: string
+          stack?: string | null
+          status?: string
+          url?: string | null
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1435,6 +1528,7 @@ export type Database = {
         Returns: Json
       }
       admin_live_visitors: { Args: never; Returns: number }
+      admin_notifications_summary: { Args: never; Returns: Json }
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
       admin_reset_recommendation_engine: { Args: never; Returns: undefined }
       admin_storage_manifest: { Args: never; Returns: Json }
