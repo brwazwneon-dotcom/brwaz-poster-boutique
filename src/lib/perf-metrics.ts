@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 type PerfMetric = "LCP" | "FCP" | "TTFB" | "CLS" | "INP" | "page_load_ms" | "upload_ms" | "custom";
 
 const recent = new Map<string, number>();
-const DEDUPE_MS = 15_000;
+const DEDUPE_MS = 120_000; // 2 min: aggressively dedupe repeat measurements per page
 
 function shouldSkip(key: string) {
   const now = Date.now();
@@ -15,6 +15,11 @@ function shouldSkip(key: string) {
   }
   return false;
 }
+
+// Track how many times a given (metric, path) has been recorded in this session
+// so we don't keep writing after we already have enough samples.
+const sessionCount = new Map<string, number>();
+const MAX_PER_METRIC_PATH = 3;
 
 function sessionId() {
   try {
@@ -34,9 +39,16 @@ export function recordPerfMetric(metric: PerfMetric, valueMs: number, meta?: Rec
   try {
     if (typeof window === "undefined") return;
     if (!Number.isFinite(valueMs) || valueMs < 0) return;
+    // Drop obviously bogus outliers (>2 min) — they distort averages and are
+    // usually caused by backgrounded tabs, not real user waits.
+    if (valueMs > 120_000) return;
     const page_path = window.location.pathname;
+    const sessionKey = `${metric}::${page_path}`;
+    const seen = sessionCount.get(sessionKey) ?? 0;
+    if (seen >= MAX_PER_METRIC_PATH) return;
     const key = `${metric}::${page_path}::${Math.round(valueMs / 200)}`;
     if (shouldSkip(key)) return;
+    sessionCount.set(sessionKey, seen + 1);
 
     void supabase
       .from("perf_metrics")
