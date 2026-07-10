@@ -5,11 +5,17 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+// Providers, tried in order. Lovable AI Gateway first (no key needed on Lovable Cloud),
+// then OpenRouter free tier as a fallback if the user configured OPENROUTER_API_KEY.
+const LOVABLE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODELS = [
+const LOVABLE_MODELS = [
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-flash-lite",
+];
+const OPENROUTER_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-3-27b-it:free",
-  "qwen/qwen3-32b:free",
+  "qwen/qwen-2.5-72b-instruct:free",
 ];
 
 const CORS = {
@@ -71,13 +77,20 @@ Return STRICT JSON only, no markdown, no commentary. Shape:
   return { system, user };
 }
 
-async function callOpenRouter(model: string, system: string, user: string, apiKey: string) {
-  const res = await fetch(OPENROUTER_URL, {
+async function callGateway(
+  url: string,
+  model: string,
+  system: string,
+  user: string,
+  apiKey: string,
+  label: string,
+) {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://brwaz-poster-boutique.lovable.app",
+      "HTTP-Referer": "https://brwazwneon.lovable.app",
       "X-Title": "BRWAZWNEON SEO Generator",
     },
     body: JSON.stringify({
@@ -92,11 +105,11 @@ async function callOpenRouter(model: string, system: string, user: string, apiKe
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`OpenRouter ${res.status} on ${model}: ${txt.slice(0, 200)}`);
+    throw new Error(`${label} ${res.status} on ${model}: ${txt.slice(0, 200)}`);
   }
   const data = await res.json();
   const content: string = data?.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error(`Empty content from ${model}`);
+  if (!content) throw new Error(`Empty content from ${label}:${model}`);
   return content;
 }
 
@@ -152,9 +165,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (!apiKey) {
-    return json(500, { error: "AI temporarily unavailable — please try again." });
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!lovableKey && !openrouterKey) {
+    return json(500, { error: "AI is not configured on this project." });
   }
 
   // Admin auth check
@@ -186,16 +200,24 @@ Deno.serve(async (req) => {
   const { system, user } = buildPrompt(input);
   const fallbackTitle = input.title || input.subject || "Premium Framed Poster";
 
+  const attempts: Array<{ url: string; model: string; key: string; label: string }> = [];
+  if (lovableKey) {
+    for (const m of LOVABLE_MODELS) attempts.push({ url: LOVABLE_URL, model: m, key: lovableKey, label: "Lovable" });
+  }
+  if (openrouterKey) {
+    for (const m of OPENROUTER_MODELS) attempts.push({ url: OPENROUTER_URL, model: m, key: openrouterKey, label: "OpenRouter" });
+  }
+
   let lastErr: unknown = null;
-  for (const model of MODELS) {
+  for (const a of attempts) {
     try {
-      const content = await callOpenRouter(model, system, user, apiKey);
+      const content = await callGateway(a.url, a.model, system, user, a.key, a.label);
       const parsed = parseJson(content);
       const result = normalize(parsed, fallbackTitle);
       if (!result.description || !result.seo_description) {
-        throw new Error(`Missing fields from ${model}`);
+        throw new Error(`Missing fields from ${a.label}:${a.model}`);
       }
-      return json(200, { ...result, model });
+      return json(200, { ...result, model: `${a.label}:${a.model}` });
     } catch (e) {
       lastErr = e;
       console.error("[seo-generator]", e instanceof Error ? e.message : String(e));
