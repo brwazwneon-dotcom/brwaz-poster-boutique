@@ -11,7 +11,7 @@ import { useCategories } from "@/lib/use-categories";
 import { FRAME_COLORS, FRAME_TYPES, type FrameColorId, type FrameTypeId, type SizeId } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
-import { usePricing } from "@/lib/use-settings";
+import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 
 export const Route = createFileRoute("/offers")({
