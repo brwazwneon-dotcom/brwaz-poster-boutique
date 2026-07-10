@@ -42,6 +42,8 @@ import { AiSettingsTab } from "@/components/admin/AiSettingsTab";
 import { SocialProofTab } from "@/components/admin/SocialProofTab";
 import { BehaviorTab } from "@/components/admin/BehaviorTab";
 import { AssistantRequestsTab } from "@/components/admin/AssistantRequestsTab";
+import { AssistantTab } from "@/components/admin/AssistantTab";
+import { AdminAssistantButton } from "@/components/admin/AdminAssistantButton";
 import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
 import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
