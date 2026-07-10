@@ -379,11 +379,34 @@ export function SystemHealthTab() {
         </Card>
 
         <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_enabled && data.marketing.meta_pixel_id ? "ok" : "warn"}>
-          <Row label="Pixel enabled" value={data.marketing.meta_pixel_enabled ? "Yes" : "No"} sev={data.marketing.meta_pixel_enabled ? "ok" : "warn"} />
-          <Row label="Pixel ID" value={data.marketing.meta_pixel_id ?? "—"} />
-          <Row label="CAPI enabled" value={data.marketing.meta_capi_enabled ? "Yes" : "No"} sev={data.marketing.meta_capi_enabled ? "ok" : "warn"} />
+        <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_id ? "ok" : "warn"}>
+          <Row
+            label="Pixel ID"
+            value={data.marketing.meta_pixel_id ? "Configured" : "Not configured"}
+            sev={data.marketing.meta_pixel_id ? "ok" : "warn"}
+          />
+          <p className="text-[10px] text-muted-foreground -mt-1">Tracks page views & events from the browser.</p>
+          <Row
+            label="Conversion API"
+            value={data.marketing.meta_capi_enabled ? "Active" : "Optional — Not configured"}
+            sev="ok"
+          />
+          <p className="text-[10px] text-muted-foreground -mt-1">Server-side tracking. Optional but recommended.</p>
+          <Row
+            label="Test Event Code"
+            value="Optional — for Meta Events Manager testing"
+            sev="ok"
+          />
           <Row label="Advanced matching" value={data.marketing.meta_advanced_matching_enabled ? "Yes" : "No"} />
           <Row label="Last CAPI event" value={fmtDate(data.marketing.last_capi_event_at)} />
+          <div className="pt-2">
+            <button
+              onClick={() => testMetaPixel(data.marketing.meta_pixel_id)}
+              className="w-full rounded-sm border border-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+            >
+              Test Meta Pixel
+            </button>
+          </div>
         </Card>
 
         <Card title="Payment" icon={CreditCard} sev="ok">
