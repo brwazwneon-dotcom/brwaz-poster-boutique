@@ -61,6 +61,9 @@ const EN: Dict = {
   "tab.performance": "Performance",
   "tab.alerts": "Smart Alerts",
   "tab.assistant-requests": "Assistant Requests",
+  "tab.customers": "Customers",
+  "tab.abandoned": "Abandoned Carts",
+  "tab.reports": "Reports",
 };
 
 const AR: Dict = {
@@ -118,6 +121,9 @@ const AR: Dict = {
   "tab.performance": "الأداء",
   "tab.alerts": "التنبيهات الذكية",
   "tab.assistant-requests": "طلبات المساعد",
+  "tab.customers": "العملاء",
+  "tab.abandoned": "السلات المتروكة",
+  "tab.reports": "التقارير",
 };
 
 const DICTS: Record<AdminLang, Dict> = { en: EN, ar: AR };

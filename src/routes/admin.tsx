@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { TestModeControls } from "@/components/admin/TestModeControls";
 import { OrderDetailsExtras } from "@/components/admin/OrderDetailsExtras";
+import { CustomersTab } from "@/components/admin/CustomersTab";
+import { AbandonedOrdersTab } from "@/components/admin/AbandonedOrdersTab";
+import { ReportsTab } from "@/components/admin/ReportsTab";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -123,7 +126,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "customers" | "abandoned" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -232,7 +235,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "customers", "abandoned", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -257,6 +260,9 @@ function AdminPage() {
         {tab === "categories" && <CategoriesTab />}
         {tab === "subcategories" && <SubCategoriesManagerTab />}
         {tab === "orders" && <OrdersTab />}
+        {tab === "customers" && <CustomersTab />}
+        {tab === "abandoned" && <AbandonedOrdersTab />}
+        {tab === "reports" && <ReportsTab onNavigate={(t) => setTab(t as Tab)} />}
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "photo-4x6" && <Photo4x6Tab />}
         {tab === "slider" && <SliderTab />}

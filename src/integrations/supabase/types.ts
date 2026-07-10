@@ -542,6 +542,36 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_notes: {
+        Row: {
+          author: string | null
+          created_at: string
+          id: string
+          phone: string
+          pinned: boolean
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          phone: string
+          pinned?: boolean
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          phone?: string
+          pinned?: boolean
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hero_banners: {
         Row: {
           button_link: string | null
@@ -1643,12 +1673,22 @@ export type Database = {
         Args: { p_id: string; p_seconds: number }
         Returns: undefined
       }
+      admin_abandoned_orders: { Args: { p_limit?: number }; Returns: Json }
       admin_behavior_dashboard: { Args: never; Returns: Json }
       admin_clear_anonymous_behavior: {
         Args: { _older_than_days?: number }
         Returns: number
       }
       admin_customer_profile: { Args: { _phone: string }; Returns: Json }
+      admin_customers_list: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_segment?: string
+        }
+        Returns: Json
+      }
       admin_dashboard: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
