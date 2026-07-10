@@ -30,6 +30,8 @@ import { SalesNotifications } from "@/components/SocialProof";
 import { BehaviorBoot } from "@/components/BehaviorBoot";
 import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
+import { I18nProvider } from "@/lib/i18n";
+import { LocaleHead } from "@/components/LocaleHead";
 
 function NotFoundComponent() {
   return (
@@ -192,6 +194,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <I18nProvider>
       <CartProvider>
         <WishlistProvider>
           <RecentlyViewedProvider>
@@ -217,9 +220,11 @@ function RootComponent() {
             <SalesNotifications />
             <BehaviorBoot />
             <TestModeBadge />
+            <LocaleHead />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
