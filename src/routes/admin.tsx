@@ -3884,6 +3884,7 @@ function MockupsTab() {
           rotateY: num(v.rotateY, 0),
           flipX: typeof v.flipX === "boolean" ? v.flipX : false,
           flipY: typeof v.flipY === "boolean" ? v.flipY : false,
+          enabled: typeof v.enabled === "boolean" ? v.enabled : true,
         };
       };
       return {
