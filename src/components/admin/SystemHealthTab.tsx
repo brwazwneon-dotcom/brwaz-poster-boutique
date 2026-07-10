@@ -461,6 +461,24 @@ function downloadFile(content: string, filename: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+function testMetaPixel(pixelId: string | null) {
+  if (!pixelId) {
+    toast.error("Meta Pixel is not configured. Add your Pixel ID first.");
+    return;
+  }
+  const w = typeof window !== "undefined" ? (window as any) : null;
+  if (!w?.fbq) {
+    toast.error("Pixel Not Detected — fbq() not loaded in this browser.");
+    return;
+  }
+  try {
+    w.fbq("track", "PageView");
+    toast.success(`Pixel Loaded Successfully (ID ${pixelId}) — Test PageView sent.`);
+  } catch (e) {
+    toast.error(`Pixel error: ${(e as Error).message}`);
+  }
+}
+
 function issueTarget(issue: string): { tab?: string; label: string } {
   const s = issue.toLowerCase();
   if (s.includes("firebase")) return { tab: "notifications", label: "Configure Firebase Notifications" };
