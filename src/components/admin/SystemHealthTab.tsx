@@ -111,8 +111,15 @@ function computeChecks(r: HealthReport) {
   // Marketing (optional integrations)
   if (r.marketing.ga4_measurement_id && r.marketing.ga4_enabled) passed.push("Google Analytics 4 active");
   else optional.push("Google Analytics 4 — optional");
-  if (r.marketing.meta_pixel_id && r.marketing.meta_pixel_enabled) passed.push("Meta Pixel active");
-  else optional.push("Meta Pixel — optional");
+  // Meta Pixel: configured as long as Pixel ID exists. CAPI + Test Event Code
+  // are optional and never counted as issues when the Pixel is configured.
+  if (r.marketing.meta_pixel_id) {
+    passed.push("Meta Pixel configured (Pixel ID present)");
+    if (r.marketing.meta_capi_enabled) passed.push("Meta Conversion API active");
+    else optional.push("Meta Conversion API — optional (server-side tracking)");
+  } else {
+    warnings.push("Meta Pixel is not configured. Add your Pixel ID to enable tracking.");
+  }
 
   // Payment
   if (r.payment.cash_on_delivery) passed.push("Cash on Delivery available");
