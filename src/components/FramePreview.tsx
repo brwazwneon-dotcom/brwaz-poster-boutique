@@ -56,6 +56,8 @@ export function FramePreview({
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [posterLoaded, setPosterLoaded] = useState(false);
+  const [mockupLoaded, setMockupLoaded] = useState(false);
+  const allLoaded = posterLoaded && mockupLoaded;
   // Always use the uploaded PNG mockups — no CSS-based frame fallback.
 
   const s: EditSettings = normalizeEditSettings(editSettings);
