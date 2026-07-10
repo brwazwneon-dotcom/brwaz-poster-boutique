@@ -111,8 +111,15 @@ function computeChecks(r: HealthReport) {
   // Marketing (optional integrations)
   if (r.marketing.ga4_measurement_id && r.marketing.ga4_enabled) passed.push("Google Analytics 4 active");
   else optional.push("Google Analytics 4 — optional");
-  if (r.marketing.meta_pixel_id && r.marketing.meta_pixel_enabled) passed.push("Meta Pixel active");
-  else optional.push("Meta Pixel — optional");
+  // Meta Pixel: configured as long as Pixel ID exists. CAPI + Test Event Code
+  // are optional and never counted as issues when the Pixel is configured.
+  if (r.marketing.meta_pixel_id) {
+    passed.push("Meta Pixel configured (Pixel ID present)");
+    if (r.marketing.meta_capi_enabled) passed.push("Meta Conversion API active");
+    else optional.push("Meta Conversion API — optional (server-side tracking)");
+  } else {
+    warnings.push("Meta Pixel is not configured. Add your Pixel ID to enable tracking.");
+  }
 
   // Payment
   if (r.payment.cash_on_delivery) passed.push("Cash on Delivery available");
@@ -371,12 +378,34 @@ export function SystemHealthTab() {
           <Row label="Last visitor" value={fmtDate(data.database.latest.last_visitor_at)} />
         </Card>
 
-        <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_enabled && data.marketing.meta_pixel_id ? "ok" : "warn"}>
-          <Row label="Pixel enabled" value={data.marketing.meta_pixel_enabled ? "Yes" : "No"} sev={data.marketing.meta_pixel_enabled ? "ok" : "warn"} />
-          <Row label="Pixel ID" value={data.marketing.meta_pixel_id ?? "—"} />
-          <Row label="CAPI enabled" value={data.marketing.meta_capi_enabled ? "Yes" : "No"} sev={data.marketing.meta_capi_enabled ? "ok" : "warn"} />
+        <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_id ? "ok" : "warn"}>
+          <Row
+            label="Pixel ID"
+            value={data.marketing.meta_pixel_id ? "Configured" : "Not configured"}
+            sev={data.marketing.meta_pixel_id ? "ok" : "warn"}
+          />
+          <p className="text-[10px] text-muted-foreground -mt-1">Tracks page views & events from the browser.</p>
+          <Row
+            label="Conversion API"
+            value={data.marketing.meta_capi_enabled ? "Active" : "Optional — Not configured"}
+            sev="ok"
+          />
+          <p className="text-[10px] text-muted-foreground -mt-1">Server-side tracking. Optional but recommended.</p>
+          <Row
+            label="Test Event Code"
+            value="Optional — for Meta Events Manager testing"
+            sev="ok"
+          />
           <Row label="Advanced matching" value={data.marketing.meta_advanced_matching_enabled ? "Yes" : "No"} />
           <Row label="Last CAPI event" value={fmtDate(data.marketing.last_capi_event_at)} />
+          <div className="pt-2">
+            <button
+              onClick={() => testMetaPixel(data.marketing.meta_pixel_id)}
+              className="w-full rounded-sm border border-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+            >
+              Test Meta Pixel
+            </button>
+          </div>
         </Card>
 
         <Card title="Payment" icon={CreditCard} sev="ok">
@@ -430,6 +459,24 @@ function downloadFile(content: string, filename: string, mime: string) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function testMetaPixel(pixelId: string | null) {
+  if (!pixelId) {
+    toast.error("Meta Pixel is not configured. Add your Pixel ID first.");
+    return;
+  }
+  const w = typeof window !== "undefined" ? (window as any) : null;
+  if (!w?.fbq) {
+    toast.error("Pixel Not Detected — fbq() not loaded in this browser.");
+    return;
+  }
+  try {
+    w.fbq("track", "PageView");
+    toast.success(`Pixel Loaded Successfully (ID ${pixelId}) — Test PageView sent.`);
+  } catch (e) {
+    toast.error(`Pixel error: ${(e as Error).message}`);
+  }
 }
 
 function issueTarget(issue: string): { tab?: string; label: string } {
