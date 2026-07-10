@@ -42,6 +42,8 @@ import { AiSettingsTab } from "@/components/admin/AiSettingsTab";
 import { SocialProofTab } from "@/components/admin/SocialProofTab";
 import { BehaviorTab } from "@/components/admin/BehaviorTab";
 import { AssistantRequestsTab } from "@/components/admin/AssistantRequestsTab";
+import { AssistantTab } from "@/components/admin/AssistantTab";
+import { AdminAssistantButton } from "@/components/admin/AdminAssistantButton";
 import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
 import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
@@ -118,7 +120,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -227,7 +229,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "custom", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -283,7 +285,9 @@ function AdminPage() {
         {tab === "ai-settings" && <AiSettingsTab />}
         {tab === "assistant-requests" && <AssistantRequestsTab />}
         {tab === "settings" && <SettingsTab />}
+        {tab === "assistant" && <AssistantTab />}
       </div>
+      <AdminAssistantButton />
     </div>
   );
 }
