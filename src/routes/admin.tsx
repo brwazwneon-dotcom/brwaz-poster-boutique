@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { TestModeControls } from "@/components/admin/TestModeControls";
+import { OrderDetailsExtras } from "@/components/admin/OrderDetailsExtras";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -2958,6 +2959,8 @@ function OrderDetailsModal({
               </button>
             </div>
           </div>
+
+          <OrderDetailsExtras g={g} />
         </div>
       </div>
     </div>
