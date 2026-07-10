@@ -303,11 +303,11 @@ export function SubCategoryReviewManager({
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-b border-border bg-primary/5 p-3 text-sm">
             <span className="text-muted-foreground">{selected.size} selected</span>
-            <button onClick={() => setHidden([...selected], true)} className="btn-tiny"><EyeOff className="h-3 w-3" /> Hide</button>
-            <button onClick={() => setHidden([...selected], false)} className="btn-tiny"><Eye className="h-3 w-3" /> Show</button>
-            <button onClick={() => setReview([...selected], "ready")} className="btn-tiny"><CheckCircle2 className="h-3 w-3" /> Mark Ready</button>
-            <button onClick={() => setReview([...selected], "needs_edit")} className="btn-tiny"><AlertTriangle className="h-3 w-3" /> Needs Edit</button>
-            <button onClick={() => softDelete([...selected])} className="btn-tiny text-destructive border-destructive"><Trash2 className="h-3 w-3" /> Delete</button>
+            <button onClick={() => setHidden([...selected], true)} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><EyeOff className="h-3 w-3" /> Hide</button>
+            <button onClick={() => setHidden([...selected], false)} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><Eye className="h-3 w-3" /> Show</button>
+            <button onClick={() => setReview([...selected], "ready")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><CheckCircle2 className="h-3 w-3" /> Mark Ready</button>
+            <button onClick={() => setReview([...selected], "needs_edit")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><AlertTriangle className="h-3 w-3" /> Needs Edit</button>
+            <button onClick={() => softDelete([...selected])} className="inline-flex items-center gap-1 rounded-sm border border-destructive px-2 py-1 text-[10px] uppercase tracking-widest text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /> Delete</button>
             <button onClick={clearSel} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
           </div>
         )}
