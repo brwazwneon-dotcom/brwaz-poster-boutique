@@ -284,6 +284,14 @@ export function useFrameMockups(): FrameMockups {
 
 export { MOCKUP_DEFAULTS, MOCKUP_KEYS };
 
+/** IDs of frame variants that the admin has enabled for the storefront. */
+export function useEnabledFrameVariants(): Array<keyof FrameMockups> {
+  const m = useFrameMockups();
+  const all: Array<keyof FrameMockups> = ["black", "white", "wood"];
+  const on = all.filter((k) => m[k].enabled !== false);
+  return on.length ? on : all;
+}
+
 /* -------------------- Grid display mode -------------------- */
 
 export type GridDisplayMode = "black" | "white" | "wood";
