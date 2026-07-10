@@ -2958,6 +2958,8 @@ function OrderDetailsModal({
               </button>
             </div>
           </div>
+
+          <OrderDetailsExtras g={g} />
         </div>
       </div>
     </div>
