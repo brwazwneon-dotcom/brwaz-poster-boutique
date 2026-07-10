@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/lib/use-categories";
 import { SafeImage } from "@/components/SafeImage";
+import { FramePreview } from "@/components/FramePreview";
+import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { uploadAndSign } from "@/lib/storage-url";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 import {
