@@ -671,6 +671,99 @@ export type Database = {
         }
         Relationships: []
       }
+      order_notes: {
+        Row: {
+          author: string | null
+          created_at: string
+          id: string
+          order_id: string
+          pinned: boolean
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          pinned?: boolean
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          pinned?: boolean
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "real_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_timeline: {
+        Row: {
+          actor: string | null
+          created_at: string
+          id: string
+          meta: Json | null
+          note: string | null
+          order_id: string
+          stage: string
+          status: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          note?: string | null
+          order_id: string
+          stage: string
+          status?: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          note?: string | null
+          order_id?: string
+          stage?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_timeline_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_timeline_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "real_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           address: string
