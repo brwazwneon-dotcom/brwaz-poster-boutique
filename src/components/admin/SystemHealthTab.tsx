@@ -378,7 +378,6 @@ export function SystemHealthTab() {
           <Row label="Last visitor" value={fmtDate(data.database.latest.last_visitor_at)} />
         </Card>
 
-        <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_enabled && data.marketing.meta_pixel_id ? "ok" : "warn"}>
         <Card title="Meta Pixel & CAPI" icon={Zap} sev={data.marketing.meta_pixel_id ? "ok" : "warn"}>
           <Row
             label="Pixel ID"
