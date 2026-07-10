@@ -437,7 +437,7 @@ function PosterCard({
       selected ? "border-primary ring-1 ring-primary" : "border-border",
       p.hidden && "opacity-60",
     )}>
-      <div className="relative aspect-[3/4] overflow-hidden rounded-sm bg-muted">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-muted">
         <label className="absolute left-1.5 top-1.5 z-10 rounded-sm bg-background/80 p-1 backdrop-blur">
           <input type="checkbox" checked={selected} onChange={onToggle} className="block" />
         </label>
@@ -447,7 +447,14 @@ function PosterCard({
           </span>
         )}
         <button onClick={onOpen} className="block h-full w-full">
-          <SafeImage src={p.image_url} alt={p.title ?? ""} className="h-full w-full object-cover" />
+          <FramePreview
+            posterUrl={p.image_url}
+            title={p.title ?? ""}
+            frameType="pvc"
+            color="black"
+            aspectClassName="aspect-[2/3]"
+            bare
+          />
         </button>
       </div>
       <div className="mt-2 space-y-1.5">
