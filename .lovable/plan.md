@@ -1,86 +1,104 @@
-# مساعد ذكاء اصطناعي للأدمن
 
-مساعد ذكي داخل الداش بورد يجاوب على أسئلة عن بيانات الموقع، ينفذ إجراءات إدارية، يولّد محتوى، ويحلل الصور — بدون حفظ للمحادثات.
+## Overview
 
-## الواجهة
+سنبني نظام مراقبة متكامل داخل الداش بورد يعتمد على البنية الموجودة (`system_logs` + `admin_notifications`) بدون كسر أي شيء موجود. كل حاجة هتتربط ببعض: أي مشكلة تتسجل في Error Logs + تنشئ Notification + تظهر في Summary Cards.
 
-**زر عائم (Floating Button)** في كل صفحات `/admin` أسفل يمين — يفتح **Sheet جانبي** للردود السريعة.
+## ما هو موجود بالفعل (نستفيد منه)
 
-**تاب `assistant` مستقل** داخل الداش بورد — صفحة شات كاملة للمحادثات الأطول ورفع الصور.
+- `system_logs` table + RLS + client-side logger (`src/lib/error-logger.ts`) مع global handlers.
+- `admin_notifications` table + `NotificationsCenterTab` + `NotificationBell`.
+- RPC `admin_notifications_summary` (يرجّع 7 عدادات).
+- تبويبات Admin موجودة: alerts, notifications, system-health, maintenance.
 
-الاتنين يستخدموا نفس المكوّن الأساسي (`AdminAssistantChat`) ونفس الـ endpoint، فرق العرض فقط.
+## الأقسام الجديدة
 
-زر **"محادثة جديدة"** بيمسح الرسائل (بدون حفظ — كل جلسة تبدأ من الصفر عند إعادة التحميل).
+### 1. Error Logs Tab (جديد)
+تبويب مستقل `error-logs` يعرض جدول `system_logs` كـ Cards مفهومة:
+- Title مفهوم + Simple description (map من `category`/`message` عبر جدول ترجمة).
+- Technical Details في `<details>` قابل للنسخ (stack + metadata + url).
+- Severity chip بألوان (Low رمادي / Medium أزرق / High برتقالي / Critical أحمر).
+- Status chip (Open / In Progress / Resolved) بأزرار تغيير الحالة.
+- روابط للـ related order/customer لو الـ metadata فيها `order_id` / `customer_phone`.
+- Filters: severity, status, category, search, date range.
+- Pagination (50 كل صفحة).
+- Actions: View Details, Copy Details, Mark Resolved.
 
-## قدرات المساعد (Tools)
+### 2. Auto Bug Detector
+دالة SQL `detect_bugs()` تعمل SCAN دوري وتنشئ notifications + system_logs entries:
+- أوردر جديد بدون صور (join `orders` مع `photo_orders`/`custom_design_orders`).
+- أوردر Printing > 24h.
+- رقم واتساب مش صح (regex).
+- أوردر بدون سعر منطقي (`total <= 0`).
+- Low Quality Image (من metadata upload).
+- Failed Uploads اللي مسجّلة كـ error.
 
-المساعد يستخدم AI SDK tool calling عبر Lovable AI Gateway. الأدوات:
+تشغيل عبر:
+- Client-side hook `useBugDetector()` يشغّل الفحص كل 5 دقايق لما الأدمن Online.
+- زر Manual "Run Scan Now" في التاب.
+- Dedupe عبر `entity_id` (لا تنشئ نفس الـ notification مرتين لنفس الأوردر).
 
-**قراءة بيانات:**
-- `queryOrders` — عدد أوردرات اليوم/الأسبوع/بحسب الحالة، إجمالي المبيعات
-- `queryTopProducts` — أعلى المنتجات مبيعًا في فترة محددة
-- `queryLowStock` — منتجات على وشك النفاد
-- `queryNotifications` — آخر التنبيهات والمشاكل
-- `queryCustomerLookup` — بحث عن عميل برقم الهاتف أو الأوردر
+### 3. Performance Monitor Tab
+تبويب جديد `performance` يعرض:
+- Web Vitals محفوظة في `analytics_visits` (لو موجودة) + قياسات client-side جديدة نضيفها في جدول `perf_metrics` جديد.
+- عدد الأخطاء اليوم / Failed Uploads اليوم (من `system_logs`).
+- Storage/DB status عبر ping بسيط.
+- Cards ملونة: Good (< 1.5s) / Warning (1.5-3s) / Critical (> 3s).
 
-**إجراءات إدارية (بتأكيد `needsApproval`):**
-- `updateOrderStatus` — تغيير حالة أوردر
-- `togglePosterVisibility` — إخفاء/إظهار منتج
-- `toggleMaintenanceMode` — تشغيل/إيقاف وضع الصيانة
-- `sendCustomerWhatsApp` — تجهيز رسالة واتساب لعميل
-
-**توليد محتوى:**
-- `generateProductDescription` — وصف منتج بالعربية
-- `generateMarketingCopy` — رسائل تسويقية/سوشيال/حملات
-
-**تحليل صور (رفع صورة):**
-- المستخدم يرفع صورة → المساعد يقدر يوصفها، يحدد مشاكل الجودة، أو يقترح مسحها/إخفاءها من المنتجات
-- Tool: `deletePosterImage` — يمسح صورة من منتج بعد تأكيد
-
-## البنية التقنية
-
-**Backend:**
-- Server route: `src/routes/api/admin-assistant.ts` — يستقبل الرسائل، يتحقق أن المستخدم `admin` عبر `has_role`، يستخدم `streamText` مع `openai/gpt-5.5` عبر Lovable AI Gateway
-- كل tool `execute` بينفذ queries على Supabase بصلاحيات المستخدم
-- `stopWhen: stepCountIs(50)` لدعم multi-step reasoning
-- الإجراءات الحساسة تستخدم `needsApproval: true` — الأدمن يوافق قبل التنفيذ
-
-**Frontend:**
-- `src/components/admin/AdminAssistantChat.tsx` — الشات الأساسي بـ AI Elements (`Conversation`, `Message`, `MessageResponse`, `PromptInput`, `Tool`, `Shimmer`)
-- `src/components/admin/AdminAssistantButton.tsx` — الزر العائم + `Sheet` من shadcn
-- `src/components/admin/AssistantTab.tsx` — التاب الكامل
-- `useChat` من `@ai-sdk/react` مع `DefaultChatTransport` مؤشر لـ `/api/admin-assistant`
-- بدون persistence — الرسائل في state فقط
-- رفع صور كـ attachment parts (multimodal input)
-
-**AI Elements المطلوبة:**
+جدول جديد `perf_metrics`:
 ```
-bun x ai-elements@latest add conversation message prompt-input tool shimmer
+id, page_path, metric (LCP/FCP/TTFB/upload_ms/page_load_ms),
+value_ms, session_id, created_at
 ```
++ GRANTs + RLS (anon INSERT للـ metrics فقط، admin SELECT).
++ Client-side utility `recordPerfMetric()` يستدعى من `__root.tsx` (Performance Observer) ومن رفع الصور.
++ Auto notification لو صفحة > 3s متكرر.
 
-**التكامل:**
-- إضافة `<AdminAssistantButton />` في `AdminShell` (يظهر في كل تابات الأدمن)
-- إضافة `assistant` كتاب جديد في `src/routes/admin.tsx`
-- شعار المساعد: أيقونة مخصصة (مش `Sparkles`) — روبوت صغير بالألوان السوداء الفاخرة للموقع
+### 4. Smart Alerts
+Notifications موجودة بالفعل عبر `admin_notifications`. نضيف:
+- `detect_bugs()` ينشئ التنبيهات المطلوبة.
+- Enrich الـ notification بـ `link` (رابط للـ related entity) + `entity_type/id`.
+- View في NotificationsCenterTab موجود (نضيف زر "Open Related Page" لو `link` موجود — موجود بالفعل عبر ExternalLink icon).
 
-## ملفات جديدة/معدلة
+### 5. Dashboard Summary Cards
+نوسّع RPC `admin_notifications_summary` لتضيف:
+- `critical_errors_24h`, `open_bugs`, `failed_uploads_24h`, `slow_pages_24h`, `orders_need_attention`, `low_quality_24h`, `unresolved_alerts`.
 
-**جديد:**
-- `src/routes/api/admin-assistant.ts` — chat streaming endpoint
-- `src/lib/admin-assistant-tools.server.ts` — تعريفات الـ tools
-- `src/lib/ai-gateway.server.ts` — helper للـ Lovable AI Gateway
-- `src/components/admin/AdminAssistantChat.tsx`
-- `src/components/admin/AdminAssistantButton.tsx`
-- `src/components/admin/AssistantTab.tsx`
-- `src/components/ai-elements/*` (من CLI)
+نعرضها كـ Cards في أعلى `NotificationsCenterTab` + في `analytics` (Overview).
 
-**معدل:**
-- `src/components/admin/AdminShell.tsx` — إضافة الزر العائم
-- `src/routes/admin.tsx` — إضافة تاب `assistant`
+## Technical Details
 
-## ملاحظات
+### Migration واحدة
+1. جدول `perf_metrics` + GRANTs + RLS + indexes.
+2. تحديث RPC `admin_notifications_summary` بإضافة الحقول الجديدة.
+3. دالة `detect_bugs()` SECURITY DEFINER تسكان وتـ upsert notifications.
+4. دالة `resolve_error_log(uuid)` / `set_error_status(uuid, text)`.
 
-- **Secret**: يستخدم `LOVABLE_API_KEY` (موجود تلقائيًا — لا يحتاج إعداد)
-- **حماية**: كل استدعاء يتحقق من صلاحية `admin` قبل الرد
-- **بدون حفظ**: زي ما طلبت — كل session تبدأ فاضية
-- **الواتساب**: يستخدم نفس نظام `wa.me` الموجود
+### ملفات جديدة
+- `src/components/admin/ErrorLogsTab.tsx`
+- `src/components/admin/PerformanceMonitorTab.tsx`
+- `src/lib/error-logs.ts` (fetch/update/humanize)
+- `src/lib/bug-detector.ts` (run scan)
+- `src/lib/perf-metrics.ts` (record + Performance Observer)
+
+### تعديلات
+- `src/routes/admin.tsx`: إضافة تبويبين جديدين (error-logs, performance) في الـ sidebar/menu.
+- `src/components/ErrorLoggerBoot.tsx`: بدء الـ Performance Observer.
+- `src/components/admin/NotificationsCenterTab.tsx`: توسيع Summary Cards.
+- `src/lib/admin-i18n.tsx`: عناوين جديدة.
+
+### Humanization map
+`categoryToHuman` في `error-logs.ts`:
+- `website_error` → "خطأ في الموقع"
+- `upload_failed` → "فشل في رفع الصورة"
+- `edge_function` → "حدثت مشكلة أثناء تنفيذ العملية..."
+- إلخ.
+
+### الأمان والأداء
+- كل الاستعلامات فيها LIMIT + indexes موجودة.
+- Detector يشتغل كل 5 دقايق فقط (setInterval + cleanup).
+- Dedupe في notifications عبر `(type, entity_id)`.
+- ما نلمسش أي وظيفة موجودة (checkout, orders, uploads تظل كما هي).
+
+## Not in scope
+- Server-side cron (pg_cron) — ممكن نضيفها لاحقًا؛ حاليًا نعتمد client-side scan لما الأدمن مفتوح الداش.
+- Real-time subscriptions للـ error logs (نكتفي بـ refetch كل 30s).
