@@ -35,9 +35,6 @@ const REQUIRED_SERVER_SECRETS = [
 
 const OPTIONAL_SERVER_SECRETS = [
   "BACKUP_ENCRYPTION_KEY",
-  "META_PIXEL_ACCESS_TOKEN",
-  "META_PIXEL_ID",
-  "META_CAPI_TEST_EVENT_CODE",
   "GA4_MEASUREMENT_ID",
   "GA4_API_SECRET",
   "FIREBASE_PROJECT_ID",
@@ -92,6 +89,32 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
     const checks: EnvCheck[] = [];
     const env = process.env;
 
+    // Meta Pixel can be configured via env vars (any of several names) OR
+    // via site_settings.meta_pixel_id. Look everywhere before deciding.
+    const pixelEnvNames = [
+      "META_PIXEL_ID",
+      "VITE_META_PIXEL_ID",
+      "NEXT_PUBLIC_META_PIXEL_ID",
+      "PUBLIC_META_PIXEL_ID",
+      "FB_PIXEL_ID",
+    ];
+    const pixelEnvName = pixelEnvNames.find((k) => !!env[k]);
+    let pixelIdFromEnv = pixelEnvName ? String(env[pixelEnvName]) : "";
+    let pixelIdFromDb = "";
+    let capiTokenPresent = false;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: s }, { data: sec }] = await Promise.all([
+        supabaseAdmin.from("site_settings").select("value").eq("key", "meta_pixel_id").maybeSingle(),
+        supabaseAdmin.from("marketing_secrets").select("meta_capi_access_token").eq("id", 1).maybeSingle(),
+      ]);
+      pixelIdFromDb = String((s as any)?.value ?? "").trim();
+      capiTokenPresent = Boolean((sec as any)?.meta_capi_access_token);
+    } catch { /* best-effort */ }
+    const anyPixelId = pixelIdFromEnv || pixelIdFromDb;
+    const capiConfigured = capiTokenPresent || !!env.META_PIXEL_ACCESS_TOKEN;
+    const testEventCodePresent = !!env.META_CAPI_TEST_EVENT_CODE;
+
     const present = REQUIRED_SERVER_SECRETS.filter((k) => !!env[k]);
     const missing = REQUIRED_SERVER_SECRETS.filter((k) => !env[k]);
 
@@ -119,9 +142,46 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
       });
     }
 
+    // Meta Pixel — dedicated checks (never critical, never noisy)
+    checks.push({
+      id: "meta:pixel",
+      category: "Meta Pixel",
+      name: "Meta Pixel ID",
+      severity: anyPixelId ? "ok" : "warn",
+      message: anyPixelId
+        ? `Configured${pixelIdFromDb && !pixelIdFromEnv ? " (site settings)" : pixelEnvName ? ` (${pixelEnvName})` : ""}`
+        : "Meta Pixel is not configured. Add your Pixel ID to enable tracking.",
+      detail: "Browser-side tracking for page views and events.",
+    });
+    checks.push({
+      id: "meta:capi",
+      category: "Meta Pixel",
+      name: "Meta Conversion API",
+      severity: capiConfigured ? "ok" : anyPixelId ? "ok" : "warn",
+      message: capiConfigured
+        ? "Access Token configured — server-side tracking active"
+        : "Optional — Not Configured (server-side tracking disabled)",
+      detail: "Server-side backup for Pixel events. Optional but recommended.",
+    });
+    checks.push({
+      id: "meta:test",
+      category: "Meta Pixel",
+      name: "Meta Test Event Code",
+      severity: "ok",
+      message: testEventCodePresent
+        ? "Configured — events routed to Test Events tab"
+        : "Optional — Only needed while testing from Meta Events Manager",
+    });
+
     // 3) VITE_* client-exposed keys — none of them may look like a secret
     const viteKeys = Object.keys(env).filter((k) => k.startsWith("VITE_"));
+    const publicPixelNames = new Set([
+      "VITE_META_PIXEL_ID",
+      "NEXT_PUBLIC_META_PIXEL_ID",
+      "PUBLIC_META_PIXEL_ID",
+    ]);
     const leakedServerVite = viteKeys.filter((k) => {
+      if (publicPixelNames.has(k)) return false; // Pixel ID is public by design
       const bare = k.replace(/^VITE_/, "");
       return (
         isSecretName(bare) ||
@@ -144,6 +204,7 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
     // 4) Report on VITE_ keys the browser reports (from client)
     const clientKeys = data.clientEnvKeys;
     const clientLeaks = clientKeys.filter((k) => {
+      if (publicPixelNames.has(k)) return false;
       const bare = k.replace(/^VITE_/, "");
       return isSecretName(bare);
     });
