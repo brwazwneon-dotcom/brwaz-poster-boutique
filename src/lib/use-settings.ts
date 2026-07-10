@@ -197,6 +197,8 @@ export type FrameMockup = {
   flipX?: boolean;
   /** Mirror the artwork vertically. */
   flipY?: boolean;
+  /** When false, this frame variant is hidden from the storefront. Defaults to true. */
+  enabled?: boolean;
 };
 
 export type FrameMockups = {
@@ -212,9 +214,9 @@ const LOCAL_MOCKUP_IMAGES: Record<keyof FrameMockups, string> = {
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: LOCAL_MOCKUP_IMAGES.black, top: 13.59, left: 14.19, width: 71.63, height: 70.78, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  white: { image: LOCAL_MOCKUP_IMAGES.white, top: 13.83, left: 14.07, width: 71.4, height: 70.47, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
-  wood:  { image: LOCAL_MOCKUP_IMAGES.wood, top: 14.06, left: 17.72, width: 69.72, height: 74.06, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false },
+  black: { image: LOCAL_MOCKUP_IMAGES.black, top: 13.59, left: 14.19, width: 71.63, height: 70.78, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
+  white: { image: LOCAL_MOCKUP_IMAGES.white, top: 13.83, left: 14.07, width: 71.4, height: 70.47, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
+  wood:  { image: LOCAL_MOCKUP_IMAGES.wood, top: 14.06, left: 17.72, width: 69.72, height: 74.06, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
@@ -255,6 +257,7 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     rotateY: numOr(v.rotateY, fallback.rotateY ?? 0),
     flipX: typeof v.flipX === "boolean" ? v.flipX : fallback.flipX ?? false,
     flipY: typeof v.flipY === "boolean" ? v.flipY : fallback.flipY ?? false,
+    enabled: typeof v.enabled === "boolean" ? v.enabled : fallback.enabled ?? true,
   };
 }
 
@@ -280,6 +283,14 @@ export function useFrameMockups(): FrameMockups {
 }
 
 export { MOCKUP_DEFAULTS, MOCKUP_KEYS };
+
+/** IDs of frame variants that the admin has enabled for the storefront. */
+export function useEnabledFrameVariants(): Array<keyof FrameMockups> {
+  const m = useFrameMockups();
+  const all: Array<keyof FrameMockups> = ["black", "white", "wood"];
+  const on = all.filter((k) => m[k].enabled !== false);
+  return on.length ? on : all;
+}
 
 /* -------------------- Grid display mode -------------------- */
 

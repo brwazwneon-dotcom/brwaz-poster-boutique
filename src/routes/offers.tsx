@@ -11,7 +11,7 @@ import { useCategories } from "@/lib/use-categories";
 import { FRAME_COLORS, FRAME_TYPES, type FrameColorId, type FrameTypeId, type SizeId } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
-import { usePricing } from "@/lib/use-settings";
+import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 
 export const Route = createFileRoute("/offers")({
@@ -133,6 +133,8 @@ function BundleBuilder({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [color, setColor] = useState<FrameColorId>("black");
+  const enabledVariants = useEnabledFrameVariants();
+  const availableColors = FRAME_COLORS.filter((c) => enabledVariants.includes(c.id));
   const { add } = useCart();
 
   const postersQ = useInfiniteQuery({
@@ -388,7 +390,7 @@ function BundleBuilder({
           </OptionGroup>
 
           <OptionGroup label="Frame Color">
-            {FRAME_COLORS.map((c) => (
+            {(availableColors.length ? availableColors : FRAME_COLORS).map((c) => (
               <button
                 key={c.id}
                 type="button"

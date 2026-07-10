@@ -32,6 +32,7 @@ import {
   computeShipping,
   usePricing,
   priceForFrame,
+  useEnabledFrameVariants,
 } from "@/lib/use-settings";
 import {
   FRAME_TYPES,
@@ -393,9 +394,10 @@ function CustomDesignPage() {
     }
   };
 
+  const enabledVariants = useEnabledFrameVariants();
   const colorChoices = frameType === "wood"
-    ? FRAME_COLORS.filter((c) => c.id === "wood")
-    : FRAME_COLORS.filter((c) => c.id !== "wood");
+    ? FRAME_COLORS.filter((c) => c.id === "wood" && enabledVariants.includes(c.id))
+    : FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id));
 
   return (
     <div className="bg-background text-foreground">
@@ -534,7 +536,7 @@ function CustomDesignPage() {
                     </button>
                     {p.frameType !== "wood" && (
                       <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
-                        {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                        {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
                           <button
                             key={c.id}
                             type="button"
@@ -812,7 +814,7 @@ function CustomDesignPage() {
                   Frame color for this image
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+                  {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
                     <button
                       key={c.id}
                       type="button"
