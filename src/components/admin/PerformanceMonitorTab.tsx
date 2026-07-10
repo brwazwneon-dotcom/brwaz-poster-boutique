@@ -239,14 +239,8 @@ export function PerformanceMonitorTab() {
 
       {/* Slowest pages */}
       <div className="rounded-md border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <div className="text-sm font-semibold">أبطأ الصفحات (آخر 24 ساعة)</div>
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
-          >
-            <RefreshCcw className="h-3 w-3" /> تحديث
-          </button>
+        <div className="border-b border-border p-4 text-sm font-semibold">
+          أبطأ الصفحات ({range === "24h" ? "آخر 24 ساعة" : range === "7d" ? "آخر 7 أيام" : "كل الفترات"})
         </div>
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
