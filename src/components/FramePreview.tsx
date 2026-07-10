@@ -1,9 +1,10 @@
-import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
-import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 
 /**
  * Picks which mockup variant applies for a given frame type + color.
@@ -55,6 +56,8 @@ export function FramePreview({
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [posterLoaded, setPosterLoaded] = useState(false);
+  const [mockupLoaded, setMockupLoaded] = useState(false);
+  const allLoaded = posterLoaded && mockupLoaded;
   // Always use the uploaded PNG mockups — no CSS-based frame fallback.
 
   const s: EditSettings = normalizeEditSettings(editSettings);
@@ -176,7 +179,21 @@ export function FramePreview({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill select-none"
           draggable={false}
+          onLoad={() => setMockupLoaded(true)}
+          onError={() => setMockupLoaded(true)}
         />
+      )}
+
+      {/* Loading indicator — clear feedback until both the artwork and the frame mockup are ready */}
+      {!allLoaded && (
+        <div className="pointer-events-none absolute inset-0 z-[30] flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+          <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Loading
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );
