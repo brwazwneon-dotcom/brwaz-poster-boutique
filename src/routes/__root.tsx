@@ -28,6 +28,7 @@ import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { SalesNotifications } from "@/components/SocialProof";
 import { BehaviorBoot } from "@/components/BehaviorBoot";
+import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
 
 function NotFoundComponent() {
@@ -210,6 +211,7 @@ function RootComponent() {
             <Toaster richColors position="top-center" />
             <MarketingBoot />
             <PwaBoot />
+            <ErrorLoggerBoot />
             <InstallPrompt />
             <PreviewBadge />
             <SalesNotifications />
