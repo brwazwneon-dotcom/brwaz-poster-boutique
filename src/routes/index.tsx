@@ -22,6 +22,7 @@ import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { PersonalizedSections } from "@/components/PersonalizedSections";
 import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -85,6 +86,7 @@ function Index() {
 }
 
 function HeroSection() {
+  const t = useT();
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
         <HeroBannerSlider
@@ -103,14 +105,13 @@ function HeroSection() {
         />
         <div className="container-page flex min-h-[85vh] flex-col justify-end py-20">
           <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
-            BRWAZWNEON · Framed in Egypt · Cash on delivery
+            {t("home.hero.eyebrow")}
           </p>
-          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem]">
-            Turn Your Room<br />Into A Piece<br />Of Art.
+          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem] whitespace-pre-line">
+            {t("home.hero.title")}
           </h1>
           <p className="mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
-            Premium framed posters of the films, players, shows, anime and cars
-            you actually care about. Gallery-grade frames, hand-printed.
+            {t("home.hero.desc")}
           </p>
           <div className="mt-10 flex flex-col items-start gap-6 sm:flex-row sm:flex-wrap sm:items-end">
             <Link
@@ -118,12 +119,12 @@ function HeroSection() {
               params={{ slug: "movies" }}
               className="w-full rounded-sm bg-primary px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 sm:w-auto"
             >
-              Shop Posters
+              {t("home.hero.shop")}
             </Link>
 
             <div className="flex w-full flex-col items-start sm:w-auto sm:items-center">
               <span className="mb-2 inline-flex items-center gap-1 rounded-sm border border-border bg-background/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.3em] text-foreground">
-                ⭐ Most Popular
+                {t("home.hero.mostPopular")}
               </span>
               <Link
                 to="/custom-design"
@@ -136,11 +137,11 @@ function HeroSection() {
                 }}
                 className="group relative w-full overflow-hidden rounded-sm border border-white/70 bg-black px-10 py-5 text-center text-sm font-semibold uppercase tracking-widest text-white shadow-[0_0_0_rgba(255,255,255,0)] transition-all duration-[250ms] hover:-translate-y-0.5 hover:border-white hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] sm:w-auto"
               >
-                🎨 Customize Your Frame
+                {t("home.hero.customize")}
                 <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 skew-x-12 bg-white/10 opacity-0 transition-all duration-700 group-hover:left-full group-hover:opacity-100" />
               </Link>
               <p className="mt-3 max-w-xs text-[11px] leading-relaxed text-muted-foreground sm:text-center">
-                Upload your own photo or artwork and our designers will prepare it for premium-quality printing.
+                {t("home.hero.customizeDesc")}
               </p>
             </div>
 
@@ -148,19 +149,15 @@ function HeroSection() {
               to="/photo-printing"
               className="w-full rounded-sm border border-border px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent sm:w-auto"
             >
-              Print Your Photos
+              {t("home.hero.printPhotos")}
             </Link>
           </div>
 
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
-            {[
-              "Professional Designer Included",
-              "We Enhance Your Photo Before Printing",
-              "Preview Before Printing",
-            ].map((t) => (
-              <li key={t} className="flex items-center gap-2">
+            {[t("home.hero.b1"), t("home.hero.b2"), t("home.hero.b3")].map((label) => (
+              <li key={label} className="flex items-center gap-2">
                 <span className="text-foreground">✔</span>
-                {t}
+                {label}
               </li>
             ))}
           </ul>
@@ -170,12 +167,13 @@ function HeroSection() {
 }
 
 function TrustSection() {
+  const t = useT();
   return (
     <section className="border-b border-border bg-card">
         <div className="container-page py-6 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-foreground sm:text-sm">
             <span className="mr-2">⭐</span>
-            Over 7 Million Photos Printed — And We're Still Creating Memories With You.
+            {t("home.trust.banner")}
           </p>
         </div>
     </section>
@@ -183,16 +181,17 @@ function TrustSection() {
 }
 
 function BenefitsBar() {
+  const t = useT();
   return (
     <section className="border-b border-border bg-background">
         <div className="container-page py-5">
           <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
-              "Premium PVC Frames",
-              "Wooden Portraits",
-              "Photo Printing",
-              "Cash On Delivery",
-              "Shipping Across Egypt",
+              t("home.benefits.1"),
+              t("home.benefits.2"),
+              t("home.benefits.3"),
+              t("home.benefits.4"),
+              t("home.benefits.5"),
             ].map((b) => (
               <li key={b} className="flex items-center gap-2">
                 <span className="text-foreground">✓</span>
@@ -206,21 +205,22 @@ function BenefitsBar() {
 }
 
 function OffersSection() {
+  const t = useT();
   return (
     <section className="border-t border-border bg-card">
         <div className="container-page py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Limited time
+            {t("home.offers.eyebrow")}
           </p>
-          <h2 className="text-display mt-3 text-4xl sm:text-6xl">Special Offers</h2>
+          <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("home.offers.title")}</h2>
           <div className="mt-10 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2">
             <OfferCard
-              title="6 Frames"
+              title={t("home.offers.6frames")}
               size="20 × 30 cm"
               price="790"
             />
             <OfferCard
-              title="4 Frames"
+              title={t("home.offers.4frames")}
               size="30 × 40 cm"
               price="890"
             />
@@ -230,7 +230,7 @@ function OffersSection() {
               to="/offers"
               className="inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
             >
-              Claim an offer
+              {t("home.offers.claim")}
             </Link>
           </div>
         </div>
@@ -247,6 +247,7 @@ function defaultName(slug: string) {
 
 function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
   const picksKey = pickedIds.join(",");
+  const t = useT();
   const { data: posters = [] } = useQuery({
     queryKey: ["home-posters", slug, picksKey],
     staleTime: 60_000,
@@ -302,22 +303,22 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
         <div className="mb-10 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-              0{index + 1} · Collection
+              0{index + 1} · {t("home.category.eyebrow")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{name} Posters</h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{name} {t("home.category.suffix")}</h2>
           </div>
           <Link
             to="/category/$slug"
             params={{ slug }}
             className="hidden shrink-0 rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent sm:inline-flex"
           >
-            View all →
+            {t("home.category.viewAll")}
           </Link>
         </div>
 
         {posters.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            New {name.toLowerCase()} posters dropping soon.
+            {t("home.category.empty", { name: name.toLowerCase() })}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
@@ -351,7 +352,7 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
             params={{ slug }}
             className="inline-flex rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
           >
-            View all {name} →
+            {t("home.category.viewAllName", { name })}
           </Link>
         </div>
       </div>
@@ -360,23 +361,24 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
 }
 
 function OfferCard({ title, size, price }: { title: string; size: string; price: string }) {
+  const t = useT();
   return (
     <div className="relative flex flex-col justify-between bg-background p-8 sm:p-10">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">Bundle</p>
+        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">{t("home.offers.bundle")}</p>
         <h3 className="text-display mt-3 text-4xl sm:text-5xl">{title}</h3>
         <p className="mt-2 text-sm text-muted-foreground">{size}</p>
       </div>
       <div className="mt-10 flex items-end justify-between">
         <div>
           <div className="text-display text-5xl leading-none">{price}</div>
-          <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">EGP</div>
+          <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{t("common.egp")}</div>
         </div>
         <Link
           to="/offers"
           className="rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
         >
-          Order →
+          {t("home.offers.order")}
         </Link>
       </div>
     </div>
