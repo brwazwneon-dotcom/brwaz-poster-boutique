@@ -31,6 +31,8 @@ import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
 import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { NotificationsCenterTab } from "@/components/admin/NotificationsCenterTab";
+import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
+import { PerformanceMonitorTab } from "@/components/admin/PerformanceMonitorTab";
 import { BackupsTab } from "@/components/admin/BackupsTab";
 import { Photo4x6Tab } from "@/components/admin/Photo4x6Tab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
@@ -120,7 +122,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "custom" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
