@@ -24,6 +24,11 @@ type SummaryCards = {
   errors_24h: number;
   low_quality_24h: number;
   upload_failures_24h: number;
+  critical_errors_24h?: number;
+  open_bugs?: number;
+  slow_pages_24h?: number;
+  orders_need_attention?: number;
+  unresolved_alerts?: number;
 };
 
 export function NotificationsCenterTab() {
@@ -70,14 +75,17 @@ export function NotificationsCenterTab() {
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         <SummaryCard label="Unread" value={summary?.unread_total ?? 0} tone="blue" />
         <SummaryCard label="Critical" value={summary?.critical_open ?? 0} tone="red" />
-        <SummaryCard label="High" value={summary?.high_open ?? 0} tone="orange" />
-        <SummaryCard label="Orders today" value={summary?.new_orders_today ?? 0} tone="green" />
-        <SummaryCard label="Errors 24h" value={summary?.errors_24h ?? 0} tone="red" />
+        <SummaryCard label="Open bugs" value={summary?.open_bugs ?? 0} tone="orange" />
+        <SummaryCard label="Orders need attention" value={summary?.orders_need_attention ?? 0} tone="amber" />
+        <SummaryCard label="Failed uploads 24h" value={summary?.upload_failures_24h ?? 0} tone="amber" />
+        <SummaryCard label="Slow pages 24h" value={summary?.slow_pages_24h ?? 0} tone="amber" />
         <SummaryCard label="Low-quality 24h" value={summary?.low_quality_24h ?? 0} tone="amber" />
-        <SummaryCard label="Upload fails 24h" value={summary?.upload_failures_24h ?? 0} tone="amber" />
+        <SummaryCard label="Errors 24h" value={summary?.errors_24h ?? 0} tone="red" />
+        <SummaryCard label="Unresolved alerts" value={summary?.unresolved_alerts ?? 0} tone="orange" />
+        <SummaryCard label="Orders today" value={summary?.new_orders_today ?? 0} tone="green" />
       </div>
 
       {/* Filters */}
