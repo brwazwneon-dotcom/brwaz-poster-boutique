@@ -4065,8 +4065,31 @@ function MockupEditor({
   return (
     <div className="rounded-sm border border-border bg-card p-5">
       <div className="flex items-center justify-between">
-        <h4 className="text-display text-xl">{label}</h4>
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{variant}</span>
+        <div className="flex items-center gap-2">
+          <h4 className="text-display text-xl">{label}</h4>
+          {m.enabled === false && (
+            <span className="rounded-sm border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-destructive">
+              Hidden
+            </span>
+          )}
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span>{m.enabled === false ? "Off" : "On"}</span>
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={m.enabled !== false}
+            onChange={(e) => patch({ enabled: e.target.checked })}
+          />
+          <span className="relative h-4 w-8 rounded-full bg-muted transition peer-checked:bg-primary">
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-background transition-transform",
+                m.enabled !== false && "translate-x-4",
+              )}
+            />
+          </span>
+        </label>
       </div>
 
       <div className="mt-4 mx-auto w-full max-w-[260px]">
