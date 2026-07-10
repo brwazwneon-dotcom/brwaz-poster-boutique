@@ -278,6 +278,8 @@ function AdminPage() {
         {tab === "size-guide" && <SizeGuideTab />}
         {tab === "alerts" && <NotificationsCenterTab />}
         {tab === "notifications" && <NotificationsTab />}
+        {tab === "error-logs" && <ErrorLogsTab />}
+        {tab === "performance" && <PerformanceMonitorTab />}
         {tab === "backups" && <BackupsTab />}
         {tab === "system-health" && <SystemHealthTab />}
         {tab === "env-check" && <EnvCheckTab />}
