@@ -35,7 +35,7 @@ import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { track as behavior } from "@/lib/behavior";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
-import { usePricing, priceForFrame } from "@/lib/use-settings";
+import { usePricing, priceForFrame, useEnabledFrameVariants } from "@/lib/use-settings";
 import { useGridDisplayMode } from "@/lib/use-settings";
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -459,6 +459,7 @@ function Customizer({
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
+  const enabledVariants = useEnabledFrameVariants();
   const [quantity, setQuantity] = useState(1);
   const handleFrameType = (next: FrameTypeId) => {
     setFrameType(next);
@@ -596,9 +597,9 @@ function Customizer({
       </OptionGroup>
       <SizeGuide availableIds={sizesForFrame(frameType)} />
 
-      {frameType !== "wood" && (
+      {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
       <OptionGroup label="Frame Color">
-        {FRAME_COLORS.filter((c) => c.id !== "wood").map((c) => (
+        {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
           <button
             key={c.id}
             type="button"
