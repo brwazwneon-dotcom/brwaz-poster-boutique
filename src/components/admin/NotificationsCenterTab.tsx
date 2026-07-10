@@ -42,7 +42,7 @@ export function NotificationsCenterTab() {
     queryKey: ["admin-notif-summary"],
     queryFn: async (): Promise<SummaryCards> => {
       const { data } = await supabase.rpc("admin_notifications_summary" as never);
-      return (data as SummaryCards) ?? {
+      return (data as unknown as SummaryCards) ?? {
         unread_total: 0,
         critical_open: 0,
         high_open: 0,
