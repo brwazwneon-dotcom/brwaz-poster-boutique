@@ -30,8 +30,6 @@ import { SalesNotifications } from "@/components/SocialProof";
 import { BehaviorBoot } from "@/components/BehaviorBoot";
 import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
-import { I18nProvider } from "@/lib/i18n";
-import { LocaleHead } from "@/components/LocaleHead";
 
 function NotFoundComponent() {
   return (
@@ -103,8 +101,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "BRWAZWNEON — Premium Framed Posters" },
       { property: "og:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
       { property: "og:type", content: "website" },
-      { property: "og:locale", content: "en_US" },
-      { property: "og:locale:alternate", content: "ar_EG" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "BRWAZWNEON — Premium Framed Posters" },
       { name: "twitter:description", content: "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery." },
@@ -196,7 +192,6 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <I18nProvider>
       <CartProvider>
         <WishlistProvider>
           <RecentlyViewedProvider>
@@ -222,11 +217,9 @@ function RootComponent() {
             <SalesNotifications />
             <BehaviorBoot />
             <TestModeBadge />
-            <LocaleHead />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
-      </I18nProvider>
     </QueryClientProvider>
   );
 }
