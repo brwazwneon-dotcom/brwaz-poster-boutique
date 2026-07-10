@@ -24,6 +24,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
+import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
 import { Route as ApiPublicHooksBackupRouteImport } from './routes/api/public/hooks/backup'
 
 const WishlistRoute = WishlistRouteImport.update({
@@ -101,6 +102,11 @@ const CategorySlugRoute = CategorySlugRouteImport.update({
   path: '/category/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminAssistantRoute = ApiAdminAssistantRouteImport.update({
+  id: '/api/admin-assistant',
+  path: '/api/admin-assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksBackupRoute = ApiPublicHooksBackupRouteImport.update({
   id: '/api/public/hooks/backup',
   path: '/api/public/hooks/backup',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
+  '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
+  '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/wishlist': typeof WishlistRoute
+  '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/sets'
     | '/sitemap.xml'
     | '/wishlist'
+    | '/api/admin-assistant'
     | '/category/$slug'
     | '/api/public/hooks/backup'
   fileRoutesByTo: FileRoutesByTo
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/sets'
     | '/sitemap.xml'
     | '/wishlist'
+    | '/api/admin-assistant'
     | '/category/$slug'
     | '/api/public/hooks/backup'
   id:
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/sets'
     | '/sitemap.xml'
     | '/wishlist'
+    | '/api/admin-assistant'
     | '/category/$slug'
     | '/api/public/hooks/backup'
   fileRoutesById: FileRoutesById
@@ -234,6 +246,7 @@ export interface RootRouteChildren {
   SetsRoute: typeof SetsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WishlistRoute: typeof WishlistRoute
+  ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
   CategorySlugRoute: typeof CategorySlugRoute
   ApiPublicHooksBackupRoute: typeof ApiPublicHooksBackupRoute
 }
@@ -345,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CategorySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin-assistant': {
+      id: '/api/admin-assistant'
+      path: '/api/admin-assistant'
+      fullPath: '/api/admin-assistant'
+      preLoaderRoute: typeof ApiAdminAssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/backup': {
       id: '/api/public/hooks/backup'
       path: '/api/public/hooks/backup'
@@ -370,6 +390,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetsRoute: SetsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   WishlistRoute: WishlistRoute,
+  ApiAdminAssistantRoute: ApiAdminAssistantRoute,
   CategorySlugRoute: CategorySlugRoute,
   ApiPublicHooksBackupRoute: ApiPublicHooksBackupRoute,
 }

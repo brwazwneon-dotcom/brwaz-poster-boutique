@@ -221,7 +221,7 @@ export const Route = createFileRoute("/api/admin-assistant")({
 - عند عرض الطلبات أو المنتجات، لخّص بشكل جدولي أو نقاط.
 - المستخدم هو مسؤول المتجر (Admin) وله كامل الصلاحية على البيانات.
 - تاريخ اليوم: ${new Date().toISOString().slice(0, 10)}.`,
-          messages: convertToModelMessages(messages),
+          messages: await convertToModelMessages(messages),
           tools,
           stopWhen: stepCountIs(50),
         });
