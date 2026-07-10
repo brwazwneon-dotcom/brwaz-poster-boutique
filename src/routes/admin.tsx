@@ -285,7 +285,9 @@ function AdminPage() {
         {tab === "ai-settings" && <AiSettingsTab />}
         {tab === "assistant-requests" && <AssistantRequestsTab />}
         {tab === "settings" && <SettingsTab />}
+        {tab === "assistant" && <AssistantTab />}
       </div>
+      <AdminAssistantButton />
     </div>
   );
 }
