@@ -57,6 +57,10 @@ const EN: Dict = {
   "tab.exports": "Exports",
   "tab.branding": "Branding",
   "tab.settings": "Settings",
+  "tab.error-logs": "Error Logs",
+  "tab.performance": "Performance",
+  "tab.alerts": "Smart Alerts",
+  "tab.assistant-requests": "Assistant Requests",
 };
 
 const AR: Dict = {
@@ -110,6 +114,10 @@ const AR: Dict = {
   "tab.exports": "التصدير",
   "tab.branding": "الهوية",
   "tab.settings": "الإعدادات",
+  "tab.error-logs": "سجل الأخطاء",
+  "tab.performance": "الأداء",
+  "tab.alerts": "التنبيهات الذكية",
+  "tab.assistant-requests": "طلبات المساعد",
 };
 
 const DICTS: Record<AdminLang, Dict> = { en: EN, ar: AR };

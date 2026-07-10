@@ -775,6 +775,39 @@ export type Database = {
           },
         ]
       }
+      perf_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          metric: string
+          page_path: string
+          session_id: string | null
+          user_agent: string | null
+          value_ms: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          metric: string
+          page_path: string
+          session_id?: string | null
+          user_agent?: string | null
+          value_ms: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          metric?: string
+          page_path?: string
+          session_id?: string | null
+          user_agent?: string | null
+          value_ms?: number
+        }
+        Relationships: []
+      }
       photo_4x6_orders: {
         Row: {
           address: string | null
@@ -1533,6 +1566,7 @@ export type Database = {
       admin_reset_recommendation_engine: { Args: never; Returns: undefined }
       admin_storage_manifest: { Args: never; Returns: Json }
       best_sellers_analytics: { Args: never; Returns: Json }
+      detect_bugs: { Args: never; Returns: Json }
       get_recommendations: {
         Args: { _limit?: number; _visitor_id: string }
         Returns: Json
@@ -1585,6 +1619,10 @@ export type Database = {
           tags: string[]
           title: string
         }[]
+      }
+      set_error_log_status: {
+        Args: { _id: string; _status: string }
+        Returns: undefined
       }
       trending_searches: {
         Args: { lim?: number }
