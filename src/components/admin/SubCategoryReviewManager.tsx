@@ -503,6 +503,9 @@ function PosterDetailModal({
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
   const originalUrl = p.original_url ?? p.image_url;
+  const [previewMode, setPreviewMode] = useState<"mockup" | "raw">("mockup");
+  const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
+  const [frameColor, setFrameColor] = useState<FrameColorId>("black");
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
@@ -516,8 +519,51 @@ function PosterDetailModal({
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-sm border border-border bg-black/5 dark:bg-white/5">
-            <SafeImage src={p.image_url} alt={p.alt_text ?? p.title ?? ""} className="h-auto w-full object-contain" />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1 text-[10px] uppercase tracking-widest">
+              <button
+                onClick={() => setPreviewMode("mockup")}
+                className={cn("rounded-sm border px-2 py-1", previewMode === "mockup" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent")}
+              >Mockup</button>
+              <button
+                onClick={() => setPreviewMode("raw")}
+                className={cn("rounded-sm border px-2 py-1", previewMode === "raw" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent")}
+              >Raw image</button>
+              {previewMode === "mockup" && (
+                <div className="ml-auto flex items-center gap-1">
+                  <select
+                    value={frameType}
+                    onChange={(e) => setFrameType(e.target.value as FrameTypeId)}
+                    className="rounded-sm border border-border bg-background px-1.5 py-1 text-[10px] uppercase tracking-widest"
+                  >
+                    <option value="pvc">PVC</option>
+                    <option value="wood">Wood</option>
+                  </select>
+                  <select
+                    value={frameColor}
+                    onChange={(e) => setFrameColor(e.target.value as FrameColorId)}
+                    className="rounded-sm border border-border bg-background px-1.5 py-1 text-[10px] uppercase tracking-widest"
+                  >
+                    <option value="black">Black</option>
+                    <option value="white">White</option>
+                    <option value="wood">Wood</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="rounded-sm border border-border bg-black/5 p-2 dark:bg-white/5">
+              {previewMode === "mockup" ? (
+                <FramePreview
+                  posterUrl={p.image_url}
+                  title={p.title ?? ""}
+                  frameType={frameType}
+                  color={frameColor}
+                  loading="eager"
+                />
+              ) : (
+                <SafeImage src={p.image_url} alt={p.alt_text ?? p.title ?? ""} className="h-auto w-full object-contain" />
+              )}
+            </div>
           </div>
           <div className="space-y-3 text-sm">
             <FieldRow label="Price">{p.price != null ? `${p.price} EGP` : "—"}</FieldRow>
