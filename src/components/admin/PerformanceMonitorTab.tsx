@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, RefreshCcw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, RefreshCcw, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +21,23 @@ const BUCKET_STYLES: Record<Bucket, { badge: string; label: string; tone: string
 
 type PerfRow = { page_path: string; metric: string; value_ms: number; created_at: string };
 
-async function fetchPerf() {
-  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const { data, error } = await supabase
+type TimeRange = "24h" | "7d" | "all";
+
+function sinceFor(range: TimeRange): string | null {
+  if (range === "all") return null;
+  const hours = range === "24h" ? 24 : 24 * 7;
+  return new Date(Date.now() - hours * 3600 * 1000).toISOString();
+}
+
+async function fetchPerf(range: TimeRange) {
+  const since = sinceFor(range);
+  let query = supabase
     .from("perf_metrics")
     .select("page_path, metric, value_ms, created_at")
-    .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(2000);
+  if (since) query = query.gte("created_at", since);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as PerfRow[];
 }
@@ -67,9 +78,12 @@ function pathToLabel(p: string): string {
 }
 
 export function PerformanceMonitorTab() {
+  const qc = useQueryClient();
+  const [range, setRange] = useState<TimeRange>("24h");
+  const [clearing, setClearing] = useState(false);
   const { data: rows = [], isLoading, refetch } = useQuery({
-    queryKey: ["perf-metrics-24h"],
-    queryFn: fetchPerf,
+    queryKey: ["perf-metrics", range],
+    queryFn: () => fetchPerf(range),
     refetchInterval: 60_000,
   });
   const { data: errStats } = useQuery({
@@ -107,8 +121,55 @@ export function PerformanceMonitorTab() {
   const overallAvg = rows.length ? Math.round(rows.reduce((a, r) => a + r.value_ms, 0) / rows.length) : 0;
   const slowCount = rows.filter((r) => r.value_ms > 3000).length;
 
+  async function clearOld() {
+    if (!confirm("حذف كل قياسات الأداء الأقدم من 24 ساعة؟")) return;
+    setClearing(true);
+    try {
+      const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { error } = await supabase.from("perf_metrics").delete().lt("created_at", cutoff);
+      if (error) throw error;
+      toast.success("تم حذف القياسات القديمة");
+      qc.invalidateQueries({ queryKey: ["perf-metrics"] });
+    } catch (e) {
+      toast.error("فشل الحذف: " + (e as Error).message);
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex overflow-hidden rounded-sm border border-border">
+          {(["24h", "7d", "all"] as TimeRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={cn(
+                "px-3 py-1.5 text-[11px] uppercase tracking-widest",
+                range === r ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+              )}
+            >
+              {r === "24h" ? "آخر 24 ساعة" : r === "7d" ? "آخر 7 أيام" : "كل الفترات"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
+        >
+          <RefreshCcw className="h-3 w-3" /> تحديث
+        </button>
+        <button
+          onClick={clearOld}
+          disabled={clearing}
+          className="ml-auto inline-flex items-center gap-1 rounded-sm border border-red-500/40 px-2 py-1.5 text-[10px] uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+        >
+          <Trash2 className="h-3 w-3" /> Clear Old Measurements
+        </button>
+      </div>
+
       {/* Overview cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricCard
@@ -178,14 +239,8 @@ export function PerformanceMonitorTab() {
 
       {/* Slowest pages */}
       <div className="rounded-md border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <div className="text-sm font-semibold">أبطأ الصفحات (آخر 24 ساعة)</div>
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
-          >
-            <RefreshCcw className="h-3 w-3" /> تحديث
-          </button>
+        <div className="border-b border-border p-4 text-sm font-semibold">
+          أبطأ الصفحات ({range === "24h" ? "آخر 24 ساعة" : range === "7d" ? "آخر 7 أيام" : "كل الفترات"})
         </div>
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
