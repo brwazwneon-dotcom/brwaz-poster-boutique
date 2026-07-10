@@ -260,6 +260,9 @@ function AdminPage() {
         {tab === "categories" && <CategoriesTab />}
         {tab === "subcategories" && <SubCategoriesManagerTab />}
         {tab === "orders" && <OrdersTab />}
+        {tab === "customers" && <CustomersTab />}
+        {tab === "abandoned" && <AbandonedOrdersTab />}
+        {tab === "reports" && <ReportsTab onNavigate={(t) => setTab(t as Tab)} />}
         {tab === "custom" && <CustomDesignOrdersTab />}
         {tab === "photo-4x6" && <Photo4x6Tab />}
         {tab === "slider" && <SliderTab />}
