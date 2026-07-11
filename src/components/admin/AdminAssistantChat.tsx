@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { supabase } from "@/integrations/supabase/client";
-import { Bot, Send, RotateCcw, Loader2, Wrench, User } from "lucide-react";
+import { Bot, Send, RotateCcw, Loader2, Wrench, User, AlertTriangle, Zap, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,6 +12,8 @@ type Props = {
 export function AdminAssistantChat({ compact }: Props) {
   const [input, setInput] = useState("");
   const [sessionKey, setSessionKey] = useState(0);
+  const [safeMode, setSafeMode] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
 
   const transport = new DefaultChatTransport({
     api: "/api/admin-assistant",
@@ -41,6 +43,15 @@ export function AdminAssistantChat({ compact }: Props) {
     inputRef.current?.focus();
   }, [sessionKey, status === "ready" ? 1 : 0]);
 
+  useEffect(() => {
+    if (!error) return;
+    setErrorCount((n) => {
+      const next = n + 1;
+      if (next >= 3) setSafeMode(true);
+      return next;
+    });
+  }, [error]);
+
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const text = input.trim();
@@ -53,14 +64,26 @@ export function AdminAssistantChat({ compact }: Props) {
     setMessages([]);
     setSessionKey((k) => k + 1);
     setInput("");
+    setSafeMode(false);
+    setErrorCount(0);
   };
 
-  const suggestions = [
-    "كم أوردر النهاردة؟",
-    "أعلى 5 منتجات مبيعًا",
-    "آخر 10 طلبات",
-    "التنبيهات اللي لسه مقريتش",
-  ];
+  const quickActions = useMemo(
+    () => [
+      { label: "طلبات اليوم", prompt: "وريني أوردرات النهاردة" },
+      { label: "تحتاج تأكيد", prompt: "الأوردرات اللي محتاجة تأكيد" },
+      { label: "السلات المتروكة", prompt: "افتحلي السلات المتروكة" },
+      { label: "تقرير الأسبوع", prompt: "اعمل تقرير مبيعات آخر 7 أيام" },
+      { label: "أخطاء الموقع", prompt: "لخصلي مشاكل الموقع المفتوحة" },
+      { label: "الأداء", prompt: "إيه سبب بطء الموقع؟" },
+      { label: "صور ضعيفة", prompt: "وريني الصور اللي Low Quality" },
+      { label: "أعلى مبيعًا", prompt: "أعلى 10 منتجات مبيعًا" },
+      { label: "عملاء VIP", prompt: "وريني العملاء VIP" },
+      { label: "التنبيهات", prompt: "أحدث التنبيهات اللي لسه مقريتش" },
+      { label: "مفاتيح Gemini", prompt: "شوف مفاتيح Gemini شغالة ولا لأ" },
+    ],
+    [],
+  );
 
   return (
     <div className={cn("flex flex-col bg-background", compact ? "h-full" : "h-[70vh] rounded-sm border border-border")}>
@@ -70,20 +93,44 @@ export function AdminAssistantChat({ compact }: Props) {
             <Bot className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-sm font-semibold">مساعد Brwaz</div>
+            <div className="text-sm font-semibold">AI Admin Assistant</div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              مساعد الأدمن الذكي
+              مساعد الأدمن الذكي • عربي / English
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={reset}
-          className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
-          title="محادثة جديدة"
-        >
-          <RotateCcw className="h-3 w-3" /> جديد
-        </button>
+        <div className="flex items-center gap-2">
+          {safeMode && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+              <AlertTriangle className="h-3 w-3" /> Safe Mode
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={reset}
+            className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
+            title="محادثة جديدة"
+          >
+            <RotateCcw className="h-3 w-3" /> جديد
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Actions bar */}
+      <div className="border-b border-border px-3 py-2 overflow-x-auto">
+        <div className="flex gap-1.5">
+          {quickActions.map((a) => (
+            <button
+              key={a.label}
+              type="button"
+              onClick={() => sendMessage({ text: a.prompt })}
+              disabled={isLoading}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+            >
+              <Zap className="h-3 w-3 text-primary" /> {a.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -94,19 +141,7 @@ export function AdminAssistantChat({ compact }: Props) {
             </div>
             <div className="mt-4 text-sm font-medium">اسألني عن أي حاجة في المتجر</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              الطلبات، المنتجات، التنبيهات، وأقدر أساعدك أكتب أوصاف ورسائل تسويقية.
-            </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => sendMessage({ text: s })}
-                  className="rounded-full border border-border px-3 py-1.5 text-xs hover:bg-accent"
-                >
-                  {s}
-                </button>
-              ))}
+              الطلبات، العملاء، السلات، التقارير، أداء الموقع، إدارة الصفحة الرئيسية، وتشغيل AI SEO.
             </div>
           </div>
         )}
@@ -122,9 +157,7 @@ export function AdminAssistantChat({ compact }: Props) {
         )}
 
         {error && (
-          <div className="rounded-sm border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
-            حصل خطأ: {error.message}
-          </div>
+          <FriendlyError error={error} onRetry={() => sendMessage({ text: "أعد المحاولة" })} />
         )}
       </div>
 
@@ -141,7 +174,7 @@ export function AdminAssistantChat({ compact }: Props) {
               }
             }}
             rows={1}
-            placeholder="اكتب سؤالك..."
+            placeholder={safeMode ? "Safe Mode: أسئلة قراءة فقط..." : "اكتب سؤالك أو الأمر اللي تحبه..."}
             className="flex-1 resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary max-h-40"
             disabled={isLoading}
           />
@@ -154,6 +187,45 @@ export function AdminAssistantChat({ compact }: Props) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function FriendlyError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-sm border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+        <div className="flex-1">
+          <div className="font-medium text-foreground">حصلت مشكلة أثناء تنفيذ الطلب.</div>
+          <div className="text-muted-foreground">
+            جرّب مرة أخرى أو افتح Error Logs لمعرفة التفاصيل.
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-sm border border-border bg-background px-2 py-1 text-[11px] hover:bg-accent"
+            >
+              إعادة المحاولة
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-[11px] hover:bg-accent"
+            >
+              {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              View Error Details
+            </button>
+          </div>
+          {open && (
+            <pre className="mt-2 max-h-40 overflow-auto rounded bg-background/60 p-2 text-[10px] text-muted-foreground">
+              {error.message}
+            </pre>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -194,29 +266,44 @@ function MessageRow({ message }: { message: UIMessage }) {
             };
             const toolName = anyPart.type.replace(/^tool-/, "");
             const done = anyPart.state === "output-available" || anyPart.state === "output-error";
+            const out = anyPart.output as { ok?: boolean; friendly?: string; needsConfirmation?: boolean; prompt?: string } | undefined;
+            const failed = out?.ok === false;
+            const needsConfirm = out?.needsConfirmation === true;
             return (
-              <details
-                key={i}
-                className="rounded-sm border border-border bg-card/50 px-2 py-1 text-xs"
-              >
-                <summary className="flex cursor-pointer items-center gap-1.5 text-muted-foreground">
-                  {done ? (
-                    <Wrench className="h-3 w-3 text-primary" />
-                  ) : (
-                    <Loader2 className="h-3 w-3 animate-spin" />
+              <div key={i} className={cn(
+                "rounded-sm border px-2 py-1.5 text-xs",
+                failed ? "border-amber-500/40 bg-amber-500/5" :
+                needsConfirm ? "border-blue-500/40 bg-blue-500/5" :
+                "border-border bg-card/50",
+              )}>
+                <details>
+                  <summary className="flex cursor-pointer items-center gap-1.5 text-muted-foreground">
+                    {done ? (
+                      failed ? <AlertTriangle className="h-3 w-3 text-amber-600" /> : <Wrench className="h-3 w-3 text-primary" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    )}
+                    <span className="font-mono">{toolName}</span>
+                    <span className="text-[10px]">
+                      {done ? (failed ? "تعذر التنفيذ" : needsConfirm ? "بانتظار تأكيد" : "تم") : "جاري..."}
+                    </span>
+                  </summary>
+                  {failed && out?.friendly && (
+                    <div className="mt-2 text-foreground">{out.friendly}</div>
                   )}
-                  <span className="font-mono">{toolName}</span>
-                  <span className="text-[10px]">{done ? "تم" : "جاري..."}</span>
-                </summary>
-                {anyPart.errorText && (
-                  <div className="mt-1 text-destructive">{anyPart.errorText}</div>
-                )}
-                {anyPart.output != null && (
-                  <pre className="mt-1 max-h-60 overflow-auto rounded bg-background/60 p-2 text-[10px]">
-                    {JSON.stringify(anyPart.output, null, 2)}
-                  </pre>
-                )}
-              </details>
+                  {needsConfirm && out?.prompt && (
+                    <div className="mt-2 text-foreground">{out.prompt}</div>
+                  )}
+                  {anyPart.errorText && (
+                    <div className="mt-1 text-muted-foreground">{anyPart.errorText}</div>
+                  )}
+                  {anyPart.output != null && (
+                    <pre className="mt-2 max-h-60 overflow-auto rounded bg-background/60 p-2 text-[10px]">
+                      {JSON.stringify(anyPart.output, null, 2)}
+                    </pre>
+                  )}
+                </details>
+              </div>
             );
           }
           return null;
