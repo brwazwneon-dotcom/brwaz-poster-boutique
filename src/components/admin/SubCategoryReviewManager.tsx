@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Eye, EyeOff, Trash2, Sparkles, X, Loader2, Search, Download,
-  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter,
+  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame,
 } from "lucide-react";
 
 type Poster = {
@@ -35,6 +35,7 @@ type Poster = {
   created_at: string;
   sales_count: number;
   views_count: number;
+  trending?: boolean | null;
 };
 
 type ReviewStatus =
