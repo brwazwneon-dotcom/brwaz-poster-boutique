@@ -36,11 +36,15 @@ export type GeminiKeyStatusRow = {
   label: string;
   masked: string;
   present: boolean;
-  state: "available" | "rate_limited" | "failed" | "unknown";
+  state: "available" | "rate_limited" | "failed" | "disabled" | "unknown";
   lastUsedAt: number | null;
   lastErrorAt: number | null;
   lastError: string | null;
   rateLimitedUntil: number | null;
+  disabled: boolean;
+  requests: number;
+  successes: number;
+  failures: number;
 };
 
 export const getGeminiKeys = createServerFn({ method: "GET" })
@@ -50,6 +54,62 @@ export const getGeminiKeys = createServerFn({ method: "GET" })
     const { getGeminiKeysStatus } = await import("@/lib/gemini.server");
     return getGeminiKeysStatus();
   });
+
+export type OpenRouterStatus = {
+  present: boolean;
+  lastUsedAt: number | null;
+};
+
+export const getOpenRouterStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<OpenRouterStatus> => {
+    await assertAdmin(context.supabase, context.userId);
+    const { hasOpenRouterFallback, getLastUsedProvider } = await import("@/lib/gemini.server");
+    const last = getLastUsedProvider();
+    return {
+      present: hasOpenRouterFallback(),
+      lastUsedAt: last?.provider === "openrouter" ? last.at : null,
+    };
+  });
+
+/** Admin controls: disable, enable, reset-cooldown per Gemini key. */
+export const setGeminiKeyState = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown): { label: string; action: "disable" | "enable" | "reset" } => {
+    const d = data as { label?: string; action?: string };
+    if (!d?.label || !d?.action) throw new Error("invalid input");
+    if (!["disable", "enable", "reset"].includes(d.action)) throw new Error("invalid action");
+    return { label: d.label, action: d.action as "disable" | "enable" | "reset" };
+  })
+  .handler(async ({ context, data }): Promise<{ ok: boolean }> => {
+    await assertAdmin(context.supabase, context.userId);
+    const { disableGeminiKey, enableGeminiKey, resetGeminiKeyCooldown } = await import(
+      "@/lib/gemini.server"
+    );
+    let ok = false;
+    if (data.action === "disable") ok = disableGeminiKey(data.label);
+    else if (data.action === "enable") ok = enableGeminiKey(data.label);
+    else ok = resetGeminiKeyCooldown(data.label);
+    return { ok };
+  });
+
+export const testOneGeminiKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown): { label: string } => {
+    const d = data as { label?: string };
+    if (!d?.label) throw new Error("invalid input");
+    return { label: d.label };
+  })
+  .handler(
+    async ({
+      context,
+      data,
+    }): Promise<{ ok: boolean; latencyMs: number; error?: string }> => {
+      await assertAdmin(context.supabase, context.userId);
+      const { testGeminiKey } = await import("@/lib/gemini.server");
+      return testGeminiKey(data.label);
+    },
+  );
 
 export type GeminiKeyTest = {
   label: string;
