@@ -423,7 +423,7 @@ function SelectFilter({
 }
 
 function PosterCard({
-  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace,
+  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onToggleTrending,
 }: {
   poster: Poster;
   selected: boolean;
@@ -434,9 +434,11 @@ function PosterCard({
   onAiSeo: () => void;
   onReview: (s: ReviewStatus) => void;
   onReplace: (file: File) => void;
+  onToggleTrending: () => void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
   const missingSeo = seoMissing(p);
+  const isTrending = p.trending === true;
   return (
     <div className={cn(
       "group rounded-sm border bg-card p-2 transition",
@@ -447,7 +449,12 @@ function PosterCard({
         <label className="absolute left-1.5 top-1.5 z-10 rounded-sm bg-background/80 p-1 backdrop-blur">
           <input type="checkbox" checked={selected} onChange={onToggle} className="block" />
         </label>
-        {p.hidden && (
+        {isTrending && (
+          <span className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
+            <Flame className="h-2.5 w-2.5" /> Trending
+          </span>
+        )}
+        {p.hidden && !isTrending && (
           <span className="absolute right-1.5 top-1.5 z-10 rounded-sm bg-black/70 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-white">
             Hidden
           </span>
@@ -496,6 +503,16 @@ function PosterCard({
             {p.hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           </button>
           <button onClick={onAiSeo} title="AI SEO" className="rounded-sm border border-primary/40 bg-primary/5 p-1 text-primary hover:bg-primary/10"><Sparkles className="h-3 w-3" /></button>
+          <button
+            onClick={onToggleTrending}
+            title={isTrending ? "Remove from Trending" : "Add to Trending"}
+            className={cn(
+              "rounded-sm border p-1",
+              isTrending ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent",
+            )}
+          >
+            <Flame className="h-3 w-3" />
+          </button>
           <button onClick={onDelete} title="Delete" className="ml-auto rounded-sm border border-border p-1 text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /></button>
         </div>
       </div>
