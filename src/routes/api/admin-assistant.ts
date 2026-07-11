@@ -363,7 +363,7 @@ export const Route = createFileRoute("/api/admin-assistant")({
               const since = new Date(Date.now() - 86400000).toISOString();
               const { data, error } = await supabaseAdmin
                 .from("perf_metrics")
-                .select("metric,value,page,created_at")
+                .select("metric,value_ms,page_path,created_at")
                 .gte("created_at", since)
                 .limit(2000);
               if (error) throw error;
@@ -371,7 +371,7 @@ export const Route = createFileRoute("/api/admin-assistant")({
               const grouped: Record<string, { count: number; sum: number; max: number }> = {};
               for (const r of rows) {
                 const g = grouped[r.metric] ?? { count: 0, sum: 0, max: 0 };
-                g.count += 1; g.sum += Number(r.value); g.max = Math.max(g.max, Number(r.value));
+                g.count += 1; g.sum += Number(r.value_ms); g.max = Math.max(g.max, Number(r.value_ms));
                 grouped[r.metric] = g;
               }
               const summary = Object.fromEntries(
