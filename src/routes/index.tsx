@@ -19,7 +19,6 @@ import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
 import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
-import { PersonalizedSections } from "@/components/PersonalizedSections";
 import { TrendingNow } from "@/components/TrendingNow";
 import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from "@/components/PersonalRails";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
