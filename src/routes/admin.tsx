@@ -43,6 +43,7 @@ import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
 import { SubCategoriesManagerTab } from "@/components/admin/SubCategoriesManagerTab";
+import { TrendingNowManager } from "@/components/admin/TrendingNowManager";
 import { BrandingTab } from "@/components/admin/BrandingTab";
 import { AiSettingsTab } from "@/components/admin/AiSettingsTab";
 import { SocialProofTab } from "@/components/admin/SocialProofTab";
