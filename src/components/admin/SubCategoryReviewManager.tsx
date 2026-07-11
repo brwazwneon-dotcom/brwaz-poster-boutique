@@ -108,7 +108,7 @@ export function SubCategoryReviewManager({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count")
+        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count,trending")
         .eq("category_id", subCategory.id)
         .order("created_at", { ascending: false })
         .limit(1000);
