@@ -19,8 +19,9 @@ import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
 import { TrustedQuality } from "@/components/TrustedQuality";
 import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
-import { PersonalizedSections } from "@/components/PersonalizedSections";
-import { useHomeSections, type HomeSectionKey } from "@/lib/homepage-sections";
+import { TrendingNow } from "@/components/TrendingNow";
+import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from "@/components/PersonalRails";
+import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 
 export const Route = createFileRoute("/")({
@@ -41,15 +42,36 @@ function Index() {
   const sections = useHomeSections();
   const { data: picks = {} } = useHomeCategoryPicks();
 
-  const RENDERERS: Record<HomeSectionKey, (title?: string, subtitle?: string) => React.ReactNode> = {
+  const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
+  const resolveSubtitle = (s: HomeSectionConfig) => s.subtitle_en || s.subtitle || undefined;
+
+  const RENDERERS: Record<string, (s: HomeSectionConfig) => React.ReactNode> = {
     hero: () => <HeroSection key="hero" />,
     trust: () => <TrustSection key="trust" />,
-    "trusted-quality": (t, s) => <TrustedQuality key="trusted-quality" title={t} subtitle={s} />,
+    "trusted-quality": (s) => <TrustedQuality key="trusted-quality" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />,
     about: () => <AboutBrwaz key="about" />,
     highlights: () => <Highlights key="highlights" />,
-    "best-sellers": (t, s) => <BestSellers key="best-sellers" title={t} subtitle={s} />,
+    "best-sellers": (s) => <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />,
     benefits: () => <BenefitsBar key="benefits" />,
     collections: () => <ShopByCollection key="collections" />,
+    "trending-now": (s) => (
+      <TrendingNow
+        key="trending-now"
+        title={resolveTitle(s)}
+        subtitle={resolveSubtitle(s)}
+        itemsCount={s.items_count ?? 12}
+        manualIds={s.source_type === "manual" ? s.manual_ids : undefined}
+      />
+    ),
+    "for-you": (s) => (
+      <ForYouSection key="for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
+    ),
+    "because-you-liked": (s) => (
+      <BecauseYouLikedSection key="because-you-liked" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
+    ),
+    "recommended-for-you": (s) => (
+      <RecommendedForYouSection key="recommended-for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
+    ),
     categories: () => (
       <div key="categories">
         {FEATURED_SLUGS.map((slug, i) => {
@@ -76,10 +98,10 @@ function Index() {
     <div className="bg-background text-foreground">
       <HomeSlider />
       <CollectionsQuickBar />
-      <PersonalizedSections />
+      {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
       {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
-        .map((s) => RENDERERS[s.key](s.title, s.subtitle))}
+        .map((s) => RENDERERS[s.key](s))}
     </div>
   );
 }

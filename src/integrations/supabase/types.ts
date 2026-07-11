@@ -1116,6 +1116,8 @@ export type Database = {
           tags: string[]
           title: string
           total_view_seconds: number
+          trending: boolean
+          trending_order: number | null
           unique_views_count: number
           updated_at: string
           views_count: number
@@ -1149,6 +1151,8 @@ export type Database = {
           tags?: string[]
           title?: string
           total_view_seconds?: number
+          trending?: boolean
+          trending_order?: number | null
           unique_views_count?: number
           updated_at?: string
           views_count?: number
@@ -1182,6 +1186,8 @@ export type Database = {
           tags?: string[]
           title?: string
           total_view_seconds?: number
+          trending?: boolean
+          trending_order?: number | null
           unique_views_count?: number
           updated_at?: string
           views_count?: number
