@@ -9,6 +9,7 @@ import { FramePreview } from "@/components/FramePreview";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { uploadAndSign } from "@/lib/storage-url";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
+import { toggleTrending } from "@/components/admin/TrendingNowManager";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
