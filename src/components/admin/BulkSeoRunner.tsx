@@ -130,7 +130,8 @@ export function BulkSeoRunner({
         provider: result.provider,
       };
       setItems([...list]);
-      await new Promise((r) => setTimeout(r, 250));
+      // Rate-limit-friendly pacing: ~1.2s between requests.
+      await new Promise((r) => setTimeout(r, 1200));
     }
     setPhase("done");
   };
@@ -165,6 +166,22 @@ export function BulkSeoRunner({
       skipped: items.filter((i) => i.status === "skipped").length,
       review: items.filter((i) => i.status === "needs_review").length,
     };
+  }, [items]);
+
+  const currentProvider = useMemo(() => {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].provider) return items[i].provider!;
+    }
+    return null;
+  }, [items]);
+
+  const providerCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of items) {
+      if (!it.provider) continue;
+      map.set(it.provider, (map.get(it.provider) ?? 0) + 1);
+    }
+    return map;
   }, [items]);
 
   return (
@@ -246,6 +263,27 @@ export function BulkSeoRunner({
                 <span className="text-amber-500">⚠ {totals.review} needs review</span>
                 <span className="text-destructive">✖ {totals.failed} failed</span>
                 <span className="text-muted-foreground">↷ {totals.skipped} skipped</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span>Current:</span>
+                <span className="rounded border border-border px-1.5 py-0.5 font-mono">
+                  {currentProvider ?? "waiting…"}
+                </span>
+                {providerCounts.size > 0 && (
+                  <>
+                    <span>·</span>
+                    {[...providerCounts.entries()].map(([p, n]) => (
+                      <span key={p} className="rounded border border-border px-1.5 py-0.5">
+                        {p}: {n}
+                      </span>
+                    ))}
+                  </>
+                )}
+                {[...providerCounts.keys()].some((p) => p.toLowerCase().includes("openrouter")) && (
+                  <span className="text-amber-500">
+                    ⚠ All Gemini keys were unavailable — using OpenRouter fallback.
+                  </span>
+                )}
               </div>
             </div>
 
@@ -370,8 +408,19 @@ async function processPoster(
       },
     });
     if (error) throw error;
-    const gen = (data ?? {}) as Partial<PosterRow> & { model?: string; hashtags?: string[]; alt_text?: string };
-    const provider = gen.model ? "openrouter" : "openrouter";
+    const gen = (data ?? {}) as Partial<PosterRow> & {
+      model?: string;
+      provider?: string;
+      key?: string;
+      hashtags?: string[];
+      alt_text?: string;
+    };
+    // Prefer explicit provider/key labels from the edge function; fall back to model.
+    const provider = gen.key
+      ? gen.key
+      : gen.provider
+      ? gen.provider
+      : gen.model ?? "unknown";
 
     const patch: Record<string, unknown> = {};
     const updated: string[] = [];
