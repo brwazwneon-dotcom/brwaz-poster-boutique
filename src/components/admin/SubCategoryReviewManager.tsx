@@ -346,6 +346,10 @@ export function SubCategoryReviewManager({
                     onAiSeo={() => runAiSeoSingle(p)}
                     onReview={(s) => setReview([p.id], s)}
                     onReplace={(f) => replaceImage(p, f)}
+                    onToggleTrending={async () => {
+                      await toggleTrending(p.id, p.trending === true);
+                      invalidate();
+                    }}
                   />
                 ))}
               </div>
