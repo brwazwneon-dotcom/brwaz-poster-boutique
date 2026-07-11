@@ -804,11 +804,14 @@ export const Route = createFileRoute("/api/admin-assistant")({
               }
               if (kind === "reset_all_gemini_cooldowns") {
                 const { resetGeminiKeyCooldown, getGeminiKeysStatus } = await import("@/lib/gemini.server");
-                const status = getGeminiKeysStatus();
-                for (let i = 0; i < status.length; i++) {
-                  try { resetGeminiKeyCooldown(i); } catch {/* ignore */}
+                const status = getGeminiKeysStatus() as Array<{ label?: string; id?: string }>;
+                let reset = 0;
+                for (const s of status) {
+                  const label = (s.label ?? s.id) as string | undefined;
+                  if (!label) continue;
+                  try { if (resetGeminiKeyCooldown(label)) reset++; } catch {/* ignore */}
                 }
-                return { done: true, kind, resetKeys: status.length };
+                return { done: true, kind, resetKeys: reset };
               }
               if (kind === "recalculate_poster_counters") {
                 // Safe stand-in: mark as queued; heavy work belongs in a cron job
