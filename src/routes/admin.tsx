@@ -86,7 +86,6 @@ import {
   BEST_SELLERS_CONFIG_KEY,
   DEFAULT_BS_CONFIG,
   type HomeSectionConfig,
-  type HomeSectionKey,
   type BestSellersConfig,
 } from "@/lib/homepage-sections";
 import {
