@@ -6666,6 +6666,8 @@ function BestSellersTab() {
 
 function HomeSectionsTab() {
   const qc = useQueryClient();
+  const [trendingOpen, setTrendingOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState<HomeSectionConfig | null>(null);
   const { data: sections = DEFAULT_HOME_SECTIONS, isLoading } = useQuery({
     queryKey: ["admin-home-sections"],
     queryFn: async (): Promise<HomeSectionConfig[]> => {
@@ -6680,16 +6682,29 @@ function HomeSectionsTab() {
       const seen = new Set<string>();
       const out: HomeSectionConfig[] = [];
       for (const item of raw) {
-        const key = (item as { key?: string }).key as HomeSectionKey | undefined;
-        if (!key || !(key in HOME_SECTION_LABELS)) continue;
+        const it = item as Record<string, unknown>;
+        const key = it.key as string | undefined;
+        if (!key) continue;
+        const isCustom = it.custom === true || key.startsWith("custom-");
+        if (!isCustom && !(key in HOME_SECTION_LABELS)) continue;
         if (seen.has(key)) continue;
         seen.add(key);
         const def = DEFAULT_HOME_SECTIONS.find((d) => d.key === key);
         out.push({
           key,
-          enabled: (item as { enabled?: unknown }).enabled !== false,
-          title: (item as { title?: string }).title ?? def?.title,
-          subtitle: (item as { subtitle?: string }).subtitle ?? def?.subtitle,
+          enabled: it.enabled !== false,
+          title: (it.title as string | undefined) ?? def?.title,
+          subtitle: (it.subtitle as string | undefined) ?? def?.subtitle,
+          title_en: (it.title_en as string | undefined) ?? def?.title_en,
+          title_ar: (it.title_ar as string | undefined) ?? def?.title_ar,
+          subtitle_en: (it.subtitle_en as string | undefined) ?? def?.subtitle_en,
+          subtitle_ar: (it.subtitle_ar as string | undefined) ?? def?.subtitle_ar,
+          items_count: typeof it.items_count === "number" ? it.items_count : def?.items_count,
+          source_type: (it.source_type as HomeSectionConfig["source_type"]) ?? def?.source_type,
+          display_type: (it.display_type as HomeSectionConfig["display_type"]) ?? def?.display_type,
+          manual_ids: Array.isArray(it.manual_ids) ? (it.manual_ids as string[]) : def?.manual_ids,
+          custom: isCustom || undefined,
+          label: (it.label as string | undefined) ?? def?.label,
         });
       }
       for (const d of DEFAULT_HOME_SECTIONS) if (!seen.has(d.key)) out.push(d);
@@ -6704,6 +6719,7 @@ function HomeSectionsTab() {
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["admin-home-sections"] });
     qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+    toast.success("Homepage sections updated successfully");
   };
 
   const move = (i: number, dir: -1 | 1) => {
@@ -6719,23 +6735,88 @@ function HomeSectionsTab() {
     save(next);
   };
 
+  const removeAt = (i: number) => {
+    if (!confirm("Remove this custom section?")) return;
+    save(sections.filter((_, idx) => idx !== i));
+  };
+
+  const addCustom = () => {
+    const label = prompt("New section label (shown in admin only)");
+    if (!label) return;
+    const key = `custom-${Date.now()}`;
+    save([
+      ...sections,
+      {
+        key,
+        custom: true,
+        label,
+        enabled: true,
+        title_en: label,
+        title_ar: label,
+        source_type: "manual",
+        display_type: "grid",
+        items_count: 8,
+        manual_ids: [],
+      },
+    ]);
+  };
+
   const resetDefaults = () => {
     if (!confirm("Reset section order to defaults?")) return;
     save(DEFAULT_HOME_SECTIONS);
   };
 
+  const sectionLabel = (s: HomeSectionConfig) =>
+    (HOME_SECTION_LABELS as Record<string, string>)[s.key] ?? s.label ?? s.key;
+
+  const sourceTypes: Array<[NonNullable<HomeSectionConfig["source_type"]>, string]> = [
+    ["manual", "Manual Selection"],
+    ["trending", "Trending Posters"],
+    ["best_sellers", "Best Sellers"],
+    ["recently_viewed", "Recently Viewed"],
+    ["category", "Category Based"],
+    ["personalized", "Personalized"],
+    ["mixed", "Mixed"],
+  ];
+  const displayTypes: Array<[NonNullable<HomeSectionConfig["display_type"]>, string]> = [
+    ["slider", "Slider"],
+    ["grid", "Grid"],
+    ["carousel", "Carousel"],
+  ];
+
   return (
     <div>
-      <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-card p-4">
         <p className="text-xs text-muted-foreground">
-          Reorder, show/hide, and rename homepage sections. Changes apply instantly.
+          Reorder, show/hide, and rename homepage sections. Every change saves and applies instantly.
         </p>
-        <button
-          onClick={resetDefaults}
-          className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-        >
-          Reset defaults
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTrendingOpen(true)}
+            className="inline-flex items-center gap-1 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+          >
+            🔥 Trending Now Manager
+          </button>
+          <Link
+            to="/"
+            target="_blank"
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            Preview Homepage
+          </Link>
+          <button
+            onClick={addCustom}
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            + Create New Section
+          </button>
+          <button
+            onClick={resetDefaults}
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+          >
+            Reset defaults
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">
@@ -6745,53 +6826,258 @@ function HomeSectionsTab() {
           sections.map((s, i) => (
             <div
               key={s.key}
-              className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3"
+              className="rounded-sm border border-border bg-card p-3"
             >
-              <div className="min-w-[140px]">
-                <div className="text-sm font-semibold">{HOME_SECTION_LABELS[s.key]}</div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {s.key}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-[160px]">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold">
+                    {sectionLabel(s)}
+                    {s.custom ? (
+                      <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-widest text-muted-foreground">
+                        Custom
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {s.key}
+                  </div>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+                  <input
+                    type="checkbox"
+                    checked={s.enabled}
+                    onChange={(e) => updateAt(i, { enabled: e.target.checked })}
+                  />
+                  {s.enabled ? "Visible" : "Hidden"}
+                </label>
+                <div className="ml-auto flex gap-1">
+                  {s.key === "trending-now" ? (
+                    <button
+                      onClick={() => setTrendingOpen(true)}
+                      className="rounded-sm border border-primary/50 bg-primary/10 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20"
+                    >
+                      Manage Items
+                    </button>
+                  ) : s.source_type === "manual" ? (
+                    <button
+                      onClick={() => setManualOpen(s)}
+                      className="rounded-sm border border-border px-2 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
+                    >
+                      Manage Items
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0}
+                    title="Move up"
+                    className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => move(i, 1)}
+                    disabled={i === sections.length - 1}
+                    title="Move down"
+                    className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                  {s.custom ? (
+                    <button
+                      onClick={() => removeAt(i)}
+                      title="Delete section"
+                      className="rounded-sm border border-border p-1.5 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
-              <input
-                defaultValue={s.title ?? ""}
-                placeholder="Custom title (optional)"
-                onBlur={(e) => e.target.value !== (s.title ?? "") && updateAt(i, { title: e.target.value || undefined })}
-                className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-              />
-              <input
-                defaultValue={s.subtitle ?? ""}
-                placeholder="Subtitle (optional)"
-                onBlur={(e) => e.target.value !== (s.subtitle ?? "") && updateAt(i, { subtitle: e.target.value || undefined })}
-                className="flex-1 min-w-[200px] rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-              />
-              <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <input
-                  type="checkbox"
-                  checked={s.enabled}
-                  onChange={(e) => updateAt(i, { enabled: e.target.checked })}
+                  defaultValue={s.title_en ?? s.title ?? ""}
+                  placeholder="Title (English)"
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v !== (s.title_en ?? s.title ?? "")) updateAt(i, { title_en: v || undefined });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
-                Show
-              </label>
-              <div className="ml-auto flex gap-1">
-                <button
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
-                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
-                >
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => move(i, 1)}
-                  disabled={i === sections.length - 1}
-                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
-                >
-                  <ArrowDown className="h-3.5 w-3.5" />
-                </button>
+                <input
+                  defaultValue={s.title_ar ?? ""}
+                  placeholder="العنوان (عربي)"
+                  dir="rtl"
+                  onBlur={(e) => {
+                    if (e.target.value !== (s.title_ar ?? "")) updateAt(i, { title_ar: e.target.value || undefined });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  defaultValue={s.subtitle_en ?? s.subtitle ?? ""}
+                  placeholder="Subtitle (English)"
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v !== (s.subtitle_en ?? s.subtitle ?? "")) updateAt(i, { subtitle_en: v || undefined });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  defaultValue={s.subtitle_ar ?? ""}
+                  placeholder="العنوان الفرعي (عربي)"
+                  dir="rtl"
+                  onBlur={(e) => {
+                    if (e.target.value !== (s.subtitle_ar ?? "")) updateAt(i, { subtitle_ar: e.target.value || undefined });
+                  }}
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                />
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <label className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground">Source</span>
+                  <select
+                    value={s.source_type ?? ""}
+                    onChange={(e) => updateAt(i, { source_type: (e.target.value || undefined) as HomeSectionConfig["source_type"] })}
+                    className="rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
+                  >
+                    <option value="">—</option>
+                    {sourceTypes.map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground">Display</span>
+                  <select
+                    value={s.display_type ?? ""}
+                    onChange={(e) => updateAt(i, { display_type: (e.target.value || undefined) as HomeSectionConfig["display_type"] })}
+                    className="rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
+                  >
+                    <option value="">—</option>
+                    {displayTypes.map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground">Items</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={48}
+                    defaultValue={s.items_count ?? 12}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n) && n > 0 && n !== s.items_count) updateAt(i, { items_count: n });
+                    }}
+                    className="w-16 rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
+                  />
+                </label>
               </div>
             </div>
           ))
         )}
+      </div>
+
+      {trendingOpen ? <TrendingNowManager onClose={() => setTrendingOpen(false)} /> : null}
+      {manualOpen ? (
+        <ManualSelectionModal
+          section={manualOpen}
+          onClose={() => setManualOpen(null)}
+          onSave={(ids) => {
+            const idx = sections.findIndex((x) => x.key === manualOpen.key);
+            if (idx >= 0) updateAt(idx, { manual_ids: ids });
+            setManualOpen(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ManualSelectionModal({
+  section,
+  onClose,
+  onSave,
+}: {
+  section: HomeSectionConfig;
+  onClose: () => void;
+  onSave: (ids: string[]) => void;
+}) {
+  const [ids, setIds] = useState<string[]>(section.manual_ids ?? []);
+  const [q, setQ] = useState("");
+  const { data: posters = [] } = useQuery({
+    queryKey: ["admin-manual-section-posters", q],
+    queryFn: async () => {
+      let query = supabase
+        .from("posters")
+        .select("id,title,image_url,hidden")
+        .eq("hidden", false)
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (q.trim()) query = query.ilike("title", `%${q.trim()}%`);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const toggle = (id: string) =>
+    setIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-sm border border-border bg-background">
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <div>
+            <div className="text-sm font-semibold">Manage Items — {section.title_en || section.label || section.key}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{ids.length} selected</div>
+          </div>
+          <button onClick={onClose} className="rounded-sm border border-border p-1.5 hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="border-b border-border p-3">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search posters…"
+            className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            {posters.map((p: any) => {
+              const on = ids.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggle(p.id)}
+                  className={cn(
+                    "group relative aspect-[2/3] overflow-hidden rounded-sm border bg-muted transition",
+                    on ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 truncate bg-background/85 px-1 py-0.5 text-[10px]">
+                    {p.title}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border p-3">
+          <button onClick={onClose} className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(ids)}
+            className="rounded-sm bg-primary px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+          >
+            Save Changes
+          </button>
+        </div>
       </div>
     </div>
   );
