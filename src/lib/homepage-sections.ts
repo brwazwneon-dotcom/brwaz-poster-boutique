@@ -14,13 +14,38 @@ export type HomeSectionKey =
   | "offers"
   | "recently-viewed"
   | "before-after"
-  | "reviews";
+  | "reviews"
+  | "trending-now"
+  | "for-you"
+  | "because-you-liked"
+  | "recommended-for-you";
+
+export type SectionSourceType =
+  | "manual"
+  | "trending"
+  | "best_sellers"
+  | "recently_viewed"
+  | "category"
+  | "personalized"
+  | "mixed";
+
+export type SectionDisplayType = "slider" | "grid" | "carousel";
 
 export type HomeSectionConfig = {
-  key: HomeSectionKey;
+  key: HomeSectionKey | string; // string allows custom-<id>
   enabled: boolean;
   title?: string;
   subtitle?: string;
+  title_en?: string;
+  title_ar?: string;
+  subtitle_en?: string;
+  subtitle_ar?: string;
+  items_count?: number;
+  source_type?: SectionSourceType;
+  display_type?: SectionDisplayType;
+  manual_ids?: string[];
+  custom?: boolean; // true for admin-created sections
+  label?: string; // display name for custom sections
 };
 
 export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
@@ -37,11 +62,51 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "recently-viewed": "Recently Viewed",
   "before-after": "Before / After",
   reviews: "Customer Reviews",
+  "trending-now": "Trending Now",
+  "for-you": "For You",
+  "because-you-liked": "Because You Liked",
+  "recommended-for-you": "Recommended For You",
 };
 
 export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { key: "hero", enabled: true },
   { key: "trust", enabled: true },
+  {
+    key: "trending-now",
+    enabled: true,
+    title_en: "Trending Now",
+    title_ar: "الترند الآن",
+    source_type: "trending",
+    display_type: "slider",
+    items_count: 12,
+  },
+  {
+    key: "for-you",
+    enabled: true,
+    title_en: "For You",
+    title_ar: "مختار لك",
+    source_type: "personalized",
+    display_type: "carousel",
+    items_count: 12,
+  },
+  {
+    key: "because-you-liked",
+    enabled: true,
+    title_en: "Because You Liked",
+    title_ar: "لأنك أعجبت بـ",
+    source_type: "personalized",
+    display_type: "carousel",
+    items_count: 12,
+  },
+  {
+    key: "recommended-for-you",
+    enabled: true,
+    title_en: "Recommended For You",
+    title_ar: "موصى به لك",
+    source_type: "best_sellers",
+    display_type: "carousel",
+    items_count: 12,
+  },
   { key: "collections", enabled: true },
   { key: "offers", enabled: true },
   { key: "trusted-quality", enabled: true, title: "Trusted Quality", subtitle: "Why BRWAZWNEON" },
@@ -63,16 +128,29 @@ function normalize(raw: unknown): HomeSectionConfig[] {
   const out: HomeSectionConfig[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const key = (item as { key?: string }).key as HomeSectionKey | undefined;
-    if (!key || !(key in HOME_SECTION_LABELS)) continue;
+    const it = item as Record<string, unknown>;
+    const key = it.key as string | undefined;
+    if (!key) continue;
+    const isCustom = it.custom === true || key.startsWith("custom-");
+    if (!isCustom && !(key in HOME_SECTION_LABELS)) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     const def = DEFAULT_HOME_SECTIONS.find((d) => d.key === key);
     out.push({
       key,
-      enabled: (item as { enabled?: unknown }).enabled !== false,
-      title: (item as { title?: string }).title ?? def?.title,
-      subtitle: (item as { subtitle?: string }).subtitle ?? def?.subtitle,
+      enabled: it.enabled !== false,
+      title: (it.title as string | undefined) ?? def?.title,
+      subtitle: (it.subtitle as string | undefined) ?? def?.subtitle,
+      title_en: (it.title_en as string | undefined) ?? def?.title_en,
+      title_ar: (it.title_ar as string | undefined) ?? def?.title_ar,
+      subtitle_en: (it.subtitle_en as string | undefined) ?? def?.subtitle_en,
+      subtitle_ar: (it.subtitle_ar as string | undefined) ?? def?.subtitle_ar,
+      items_count: typeof it.items_count === "number" ? it.items_count : def?.items_count,
+      source_type: (it.source_type as HomeSectionConfig["source_type"]) ?? def?.source_type,
+      display_type: (it.display_type as HomeSectionConfig["display_type"]) ?? def?.display_type,
+      manual_ids: Array.isArray(it.manual_ids) ? (it.manual_ids as string[]) : def?.manual_ids,
+      custom: isCustom || undefined,
+      label: (it.label as string | undefined) ?? def?.label,
     });
   }
   // Append any missing defaults at the end (new sections auto-added).
