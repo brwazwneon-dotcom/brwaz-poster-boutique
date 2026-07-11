@@ -1,18 +1,22 @@
 // Edge Function: seo-generator
-// Generates poster SEO content via OpenRouter (free models, with fallbacks).
-// Reads OPENROUTER_API_KEY from Supabase Edge Function Secrets — never exposed to the client.
+// Generates poster SEO content using a strict API priority queue:
+//   GEMINI_API_KEY_1 → 2 → 3 → 4 → 5 → 6 → OPENROUTER_API_KEY (fallback only).
+// Rate-limit / quota / 5xx failures rotate to the next key automatically.
 // Admin-only. Called from the front-end via supabase.functions.invoke("seo-generator").
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-// Providers, tried in order. Lovable AI Gateway first (no key needed on Lovable Cloud),
-// then OpenRouter free tier as a fallback if the user configured OPENROUTER_API_KEY.
-const LOVABLE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const LOVABLE_MODELS = [
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_TEXT_MODEL = "gemini-2.5-flash";
+const GEMINI_KEY_LABELS = [
+  "GEMINI_API_KEY_1",
+  "GEMINI_API_KEY_2",
+  "GEMINI_API_KEY_3",
+  "GEMINI_API_KEY_4",
+  "GEMINI_API_KEY_5",
+  "GEMINI_API_KEY_6",
 ];
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
@@ -77,15 +81,53 @@ Return STRICT JSON only, no markdown, no commentary. Shape:
   return { system, user };
 }
 
-async function callGateway(
-  url: string,
+async function callGemini(
+  keyValue: string,
+  system: string,
+  user: string,
+): Promise<string> {
+  const url = `${GEMINI_BASE}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${encodeURIComponent(keyValue)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.4,
+      },
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    const err: Error & { status?: number; body?: string } = new Error(
+      `Gemini ${res.status}: ${txt.slice(0, 200)}`,
+    );
+    err.status = res.status;
+    err.body = txt;
+    throw err;
+  }
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  const content = parts.map((p: { text?: string }) => p.text ?? "").join("");
+  if (!content) throw new Error("Empty content from Gemini");
+  return content;
+}
+
+function isQuotaError(status: number, body: string): boolean {
+  if (status === 429) return true;
+  const t = (body || "").toLowerCase();
+  return t.includes("resource_exhausted") || t.includes("quota") || t.includes("rate limit");
+}
+
+async function callOpenRouter(
+  apiKey: string,
   model: string,
   system: string,
   user: string,
-  apiKey: string,
-  label: string,
-) {
-  const res = await fetch(url, {
+): Promise<string> {
+  const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -105,11 +147,11 @@ async function callGateway(
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`${label} ${res.status} on ${model}: ${txt.slice(0, 200)}`);
+    throw new Error(`OpenRouter ${res.status} on ${model}: ${txt.slice(0, 200)}`);
   }
   const data = await res.json();
   const content: string = data?.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error(`Empty content from ${label}:${model}`);
+  if (!content) throw new Error(`Empty content from OpenRouter:${model}`);
   return content;
 }
 
@@ -165,9 +207,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const geminiKeys: Array<{ label: string; value: string }> = [];
+  const seen = new Set<string>();
+  for (const label of GEMINI_KEY_LABELS) {
+    const v = Deno.env.get(label);
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      geminiKeys.push({ label, value: v });
+    }
+  }
+  const legacy = Deno.env.get("GEMINI_API_KEY");
+  if (legacy && !seen.has(legacy)) {
+    geminiKeys.push({ label: "GEMINI_API_KEY", value: legacy });
+  }
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (!lovableKey && !openrouterKey) {
+  if (geminiKeys.length === 0 && !openrouterKey) {
     return json(500, { error: "AI is not configured on this project." });
   }
 
@@ -200,33 +254,56 @@ Deno.serve(async (req) => {
   const { system, user } = buildPrompt(input);
   const fallbackTitle = input.title || input.subject || "Premium Framed Poster";
 
-  const attempts: Array<{ url: string; model: string; key: string; label: string }> = [];
-  if (lovableKey) {
-    for (const m of LOVABLE_MODELS) attempts.push({ url: LOVABLE_URL, model: m, key: lovableKey, label: "Lovable" });
-  }
-  if (openrouterKey) {
-    for (const m of OPENROUTER_MODELS) attempts.push({ url: OPENROUTER_URL, model: m, key: openrouterKey, label: "OpenRouter" });
-  }
-
   let lastErr: unknown = null;
-  for (const a of attempts) {
+
+  // 1) Strict priority: Gemini keys 1..6 in order.
+  for (const gk of geminiKeys) {
     try {
-      const content = await callGateway(a.url, a.model, system, user, a.key, a.label);
+      const content = await callGemini(gk.value, system, user);
       const parsed = parseJson(content);
       const result = normalize(parsed, fallbackTitle);
       if (!result.description || !result.seo_description) {
-        throw new Error(`Missing fields from ${a.label}:${a.model}`);
+        throw new Error(`Missing fields from Gemini:${gk.label}`);
       }
-      return json(200, { ...result, model: `${a.label}:${a.model}` });
+      return json(200, { ...result, model: `Gemini:${gk.label}`, provider: "gemini", key: gk.label });
     } catch (e) {
       lastErr = e;
-      console.error("[seo-generator]", e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = e as { status?: number; body?: string };
+      const isQuota = typeof err?.status === "number" && isQuotaError(err.status, err.body ?? "");
+      const is5xx = typeof err?.status === "number" && err.status >= 500 && err.status < 600;
+      console.warn(`[seo-generator] ${gk.label} failed:`, msg);
+      // Rotate on quota / rate-limit / 5xx / network errors; break on 4xx validation errors.
+      if (typeof err?.status === "number" && !isQuota && !is5xx) {
+        // Non-retryable client error (400/401/403 etc.) — don't waste other keys.
+        break;
+      }
+    }
+  }
+
+  // 2) Final fallback: OpenRouter (only if configured and all Gemini attempts failed).
+  if (openrouterKey) {
+    for (const m of OPENROUTER_MODELS) {
+      try {
+        const content = await callOpenRouter(openrouterKey, m, system, user);
+        const parsed = parseJson(content);
+        const result = normalize(parsed, fallbackTitle);
+        if (!result.description || !result.seo_description) {
+          throw new Error(`Missing fields from OpenRouter:${m}`);
+        }
+        return json(200, { ...result, model: `OpenRouter:${m}`, provider: "openrouter", key: m });
+      } catch (e) {
+        lastErr = e;
+        console.error("[seo-generator] openrouter", e instanceof Error ? e.message : String(e));
+      }
     }
   }
 
   return json(503, {
     error:
-      "AI temporarily unavailable — OpenRouter is not responding. Please try again in a moment.",
+      geminiKeys.length > 0
+        ? "All Gemini keys are unavailable and the OpenRouter fallback also failed."
+        : "AI temporarily unavailable. Please try again in a moment.",
     detail: lastErr instanceof Error ? lastErr.message : String(lastErr),
   });
 });

@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Sparkles, Zap, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Sparkles, Zap, ShieldCheck, Power, RotateCcw, Play } from "lucide-react";
 import {
   getAiSettingsStatus,
   testAiConnection,
   generateTestProductData,
   getGeminiKeys,
   testAllGeminiKeys,
+  getOpenRouterStatus,
+  setGeminiKeyState,
+  testOneGeminiKey,
   type AiTestResult,
   type AiTestProduct,
   type GeminiKeyStatusRow,
@@ -29,6 +32,9 @@ export function AiSettingsTab() {
   const sampleFn = useServerFn(generateTestProductData);
   const keysFn = useServerFn(getGeminiKeys);
   const testAllFn = useServerFn(testAllGeminiKeys);
+  const openRouterFn = useServerFn(getOpenRouterStatus);
+  const setKeyStateFn = useServerFn(setGeminiKeyState);
+  const testOneFn = useServerFn(testOneGeminiKey);
   const qc = useQueryClient();
   const savedThreshold = useAiAutoApproveThreshold();
   const [threshold, setThreshold] = useState<number>(savedThreshold);
@@ -72,8 +78,46 @@ export function AiSettingsTab() {
     refetchInterval: 30_000,
   });
 
+  const { data: openRouter, refetch: refetchOpenRouter } = useQuery({
+    queryKey: ["ai-openrouter-status"],
+    queryFn: () => openRouterFn(),
+    refetchInterval: 60_000,
+  });
+
   const [testingAll, setTestingAll] = useState(false);
   const [keyTests, setKeyTests] = useState<GeminiKeyTest[] | null>(null);
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
+
+  async function keyAction(label: string, action: "disable" | "enable" | "reset") {
+    setBusyLabel(label);
+    try {
+      await setKeyStateFn({ data: { label, action } });
+      toast.success(
+        action === "disable"
+          ? `${label} disabled`
+          : action === "enable"
+          ? `${label} enabled`
+          : `${label} cooldown reset`,
+      );
+      refetchKeys();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setBusyLabel(null);
+    }
+  }
+
+  async function testSingle(label: string) {
+    setBusyLabel(label);
+    try {
+      const r = await testOneFn({ data: { label } });
+      if (r.ok) toast.success(`${label} OK · ${r.latencyMs}ms`);
+      else toast.error(`${label}: ${r.error ?? "failed"}`);
+      refetchKeys();
+    } finally {
+      setBusyLabel(null);
+    }
+  }
 
   async function runTestAll() {
     setTestingAll(true);
@@ -89,6 +133,7 @@ export function AiSettingsTab() {
         toast.warning(`${okCount}/${totalPresent} keys OK`);
       }
       refetchKeys();
+      refetchOpenRouter();
     } finally {
       setTestingAll(false);
     }
@@ -180,20 +225,21 @@ export function AiSettingsTab() {
 
         <div className="rounded border p-3 text-xs text-muted-foreground">
           <div className="font-medium text-foreground mb-1">API key</div>
-          Stored in server environment as{" "}
-          <code className="font-mono">GEMINI_API_KEY_1</code> …{" "}
-          <code className="font-mono">GEMINI_API_KEY_5</code>. Keys are never
-          exposed to the browser or written to the database. To rotate or
-          replace them, use the project's Secrets panel.
+          Priority queue: <code className="font-mono">GEMINI_API_KEY_1</code> →{" "}
+          <code className="font-mono">…</code> →{" "}
+          <code className="font-mono">GEMINI_API_KEY_6</code> →{" "}
+          <code className="font-mono">OPENROUTER_API_KEY</code> (fallback only).
+          Keys are never exposed to the browser. On 429 / quota-exceeded the
+          key cools down for 60 minutes and the next one is used automatically.
         </div>
 
         <div className="rounded border p-3">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div>
-              <div className="text-sm font-semibold">Gemini API Keys (rotation)</div>
+              <div className="text-sm font-semibold">API Priority Queue</div>
               <div className="text-xs text-muted-foreground">
-                Requests try keys 1 → 5 in order. On 429 / quota-exceeded, the next key
-                is used automatically. Other errors do not rotate.
+                Requests try keys 1 → 6 in order. OpenRouter is used only when
+                every Gemini key is rate-limited, disabled, or failed.
               </div>
             </div>
             <button
@@ -215,6 +261,8 @@ export function AiSettingsTab() {
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : state === "rate_limited"
                 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : state === "disabled"
+                ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                 : state === "failed"
                 ? "bg-red-500/10 text-red-600 dark:text-red-400"
                 : "bg-muted text-muted-foreground";
@@ -224,9 +272,12 @@ export function AiSettingsTab() {
                 ? "Available"
                 : state === "rate_limited"
                 ? "Rate limited"
+                : state === "disabled"
+                ? "Disabled"
                 : state === "failed"
                 ? "Failed"
                 : "Unknown";
+              const busy = busyLabel === k.label;
               return (
                 <div
                   key={k.label}
@@ -241,20 +292,87 @@ export function AiSettingsTab() {
                   >
                     {stateLabel}
                   </span>
-                  <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>Last used: {fmtTime(k.lastUsedAt)}</span>
+                  <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span title="Requests / OK / Failed">
+                      {k.requests}/{k.successes}/{k.failures}
+                    </span>
+                    <span>Last: {fmtTime(k.lastUsedAt)}</span>
                     {test && (
                       <span className={test.ok ? "text-emerald-600" : "text-red-600"}>
                         {test.ok ? `${test.latencyMs}ms` : test.error}
                       </span>
                     )}
+                    {k.present && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => testSingle(k.label)}
+                          disabled={busy}
+                          title="Test key"
+                          className="rounded border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
+                        >
+                          <Play className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => keyAction(k.label, "reset")}
+                          disabled={busy}
+                          title="Reset cooldown"
+                          className="rounded border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
+                        {k.disabled ? (
+                          <button
+                            onClick={() => keyAction(k.label, "enable")}
+                            disabled={busy}
+                            title="Enable key"
+                            className="rounded border px-1.5 py-0.5 text-emerald-600 hover:bg-muted disabled:opacity-50"
+                          >
+                            <Power className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => keyAction(k.label, "disable")}
+                            disabled={busy}
+                            title="Disable key"
+                            className="rounded border px-1.5 py-0.5 text-red-600 hover:bg-muted disabled:opacity-50"
+                          >
+                            <Power className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
+            {/* OpenRouter fallback row */}
+            <div className="flex flex-wrap items-center gap-3 rounded border border-dashed px-3 py-2 text-sm">
+              <div className="font-mono text-xs">OPENROUTER_API_KEY</div>
+              <div className="font-mono text-xs text-muted-foreground">
+                {openRouter?.present ? "configured" : "—"}
+              </div>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  !openRouter?.present
+                    ? "bg-muted text-muted-foreground"
+                    : openRouter.lastUsedAt
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {!openRouter?.present
+                  ? "Not configured"
+                  : openRouter.lastUsedAt
+                  ? "Fallback active"
+                  : "Standby (not used)"}
+              </span>
+              <div className="ml-auto text-xs text-muted-foreground">
+                Last fallback use: {fmtTime(openRouter?.lastUsedAt ?? null)}
+              </div>
+            </div>
             {!keysLoading && (keys?.length ?? 0) === 0 && (
               <div className="text-xs text-muted-foreground">
-                No Gemini keys detected. Add GEMINI_API_KEY_1 … GEMINI_API_KEY_5 in Secrets.
+                No Gemini keys detected. Add GEMINI_API_KEY_1 … GEMINI_API_KEY_6 in Secrets.
               </div>
             )}
           </div>
