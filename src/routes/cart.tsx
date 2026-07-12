@@ -748,7 +748,7 @@ function CartPage() {
                               onChange={(e) => update(i.id, { color: e.target.value as FrameColorId })}
                               className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                             >
-                              {FRAME_COLORS.map((c) => (
+                              {FRAME_COLORS.filter((c) => c.id === "black" || c.id === "white").map((c) => (
                                 <option key={c.id} value={c.id}>{c.label}</option>
                               ))}
                             </select>
