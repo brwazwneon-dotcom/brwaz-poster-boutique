@@ -8,6 +8,7 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { uploadAndSign } from "@/lib/storage-url";
+import { loadImage, renderEditToBlob } from "@/lib/poster-edit";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 import { toggleTrending } from "@/components/admin/TrendingNowManager";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
@@ -227,6 +228,33 @@ export function SubCategoryReviewManager({
       toast.success("Image replaced — original preserved as version");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Replace failed");
+    }
+  };
+
+  const saveArtEdit = async (target: Poster, s: EditSettings) => {
+    setArtSaving(true);
+    try {
+      const img = await loadImage(target.original_url || target.image_url);
+      const outH = 2400;
+      const outW = Math.round(outH * s.ratio);
+      const blob = await renderEditToBlob(img, s, outW, outH, 0.92);
+      const file = new File([blob], `${target.id}-edited.jpg`, { type: "image/jpeg" });
+      const path = `edits/${target.id}/${Date.now()}.jpg`;
+      const newUrl = await uploadAndSign("posters", path, file);
+      const { error } = await supabase
+        .from("posters")
+        .update({ image_url: newUrl, edit_settings: s as never })
+        .eq("id", target.id);
+      if (error) throw error;
+      toast.success("Artwork updated");
+      setArtEditing(null);
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["admin-posters"] });
+      qc.invalidateQueries({ queryKey: ["posters"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save artwork");
+    } finally {
+      setArtSaving(false);
     }
   };
 
