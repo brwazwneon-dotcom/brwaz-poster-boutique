@@ -115,7 +115,7 @@ function OffersPage() {
         <RecentOrdersBadge surface="offer" />
       </div>
 
-      <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
+      <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
         {bundles.map((b) => {
           const active = bundleKey === b.key;
           return (
