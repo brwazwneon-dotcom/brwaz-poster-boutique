@@ -20,6 +20,13 @@ export const FRAME_COLORS = [
   { id: "wood", label: "Wood", swatch: "#7a4a26" },
 ] as const;
 
+/** Colors offered to customers on the storefront. Wood is retained in the
+ *  type for legacy data (custom-design, mockups) but is not shown as a
+ *  purchasable frame color. */
+export const CUSTOMER_FRAME_COLORS = FRAME_COLORS.filter(
+  (c) => c.id === "black" || c.id === "white",
+);
+
 export type FrameTypeId = (typeof FRAME_TYPES)[number]["id"];
 export type SizeId = (typeof SIZES)[number]["id"];
 export type FrameColorId = (typeof FRAME_COLORS)[number]["id"];
