@@ -1182,6 +1182,14 @@ function PostersTab() {
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
+                    onClick={() => setArtEditing(p)}
+                    className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Edit artwork inside frame"
+                    title="Edit artwork inside frame"
+                  >
+                    <Crop className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => setEditing(p)}
                     className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                     aria-label="Edit"
