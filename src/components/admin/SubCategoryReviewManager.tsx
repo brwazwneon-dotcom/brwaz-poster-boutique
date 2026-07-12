@@ -379,6 +379,7 @@ export function SubCategoryReviewManager({
                     onAiSeo={() => runAiSeoSingle(p)}
                     onReview={(s) => setReview([p.id], s)}
                     onReplace={(f) => replaceImage(p, f)}
+                    onEditArt={() => setArtEditing(p)}
                     onToggleTrending={async () => {
                       await toggleTrending(p.id, p.trending === true);
                       invalidate();
@@ -420,6 +421,16 @@ export function SubCategoryReviewManager({
             onClose={() => { setBulkSeoOpen(false); invalidate(); }}
           />
         )}
+
+        {artEditing && (
+          <PosterImageEditor
+            source={artEditing.original_url || artEditing.image_url}
+            initial={artEditing.edit_settings}
+            saving={artSaving}
+            onCancel={() => setArtEditing(null)}
+            onSave={(s) => saveArtEdit(artEditing, s)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -456,7 +467,7 @@ function SelectFilter({
 }
 
 function PosterCard({
-  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onToggleTrending,
+  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onToggleTrending,
 }: {
   poster: Poster;
   selected: boolean;
@@ -467,6 +478,7 @@ function PosterCard({
   onAiSeo: () => void;
   onReview: (s: ReviewStatus) => void;
   onReplace: (file: File) => void;
+  onEditArt: () => void;
   onToggleTrending: () => void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
@@ -528,6 +540,7 @@ function PosterCard({
         </select>
         <div className="flex flex-wrap gap-1">
           <button onClick={onOpen} title="View" className="rounded-sm border border-border p-1 hover:bg-accent"><Eye className="h-3 w-3" /></button>
+          <button onClick={onEditArt} title="Edit artwork inside frame" className="rounded-sm border border-primary/40 bg-primary/5 p-1 text-primary hover:bg-primary/10"><Crop className="h-3 w-3" /></button>
           <label title="Replace image" className="cursor-pointer rounded-sm border border-border p-1 hover:bg-accent">
             <Upload className="h-3 w-3" />
             <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplace(f); e.currentTarget.value = ""; }} />
