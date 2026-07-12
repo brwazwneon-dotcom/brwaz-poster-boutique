@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SearchRouteImport } from './routes/search'
@@ -30,6 +31,11 @@ import { Route as ApiPublicHooksBackupRouteImport } from './routes/api/public/ho
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrendingRoute = TrendingRouteImport.update({
+  id: '/trending',
+  path: '/trending',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
     | '/category/$slug'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
     | '/category/$slug'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
     | '/category/$slug'
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SetsRoute: typeof SetsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TrendingRoute: typeof TrendingRoute
   WishlistRoute: typeof WishlistRoute
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
   CategorySlugRoute: typeof CategorySlugRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/wishlist'
       fullPath: '/wishlist'
       preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trending': {
+      id: '/trending'
+      path: '/trending'
+      fullPath: '/trending'
+      preLoaderRoute: typeof TrendingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -389,6 +409,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SetsRoute: SetsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TrendingRoute: TrendingRoute,
   WishlistRoute: WishlistRoute,
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,
   CategorySlugRoute: CategorySlugRoute,

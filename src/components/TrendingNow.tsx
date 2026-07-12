@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
-import { Flame } from "lucide-react";
+import { Flame, ArrowRight } from "lucide-react";
 
 export function TrendingNow({
   title,
@@ -63,6 +63,13 @@ export function TrendingNow({
               <p className="mt-2 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
             ) : null}
           </div>
+          <Link
+            to="/trending"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-sm border border-border bg-background px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-foreground transition hover:bg-primary hover:text-primary-foreground"
+          >
+            View all
+            <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
+          </Link>
         </div>
         <div
           className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
