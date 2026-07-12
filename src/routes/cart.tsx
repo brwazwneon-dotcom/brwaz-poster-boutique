@@ -683,7 +683,12 @@ function CartPage() {
             })}
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
-                <div className="w-20 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setZoomItem({ image: i.image, title: i.title, frameType: i.frameType, color: i.color, editSettings: i.editSettings })}
+                  className="w-20 shrink-0 cursor-zoom-in rounded-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label={`Zoom ${i.title}`}
+                >
                   <FramePreview
                     posterUrl={i.image}
                     title={i.title}
@@ -692,7 +697,7 @@ function CartPage() {
                     editSettings={i.editSettings}
                     bare
                   />
-                </div>
+                </button>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
