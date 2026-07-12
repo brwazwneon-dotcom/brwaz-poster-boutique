@@ -1239,6 +1239,41 @@ function PostersTab() {
           }}
         />
       )}
+      {artEditing && (
+        <PosterImageEditor
+          source={artEditing.original_url || artEditing.image_url}
+          initial={artEditing.edit_settings}
+          saving={artSaving}
+          onCancel={() => setArtEditing(null)}
+          onSave={async (s) => {
+            const target = artEditing;
+            if (!target) return;
+            setArtSaving(true);
+            try {
+              const img = await loadImage(target.original_url || target.image_url);
+              const outH = 2400;
+              const outW = Math.round(outH * s.ratio);
+              const blob = await renderEditToBlob(img, s, outW, outH, 0.92);
+              const file = new File([blob], `${target.id}-edited.jpg`, { type: "image/jpeg" });
+              const path = `edits/${target.id}/${Date.now()}.jpg`;
+              const newUrl = await uploadAndSign("posters", path, file);
+              const { error } = await supabase
+                .from("posters")
+                .update({ image_url: newUrl, edit_settings: s as never })
+                .eq("id", target.id);
+              if (error) throw error;
+              toast.success("Artwork updated");
+              setArtEditing(null);
+              qc.invalidateQueries({ queryKey: ["admin-posters"] });
+              qc.invalidateQueries({ queryKey: ["posters"] });
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed to save artwork");
+            } finally {
+              setArtSaving(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
