@@ -28,7 +28,7 @@ export type CartItem = {
   price: number;
   qty: number;
   bundle?: {
-    key: "bundle-6-20x30" | "bundle-4-30x40";
+    key: string;
     label: string;
     posters: BundlePoster[];
   };
