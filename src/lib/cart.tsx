@@ -40,6 +40,7 @@ type CartCtx = {
   add: (item: Omit<CartItem, "id" | "qty">) => void;
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
+  update: (id: string, patch: Partial<Pick<CartItem, "size" | "color" | "frameType" | "price">>) => void;
   clear: () => void;
   total: number;
   count: number;
@@ -151,6 +152,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQty: (id, qty) =>
         setItems((prev) =>
           persist(prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i))),
+        ),
+      update: (id, patch) =>
+        setItems((prev) =>
+          persist(prev.map((i) => (i.id === id ? { ...i, ...patch } : i))),
         ),
       clear: () => setItems(persist([])),
       total: items.reduce((s, i) => s + i.price * i.qty, 0),
