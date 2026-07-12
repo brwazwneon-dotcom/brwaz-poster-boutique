@@ -8,10 +8,16 @@ import {
   labelForColor,
   labelForFrame,
   labelForSize,
+  FRAME_TYPES,
+  FRAME_COLORS,
+  sizesForFrame,
+  type FrameTypeId,
+  type SizeId,
+  type FrameColorId,
 } from "@/lib/poster-options";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
-import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config, priceForFrame } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
@@ -159,7 +165,7 @@ const GOVERNORATES = [
 ];
 
 function CartPage() {
-  const { items, remove, setQty, clear, total } = useCart();
+  const { items, remove, setQty, update, clear, total } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
   const photo4x6 = usePhoto4x6Config();
