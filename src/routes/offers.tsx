@@ -13,6 +13,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
+import { usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/offers")({
   head: () => {
@@ -38,20 +39,52 @@ export const Route = createFileRoute("/offers")({
 });
 
 type Bundle = {
-  key: "bundle-6-20x30" | "bundle-4-30x40";
+  key: string;
   title: string;
+  subtitle?: string | null;
   sizeLabel: string;
   size: SizeId;
   count: number;
   price: number;
+  image?: string | null;
+  badge?: string | null;
 };
 
 function useBundles(): Bundle[] {
   const pricing = usePricing();
-  return [
+  const defaults: Bundle[] = [
     { key: "bundle-6-20x30", title: "6 Frames Bundle", sizeLabel: "20 × 30 cm", size: "20x30", count: 6, price: pricing.offers.bundle6_20x30 },
     { key: "bundle-4-30x40", title: "4 Frames Bundle", sizeLabel: "30 × 40 cm", size: "30x40", count: 4, price: pricing.offers.bundle4_30x40 },
   ];
+  const { data: custom = [] } = useQuery({
+    queryKey: ["custom-offers"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_offers")
+        .select("*")
+        .eq("enabled", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const customBundles: Bundle[] = custom.map((o: any) => {
+    const sizeLabel = String(o.size).replace("x", " × ") + " cm";
+    return {
+      key: `custom-${o.id}`,
+      title: o.title,
+      subtitle: o.subtitle,
+      sizeLabel,
+      size: o.size as SizeId,
+      count: o.count,
+      price: Number(o.price),
+      image: o.image_url,
+      badge: o.badge,
+    };
+  });
+  return [...defaults, ...customBundles];
 }
 
 type Poster = {
