@@ -14,7 +14,7 @@ import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag, Copy, MessageCircle, Calendar, Package, MapPin, Phone as PhoneIcon, User as UserIcon, StickyNote, AlertCircle, RefreshCw } from "lucide-react";
+import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag, Copy, MessageCircle, Calendar, Package, MapPin, Phone as PhoneIcon, User as UserIcon, StickyNote, AlertCircle, RefreshCw, Crop } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import * as XLSX from "xlsx";
 import {
@@ -862,6 +862,8 @@ function PostersTab() {
   const [filter, setFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Poster | null>(null);
+  const [artEditing, setArtEditing] = useState<Poster | null>(null);
+  const [artSaving, setArtSaving] = useState(false);
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
@@ -1180,6 +1182,14 @@ function PostersTab() {
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
+                    onClick={() => setArtEditing(p)}
+                    className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Edit artwork inside frame"
+                    title="Edit artwork inside frame"
+                  >
+                    <Crop className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => setEditing(p)}
                     className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                     aria-label="Edit"
@@ -1226,6 +1236,41 @@ function PostersTab() {
             setEditing(null);
             qc.invalidateQueries({ queryKey: ["admin-posters"] });
             qc.invalidateQueries({ queryKey: ["posters"] });
+          }}
+        />
+      )}
+      {artEditing && (
+        <PosterImageEditor
+          source={artEditing.original_url || artEditing.image_url}
+          initial={artEditing.edit_settings}
+          saving={artSaving}
+          onCancel={() => setArtEditing(null)}
+          onSave={async (s) => {
+            const target = artEditing;
+            if (!target) return;
+            setArtSaving(true);
+            try {
+              const img = await loadImage(target.original_url || target.image_url);
+              const outH = 2400;
+              const outW = Math.round(outH * s.ratio);
+              const blob = await renderEditToBlob(img, s, outW, outH, 0.92);
+              const file = new File([blob], `${target.id}-edited.jpg`, { type: "image/jpeg" });
+              const path = `edits/${target.id}/${Date.now()}.jpg`;
+              const newUrl = await uploadAndSign("posters", path, file);
+              const { error } = await supabase
+                .from("posters")
+                .update({ image_url: newUrl, edit_settings: s as never })
+                .eq("id", target.id);
+              if (error) throw error;
+              toast.success("Artwork updated");
+              setArtEditing(null);
+              qc.invalidateQueries({ queryKey: ["admin-posters"] });
+              qc.invalidateQueries({ queryKey: ["posters"] });
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed to save artwork");
+            } finally {
+              setArtSaving(false);
+            }
           }}
         />
       )}
