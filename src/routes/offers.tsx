@@ -13,7 +13,6 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
-import { usePricing } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/offers")({
   head: () => {
