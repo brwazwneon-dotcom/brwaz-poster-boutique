@@ -8,14 +8,17 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { uploadAndSign } from "@/lib/storage-url";
+import { loadImage, renderEditToBlob } from "@/lib/poster-edit";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 import { toggleTrending } from "@/components/admin/TrendingNowManager";
+import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import type { EditSettings } from "@/lib/poster-edit";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Eye, EyeOff, Trash2, Sparkles, X, Loader2, Search, Download,
-  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame,
+  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame, Crop,
 } from "lucide-react";
 
 type Poster = {
@@ -37,6 +40,7 @@ type Poster = {
   sales_count: number;
   views_count: number;
   trending?: boolean | null;
+  edit_settings?: unknown;
 };
 
 type ReviewStatus =
@@ -102,6 +106,8 @@ export function SubCategoryReviewManager({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<Poster | null>(null);
   const [bulkSeoOpen, setBulkSeoOpen] = useState(false);
+  const [artEditing, setArtEditing] = useState<Poster | null>(null);
+  const [artSaving, setArtSaving] = useState(false);
 
   const { data: posters = [], isLoading, refetch } = useQuery({
     queryKey: ["subcat-review-posters", subCategory.id],
@@ -109,7 +115,7 @@ export function SubCategoryReviewManager({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count,trending")
+        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count,trending,edit_settings")
         .eq("category_id", subCategory.id)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -222,6 +228,33 @@ export function SubCategoryReviewManager({
       toast.success("Image replaced — original preserved as version");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Replace failed");
+    }
+  };
+
+  const saveArtEdit = async (target: Poster, s: EditSettings) => {
+    setArtSaving(true);
+    try {
+      const img = await loadImage(target.original_url || target.image_url);
+      const outH = 2400;
+      const outW = Math.round(outH * s.ratio);
+      const blob = await renderEditToBlob(img, s, outW, outH, 0.92);
+      const file = new File([blob], `${target.id}-edited.jpg`, { type: "image/jpeg" });
+      const path = `edits/${target.id}/${Date.now()}.jpg`;
+      const newUrl = await uploadAndSign("posters", path, file);
+      const { error } = await supabase
+        .from("posters")
+        .update({ image_url: newUrl, edit_settings: s as never })
+        .eq("id", target.id);
+      if (error) throw error;
+      toast.success("Artwork updated");
+      setArtEditing(null);
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["admin-posters"] });
+      qc.invalidateQueries({ queryKey: ["posters"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save artwork");
+    } finally {
+      setArtSaving(false);
     }
   };
 
@@ -346,6 +379,7 @@ export function SubCategoryReviewManager({
                     onAiSeo={() => runAiSeoSingle(p)}
                     onReview={(s) => setReview([p.id], s)}
                     onReplace={(f) => replaceImage(p, f)}
+                    onEditArt={() => setArtEditing(p)}
                     onToggleTrending={async () => {
                       await toggleTrending(p.id, p.trending === true);
                       invalidate();
@@ -387,6 +421,16 @@ export function SubCategoryReviewManager({
             onClose={() => { setBulkSeoOpen(false); invalidate(); }}
           />
         )}
+
+        {artEditing && (
+          <PosterImageEditor
+            source={artEditing.original_url || artEditing.image_url}
+            initial={artEditing.edit_settings}
+            saving={artSaving}
+            onCancel={() => setArtEditing(null)}
+            onSave={(s) => saveArtEdit(artEditing, s)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -423,7 +467,7 @@ function SelectFilter({
 }
 
 function PosterCard({
-  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onToggleTrending,
+  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onToggleTrending,
 }: {
   poster: Poster;
   selected: boolean;
@@ -434,6 +478,7 @@ function PosterCard({
   onAiSeo: () => void;
   onReview: (s: ReviewStatus) => void;
   onReplace: (file: File) => void;
+  onEditArt: () => void;
   onToggleTrending: () => void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
@@ -495,6 +540,7 @@ function PosterCard({
         </select>
         <div className="flex flex-wrap gap-1">
           <button onClick={onOpen} title="View" className="rounded-sm border border-border p-1 hover:bg-accent"><Eye className="h-3 w-3" /></button>
+          <button onClick={onEditArt} title="Edit artwork inside frame" className="rounded-sm border border-primary/40 bg-primary/5 p-1 text-primary hover:bg-primary/10"><Crop className="h-3 w-3" /></button>
           <label title="Replace image" className="cursor-pointer rounded-sm border border-border p-1 hover:bg-accent">
             <Upload className="h-3 w-3" />
             <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplace(f); e.currentTarget.value = ""; }} />
