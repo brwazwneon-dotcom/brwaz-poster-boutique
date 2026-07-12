@@ -542,6 +542,57 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_offers: {
+        Row: {
+          badge: string | null
+          count: number
+          created_at: string
+          enabled: boolean
+          id: string
+          image_url: string | null
+          price: number
+          size: string
+          sort_order: number
+          subtitle: string | null
+          subtitle_ar: string | null
+          title: string
+          title_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          badge?: string | null
+          count: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          price: number
+          size: string
+          sort_order?: number
+          subtitle?: string | null
+          subtitle_ar?: string | null
+          title: string
+          title_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          badge?: string | null
+          count?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          price?: number
+          size?: string
+          sort_order?: number
+          subtitle?: string | null
+          subtitle_ar?: string | null
+          title?: string
+          title_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_notes: {
         Row: {
           author: string | null

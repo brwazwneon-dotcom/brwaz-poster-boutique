@@ -38,20 +38,52 @@ export const Route = createFileRoute("/offers")({
 });
 
 type Bundle = {
-  key: "bundle-6-20x30" | "bundle-4-30x40";
+  key: string;
   title: string;
+  subtitle?: string | null;
   sizeLabel: string;
   size: SizeId;
   count: number;
   price: number;
+  image?: string | null;
+  badge?: string | null;
 };
 
 function useBundles(): Bundle[] {
   const pricing = usePricing();
-  return [
+  const defaults: Bundle[] = [
     { key: "bundle-6-20x30", title: "6 Frames Bundle", sizeLabel: "20 × 30 cm", size: "20x30", count: 6, price: pricing.offers.bundle6_20x30 },
     { key: "bundle-4-30x40", title: "4 Frames Bundle", sizeLabel: "30 × 40 cm", size: "30x40", count: 4, price: pricing.offers.bundle4_30x40 },
   ];
+  const { data: custom = [] } = useQuery({
+    queryKey: ["custom-offers"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_offers")
+        .select("*")
+        .eq("enabled", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const customBundles: Bundle[] = custom.map((o: any) => {
+    const sizeLabel = String(o.size).replace("x", " × ") + " cm";
+    return {
+      key: `custom-${o.id}`,
+      title: o.title,
+      subtitle: o.subtitle,
+      sizeLabel,
+      size: o.size as SizeId,
+      count: o.count,
+      price: Number(o.price),
+      image: o.image_url,
+      badge: o.badge,
+    };
+  });
+  return [...defaults, ...customBundles];
 }
 
 type Poster = {
@@ -83,7 +115,7 @@ function OffersPage() {
         <RecentOrdersBadge surface="offer" />
       </div>
 
-      <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
+      <div className="mt-12 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
         {bundles.map((b) => {
           const active = bundleKey === b.key;
           return (
@@ -91,15 +123,28 @@ function OffersPage() {
               key={b.key}
               onClick={() => setBundleKey(b.key)}
               className={cn(
-                "group flex flex-col items-start gap-3 bg-card p-8 text-left transition",
+                "group relative flex flex-col items-start gap-3 bg-card p-8 text-left transition",
                 active ? "ring-2 ring-inset ring-primary" : "hover:bg-accent",
               )}
             >
+              {b.badge && (
+                <span className="absolute right-4 top-4 rounded-sm bg-primary px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-primary-foreground">
+                  {b.badge}
+                </span>
+              )}
+              {b.image && (
+                <div className="mb-2 h-32 w-full overflow-hidden rounded-sm bg-muted">
+                  <SafeImage src={b.image} alt={b.title} className="h-full w-full object-cover" />
+                </div>
+              )}
               <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
                 Bundle · {b.count} frames
               </div>
               <div className="text-display text-5xl">{b.title}</div>
               <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>
+              {b.subtitle && (
+                <div className="text-xs text-muted-foreground">{b.subtitle}</div>
+              )}
               <div className="text-display mt-4 text-4xl">
                 {b.price} <span className="text-lg text-muted-foreground">EGP</span>
               </div>
