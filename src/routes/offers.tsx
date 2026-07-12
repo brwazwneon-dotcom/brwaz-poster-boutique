@@ -123,15 +123,28 @@ function OffersPage() {
               key={b.key}
               onClick={() => setBundleKey(b.key)}
               className={cn(
-                "group flex flex-col items-start gap-3 bg-card p-8 text-left transition",
+                "group relative flex flex-col items-start gap-3 bg-card p-8 text-left transition",
                 active ? "ring-2 ring-inset ring-primary" : "hover:bg-accent",
               )}
             >
+              {b.badge && (
+                <span className="absolute right-4 top-4 rounded-sm bg-primary px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-primary-foreground">
+                  {b.badge}
+                </span>
+              )}
+              {b.image && (
+                <div className="mb-2 h-32 w-full overflow-hidden rounded-sm bg-muted">
+                  <SafeImage src={b.image} alt={b.title} className="h-full w-full object-cover" />
+                </div>
+              )}
               <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
                 Bundle · {b.count} frames
               </div>
               <div className="text-display text-5xl">{b.title}</div>
               <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>
+              {b.subtitle && (
+                <div className="text-xs text-muted-foreground">{b.subtitle}</div>
+              )}
               <div className="text-display mt-4 text-4xl">
                 {b.price} <span className="text-lg text-muted-foreground">EGP</span>
               </div>
