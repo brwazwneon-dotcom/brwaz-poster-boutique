@@ -10,12 +10,14 @@ import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { uploadAndSign } from "@/lib/storage-url";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 import { toggleTrending } from "@/components/admin/TrendingNowManager";
+import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import type { EditSettings } from "@/lib/poster-edit";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Eye, EyeOff, Trash2, Sparkles, X, Loader2, Search, Download,
-  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame,
+  CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame, Crop,
 } from "lucide-react";
 
 type Poster = {
@@ -37,6 +39,7 @@ type Poster = {
   sales_count: number;
   views_count: number;
   trending?: boolean | null;
+  edit_settings?: unknown;
 };
 
 type ReviewStatus =
@@ -102,6 +105,8 @@ export function SubCategoryReviewManager({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<Poster | null>(null);
   const [bulkSeoOpen, setBulkSeoOpen] = useState(false);
+  const [artEditing, setArtEditing] = useState<Poster | null>(null);
+  const [artSaving, setArtSaving] = useState(false);
 
   const { data: posters = [], isLoading, refetch } = useQuery({
     queryKey: ["subcat-review-posters", subCategory.id],
@@ -109,7 +114,7 @@ export function SubCategoryReviewManager({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count,trending")
+        .select("id,title,image_url,original_url,category_id,price,hidden,featured,seo_title,seo_description,alt_text,tags,slug,review_status,created_at,sales_count,views_count,trending,edit_settings")
         .eq("category_id", subCategory.id)
         .order("created_at", { ascending: false })
         .limit(1000);
