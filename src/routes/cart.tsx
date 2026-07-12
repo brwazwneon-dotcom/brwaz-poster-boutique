@@ -1202,6 +1202,37 @@ function CartPage() {
           </div>
         </div>
       )}
+      {zoomItem && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onClick={() => setZoomItem(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setZoomItem(null)}
+            aria-label="Close"
+            className="absolute right-4 top-4 rounded-sm bg-background/80 p-2 text-foreground hover:bg-background"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div
+            className="relative w-full max-w-[520px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FramePreview
+              posterUrl={zoomItem.image}
+              title={zoomItem.title}
+              frameType={zoomItem.frameType}
+              color={zoomItem.color}
+              editSettings={zoomItem.editSettings}
+              bare
+            />
+            <div className="mt-3 text-center text-sm font-semibold text-white">{zoomItem.title}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
