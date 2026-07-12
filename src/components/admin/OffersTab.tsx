@@ -269,7 +269,7 @@ function OfferForm({
   value: Omit<CustomOffer, "id"> & { id?: string };
   onChange: (v: Omit<CustomOffer, "id"> & { id?: string }) => void;
   onCancel: () => void;
-  onSave: () => void | Promise<void>;
+  onSave: () => unknown | Promise<unknown>;
   uploadImage: (file: File) => Promise<string | null>;
   submitLabel: string;
 }) {
