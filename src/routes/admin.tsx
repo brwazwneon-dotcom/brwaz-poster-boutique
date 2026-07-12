@@ -862,6 +862,8 @@ function PostersTab() {
   const [filter, setFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Poster | null>(null);
+  const [artEditing, setArtEditing] = useState<Poster | null>(null);
+  const [artSaving, setArtSaving] = useState(false);
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
