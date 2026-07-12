@@ -17,7 +17,6 @@ export const SIZES = [
 export const FRAME_COLORS = [
   { id: "black", label: "Black", swatch: "#0a0a0a" },
   { id: "white", label: "White", swatch: "#f5f5f5" },
-  { id: "wood", label: "Wood", swatch: "#7a4a26" },
 ] as const;
 
 export type FrameTypeId = (typeof FRAME_TYPES)[number]["id"];
