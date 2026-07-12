@@ -8,10 +8,16 @@ import {
   labelForColor,
   labelForFrame,
   labelForSize,
+  FRAME_TYPES,
+  FRAME_COLORS,
+  sizesForFrame,
+  type FrameTypeId,
+  type SizeId,
+  type FrameColorId,
 } from "@/lib/poster-options";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
-import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config } from "@/lib/use-settings";
+import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config, priceForFrame } from "@/lib/use-settings";
 import { trackEvent, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
@@ -159,7 +165,7 @@ const GOVERNORATES = [
 ];
 
 function CartPage() {
-  const { items, remove, setQty, clear, total } = useCart();
+  const { items, remove, setQty, update, clear, total } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
   const photo4x6 = usePhoto4x6Config();
@@ -690,9 +696,65 @@ function CartPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{i.title}</div>
-                      <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                        {labelForFrame(i.frameType)} · {labelForSize(i.size)} · {labelForColor(i.color)}
-                      </div>
+                      {i.bundle ? (
+                        <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+                          {labelForFrame(i.frameType)} · {labelForSize(i.size)} · {labelForColor(i.color)}
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Frame</span>
+                            <select
+                              value={i.frameType}
+                              onChange={(e) => {
+                                const frameType = e.target.value as FrameTypeId;
+                                const allowed = sizesForFrame(frameType);
+                                const size = (allowed.includes(i.size) ? i.size : allowed[0]) as SizeId;
+                                update(i.id, {
+                                  frameType,
+                                  size,
+                                  price: priceForFrame(pricing, frameType, size) || i.price,
+                                });
+                              }}
+                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                            >
+                              {FRAME_TYPES.map((f) => (
+                                <option key={f.id} value={f.id}>{f.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Size · المقاس</span>
+                            <select
+                              value={i.size}
+                              onChange={(e) => {
+                                const size = e.target.value as SizeId;
+                                update(i.id, {
+                                  size,
+                                  price: priceForFrame(pricing, i.frameType, size) || i.price,
+                                });
+                              }}
+                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                            >
+                              {sizesForFrame(i.frameType).map((sid) => (
+                                <option key={sid} value={sid}>{labelForSize(sid)}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Color · اللون</span>
+                            <select
+                              value={i.color}
+                              onChange={(e) => update(i.id, { color: e.target.value as FrameColorId })}
+                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                            >
+                              {FRAME_COLORS.map((c) => (
+                                <option key={c.id} value={c.id}>{c.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      )}
                       {i.bundle && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {i.bundle.posters.map((p) => (
