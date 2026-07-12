@@ -284,6 +284,7 @@ function CartPage() {
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [zoomItem, setZoomItem] = useState<null | { image: string; title: string; frameType: FrameTypeId; color: FrameColorId; editSettings?: import("@/lib/poster-edit").EditSettings }>(null);
 
   const handleScreenshotChange = (file: File | null) => {
     if (!file) {
@@ -682,7 +683,12 @@ function CartPage() {
             })}
             {items.map((i) => (
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
-                <div className="w-20 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setZoomItem({ image: i.image, title: i.title, frameType: i.frameType, color: i.color, editSettings: i.editSettings })}
+                  className="w-20 shrink-0 cursor-zoom-in rounded-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label={`Zoom ${i.title}`}
+                >
                   <FramePreview
                     posterUrl={i.image}
                     title={i.title}
@@ -691,7 +697,7 @@ function CartPage() {
                     editSettings={i.editSettings}
                     bare
                   />
-                </div>
+                </button>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -1193,6 +1199,37 @@ function CartPage() {
                 Continue without it
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {zoomItem && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onClick={() => setZoomItem(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setZoomItem(null)}
+            aria-label="Close"
+            className="absolute right-4 top-4 rounded-sm bg-background/80 p-2 text-foreground hover:bg-background"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div
+            className="relative w-full max-w-[520px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FramePreview
+              posterUrl={zoomItem.image}
+              title={zoomItem.title}
+              frameType={zoomItem.frameType}
+              color={zoomItem.color}
+              editSettings={zoomItem.editSettings}
+              bare
+            />
+            <div className="mt-3 text-center text-sm font-semibold text-white">{zoomItem.title}</div>
           </div>
         </div>
       )}
