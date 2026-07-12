@@ -284,6 +284,7 @@ function CartPage() {
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [zoomItem, setZoomItem] = useState<null | { image: string; title: string; frameType: FrameTypeId; color: FrameColorId; editSettings?: import("@/lib/poster-edit").EditSettings }>(null);
 
   const handleScreenshotChange = (file: File | null) => {
     if (!file) {
