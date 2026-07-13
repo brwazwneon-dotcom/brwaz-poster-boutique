@@ -685,9 +685,32 @@ function CartPage() {
               <div key={i.id} className="flex gap-4 rounded-sm border border-border bg-card p-4">
                 <button
                   type="button"
-                  onClick={() => setZoomItem({ image: i.image, title: i.title, frameType: i.frameType, color: i.color, editSettings: i.editSettings })}
-                  className="w-20 shrink-0 cursor-zoom-in rounded-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-                  aria-label={`Zoom ${i.title}`}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    const el = e.currentTarget;
+                    el.setPointerCapture?.(e.pointerId);
+                    (el as unknown as { _zoomTimer?: ReturnType<typeof setTimeout> })._zoomTimer = setTimeout(() => {
+                      setZoomItem({ image: i.image, title: i.title, frameType: i.frameType, color: i.color, editSettings: i.editSettings });
+                    }, 200);
+                  }}
+                  onPointerUp={(e) => {
+                    const el = e.currentTarget as unknown as { _zoomTimer?: ReturnType<typeof setTimeout> };
+                    if (el._zoomTimer) { clearTimeout(el._zoomTimer); el._zoomTimer = undefined; }
+                    setZoomItem(null);
+                  }}
+                  onPointerLeave={(e) => {
+                    const el = e.currentTarget as unknown as { _zoomTimer?: ReturnType<typeof setTimeout> };
+                    if (el._zoomTimer) { clearTimeout(el._zoomTimer); el._zoomTimer = undefined; }
+                    setZoomItem(null);
+                  }}
+                  onPointerCancel={(e) => {
+                    const el = e.currentTarget as unknown as { _zoomTimer?: ReturnType<typeof setTimeout> };
+                    if (el._zoomTimer) { clearTimeout(el._zoomTimer); el._zoomTimer = undefined; }
+                    setZoomItem(null);
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="w-20 shrink-0 cursor-zoom-in touch-none select-none rounded-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label={`Press and hold to zoom ${i.title}`}
                 >
                   <FramePreview
                     posterUrl={i.image}
