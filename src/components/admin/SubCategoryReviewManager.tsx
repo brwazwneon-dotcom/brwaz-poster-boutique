@@ -404,6 +404,7 @@ export function SubCategoryReviewManager({
                     onReview={(s) => setReview([p.id], s)}
                     onReplace={(f) => replaceImage(p, f)}
                     onEditArt={() => setArtEditing(p)}
+                    onMove={() => setMoveIds([p.id])}
                     onToggleTrending={async () => {
                       await toggleTrending(p.id, p.trending === true);
                       invalidate();
@@ -434,6 +435,11 @@ export function SubCategoryReviewManager({
             onDelete={() => { softDelete([detail.id]); setDetail(null); }}
             onAiSeo={() => runAiSeoSingle(detail)}
             onReplace={(f) => replaceImage(detail, f)}
+            onMove={() => setMoveIds([detail.id])}
+            onSave={async (patch) => {
+              await savePosterFields(detail.id, patch);
+              setDetail({ ...detail, ...patch });
+            }}
           />
         )}
 
@@ -453,6 +459,16 @@ export function SubCategoryReviewManager({
             saving={artSaving}
             onCancel={() => setArtEditing(null)}
             onSave={(s) => saveArtEdit(artEditing, s)}
+          />
+        )}
+
+        {moveIds && (
+          <MoveCategoryDialog
+            count={moveIds.length}
+            categories={allCategories}
+            currentId={subCategory.id}
+            onCancel={() => setMoveIds(null)}
+            onMove={(newId) => moveToCategory(moveIds, newId)}
           />
         )}
       </DialogContent>
