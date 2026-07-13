@@ -38,6 +38,7 @@ import { NotificationBell } from "@/components/admin/NotificationBell";
 import { NotificationsCenterTab } from "@/components/admin/NotificationsCenterTab";
 import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
 import { PerformanceMonitorTab } from "@/components/admin/PerformanceMonitorTab";
+import { ImageControlCenter } from "@/components/admin/ImageControlCenter";
 import { BackupsTab } from "@/components/admin/BackupsTab";
 import { Photo4x6Tab } from "@/components/admin/Photo4x6Tab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
@@ -128,7 +129,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "customers" | "abandoned" | "custom" | "offers" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "orders" | "customers" | "abandoned" | "custom" | "offers" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "images" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -237,7 +238,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "customers", "abandoned", "custom", "offers", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "orders", "customers", "abandoned", "custom", "offers", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "images", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -290,6 +291,7 @@ function AdminPage() {
         {tab === "notifications" && <NotificationsTab />}
         {tab === "error-logs" && <ErrorLogsTab />}
         {tab === "performance" && <PerformanceMonitorTab />}
+        {tab === "images" && <ImageControlCenter />}
         {tab === "backups" && <BackupsTab />}
         {tab === "system-health" && <SystemHealthTab />}
         {tab === "env-check" && <EnvCheckTab />}
