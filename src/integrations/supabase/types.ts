@@ -695,6 +695,63 @@ export type Database = {
         }
         Relationships: []
       }
+      image_variants: {
+        Row: {
+          bucket: string
+          created_at: string
+          error: string | null
+          format: string | null
+          height: number | null
+          id: string
+          original_path: string
+          size_bytes: number | null
+          source_id: string | null
+          source_table: string
+          status: string
+          updated_at: string
+          url: string | null
+          variant: string
+          variant_path: string | null
+          width: number | null
+        }
+        Insert: {
+          bucket?: string
+          created_at?: string
+          error?: string | null
+          format?: string | null
+          height?: number | null
+          id?: string
+          original_path: string
+          size_bytes?: number | null
+          source_id?: string | null
+          source_table: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+          variant: string
+          variant_path?: string | null
+          width?: number | null
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          error?: string | null
+          format?: string | null
+          height?: number | null
+          id?: string
+          original_path?: string
+          size_bytes?: number | null
+          source_id?: string | null
+          source_table?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+          variant?: string
+          variant_path?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
       marketing_secrets: {
         Row: {
           firebase_service_account: Json | null
@@ -1753,8 +1810,17 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      admin_image_stats: { Args: never; Returns: Json }
       admin_live_visitors: { Args: never; Returns: number }
       admin_notifications_summary: { Args: never; Returns: Json }
+      admin_posters_needing_variants: {
+        Args: { _limit?: number }
+        Returns: {
+          id: string
+          image_url: string
+          title: string
+        }[]
+      }
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
       admin_reset_recommendation_engine: { Args: never; Returns: undefined }
       admin_storage_manifest: { Args: never; Returns: Json }
