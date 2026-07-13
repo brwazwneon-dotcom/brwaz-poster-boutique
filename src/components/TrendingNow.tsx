@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { FramePreview } from "./FramePreview";
+import { SafeImage } from "./SafeImage";
 import { WishlistHeart } from "./WishlistHeart";
 import { Flame, ArrowRight } from "lucide-react";
 
@@ -26,8 +26,9 @@ export function TrendingNow({
   manualIds?: string[];
 }) {
   const useManual = Array.isArray(manualIds) && manualIds.length > 0;
+  const displayCount = Math.min(Math.max(itemsCount, 1), 10);
   const { data = [] } = useQuery({
-    queryKey: ["trending-now-home", useManual ? manualIds!.join(",") : "auto", itemsCount],
+    queryKey: ["trending-now-home", useManual ? manualIds!.join(",") : "auto", displayCount],
     staleTime: 60_000,
     queryFn: async () => {
       if (useManual) {
@@ -39,7 +40,7 @@ export function TrendingNow({
           .not("image_url", "is", null);
         if (error) throw error;
         const m = new Map((data ?? []).map((p) => [p.id, p]));
-        return manualIds!.map((id) => m.get(id)).filter(Boolean).slice(0, itemsCount);
+        return manualIds!.map((id) => m.get(id)).filter(Boolean).slice(0, displayCount);
       }
       const { data, error } = await supabase
         .from("posters")
@@ -47,9 +48,9 @@ export function TrendingNow({
         .eq("trending", true)
         .eq("hidden", false)
         .not("image_url", "is", null)
-        .limit(itemsCount * 3);
+        .limit(displayCount * 3);
       if (error) throw error;
-      return shuffle(data ?? []).slice(0, itemsCount);
+      return shuffle(data ?? []).slice(0, displayCount);
     },
   });
 
@@ -81,24 +82,24 @@ export function TrendingNow({
         <div
           className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {data.map((p: any) => (
+          {data.map((p: any, index) => (
             <Link
               key={p.id}
               to="/category/$slug"
               params={{ slug: p.categories?.slug ?? "movies" }}
-              className="group relative block w-[45%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:w-[24%] lg:w-[16%]"
+              className="group relative block aspect-[3/4] w-[45%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:w-[24%] lg:w-[16%]"
             >
               <WishlistHeart posterId={p.id} />
               <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
                 <Flame className="h-2.5 w-2.5" /> Trending
               </span>
-              <FramePreview
-                posterUrl={p.image_url}
-                title={p.title}
-                aspectClassName="aspect-[3/4]"
-                color="black"
-                loading="lazy"
-                className="h-full w-full transition duration-500 group-hover:scale-105"
+              <SafeImage
+                src={p.image_url}
+                alt={p.title}
+                loading={index < 4 ? "eager" : "lazy"}
+                fetchPriority={index < 2 ? "high" : "auto"}
+                sizes="(min-width: 1024px) 16vw, (min-width: 640px) 24vw, 45vw"
+                className="absolute inset-0 block h-full w-full object-cover object-center transition duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-x-0 bottom-0 translate-y-full bg-background/90 px-3 py-2 text-[10px] uppercase tracking-widest transition group-hover:translate-y-0">
                 {p.title}
