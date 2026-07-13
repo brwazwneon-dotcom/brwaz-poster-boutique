@@ -1589,6 +1589,7 @@ function CategoriesTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cleanOpen, setCleanOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [viewing, setViewing] = useState<Category | null>(null);
 
   // Poster counts per category_id (top ~1000 categories should be plenty)
   const { data: counts = {} } = useQuery({
@@ -1632,6 +1633,16 @@ function CategoriesTab() {
       .eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success(!c.hidden ? "Hidden" : "Visible");
+    invalidate();
+  };
+
+  const toggleFeatured = async (c: Category) => {
+    const { error } = await supabase
+      .from("categories")
+      .update({ featured: !c.featured })
+      .eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(!c.featured ? "Added to header" : "Removed from header");
     invalidate();
   };
 
