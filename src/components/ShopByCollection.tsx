@@ -154,6 +154,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
   const interval = Math.max(2000, card.transitionMs ?? 6000);
   const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
+  const noFrame = card.id === "photo-printing";
 
   useEffect(() => {
     if (valid.length < 2) return;
@@ -175,7 +176,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
       {/* Framed poster cover — centered inside the card */}
       <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-7">
         <div className="relative mx-auto aspect-[2/3] h-full max-h-full w-auto max-w-full transition-transform duration-700 group-hover:scale-[1.04]">
-          {valid.length === 0 && (
+          {valid.length === 0 && !noFrame && (
             <FramePreview
               posterUrl=""
               title={card.title}
@@ -193,6 +194,15 @@ function CollectionCover({ card }: { card: CollectionCard }) {
                 i === index ? "opacity-100" : "opacity-0",
               ].join(" ")}
             >
+              {noFrame ? (
+                <img
+                  src={url}
+                  alt={card.title}
+                  loading="lazy"
+                  className="h-full w-full rounded-sm object-cover"
+                  onError={() => setBroken((b) => ({ ...b, [url]: true }))}
+                />
+              ) : (
               <FramePreview
                 posterUrl={url}
                 title={card.title}
@@ -208,6 +218,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
                   rotate: 0,
                 }}
               />
+              )}
               {/* Detect broken source so we can drop it from rotation */}
               <img
                 src={url}
