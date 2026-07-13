@@ -367,6 +367,7 @@ export function SubCategoryReviewManager({
             <button onClick={() => setHidden([...selected], false)} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><Eye className="h-3 w-3" /> Show</button>
             <button onClick={() => setReview([...selected], "ready")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><CheckCircle2 className="h-3 w-3" /> Mark Ready</button>
             <button onClick={() => setReview([...selected], "needs_edit")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><AlertTriangle className="h-3 w-3" /> Needs Edit</button>
+            <button onClick={() => setMoveIds([...selected])} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/5 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10"><FolderInput className="h-3 w-3" /> Move to…</button>
             <button onClick={() => softDelete([...selected])} className="inline-flex items-center gap-1 rounded-sm border border-destructive px-2 py-1 text-[10px] uppercase tracking-widest text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /> Delete</button>
             <button onClick={clearSel} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
           </div>
