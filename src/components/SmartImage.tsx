@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { X, Download, ZoomIn, AlertTriangle } from "lucide-react";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
+import { useImageVariant } from "@/lib/image-variants";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,6 +19,8 @@ export function SmartImage({
   thumbUrl,
   previewUrl,
   originalUrl,
+  sourceTable,
+  sourceId,
   alt,
   aspect = "square",
   className,
@@ -36,6 +39,10 @@ export function SmartImage({
   previewUrl?: string | null;
   /** Original untouched file for print quality downloads. */
   originalUrl?: string | null;
+  /** When provided together with sourceId, SmartImage auto-loads optimized
+   *  variants from `image_variants` (thumb for the tile, large for the lightbox). */
+  sourceTable?: string;
+  sourceId?: string | null;
   alt: string;
   aspect?: "square" | "portrait" | "landscape" | "auto";
   className?: string;
@@ -56,7 +63,10 @@ export function SmartImage({
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
-  const thumb = thumbUrl || src;
+  const autoThumb = useImageVariant(sourceTable ?? "", sourceId ?? null, "thumb", null);
+  const autoLarge = useImageVariant(sourceTable ?? "", sourceId ?? null, "large", null);
+  const thumb = thumbUrl || autoThumb || src;
+  const preview = previewUrl || autoLarge || originalUrl || src;
 
   const aspectClass =
     aspect === "square"
@@ -116,7 +126,7 @@ export function SmartImage({
       {open &&
         createPortal(
           <Lightbox
-            src={previewUrl || originalUrl || src}
+            src={preview}
             originalUrl={originalUrl}
             alt={alt}
             meta={meta}
