@@ -41,9 +41,9 @@ export function SiteHeader() {
             <img
               src={logoSrc}
               alt="BRWAZWNEON – Custom Posters, Frames & Photo Printing"
-              style={{ ...logo.style, display: "block", objectFit: "contain", maxHeight: 50, width: "auto" }}
-              width={160}
-              height={48}
+              style={{ ...logo.style, display: "block", objectFit: "contain", maxHeight: 96, width: "auto" }}
+              width={220}
+              height={88}
               loading="eager"
               decoding="async"
               fetchPriority="high"
