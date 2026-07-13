@@ -38,6 +38,7 @@ import { NotificationBell } from "@/components/admin/NotificationBell";
 import { NotificationsCenterTab } from "@/components/admin/NotificationsCenterTab";
 import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
 import { PerformanceMonitorTab } from "@/components/admin/PerformanceMonitorTab";
+import { ImageControlCenter } from "@/components/admin/ImageControlCenter";
 import { BackupsTab } from "@/components/admin/BackupsTab";
 import { Photo4x6Tab } from "@/components/admin/Photo4x6Tab";
 import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
