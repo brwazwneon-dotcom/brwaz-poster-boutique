@@ -507,7 +507,7 @@ function SelectFilter({
 }
 
 function PosterCard({
-  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onToggleTrending,
+  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onMove, onToggleTrending,
 }: {
   poster: Poster;
   selected: boolean;
@@ -519,6 +519,7 @@ function PosterCard({
   onReview: (s: ReviewStatus) => void;
   onReplace: (file: File) => void;
   onEditArt: () => void;
+  onMove: () => void;
   onToggleTrending: () => void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
@@ -589,6 +590,7 @@ function PosterCard({
             {p.hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           </button>
           <button onClick={onAiSeo} title="AI SEO" className="rounded-sm border border-primary/40 bg-primary/5 p-1 text-primary hover:bg-primary/10"><Sparkles className="h-3 w-3" /></button>
+          <button onClick={onMove} title="Move to another category" className="rounded-sm border border-border p-1 hover:bg-accent"><FolderInput className="h-3 w-3" /></button>
           <button
             onClick={onToggleTrending}
             title={isTrending ? "Remove from Trending" : "Add to Trending"}
