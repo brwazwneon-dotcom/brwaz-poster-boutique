@@ -1719,10 +1719,22 @@ function CategoriesTab() {
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">
-              {c.name}
+              <button
+                type="button"
+                onClick={() => setViewing(c)}
+                className="text-left hover:underline"
+                title="View posters inside this category"
+              >
+                {c.name}
+              </button>
               {c.hidden && (
                 <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                   hidden
+                </span>
+              )}
+              {depth === 0 && c.featured && (
+                <span className="ml-2 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-primary">
+                  in header
                 </span>
               )}
             </div>
@@ -1746,6 +1758,18 @@ function CategoriesTab() {
             >
               <ArrowDown className="h-3.5 w-3.5" />
             </button>
+            {depth === 0 && (
+              <button
+                onClick={() => toggleFeatured(c)}
+                className={cn(
+                  "rounded-sm p-1.5 hover:bg-accent",
+                  c.featured ? "text-amber-500" : "text-muted-foreground",
+                )}
+                title={c.featured ? "Remove from top header menu" : "Show in top header menu"}
+              >
+                <Star className={cn("h-3.5 w-3.5", c.featured && "fill-current")} />
+              </button>
+            )}
             <button
               onClick={() => setEditing({ newUnder: c.id })}
               className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
