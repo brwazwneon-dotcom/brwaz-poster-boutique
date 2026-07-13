@@ -717,19 +717,65 @@ function PosterDetailModal({
             </div>
           </div>
           <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Title</div>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
             <FieldRow label="Price">{p.price != null ? `${p.price} EGP` : "—"}</FieldRow>
             <FieldRow label="Slug">{p.slug || "—"}</FieldRow>
             <FieldRow label="Views">{p.views_count}</FieldRow>
             <FieldRow label="Sales">{p.sales_count}</FieldRow>
             <FieldRow label="Created">{new Date(p.created_at).toLocaleString()}</FieldRow>
-            <FieldRow label="SEO title">{p.seo_title || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="SEO description">{p.seo_description || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="Alt text">{p.alt_text || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="Tags">
-              {p.tags && p.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-1">{p.tags.map((t) => <span key={t} className="rounded-sm border border-border px-1.5 py-0.5 text-[10px]">{t}</span>)}</div>
-              ) : "—"}
-            </FieldRow>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO title</div>
+              <input
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                placeholder="Under 60 chars"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <div className="mt-0.5 text-right text-[10px] text-muted-foreground">{seoTitle.length}/60</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO description</div>
+              <textarea
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                rows={3}
+                placeholder="Under 160 chars"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <div className="mt-0.5 text-right text-[10px] text-muted-foreground">{seoDescription.length}/160</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Alt text</div>
+              <input
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags (comma separated)</div>
+              <input
+                value={tagsText}
+                onChange={(e) => setTagsText(e.target.value)}
+                placeholder="football, real madrid, poster"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={saveSeo}
+              disabled={!dirty || savingSeo}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
+            >
+              {savingSeo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingSeo ? "Saving…" : dirty ? "Save changes" : "Saved"}
+            </button>
 
             <div className="pt-2">
               <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Review status</div>
@@ -752,6 +798,9 @@ function PosterDetailModal({
               </label>
               <button onClick={onAiSeo} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <Sparkles className="h-3.5 w-3.5" /> AI SEO
+              </button>
+              <button onClick={onMove} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs uppercase tracking-widest text-primary hover:bg-primary/20">
+                <FolderInput className="h-3.5 w-3.5" /> Move category
               </button>
               <button onClick={onHide} className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
                 {p.hidden ? <><Eye className="h-3.5 w-3.5" /> Show</> : <><EyeOff className="h-3.5 w-3.5" /> Hide</>}
