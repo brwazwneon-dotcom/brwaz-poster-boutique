@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/lib/use-categories";
+import { useCategories } from "@/lib/use-categories";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
@@ -19,6 +20,7 @@ import {
 import {
   Eye, EyeOff, Trash2, Sparkles, X, Loader2, Search, Download,
   CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame, Crop,
+  FolderInput, Save,
 } from "lucide-react";
 
 type Poster = {
