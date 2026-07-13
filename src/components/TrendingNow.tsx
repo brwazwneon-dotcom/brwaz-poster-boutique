@@ -65,7 +65,7 @@ export function TrendingNow({
           </div>
           <Link
             to="/trending"
-            className="group inline-flex shrink-0 items-center gap-2 rounded-sm border border-border bg-background px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-foreground transition hover:bg-primary hover:text-primary-foreground"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-sm border border-primary bg-primary px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary-foreground shadow-[0_0_0_0_hsl(var(--primary))] transition-all duration-300 hover:shadow-[0_0_24px_2px_hsl(var(--primary)/0.5)] hover:brightness-110 animate-pulse"
           >
             View all
             <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
