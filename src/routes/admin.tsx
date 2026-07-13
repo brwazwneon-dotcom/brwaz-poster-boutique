@@ -1918,6 +1918,16 @@ function CategoriesTab() {
           onChanged={invalidate}
         />
       )}
+
+      {viewing && (
+        <Modal onClose={() => setViewing(null)} title={`Inside “${viewing.name}”`}>
+          <SubCategoryReviewManager
+            subCategory={viewing}
+            parent={viewing.parent_id ? categories.find((c) => c.id === viewing.parent_id) ?? null : null}
+            onClose={() => setViewing(null)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
