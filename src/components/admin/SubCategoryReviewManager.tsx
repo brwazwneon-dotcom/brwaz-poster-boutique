@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/lib/use-categories";
+import { useCategories } from "@/lib/use-categories";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
@@ -19,6 +20,7 @@ import {
 import {
   Eye, EyeOff, Trash2, Sparkles, X, Loader2, Search, Download,
   CheckCircle2, AlertTriangle, ImageOff, Upload, RefreshCw, Filter, Flame, Crop,
+  FolderInput, Save,
 } from "lucide-react";
 
 type Poster = {
@@ -108,6 +110,8 @@ export function SubCategoryReviewManager({
   const [bulkSeoOpen, setBulkSeoOpen] = useState(false);
   const [artEditing, setArtEditing] = useState<Poster | null>(null);
   const [artSaving, setArtSaving] = useState(false);
+  const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const { data: allCategories = [] } = useCategories();
 
   const { data: posters = [], isLoading, refetch } = useQuery({
     queryKey: ["subcat-review-posters", subCategory.id],
@@ -186,6 +190,25 @@ export function SubCategoryReviewManager({
 
   const setHidden = (ids: string[], hidden: boolean) => {
     patchPoster(ids, { hidden }).then(() => toast.success(hidden ? `Hidden ${ids.length}` : `Shown ${ids.length}`));
+  };
+  const moveToCategory = async (ids: string[], newCategoryId: string | null) => {
+    if (!ids.length) return;
+    const { error } = await supabase
+      .from("posters")
+      .update({ category_id: newCategoryId } as never)
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Moved ${ids.length} poster${ids.length === 1 ? "" : "s"}`);
+    setMoveIds(null);
+    clearSel();
+    invalidate();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+    qc.invalidateQueries({ queryKey: ["subcat-poster-counts"] });
+  };
+  const savePosterFields = async (id: string, patch: Partial<Poster>) => {
+    await patchPoster([id], patch);
+    toast.success("Saved");
   };
   const setReview = (ids: string[], review_status: ReviewStatus) => {
     patchPoster(ids, { review_status }).then(() => toast.success(`Marked ${ids.length} as ${REVIEW_LABELS[review_status]}`));
@@ -344,6 +367,7 @@ export function SubCategoryReviewManager({
             <button onClick={() => setHidden([...selected], false)} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><Eye className="h-3 w-3" /> Show</button>
             <button onClick={() => setReview([...selected], "ready")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><CheckCircle2 className="h-3 w-3" /> Mark Ready</button>
             <button onClick={() => setReview([...selected], "needs_edit")} className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"><AlertTriangle className="h-3 w-3" /> Needs Edit</button>
+            <button onClick={() => setMoveIds([...selected])} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/5 px-2 py-1 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/10"><FolderInput className="h-3 w-3" /> Move to…</button>
             <button onClick={() => softDelete([...selected])} className="inline-flex items-center gap-1 rounded-sm border border-destructive px-2 py-1 text-[10px] uppercase tracking-widest text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /> Delete</button>
             <button onClick={clearSel} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
           </div>
@@ -380,6 +404,7 @@ export function SubCategoryReviewManager({
                     onReview={(s) => setReview([p.id], s)}
                     onReplace={(f) => replaceImage(p, f)}
                     onEditArt={() => setArtEditing(p)}
+                    onMove={() => setMoveIds([p.id])}
                     onToggleTrending={async () => {
                       await toggleTrending(p.id, p.trending === true);
                       invalidate();
@@ -410,6 +435,11 @@ export function SubCategoryReviewManager({
             onDelete={() => { softDelete([detail.id]); setDetail(null); }}
             onAiSeo={() => runAiSeoSingle(detail)}
             onReplace={(f) => replaceImage(detail, f)}
+            onMove={() => setMoveIds([detail.id])}
+            onSave={async (patch) => {
+              await savePosterFields(detail.id, patch);
+              setDetail({ ...detail, ...patch });
+            }}
           />
         )}
 
@@ -429,6 +459,16 @@ export function SubCategoryReviewManager({
             saving={artSaving}
             onCancel={() => setArtEditing(null)}
             onSave={(s) => saveArtEdit(artEditing, s)}
+          />
+        )}
+
+        {moveIds && (
+          <MoveCategoryDialog
+            count={moveIds.length}
+            categories={allCategories}
+            currentId={subCategory.id}
+            onCancel={() => setMoveIds(null)}
+            onMove={(newId) => moveToCategory(moveIds, newId)}
           />
         )}
       </DialogContent>
@@ -467,7 +507,7 @@ function SelectFilter({
 }
 
 function PosterCard({
-  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onToggleTrending,
+  poster: p, selected, onToggle, onOpen, onHide, onDelete, onAiSeo, onReview, onReplace, onEditArt, onMove, onToggleTrending,
 }: {
   poster: Poster;
   selected: boolean;
@@ -479,6 +519,7 @@ function PosterCard({
   onReview: (s: ReviewStatus) => void;
   onReplace: (file: File) => void;
   onEditArt: () => void;
+  onMove: () => void;
   onToggleTrending: () => void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
@@ -549,6 +590,7 @@ function PosterCard({
             {p.hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           </button>
           <button onClick={onAiSeo} title="AI SEO" className="rounded-sm border border-primary/40 bg-primary/5 p-1 text-primary hover:bg-primary/10"><Sparkles className="h-3 w-3" /></button>
+          <button onClick={onMove} title="Move to another category" className="rounded-sm border border-border p-1 hover:bg-accent"><FolderInput className="h-3 w-3" /></button>
           <button
             onClick={onToggleTrending}
             title={isTrending ? "Remove from Trending" : "Add to Trending"}
@@ -567,7 +609,7 @@ function PosterCard({
 }
 
 function PosterDetailModal({
-  poster: p, onClose, onReview, onHide, onDelete, onAiSeo, onReplace,
+  poster: p, onClose, onReview, onHide, onDelete, onAiSeo, onReplace, onMove, onSave,
 }: {
   poster: Poster;
   onClose: () => void;
@@ -576,12 +618,45 @@ function PosterDetailModal({
   onDelete: () => void;
   onAiSeo: () => void;
   onReplace: (f: File) => void;
+  onMove: () => void;
+  onSave: (patch: Partial<Poster>) => Promise<void> | void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
   const originalUrl = p.original_url ?? p.image_url;
   const [previewMode, setPreviewMode] = useState<"mockup" | "raw">("mockup");
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [frameColor, setFrameColor] = useState<FrameColorId>("black");
+  // Editable SEO/meta state
+  const [title, setTitle] = useState(p.title ?? "");
+  const [seoTitle, setSeoTitle] = useState(p.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(p.seo_description ?? "");
+  const [altText, setAltText] = useState(p.alt_text ?? "");
+  const [tagsText, setTagsText] = useState((p.tags ?? []).join(", "));
+  const [savingSeo, setSavingSeo] = useState(false);
+  const dirty =
+    (title ?? "") !== (p.title ?? "") ||
+    (seoTitle ?? "") !== (p.seo_title ?? "") ||
+    (seoDescription ?? "") !== (p.seo_description ?? "") ||
+    (altText ?? "") !== (p.alt_text ?? "") ||
+    tagsText !== (p.tags ?? []).join(", ");
+  const saveSeo = async () => {
+    setSavingSeo(true);
+    try {
+      const tags = tagsText
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await onSave({
+        title: title.trim() || null,
+        seo_title: seoTitle.trim() || null,
+        seo_description: seoDescription.trim() || null,
+        alt_text: altText.trim() || null,
+        tags: tags.length ? tags : null,
+      });
+    } finally {
+      setSavingSeo(false);
+    }
+  };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
@@ -642,19 +717,65 @@ function PosterDetailModal({
             </div>
           </div>
           <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Title</div>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
             <FieldRow label="Price">{p.price != null ? `${p.price} EGP` : "—"}</FieldRow>
             <FieldRow label="Slug">{p.slug || "—"}</FieldRow>
             <FieldRow label="Views">{p.views_count}</FieldRow>
             <FieldRow label="Sales">{p.sales_count}</FieldRow>
             <FieldRow label="Created">{new Date(p.created_at).toLocaleString()}</FieldRow>
-            <FieldRow label="SEO title">{p.seo_title || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="SEO description">{p.seo_description || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="Alt text">{p.alt_text || <em className="text-muted-foreground">missing</em>}</FieldRow>
-            <FieldRow label="Tags">
-              {p.tags && p.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-1">{p.tags.map((t) => <span key={t} className="rounded-sm border border-border px-1.5 py-0.5 text-[10px]">{t}</span>)}</div>
-              ) : "—"}
-            </FieldRow>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO title</div>
+              <input
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                placeholder="Under 60 chars"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <div className="mt-0.5 text-right text-[10px] text-muted-foreground">{seoTitle.length}/60</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO description</div>
+              <textarea
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                rows={3}
+                placeholder="Under 160 chars"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <div className="mt-0.5 text-right text-[10px] text-muted-foreground">{seoDescription.length}/160</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Alt text</div>
+              <input
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags (comma separated)</div>
+              <input
+                value={tagsText}
+                onChange={(e) => setTagsText(e.target.value)}
+                placeholder="football, real madrid, poster"
+                className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={saveSeo}
+              disabled={!dirty || savingSeo}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
+            >
+              {savingSeo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingSeo ? "Saving…" : dirty ? "Save changes" : "Saved"}
+            </button>
 
             <div className="pt-2">
               <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Review status</div>
@@ -677,6 +798,9 @@ function PosterDetailModal({
               </label>
               <button onClick={onAiSeo} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <Sparkles className="h-3.5 w-3.5" /> AI SEO
+              </button>
+              <button onClick={onMove} className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs uppercase tracking-widest text-primary hover:bg-primary/20">
+                <FolderInput className="h-3.5 w-3.5" /> Move category
               </button>
               <button onClick={onHide} className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
                 {p.hidden ? <><Eye className="h-3.5 w-3.5" /> Show</> : <><EyeOff className="h-3.5 w-3.5" /> Hide</>}
@@ -701,5 +825,99 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="mt-0.5">{children}</div>
     </div>
+  );
+}
+
+function MoveCategoryDialog({
+  count, categories, currentId, onCancel, onMove,
+}: {
+  count: number;
+  categories: Category[];
+  currentId: string;
+  onCancel: () => void;
+  onMove: (newCategoryId: string | null) => void;
+}) {
+  const [target, setTarget] = useState<string>("");
+  const [q, setQ] = useState("");
+  // Build "Parent › Child" labels; exclude the current category.
+  const options = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const labelOf = (c: Category) => {
+      const parent = c.parent_id ? byId.get(c.parent_id) : null;
+      return parent ? `${parent.name} › ${c.name}` : c.name;
+    };
+    const term = q.trim().toLowerCase();
+    return categories
+      .filter((c) => c.id !== currentId)
+      .map((c) => ({ id: c.id, label: labelOf(c), hasParent: !!c.parent_id }))
+      .filter((o) => !term || o.label.toLowerCase().includes(term))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [categories, currentId, q]);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderInput className="h-4 w-4 text-primary" />
+            Move {count} poster{count === 1 ? "" : "s"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search category…"
+              className="w-full rounded-sm border border-border bg-background pl-8 pr-3 py-2 text-sm"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-sm border border-border">
+            {options.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">No matches</div>
+            ) : (
+              options.map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => setTarget(o.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                    target === o.id && "bg-accent/60 text-primary",
+                  )}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {target === o.id && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <button
+              onClick={() => onMove(null)}
+              className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+              title="Remove from any category (uncategorized)"
+            >
+              No category
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => target && onMove(target)}
+                disabled={!target}
+                className="rounded-sm bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
+              >
+                Move here
+              </button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
