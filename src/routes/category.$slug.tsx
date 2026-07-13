@@ -19,6 +19,7 @@ import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { PosterBadge } from "@/components/PosterBadge";
@@ -461,6 +462,10 @@ function Customizer({
   const [color, setColor] = useState<FrameColorId>("black");
   const enabledVariants = useEnabledFrameVariants();
   const [quantity, setQuantity] = useState(1);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  useEffect(() => {
+    if (previewIndex > posters.length - 1) setPreviewIndex(0);
+  }, [posters.length, previewIndex]);
   const handleFrameType = (next: FrameTypeId) => {
     setFrameType(next);
     if (next === "wood") {
@@ -478,7 +483,11 @@ function Customizer({
   const unit = priceForFrame(pricing, frameType, size) + (isCustom ? pricing.customDesignFee : 0);
   const total = unit * posters.length * quantity;
 
-  const primary = posters[0];
+  const primary = posters[previewIndex] ?? posters[0];
+  const goPrev = () =>
+    setPreviewIndex((i) => (i - 1 + posters.length) % posters.length);
+  const goNext = () =>
+    setPreviewIndex((i) => (i + 1) % posters.length);
 
   const handleAdd = () => {
     for (let n = 0; n < quantity; n++) {
@@ -525,9 +534,20 @@ function Customizer({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-3 [scrollbar-width:thin]">
-        <div className="mx-auto flex w-full justify-center">
+        <div className="relative mx-auto flex w-full items-center justify-center gap-2">
+          {posters.length > 1 && (
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous poster"
+              className="absolute left-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
           <div className="w-full max-w-[min(340px,36vh)]">
             <PosterGallery
+              key={primary.id}
               posterId={primary.id}
               posterUrl={primary.image_url}
               title={primary.title}
@@ -536,7 +556,22 @@ function Customizer({
               editSettings={primary.edit_settings}
             />
           </div>
+          {posters.length > 1 && (
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next poster"
+              className="absolute right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
+      {posters.length > 1 && (
+        <div className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+          Preview {previewIndex + 1} / {posters.length} · {primary.title}
+        </div>
+      )}
       {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 || primary.is_best_seller ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {(primary.sales_count ?? 0) > 0 && (
@@ -554,8 +589,22 @@ function Customizer({
       ) : null}
       {posters.length > 1 && (
       <div className="mt-3 grid grid-cols-5 gap-2">
-        {posters.map((p) => (
-          <div key={p.id} className="group relative aspect-[2/3] overflow-hidden rounded-sm">
+        {posters.map((p, i) => (
+          <div
+            key={p.id}
+            className={cn(
+              "group relative aspect-[2/3] overflow-hidden rounded-sm border transition",
+              i === previewIndex
+                ? "border-primary ring-2 ring-primary"
+                : "border-transparent hover:border-border",
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewIndex(i)}
+              aria-label={`Preview ${p.title}`}
+              className="absolute inset-0 z-10"
+            />
             <FramePreview
               posterUrl={p.image_url}
               title={p.title}
@@ -568,7 +617,7 @@ function Customizer({
             <button
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.title}`}
-              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
+              className="absolute right-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
             >
               <X className="h-3 w-3" />
             </button>
