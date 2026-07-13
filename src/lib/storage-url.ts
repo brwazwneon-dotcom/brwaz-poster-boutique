@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Variant } from "@/lib/image-pipeline";
 
 // 10 years — buckets are private (workspace blocks public),
 // so we store long-lived signed URLs in the DB.
@@ -41,13 +42,35 @@ export async function uploadAndSign(
   bucket: string,
   path: string,
   file: File,
+  opts?: { autoOptimize?: { sourceTable: string; sourceId?: string | null } },
 ): Promise<string> {
   const { error: upErr } = await supabase.storage
     .from(bucket)
     .upload(path, file, { contentType: file.type, upsert: false });
   if (upErr) throw upErr;
-  return signStoragePath(bucket, path);
+  const signed = await signStoragePath(bucket, path);
+  if (opts?.autoOptimize && file.type.startsWith("image/")) {
+    // Fire-and-forget — never block the upload flow on variant generation.
+    void (async () => {
+      try {
+        const { generateVariantsFor } = await import("@/lib/image-pipeline");
+        await generateVariantsFor({
+          sourceTable: opts.autoOptimize!.sourceTable,
+          sourceId: opts.autoOptimize!.sourceId ?? null,
+          originalUrl: signed,
+          bucket,
+          file,
+        });
+      } catch {
+        /* logged inside pipeline */
+      }
+    })();
+  }
+  return signed;
 }
+
+// Re-export to keep type reachable for callers.
+export type { Variant };
 
 /**
  * Given an existing URL, return a fresh signed URL.
