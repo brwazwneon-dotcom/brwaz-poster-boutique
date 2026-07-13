@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, RefreshCcw, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, RefreshCcw, Trash2, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { generateVariantsFor } from "@/lib/image-pipeline";
 
 type Bucket = "good" | "warning" | "critical";
 
@@ -81,6 +82,7 @@ export function PerformanceMonitorTab() {
   const qc = useQueryClient();
   const [range, setRange] = useState<TimeRange>("24h");
   const [clearing, setClearing] = useState(false);
+  const [autoFixing, setAutoFixing] = useState(false);
   const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ["perf-metrics", range],
     queryFn: () => fetchPerf(range),
@@ -137,6 +139,35 @@ export function PerformanceMonitorTab() {
     }
   }
 
+  async function autoSpeedFix() {
+    if (!confirm("تشغيل إصلاحات الأداء الآمنة؟ سيتم:\n- حذف قياسات > 7 أيام\n- إنشاء نسخ محسّنة للصور الناقصة (حتى 10)")) return;
+    setAutoFixing(true);
+    try {
+      // 1. Clean old metrics
+      const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      await supabase.from("perf_metrics").delete().lt("created_at", cutoff);
+
+      // 2. Optimize up to 10 posters missing thumbnails
+      const { data: needs } = await supabase.rpc("admin_posters_needing_variants", { _limit: 10 });
+      let done = 0;
+      for (const row of (needs ?? []) as { id: string; image_url: string }[]) {
+        const res = await generateVariantsFor({
+          sourceTable: "posters",
+          sourceId: row.id,
+          originalUrl: row.image_url,
+        });
+        if (res.done > 0) done += 1;
+      }
+      toast.success(`Auto Fix: نظّفت القياسات القديمة + حسّنت ${done} صورة`);
+      qc.invalidateQueries({ queryKey: ["perf-metrics"] });
+      qc.invalidateQueries({ queryKey: ["admin-image-stats"] });
+    } catch (e) {
+      toast.error("فشل Auto Fix: " + (e as Error).message);
+    } finally {
+      setAutoFixing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -160,6 +191,13 @@ export function PerformanceMonitorTab() {
           className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
         >
           <RefreshCcw className="h-3 w-3" /> تحديث
+        </button>
+        <button
+          onClick={autoSpeedFix}
+          disabled={autoFixing}
+          className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-2 py-1.5 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-50"
+        >
+          <Zap className="h-3 w-3" /> {autoFixing ? "جارٍ..." : "Auto Speed Fix"}
         </button>
         <button
           onClick={clearOld}
