@@ -29,6 +29,7 @@ import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { AiPosterUpload } from "@/components/admin/AiPosterUpload";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
+import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
@@ -1588,6 +1589,7 @@ function CategoriesTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cleanOpen, setCleanOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [viewing, setViewing] = useState<Category | null>(null);
 
   // Poster counts per category_id (top ~1000 categories should be plenty)
   const { data: counts = {} } = useQuery({
@@ -1631,6 +1633,16 @@ function CategoriesTab() {
       .eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success(!c.hidden ? "Hidden" : "Visible");
+    invalidate();
+  };
+
+  const toggleFeatured = async (c: Category) => {
+    const { error } = await supabase
+      .from("categories")
+      .update({ featured: !c.featured })
+      .eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(!c.featured ? "Added to header" : "Removed from header");
     invalidate();
   };
 
@@ -1707,10 +1719,22 @@ function CategoriesTab() {
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">
-              {c.name}
+              <button
+                type="button"
+                onClick={() => setViewing(c)}
+                className="text-left hover:underline"
+                title="View posters inside this category"
+              >
+                {c.name}
+              </button>
               {c.hidden && (
                 <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                   hidden
+                </span>
+              )}
+              {depth === 0 && c.featured && (
+                <span className="ml-2 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-primary">
+                  in header
                 </span>
               )}
             </div>
@@ -1734,6 +1758,18 @@ function CategoriesTab() {
             >
               <ArrowDown className="h-3.5 w-3.5" />
             </button>
+            {depth === 0 && (
+              <button
+                onClick={() => toggleFeatured(c)}
+                className={cn(
+                  "rounded-sm p-1.5 hover:bg-accent",
+                  c.featured ? "text-amber-500" : "text-muted-foreground",
+                )}
+                title={c.featured ? "Remove from top header menu" : "Show in top header menu"}
+              >
+                <Star className={cn("h-3.5 w-3.5", c.featured && "fill-current")} />
+              </button>
+            )}
             <button
               onClick={() => setEditing({ newUnder: c.id })}
               className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent"
@@ -1881,6 +1917,16 @@ function CategoriesTab() {
           onClose={() => setCleanOpen(false)}
           onChanged={invalidate}
         />
+      )}
+
+      {viewing && (
+        <Modal onClose={() => setViewing(null)} title={`Inside “${viewing.name}”`}>
+          <SubCategoryReviewManager
+            subCategory={viewing}
+            parent={viewing.parent_id ? categories.find((c) => c.id === viewing.parent_id) ?? null : null}
+            onClose={() => setViewing(null)}
+          />
+        </Modal>
       )}
     </div>
   );

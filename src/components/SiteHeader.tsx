@@ -5,26 +5,29 @@ import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useLogoSize } from "@/lib/branding";
+import { useCategories, isCategoryVisible } from "@/lib/use-categories";
 const LOGO_PNG_FALLBACK = "/assets/brwazwneon-logo.png";
 
-const MAIN_MENU: { label: string; href: string }[] = [
+const FALLBACK_MENU: { label: string; href: string }[] = [
   { label: "Football", href: "/category/football" },
   { label: "Movies", href: "/category/movies" },
   { label: "TV Series", href: "/category/tv-series" },
   { label: "Marvel & DC", href: "/category/marvel-dc" },
   { label: "Anime", href: "/category/anime" },
   { label: "Cars", href: "/category/cars" },
-  { label: "Custom Design", href: "/custom-design" },
-  { label: "Photo Printing", href: "/photo-printing" },
-  { label: "4×6 Photos", href: "/photo-4x6" },
-  { label: "Sets", href: "/sets" },
-  { label: "Best Sellers", href: "/#best-sellers" },
 ];
 
 export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
+  const { data: categories = [] } = useCategories();
+  const featured = categories
+    .filter((c) => !c.parent_id && c.featured && isCategoryVisible(c))
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .slice(0, 6)
+    .map((c) => ({ label: c.name, href: `/category/${c.slug}` }));
+  const menu = featured.length > 0 ? featured : FALLBACK_MENU;
   // Fallback chain: DB/branding logo (webp) -> bundled png -> text wordmark.
   // Guards against stale/broken remote URLs (Lovable preview, blob, etc.).
   const [logoStage, setLogoStage] = useState<0 | 1 | 2>(0);
@@ -55,7 +58,7 @@ export function SiteHeader() {
           <SearchBox variant="header" />
         </div>
         <nav className="hidden items-center gap-5 text-xs uppercase tracking-widest text-muted-foreground lg:flex">
-          {MAIN_MENU.slice(0, 6).map((m) => (
+          {menu.slice(0, 6).map((m) => (
             <a
               key={m.href}
               href={m.href}
