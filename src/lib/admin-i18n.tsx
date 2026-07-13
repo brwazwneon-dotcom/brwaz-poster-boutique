@@ -120,6 +120,7 @@ const AR: Dict = {
   "tab.settings": "الإعدادات",
   "tab.error-logs": "سجل الأخطاء",
   "tab.performance": "الأداء",
+  "tab.images": "تحسين الصور",
   "tab.alerts": "التنبيهات الذكية",
   "tab.assistant-requests": "طلبات المساعد",
   "tab.customers": "العملاء",
