@@ -29,6 +29,7 @@ import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
 import { AiPosterUpload } from "@/components/admin/AiPosterUpload";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
+import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
