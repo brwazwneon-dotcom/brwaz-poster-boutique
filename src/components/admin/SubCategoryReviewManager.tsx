@@ -110,6 +110,8 @@ export function SubCategoryReviewManager({
   const [bulkSeoOpen, setBulkSeoOpen] = useState(false);
   const [artEditing, setArtEditing] = useState<Poster | null>(null);
   const [artSaving, setArtSaving] = useState(false);
+  const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const { data: allCategories = [] } = useCategories();
 
   const { data: posters = [], isLoading, refetch } = useQuery({
     queryKey: ["subcat-review-posters", subCategory.id],
@@ -188,6 +190,25 @@ export function SubCategoryReviewManager({
 
   const setHidden = (ids: string[], hidden: boolean) => {
     patchPoster(ids, { hidden }).then(() => toast.success(hidden ? `Hidden ${ids.length}` : `Shown ${ids.length}`));
+  };
+  const moveToCategory = async (ids: string[], newCategoryId: string | null) => {
+    if (!ids.length) return;
+    const { error } = await supabase
+      .from("posters")
+      .update({ category_id: newCategoryId } as never)
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Moved ${ids.length} poster${ids.length === 1 ? "" : "s"}`);
+    setMoveIds(null);
+    clearSel();
+    invalidate();
+    qc.invalidateQueries({ queryKey: ["admin-posters"] });
+    qc.invalidateQueries({ queryKey: ["posters"] });
+    qc.invalidateQueries({ queryKey: ["subcat-poster-counts"] });
+  };
+  const savePosterFields = async (id: string, patch: Partial<Poster>) => {
+    await patchPoster([id], patch);
+    toast.success("Saved");
   };
   const setReview = (ids: string[], review_status: ReviewStatus) => {
     patchPoster(ids, { review_status }).then(() => toast.success(`Marked ${ids.length} as ${REVIEW_LABELS[review_status]}`));
