@@ -609,7 +609,7 @@ function PosterCard({
 }
 
 function PosterDetailModal({
-  poster: p, onClose, onReview, onHide, onDelete, onAiSeo, onReplace,
+  poster: p, onClose, onReview, onHide, onDelete, onAiSeo, onReplace, onMove, onSave,
 }: {
   poster: Poster;
   onClose: () => void;
@@ -618,12 +618,45 @@ function PosterDetailModal({
   onDelete: () => void;
   onAiSeo: () => void;
   onReplace: (f: File) => void;
+  onMove: () => void;
+  onSave: (patch: Partial<Poster>) => Promise<void> | void;
 }) {
   const status = (p.review_status as ReviewStatus) ?? "ready";
   const originalUrl = p.original_url ?? p.image_url;
   const [previewMode, setPreviewMode] = useState<"mockup" | "raw">("mockup");
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [frameColor, setFrameColor] = useState<FrameColorId>("black");
+  // Editable SEO/meta state
+  const [title, setTitle] = useState(p.title ?? "");
+  const [seoTitle, setSeoTitle] = useState(p.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(p.seo_description ?? "");
+  const [altText, setAltText] = useState(p.alt_text ?? "");
+  const [tagsText, setTagsText] = useState((p.tags ?? []).join(", "));
+  const [savingSeo, setSavingSeo] = useState(false);
+  const dirty =
+    (title ?? "") !== (p.title ?? "") ||
+    (seoTitle ?? "") !== (p.seo_title ?? "") ||
+    (seoDescription ?? "") !== (p.seo_description ?? "") ||
+    (altText ?? "") !== (p.alt_text ?? "") ||
+    tagsText !== (p.tags ?? []).join(", ");
+  const saveSeo = async () => {
+    setSavingSeo(true);
+    try {
+      const tags = tagsText
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await onSave({
+        title: title.trim() || null,
+        seo_title: seoTitle.trim() || null,
+        seo_description: seoDescription.trim() || null,
+        alt_text: altText.trim() || null,
+        tags: tags.length ? tags : null,
+      });
+    } finally {
+      setSavingSeo(false);
+    }
+  };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto">
