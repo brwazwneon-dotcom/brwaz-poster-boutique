@@ -36,12 +36,22 @@ type Poster = {
 
 type SortKey = "curated" | "newest" | "popular";
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function TrendingPage() {
   const pricing = usePricing();
   const { data: categories = [] } = useCategories();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("");
   const [sort, setSort] = useState<SortKey>("curated");
+  const [shuffleSeed] = useState(() => Math.random());
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["trending-page"],
@@ -73,9 +83,13 @@ function TrendingPage() {
       list = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } else if (sort === "popular") {
       list = [...list].sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0));
+    } else {
+      // Curated = random shuffle for a fresh feel on each visit.
+      void shuffleSeed;
+      list = shuffle(list);
     }
     return list;
-  }, [rows, q, cat, sort]);
+  }, [rows, q, cat, sort, shuffleSeed]);
 
   return (
     <div className="min-h-screen bg-background">

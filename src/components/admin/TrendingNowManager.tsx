@@ -186,6 +186,13 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
   const [price, setPrice] = useState<string>("");
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiSeo, setAiSeo] = useState<{
+    description?: string;
+    seo_title?: string;
+    seo_description?: string;
+    tags?: string[];
+  } | null>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["all-categories-for-trending-upload"],
@@ -195,6 +202,54 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
       return data ?? [];
     },
   });
+
+  const runAutoSeo = async (picked: File) => {
+    setAiBusy(true);
+    try {
+      const guess = picked.name
+        .replace(/\.[a-z0-9]+$/i, "")
+        .replace(/[_\-]+/g, " ")
+        .trim();
+      const { data, error } = await supabase.functions.invoke("seo-generator", {
+        body: { subject: guess, include_hashtags: false, include_alt_text: true },
+      });
+      if (error) throw error;
+      const seo = data as {
+        title?: string;
+        description?: string;
+        seo_title?: string;
+        seo_description?: string;
+        tags?: string[];
+      };
+      if (seo?.title) setTitle(seo.title);
+      setAiSeo({
+        description: seo?.description,
+        seo_title: seo?.seo_title,
+        seo_description: seo?.seo_description,
+        tags: seo?.tags,
+      });
+      // Try to match a category from the AI tags / title.
+      const hay = `${seo?.title ?? ""} ${(seo?.tags ?? []).join(" ")}`.toLowerCase();
+      const match = (categories as Array<{ id: string; name: string }>).find((c) =>
+        hay.includes((c.name ?? "").toLowerCase()),
+      );
+      if (match) {
+        setCategoryId(match.id);
+        toast.success(`AI matched category: ${match.name}`);
+      } else {
+        toast.success("AI generated title & description — kept in Trending Now");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "AI SEO failed");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const onPickFile = (f: File | null) => {
+    setFile(f);
+    if (f) void runAutoSeo(f);
+  };
 
   const submit = async () => {
     if (!file) return toast.error("Choose an image");
@@ -213,9 +268,17 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
         hidden,
         trending: true,
         trending_order: 0,
+        description: aiSeo?.description ?? null,
+        seo_title: aiSeo?.seo_title ?? null,
+        seo_description: aiSeo?.seo_description ?? null,
+        tags: aiSeo?.tags ?? null,
       } as never);
       if (error) throw error;
-      toast.success("Poster added to Trending Now");
+      toast.success(
+        categoryId
+          ? "Poster added to Trending & placed in its category"
+          : "Poster added to Trending Now",
+      );
       onDone();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -236,9 +299,14 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               className="mt-1 block w-full text-sm"
             />
+            {aiBusy ? (
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> AI is generating SEO…
+              </div>
+            ) : null}
           </label>
           <label className="block">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Poster name</span>

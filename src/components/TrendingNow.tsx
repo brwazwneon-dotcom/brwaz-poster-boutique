@@ -5,6 +5,15 @@ import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
 import { Flame, ArrowRight } from "lucide-react";
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export function TrendingNow({
   title,
   subtitle,
@@ -38,11 +47,9 @@ export function TrendingNow({
         .eq("trending", true)
         .eq("hidden", false)
         .not("image_url", "is", null)
-        .order("trending_order", { ascending: true, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(itemsCount);
+        .limit(itemsCount * 3);
       if (error) throw error;
-      return data ?? [];
+      return shuffle(data ?? []).slice(0, itemsCount);
     },
   });
 
