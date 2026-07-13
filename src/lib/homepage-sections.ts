@@ -18,7 +18,8 @@ export type HomeSectionKey =
   | "trending-now"
   | "for-you"
   | "because-you-liked"
-  | "recommended-for-you";
+  | "recommended-for-you"
+  | "frame-sets";
 
 export type SectionSourceType =
   | "manual"
@@ -66,6 +67,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "for-you": "For You",
   "because-you-liked": "Because You Liked",
   "recommended-for-you": "Recommended For You",
+  "frame-sets": "Frame Sets",
 };
 
 export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
@@ -108,6 +110,13 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
     items_count: 12,
   },
   { key: "collections", enabled: true },
+  {
+    key: "frame-sets",
+    enabled: true,
+    title_en: "Frame Sets",
+    title_ar: "طقم البراويز",
+    subtitle_en: "Ready-made gallery walls — one click, we handle the rest.",
+  },
   { key: "offers", enabled: true },
   { key: "trusted-quality", enabled: true, title: "Trusted Quality", subtitle: "Why BRWAZWNEON" },
   { key: "about", enabled: true },
