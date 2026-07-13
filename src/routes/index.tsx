@@ -20,6 +20,7 @@ import { TrustedQuality } from "@/components/TrustedQuality";
 import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { TrendingNow } from "@/components/TrendingNow";
+import { FrameSetsHome } from "@/components/FrameSetsHome";
 import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from "@/components/PersonalRails";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
@@ -54,6 +55,9 @@ function Index() {
     "best-sellers": (s) => <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />,
     benefits: () => <BenefitsBar key="benefits" />,
     collections: () => <ShopByCollection key="collections" />,
+    "frame-sets": (s) => (
+      <FrameSetsHome key="frame-sets" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
+    ),
     "trending-now": (s) => (
       <TrendingNow
         key="trending-now"
