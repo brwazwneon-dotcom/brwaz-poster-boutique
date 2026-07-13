@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { SafeImage } from "./SafeImage";
+import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
 import { Flame, ArrowRight } from "lucide-react";
 
@@ -87,19 +87,19 @@ export function TrendingNow({
               key={p.id}
               to="/category/$slug"
               params={{ slug: p.categories?.slug ?? "movies" }}
-              className="group relative block aspect-[3/4] w-[45%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:w-[24%] lg:w-[16%]"
+              className="group relative block w-[45%] shrink-0 snap-start sm:w-[24%] lg:w-[16%]"
             >
               <WishlistHeart posterId={p.id} />
               <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
                 <Flame className="h-2.5 w-2.5" /> Trending
               </span>
-              <SafeImage
-                src={p.image_url}
-                alt={p.title}
+              <FramePreview
+                posterUrl={p.image_url}
+                title={p.title}
+                frameType="pvc"
+                color="black"
                 loading={index < 4 ? "eager" : "lazy"}
-                fetchPriority={index < 2 ? "high" : "auto"}
-                sizes="(min-width: 1024px) 16vw, (min-width: 640px) 24vw, 45vw"
-                className="absolute inset-0 block h-full w-full object-cover object-center transition duration-500 group-hover:scale-105"
+                className="transition duration-500 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-x-0 bottom-0 translate-y-full bg-background/90 px-3 py-2 text-[10px] uppercase tracking-widest transition group-hover:translate-y-0">
                 {p.title}
