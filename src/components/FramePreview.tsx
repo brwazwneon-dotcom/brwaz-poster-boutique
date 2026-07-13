@@ -101,7 +101,7 @@ export function FramePreview({
     >
       {/* Poster artwork — clipped to the printable area, *behind* the frame PNG */}
       <div
-        className="absolute z-0 overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.18)]"
+        className="absolute z-0 overflow-hidden"
         style={{
           top: `${m.top}%`,
           left: `${m.left}%`,
@@ -110,8 +110,7 @@ export function FramePreview({
           borderRadius,
           perspective: `${perspective}px`,
           transformStyle: "preserve-3d",
-          background:
-            "linear-gradient(180deg, rgba(239,237,230,0.96), rgba(218,214,204,0.96))",
+          background: "transparent",
         }}
       >
         <SafeImage
