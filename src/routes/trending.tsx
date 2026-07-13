@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Flame, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { FramePreview } from "@/components/FramePreview";
+import { SafeImage } from "@/components/SafeImage";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { useCategories } from "@/lib/use-categories";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
@@ -148,9 +148,9 @@ function TrendingPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {filtered.map((p) => (
+            {filtered.map((p, index) => (
               <article key={p.id} className="group relative">
-                <div className="relative overflow-hidden rounded-sm border border-border bg-muted">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted">
                   <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
                     <Flame className="h-2.5 w-2.5" /> Trending
                   </span>
@@ -159,14 +159,15 @@ function TrendingPage() {
                     to="/category/$slug"
                     params={{ slug: p.categories?.slug ?? "movies" }}
                     aria-label={p.title}
+                    className="absolute inset-0 block"
                   >
-                    <FramePreview
-                      posterUrl={p.image_url}
-                      title={p.title}
-                      aspectClassName="aspect-[3/4]"
-                      color="black"
-                      loading="lazy"
-                      className="h-full w-full transition duration-500 group-hover:scale-[1.02]"
+                    <SafeImage
+                      src={p.image_url}
+                      alt={p.title}
+                      loading={index < 8 ? "eager" : "lazy"}
+                      fetchPriority={index < 4 ? "high" : "auto"}
+                      sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                      className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.02]"
                     />
                   </Link>
                 </div>
