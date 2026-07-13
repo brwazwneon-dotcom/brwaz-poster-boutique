@@ -59,6 +59,7 @@ const EN: Dict = {
   "tab.settings": "Settings",
   "tab.error-logs": "Error Logs",
   "tab.performance": "Performance",
+  "tab.images": "Image Optimizer",
   "tab.alerts": "Smart Alerts",
   "tab.assistant-requests": "Assistant Requests",
   "tab.customers": "Customers",
