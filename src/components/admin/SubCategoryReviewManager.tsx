@@ -827,3 +827,97 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
     </div>
   );
 }
+
+function MoveCategoryDialog({
+  count, categories, currentId, onCancel, onMove,
+}: {
+  count: number;
+  categories: Category[];
+  currentId: string;
+  onCancel: () => void;
+  onMove: (newCategoryId: string | null) => void;
+}) {
+  const [target, setTarget] = useState<string>("");
+  const [q, setQ] = useState("");
+  // Build "Parent › Child" labels; exclude the current category.
+  const options = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const labelOf = (c: Category) => {
+      const parent = c.parent_id ? byId.get(c.parent_id) : null;
+      return parent ? `${parent.name} › ${c.name}` : c.name;
+    };
+    const term = q.trim().toLowerCase();
+    return categories
+      .filter((c) => c.id !== currentId)
+      .map((c) => ({ id: c.id, label: labelOf(c), hasParent: !!c.parent_id }))
+      .filter((o) => !term || o.label.toLowerCase().includes(term))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [categories, currentId, q]);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderInput className="h-4 w-4 text-primary" />
+            Move {count} poster{count === 1 ? "" : "s"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search category…"
+              className="w-full rounded-sm border border-border bg-background pl-8 pr-3 py-2 text-sm"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-sm border border-border">
+            {options.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">No matches</div>
+            ) : (
+              options.map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => setTarget(o.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                    target === o.id && "bg-accent/60 text-primary",
+                  )}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {target === o.id && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <button
+              onClick={() => onMove(null)}
+              className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+              title="Remove from any category (uncategorized)"
+            >
+              No category
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => target && onMove(target)}
+                disabled={!target}
+                className="rounded-sm bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
+              >
+                Move here
+              </button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
