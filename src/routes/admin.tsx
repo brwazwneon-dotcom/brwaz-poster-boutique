@@ -291,6 +291,7 @@ function AdminPage() {
         {tab === "notifications" && <NotificationsTab />}
         {tab === "error-logs" && <ErrorLogsTab />}
         {tab === "performance" && <PerformanceMonitorTab />}
+        {tab === "images" && <ImageControlCenter />}
         {tab === "backups" && <BackupsTab />}
         {tab === "system-health" && <SystemHealthTab />}
         {tab === "env-check" && <EnvCheckTab />}
