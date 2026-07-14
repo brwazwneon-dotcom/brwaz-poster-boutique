@@ -116,17 +116,6 @@ function hasPublishableImage(row: Row) {
   return !!getBestImageUrl(row);
 }
 
-function markImageReadyPatch(note = "Image URL found") {
-  return {
-    image_status: "ready" as ImageStatus,
-    upload_status: "completed" as UploadStatus,
-    queue_status: "completed" as QueueStatus,
-    error: undefined,
-    statusUpdatedAt: Date.now(),
-    activityLog: [note],
-  };
-}
-
 function appendActivity(row: Row, message: string) {
   return [...row.activityLog.slice(-9), `${new Date().toLocaleTimeString()} · ${message}`];
 }
@@ -142,6 +131,46 @@ export function AiPosterUpload() {
     parentId ? categories.filter((c) => c.parent_id === parentId) : [];
   const categoriesRef = useRef<Category[]>(categories);
   categoriesRef.current = categories;
+
+  const findCategoryById = (id?: string | null) =>
+    id ? categoriesRef.current.find((c) => c.id === id) ?? null : null;
+  const resolveMainCategoryId = (row: Pick<Row, "category_id" | "subcategory_id">) => {
+    if (row.category_id) return row.category_id;
+    const sub = findCategoryById(row.subcategory_id);
+    return sub?.parent_id ?? null;
+  };
+  const syncReadyPatch = (row: Row, reason: string): Row => ({
+    ...row,
+    status: row.status === "failed" || row.status === "uploaded" ? "ready" : row.status,
+    image_status: "ready",
+    upload_status: "completed",
+    queue_status: "completed",
+    error: undefined,
+    statusUpdatedAt: Date.now(),
+    activityLog: appendActivity(row, reason),
+  });
+  const failUploadPatch = (row: Row, reason: string): Row => ({
+    ...row,
+    status: "failed",
+    image_status: "failed",
+    upload_status: "failed",
+    queue_status: "failed",
+    error: reason,
+    statusUpdatedAt: Date.now(),
+    activityLog: appendActivity(row, reason),
+  });
+  const rowIssue = (row: Row) => {
+    if (!resolveMainCategoryId(row)) return "Missing main category";
+    if (!hasPublishableImage(row)) {
+      if (row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing") {
+        return row.image_status === "stuck" ? "Upload queue stuck" : "Original image missing";
+      }
+      return row.error || "Storage URL not found";
+    }
+    if (row.image_status === "stuck") return "Upload queue stuck";
+    if (!row.thumbnailUrl && !row.imageUrl) return "Thumbnail missing";
+    return row.error;
+  };
 
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const findSubByName = (parentId: string, name: string) => {
@@ -275,9 +304,14 @@ export function AiPosterUpload() {
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
+        const inferredPatch = { ...patch };
+        if (inferredPatch.subcategory_id && !inferredPatch.category_id) {
+          const sub = findCategoryById(inferredPatch.subcategory_id);
+          if (sub?.parent_id) inferredPatch.category_id = sub.parent_id;
+        }
         const edited = { ...r.edited };
-        for (const k of Object.keys(patch)) edited[k] = true;
-        return { ...r, ...patch, edited };
+        for (const k of Object.keys(inferredPatch)) edited[k] = true;
+        return { ...r, ...inferredPatch, edited };
       }),
     );
 
@@ -291,7 +325,7 @@ export function AiPosterUpload() {
         // so we don't offer to create a duplicate.
         let subId = meta.subcategory_id;
         let suggestedSub = meta.suggested_subcategory_name;
-        const catId = meta.category_id;
+        const catId = meta.category_id ?? findCategoryById(subId)?.parent_id ?? null;
         if (!subId && catId && suggestedSub) {
           const existing = findSubByName(catId, suggestedSub);
           if (existing) {
@@ -318,6 +352,7 @@ export function AiPosterUpload() {
         return {
           ...r,
           status: autoApprove ? "ready" : "needs_review",
+          seo_status: "complete",
           confidence: conf,
           review_reasons: reasons,
           colors: e.colors ? r.colors : meta.colors,
@@ -360,8 +395,8 @@ export function AiPosterUpload() {
       else if (r.status === "published") c.published++;
       else if (r.status === "draft") c.draft++;
       else if (r.status === "failed") c.failed++;
-      const hasUrl = !!r.imageUrl || !!r.originalUrl;
-      const stillUp = !hasUrl && (r.status === "uploaded" || r.status === "ai_generating");
+      const hasUrl = hasPublishableImage(r);
+      const stillUp = !hasUrl && (r.upload_status === "queued" || r.upload_status === "uploading" || r.queue_status === "processing");
       if (stillUp) c.queued++;
       if (hasUrl) c.imageReady++;
     }
