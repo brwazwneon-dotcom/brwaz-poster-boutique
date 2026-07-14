@@ -165,9 +165,11 @@ function LandingPage() {
                       className={cn("h-full w-full transition group-hover:scale-[1.02]")}
                     />
                   </div>
-                  <div className="absolute top-2 left-2 z-10">
-                    <PosterBadge label={p.pinned ? "Pinned" : undefined} />
-                  </div>
+                  {p.pinned && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <PosterBadge badge="Pinned" />
+                    </div>
+                  )}
                   <div className="absolute top-2 right-2 z-10">
                     <WishlistHeart posterId={p.id} />
                   </div>
