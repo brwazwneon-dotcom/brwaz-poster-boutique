@@ -561,10 +561,15 @@ export function AiPosterUpload() {
       return;
     }
     const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
-    const stillUploading = selectedRows.filter((r) => !r.imageUrl);
-    const alreadyPublished = selectedRows.filter((r) => r.imageUrl && r.status === "published");
+    // A row is publishable if it has ANY usable image URL (main or original),
+    // regardless of the legacy upload-queue status. AI SEO status is independent.
+    const hasImage = (r: Row) => !!r.imageUrl || !!r.originalUrl;
+    const stillUploading = selectedRows.filter(
+      (r) => !hasImage(r) && (r.status === "uploaded" || r.status === "ai_generating"),
+    );
+    const alreadyPublished = selectedRows.filter((r) => r.status === "published");
     const rowsToInsert = selectedRows.filter(
-      (r) => r.imageUrl && r.status !== "published",
+      (r) => hasImage(r) && r.status !== "published",
     );
     if (!rowsToInsert.length) {
       if (alreadyPublished.length && !stillUploading.length) {
@@ -594,7 +599,7 @@ export function AiPosterUpload() {
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
-      image_url: r.imageUrl!,
+      image_url: (r.imageUrl || r.originalUrl)!,
       original_url: r.originalUrl ?? null,
       category_id: r.subcategory_id || r.category_id,
       tags: r.tags,
@@ -609,17 +614,29 @@ export function AiPosterUpload() {
       ai_confidence: r.confidence,
       hidden,
     }));
-    const { error } = await supabase.from("posters").insert(payload);
-    if (error) {
-      toast.error(error.message);
-      return;
+    // Insert one-by-one so a single row failure doesn't block the rest.
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < payload.length; i++) {
+      const row = rowsToInsert[i];
+      const { error } = await supabase.from("posters").insert(payload[i]);
+      if (error) {
+        failed++;
+        update(row.id, { status: "failed", error: error.message });
+      } else {
+        ok++;
+        update(row.id, { status: hidden ? "draft" : "published" });
+      }
     }
-    const newStatus: RowStatus = hidden ? "draft" : "published";
-    rowsToInsert.forEach((r) => update(r.id, { status: newStatus }));
-    toast.success(
-      `${hidden ? "Saved" : "Published"} ${rowsToInsert.length} poster${rowsToInsert.length === 1 ? "" : "s"}`,
-    );
-    setSelected(new Set());
+    const parts = [
+      `${hidden ? "Saved" : "Published"}: ${ok}`,
+      stillUploading.length ? `Skipped uploading: ${stillUploading.length}` : null,
+      alreadyPublished.length ? `Already published: ${alreadyPublished.length}` : null,
+      failed ? `Failed: ${failed}` : null,
+    ].filter(Boolean).join(" · ");
+    if (ok > 0) toast.success(parts);
+    else toast.error(parts);
+    if (ok > 0) setSelected(new Set());
   };
 
   const publishSelected = () => insertPosters(Array.from(selected), false);
