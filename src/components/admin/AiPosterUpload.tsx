@@ -139,9 +139,9 @@ export function AiPosterUpload() {
     const sub = findCategoryById(row.subcategory_id);
     return sub?.parent_id ?? null;
   };
-  const syncReadyPatch = (row: Row, reason: string): Row => ({
+  const syncReadyPatch = (row: Row, reason: string, status: RowStatus = "ready"): Row => ({
     ...row,
-    status: row.status === "failed" || row.status === "uploaded" ? "ready" : row.status,
+    status,
     image_status: "ready",
     upload_status: "completed",
     queue_status: "completed",
@@ -159,6 +159,8 @@ export function AiPosterUpload() {
     statusUpdatedAt: Date.now(),
     activityLog: appendActivity(row, reason),
   });
+  const isUploadPending = (row: Row) =>
+    row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing" || row.image_status === "stuck";
   const rowIssue = (row: Row) => {
     if (!resolveMainCategoryId(row)) return "Missing main category";
     if (!hasPublishableImage(row)) {
@@ -225,74 +227,20 @@ export function AiPosterUpload() {
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
-  const markRowReady = (id: string, reason: string) =>
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: r.status === "failed" || r.status === "uploaded" ? "ready" : r.status,
-              image_status: "ready",
-              upload_status: "completed",
-              queue_status: "completed",
-              error: undefined,
-              statusUpdatedAt: Date.now(),
-              activityLog: appendActivity(r, reason),
-            }
-          : r,
-      ),
-    );
-
-  const markRowFailed = (id: string, reason: string) =>
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: "failed",
-              image_status: "failed",
-              upload_status: "failed",
-              queue_status: "failed",
-              error: reason,
-              statusUpdatedAt: Date.now(),
-              activityLog: appendActivity(r, reason),
-            }
-          : r,
-      ),
-    );
-
   useEffect(() => {
     if (!rows.length) return;
     const timer = window.setInterval(() => {
       const now = Date.now();
       setRows((prev) =>
         prev.map((r) => {
-          const pending = r.upload_status === "queued" || r.upload_status === "uploading" || r.queue_status === "processing";
+          const pending = isUploadPending(r);
           if (!pending) return r;
           const startedAt = r.uploadStartedAt ?? r.createdAt;
           if (now - startedAt < STUCK_UPLOAD_MS) return r;
           if (hasPublishableImage(r)) {
-            return {
-              ...r,
-              status: r.status === "uploaded" || r.status === "failed" ? "ready" : r.status,
-              image_status: "ready",
-              upload_status: "completed",
-              queue_status: "completed",
-              error: undefined,
-              statusUpdatedAt: now,
-              activityLog: appendActivity(r, "Auto timeout fixed: image URL found"),
-            };
+            return syncReadyPatch(r, "Auto timeout fixed: image URL found", r.status === "ai_generating" ? "ai_generating" : "ready");
           }
-          return {
-            ...r,
-            status: "failed",
-            image_status: "failed",
-            upload_status: "failed",
-            queue_status: "failed",
-            error: "Storage URL not found",
-            statusUpdatedAt: now,
-            activityLog: appendActivity(r, "Auto timeout failed: Storage URL not found"),
-          };
+          return failUploadPatch(r, "Storage URL not found");
         }),
       );
     }, 30_000);
