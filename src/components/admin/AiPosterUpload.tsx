@@ -1201,7 +1201,15 @@ export function AiPosterUpload() {
                 title="Re-check selected rows and mark them ready if their image URL exists"
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
               >
-                <RefreshCw className="h-3 w-3" /> Refresh status
+                <RefreshCw className="h-3 w-3" /> Refresh Upload Status
+              </button>
+              <button
+                disabled={busy || counts.queued === 0}
+                onClick={fixStuckUploads}
+                title="Fix rows stuck in queued or uploading when an image URL already exists"
+                className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-40"
+              >
+                <Wrench className="h-3 w-3" /> Fix Stuck Uploads
               </button>
               <button
                 disabled={selected.size === 0}
@@ -1294,7 +1302,11 @@ export function AiPosterUpload() {
               mains={subsOf(bulkCat)}
               placeholder="Sub-category…"
               disabled={false}
-              onChange={setBulkSub}
+              onChange={(v) => {
+                setBulkSub(v);
+                const parentId = findCategoryById(v)?.parent_id;
+                if (parentId) setBulkCat(parentId);
+              }}
               onCreate={() => {
                 if (!bulkCat) {
                   toast.error("Please select a Main Category first.");
@@ -1368,6 +1380,9 @@ export function AiPosterUpload() {
                     onEditCategory={(cat) => openEdit(cat)}
                     onDeleteCategory={(cat) => setDeleteState(cat)}
                     findCategory={(id) => categoriesRef.current.find((c) => c.id === id) ?? null}
+                    issue={rowIssue(r)}
+                    onForceReady={() => forceOneReady(r.id)}
+                    onRetryUpload={() => retryUpload(r.id)}
                   />
                 ))}
               </tbody>
