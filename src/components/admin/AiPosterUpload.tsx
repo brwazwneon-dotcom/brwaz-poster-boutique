@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { RefreshCw, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
 import { useCategories, type Category } from "@/lib/use-categories";
@@ -852,7 +853,7 @@ export function AiPosterUpload() {
     if (n > 0) toast.success(`Marked ${n} as generated`);
   };
 
-  const logActivity = (message: string, metadata: Record<string, unknown>) => {
+  const logActivity = (message: string, metadata: Json) => {
     void supabase.from("system_logs").insert({
       level: "info",
       source: "admin_ai_poster_upload",
