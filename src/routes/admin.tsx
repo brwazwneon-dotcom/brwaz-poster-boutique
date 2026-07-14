@@ -232,6 +232,7 @@ function AdminPage() {
             <div><PreviewAsClient /></div>
           </AdminTip>
           <NotificationBell onOpenCenter={() => setTab("alerts")} />
+          <HelpModeToggle />
           <LanguageSwitcher />
           <AdminTip label={t("shell.sign_out")}>
             <button
