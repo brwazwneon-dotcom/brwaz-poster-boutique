@@ -1510,6 +1510,9 @@ function RowEditor({
   onEditCategory,
   onDeleteCategory,
   findCategory,
+  issue,
+  onForceReady,
+  onRetryUpload,
 }: {
   row: Row;
   selected: boolean;
@@ -1523,9 +1526,14 @@ function RowEditor({
   onEditCategory: (cat: Category) => void;
   onDeleteCategory: (cat: Category) => void;
   findCategory: (id: string) => Category | null;
+  issue?: string;
+  onForceReady: () => void;
+  onRetryUpload: () => void;
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
+  const forceReadyVisible = hasPublishableImage(row) && row.status !== "published" && row.image_status !== "ready";
+  const showRetry = row.status === "failed" || row.image_status === "failed" || row.image_status === "stuck";
   const showSuggestion =
     !!row.suggested_subcategory_name && !row.subcategory_id && !isLocked;
   return (
@@ -1541,7 +1549,7 @@ function RowEditor({
       <td className="pt-2">
         {row.preview ? (
           <img
-            src={row.preview}
+            src={row.thumbnailUrl || row.previewUrl || row.imageUrl || row.preview}
             alt=""
             className="h-20 w-16 rounded-sm border border-border object-cover"
           />
@@ -1549,6 +1557,25 @@ function RowEditor({
           <div className="flex h-20 w-16 items-center justify-center rounded-sm border border-border bg-background text-[9px] text-muted-foreground">
             HEIC
           </div>
+        )}
+        <ImageProgress row={row} />
+        {forceReadyVisible && (
+          <button
+            type="button"
+            onClick={onForceReady}
+            className="mt-1 w-16 rounded-sm border border-amber-500/60 px-1 py-0.5 text-[8px] uppercase tracking-widest text-amber-600 hover:bg-amber-500/10"
+          >
+            Force Mark Ready
+          </button>
+        )}
+        {showRetry && (
+          <button
+            type="button"
+            onClick={onRetryUpload}
+            className="mt-1 w-16 rounded-sm border border-border px-1 py-0.5 text-[8px] uppercase tracking-widest text-muted-foreground hover:bg-accent"
+          >
+            Retry Upload
+          </button>
         )}
       </td>
       <td className="space-y-1 pr-2">
@@ -1626,6 +1653,11 @@ function RowEditor({
             <Plus className="h-3 w-3" /> Create “{row.suggested_subcategory_name}”
           </button>
         )}
+        {issue === "Missing main category" && (
+          <div className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-600">
+            Please select main category before publishing
+          </div>
+        )}
         {row.detected_subject && (
           <div className="text-[10px] text-muted-foreground" title="AI detected subject">
             AI: {row.detected_subject}
@@ -1690,6 +1722,14 @@ function RowEditor({
       </td>
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
+        {issue && issue !== "Missing main category" && (
+          <div className="mt-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-600">
+            {issue}
+          </div>
+        )}
+        {row.seo_status === "generating" && (
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-primary">Text-Based SEO running</div>
+        )}
         {row.confidence != null && (
           <div
             className={cn(
@@ -1732,6 +1772,37 @@ function RowEditor({
       </td>
     </tr>
   );
+}
+
+function ImageProgress({ row }: { row: Row }) {
+  const steps: { key: ImageStatus | "uploading_original"; label: string }[] = [
+    { key: "uploading_original", label: "Uploading Original" },
+    { key: "generating_thumbnail", label: "Generating Thumbnail" },
+    { key: "generating_preview", label: "Generating Preview" },
+    { key: "ready", label: "Ready" },
+  ];
+  const failed = row.image_status === "failed";
+  const stuck = row.image_status === "stuck" || (isUploadPendingStatus(row) && hasPublishableImage(row));
+  const currentIndex = row.image_status === "ready" ? 3 : row.image_status === "generating_preview" ? 2 : row.image_status === "generating_thumbnail" ? 1 : 0;
+  const label = failed ? "Failed" : stuck ? "Stuck" : steps[currentIndex]?.label ?? "Uploading Original";
+  return (
+    <div className="mt-1 w-16">
+      <div className="h-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full transition-all",
+            failed ? "bg-destructive" : stuck ? "bg-amber-500" : row.image_status === "ready" ? "bg-emerald-500" : "bg-primary",
+          )}
+          style={{ width: failed || stuck ? "100%" : `${Math.max(20, (currentIndex + 1) * 25)}%` }}
+        />
+      </div>
+      <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function isUploadPendingStatus(row: Row) {
+  return row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing";
 }
 
 function StatusPill({ status, error }: { status: RowStatus; error?: string }) {
