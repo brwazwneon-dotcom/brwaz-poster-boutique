@@ -432,6 +432,7 @@ export type Database = {
           name: string
           parent_id: string | null
           slug: string
+          sort_mode: string
           sort_order: number
           status: string
           updated_at: string
@@ -447,6 +448,7 @@ export type Database = {
           name: string
           parent_id?: string | null
           slug: string
+          sort_mode?: string
           sort_order?: number
           status?: string
           updated_at?: string
@@ -462,6 +464,7 @@ export type Database = {
           name?: string
           parent_id?: string | null
           slug?: string
+          sort_mode?: string
           sort_order?: number
           status?: string
           updated_at?: string
@@ -1214,6 +1217,7 @@ export type Database = {
           last_viewed_at: string | null
           orientation: string | null
           original_url: string | null
+          pinned: boolean
           price: number | null
           review_status: string
           sales_count: number
@@ -1249,6 +1253,7 @@ export type Database = {
           last_viewed_at?: string | null
           orientation?: string | null
           original_url?: string | null
+          pinned?: boolean
           price?: number | null
           review_status?: string
           sales_count?: number
@@ -1284,6 +1289,7 @@ export type Database = {
           last_viewed_at?: string | null
           orientation?: string | null
           original_url?: string | null
+          pinned?: boolean
           price?: number | null
           review_status?: string
           sales_count?: number
@@ -1812,7 +1818,13 @@ export type Database = {
       }
       admin_image_stats: { Args: never; Returns: Json }
       admin_live_visitors: { Args: never; Returns: number }
+      admin_move_poster_to_bottom: { Args: { _id: string }; Returns: undefined }
+      admin_move_poster_to_top: { Args: { _id: string }; Returns: undefined }
       admin_notifications_summary: { Args: never; Returns: Json }
+      admin_pin_poster: {
+        Args: { _id: string; _pinned: boolean }
+        Returns: undefined
+      }
       admin_posters_needing_variants: {
         Args: { _limit?: number }
         Returns: {
@@ -1822,7 +1834,19 @@ export type Database = {
         }[]
       }
       admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
+      admin_reorder_posters: {
+        Args: { _category_id: string; _ids: string[] }
+        Returns: undefined
+      }
+      admin_reorder_subcategories: {
+        Args: { _ids: string[]; _parent_id: string }
+        Returns: undefined
+      }
       admin_reset_recommendation_engine: { Args: never; Returns: undefined }
+      admin_set_category_sort_mode: {
+        Args: { _id: string; _mode: string }
+        Returns: undefined
+      }
       admin_storage_manifest: { Args: never; Returns: Json }
       best_sellers_analytics: { Args: never; Returns: Json }
       detect_bugs: { Args: never; Returns: Json }
