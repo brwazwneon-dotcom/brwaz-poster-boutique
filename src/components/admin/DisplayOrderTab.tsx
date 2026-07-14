@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SmartImage } from "@/components/SmartImage";
 import { cn } from "@/lib/utils";
 import { useAdminI18n } from "@/lib/admin-i18n";
+import { HelpTip } from "@/components/admin/help/HelpTip";
 
 type Cat = {
   id: string;
@@ -438,22 +439,23 @@ function CategoryOrderEditor({
                           className="w-14 rounded-sm border border-border bg-background px-2 py-1 text-xs"
                         />
                         <div className="ml-auto flex items-center gap-0.5">
-                          <IconBtn title="Top" onClick={() => sendToTop(idx)}>
+                          <IconBtn helpId="images.pin_top" title="Top" onClick={() => sendToTop(idx)}>
                             <ArrowUpToLine className="h-3.5 w-3.5" />
                           </IconBtn>
-                          <IconBtn title="Up" onClick={() => move(idx, -1)}>
+                          <IconBtn helpId="images.move_up" title="Up" onClick={() => move(idx, -1)}>
                             <ArrowUp className="h-3.5 w-3.5" />
                           </IconBtn>
-                          <IconBtn title="Down" onClick={() => move(idx, 1)}>
+                          <IconBtn helpId="images.move_down" title="Down" onClick={() => move(idx, 1)}>
                             <ArrowDown className="h-3.5 w-3.5" />
                           </IconBtn>
-                          <IconBtn title="Bottom" onClick={() => sendToBottom(idx)}>
+                          <IconBtn helpId="images.send_bottom" title="Bottom" onClick={() => sendToBottom(idx)}>
                             <ArrowDownToLine className="h-3.5 w-3.5" />
                           </IconBtn>
                         </div>
                       </div>
                       <div className="mt-1 flex items-center gap-1">
                         <IconBtn
+                          helpId="images.pin_top"
                           title={p.pinned ? "Unpin" : "Pin to top"}
                           onClick={() => togglePin(p)}
                           className={p.pinned ? "bg-yellow-100 dark:bg-yellow-900/40" : ""}
@@ -461,6 +463,7 @@ function CategoryOrderEditor({
                           {p.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                         </IconBtn>
                         <IconBtn
+                          helpId={p.hidden ? "images.show" : "images.hide"}
                           title={p.hidden ? "Show" : "Hide"}
                           onClick={() => toggleHide(p)}
                         >
@@ -572,10 +575,10 @@ function SubcategoryOrderEditor({
           <div key={s.id} className="flex items-center gap-3 rounded-sm border border-border bg-card p-3">
             <span className="w-6 text-center text-sm font-bold">{i + 1}</span>
             <div className="flex-1 text-sm">{s.name}</div>
-            <IconBtn title="Up" onClick={() => move(i, -1)}>
+            <IconBtn helpId="images.move_up" title="Up" onClick={() => move(i, -1)}>
               <ArrowUp className="h-3.5 w-3.5" />
             </IconBtn>
-            <IconBtn title="Down" onClick={() => move(i, 1)}>
+            <IconBtn helpId="images.move_down" title="Down" onClick={() => move(i, 1)}>
               <ArrowDown className="h-3.5 w-3.5" />
             </IconBtn>
           </div>
@@ -598,13 +601,15 @@ function IconBtn({
   onClick,
   title,
   className,
+  helpId,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
   className?: string;
+  helpId?: string;
 }) {
-  return (
+  const btn = (
     <button
       type="button"
       onClick={onClick}
@@ -614,4 +619,6 @@ function IconBtn({
       {children}
     </button>
   );
+  if (helpId) return <HelpTip id={helpId}>{btn}</HelpTip>;
+  return btn;
 }
