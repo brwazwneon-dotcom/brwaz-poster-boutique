@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
-import { trackEvent } from "./meta-pixel";
+import { trackEvent, trackCustom } from "./meta-pixel";
 import { trackPosterCartAdd } from "./poster-tracking";
 import { track as behavior } from "./behavior";
 
@@ -145,14 +145,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 frameType: item.frameType,
               }, false, item.qty),
             );
+            try {
+              trackCustom("RemoveFromCart", {
+                content_ids: ids,
+                content_name: item.title,
+                content_type: "product",
+                content_category: item.categoryName,
+                value: item.price * item.qty,
+                currency: "EGP",
+                quantity: item.qty,
+              });
+            } catch { /* noop */ }
           }
         } catch { /* noop */ }
         return persist(prev.filter((i) => i.id !== id));
       }),
       setQty: (id, qty) =>
-        setItems((prev) =>
-          persist(prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i))),
-        ),
+        setItems((prev) => {
+          const next = prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i));
+          const changed = next.find((i) => i.id === id);
+          if (changed) {
+            try {
+              trackCustom("CartUpdated", {
+                content_ids: changed.bundle
+                  ? changed.bundle.posters.map((p) => p.posterId)
+                  : [changed.posterId],
+                content_name: changed.title,
+                content_type: "product",
+                value: changed.price * changed.qty,
+                currency: "EGP",
+                quantity: changed.qty,
+              });
+            } catch { /* noop */ }
+          }
+          return persist(next);
+        }),
       update: (id, patch) =>
         setItems((prev) =>
           persist(prev.map((i) => (i.id === id ? { ...i, ...patch } : i))),

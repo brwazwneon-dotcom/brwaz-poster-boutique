@@ -26,6 +26,7 @@ import { getSystemHealth, type HealthReport } from "@/lib/system-health.function
 import { sendTestNotification } from "@/lib/notifications.functions";
 import { createBackupServer } from "@/lib/backups.functions";
 import { cn } from "@/lib/utils";
+import { MetaPixelDebugCard } from "@/components/admin/MetaPixelDebugCard";
 
 type Severity = "ok" | "warn" | "crit";
 
@@ -407,6 +408,8 @@ export function SystemHealthTab() {
             </button>
           </div>
         </Card>
+
+        <MetaPixelDebugCard />
 
         <Card title="Payment" icon={CreditCard} sev="ok">
           <Row label="Cash on Delivery" value="Enabled" sev="ok" />
