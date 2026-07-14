@@ -806,26 +806,27 @@ export function AiPosterUpload() {
 
   const regenerateNeedsReview = async () => {
     const ids = rowsRef.current
-      .filter((r) => r.status === "needs_review" && r.imageUrl)
+      .filter((r) => r.status === "needs_review")
       .map((r) => r.id);
     if (!ids.length) return toast.error("No rows need review");
     setSelected(new Set(ids));
     // Re-use existing regen worker path
     setBusy(true);
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
         const i = cursor++;
         const id = ids[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl) continue;
+        if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -851,24 +852,55 @@ export function AiPosterUpload() {
     if (n > 0) toast.success(`Marked ${n} as generated`);
   };
 
+  const logActivity = (message: string, metadata: Record<string, unknown>) => {
+    void supabase.from("system_logs").insert({
+      level: "info",
+      source: "admin_ai_poster_upload",
+      category: "upload_status",
+      message,
+      metadata,
+      status: "open",
+    });
+  };
+
   // Re-check selected rows: if any usable image URL exists, mark row status as
   // "ready" so publish/other actions stop blocking on legacy upload state.
   const refreshUploadStatus = () => {
     if (!selected.size) return toast.error("Select rows first");
-    let fixed = 0;
+    let ready = 0;
+    let failed = 0;
     setRows((prev) =>
       prev.map((r) => {
         if (!selected.has(r.id)) return r;
-        const hasUrl = !!r.imageUrl || !!r.originalUrl;
-        if (!hasUrl) return r;
-        if (r.status === "uploaded" || r.status === "ai_generating" || r.status === "failed") {
-          fixed++;
-          return { ...r, status: "ready", error: undefined };
+        if (hasPublishableImage(r)) {
+          ready++;
+          return syncReadyPatch(r, "Refresh Upload Status: image URL found");
         }
-        return r;
+        failed++;
+        return failUploadPatch(r, "Storage URL not found");
       }),
     );
-    toast.success(fixed ? `Refreshed — ${fixed} marked ready` : "All selected rows already up to date");
+    toast.success(`Refresh complete — Ready: ${ready} · Failed: ${failed}`);
+  };
+
+  const fixStuckUploads = () => {
+    const targets = rowsRef.current.filter((r) => isUploadPending(r));
+    if (!targets.length) return toast.success("No stuck uploads found");
+    let ready = 0;
+    let failed = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!isUploadPending(r)) return r;
+        if (hasPublishableImage(r)) {
+          ready++;
+          return syncReadyPatch(r, "Fix Stuck Uploads: image URL found");
+        }
+        failed++;
+        return failUploadPatch(r, "Storage URL not found");
+      }),
+    );
+    logActivity("Fix Stuck Uploads", { checked: targets.length, ready, failed });
+    toast.success("Stuck uploads fixed successfully");
   };
 
   // Admin escape hatch: force any selected row that has a URL out of stuck
@@ -876,7 +908,7 @@ export function AiPosterUpload() {
   const forceMarkReady = () => {
     if (!selected.size) return toast.error("Select rows first");
     const targets = rowsRef.current.filter(
-      (r) => selected.has(r.id) && (!!r.imageUrl || !!r.originalUrl) && r.status !== "published",
+      (r) => selected.has(r.id) && hasPublishableImage(r) && r.status !== "published",
     );
     if (!targets.length) {
       toast.error("No selected rows have a usable image URL to force-ready.");
@@ -885,11 +917,36 @@ export function AiPosterUpload() {
     setRows((prev) =>
       prev.map((r) =>
         targets.find((t) => t.id === r.id)
-          ? { ...r, status: "ready", error: undefined }
+          ? syncReadyPatch(r, "Force ready: selected bulk action")
           : r,
       ),
     );
+    logActivity("Force ready selected posters", { count: targets.length, ids: targets.map((t) => t.id) });
     toast.success(`Force-marked ${targets.length} row(s) as ready`);
+  };
+
+  const forceOneReady = (id: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row || !hasPublishableImage(row)) return toast.error("No image URL found for this row.");
+    setRows((prev) => prev.map((r) => (r.id === id ? syncReadyPatch(r, "Force Mark Ready: row action") : r)));
+    logActivity("Force Mark Ready poster row", { id, title: row.title || row.file.name });
+    toast.success("Marked ready");
+  };
+
+  const retryUpload = (id: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row) return;
+    update(id, {
+      status: "uploaded",
+      image_status: "uploading_original",
+      upload_status: "queued",
+      queue_status: "queued",
+      error: undefined,
+      uploadStartedAt: null,
+      statusUpdatedAt: Date.now(),
+      activityLog: appendActivity(row, "Retry upload requested"),
+    });
+    void processNew([id]);
   };
 
   const deleteSelected = () => {
@@ -917,7 +974,11 @@ export function AiPosterUpload() {
         if (!selected.has(r.id)) return r;
         const patch: Partial<Row> = {};
         if (bulkCat) patch.category_id = bulkCat;
-        if (bulkSub) patch.subcategory_id = bulkSub;
+        if (bulkSub) {
+          patch.subcategory_id = bulkSub;
+          const parentId = findCategoryById(bulkSub)?.parent_id;
+          if (parentId) patch.category_id = parentId;
+        }
         if (bulkBadge) patch.badge = bulkBadge === "__none__" ? null : bulkBadge;
         if (tags.length) patch.tags = Array.from(new Set([...(r.tags ?? []), ...tags]));
         return { ...r, ...patch };
