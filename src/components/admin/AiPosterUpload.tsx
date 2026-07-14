@@ -869,6 +869,14 @@ export function AiPosterUpload() {
                 <RotateCcw className="h-3 w-3" /> Regenerate
               </button>
               <button
+                disabled={busy || selected.size === 0}
+                onClick={aiSeoSelected}
+                title="Generate missing SEO fields for selected posters (does not overwrite)"
+                className="inline-flex items-center gap-1 rounded-sm border border-primary bg-primary/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
+              >
+                <Sparkles className="h-3 w-3" /> AI SEO
+              </button>
+              <button
                 disabled={busy || counts.needs === 0}
                 onClick={approveAllNeedsReview}
                 title="Mark every Needs Review row as Ready"
