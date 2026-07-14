@@ -13,6 +13,7 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
+import { RefreshCw, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -229,6 +230,8 @@ export function AiPosterUpload() {
       published: 0,
       draft: 0,
       failed: 0,
+      queued: 0,
+      imageReady: 0,
     };
     for (const r of rows) {
       if (r.status === "uploaded") c.uploaded++;
@@ -238,6 +241,10 @@ export function AiPosterUpload() {
       else if (r.status === "published") c.published++;
       else if (r.status === "draft") c.draft++;
       else if (r.status === "failed") c.failed++;
+      const hasUrl = !!r.imageUrl || !!r.originalUrl;
+      const stillUp = !hasUrl && (r.status === "uploaded" || r.status === "ai_generating");
+      if (stillUp) c.queued++;
+      if (hasUrl) c.imageReady++;
     }
     return c;
   }, [rows]);
@@ -554,10 +561,15 @@ export function AiPosterUpload() {
       return;
     }
     const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
-    const stillUploading = selectedRows.filter((r) => !r.imageUrl);
-    const alreadyPublished = selectedRows.filter((r) => r.imageUrl && r.status === "published");
+    // A row is publishable if it has ANY usable image URL (main or original),
+    // regardless of the legacy upload-queue status. AI SEO status is independent.
+    const hasImage = (r: Row) => !!r.imageUrl || !!r.originalUrl;
+    const stillUploading = selectedRows.filter(
+      (r) => !hasImage(r) && (r.status === "uploaded" || r.status === "ai_generating"),
+    );
+    const alreadyPublished = selectedRows.filter((r) => r.status === "published");
     const rowsToInsert = selectedRows.filter(
-      (r) => r.imageUrl && r.status !== "published",
+      (r) => hasImage(r) && r.status !== "published",
     );
     if (!rowsToInsert.length) {
       if (alreadyPublished.length && !stillUploading.length) {
@@ -587,7 +599,7 @@ export function AiPosterUpload() {
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
-      image_url: r.imageUrl!,
+      image_url: (r.imageUrl || r.originalUrl)!,
       original_url: r.originalUrl ?? null,
       category_id: r.subcategory_id || r.category_id,
       tags: r.tags,
@@ -602,17 +614,29 @@ export function AiPosterUpload() {
       ai_confidence: r.confidence,
       hidden,
     }));
-    const { error } = await supabase.from("posters").insert(payload);
-    if (error) {
-      toast.error(error.message);
-      return;
+    // Insert one-by-one so a single row failure doesn't block the rest.
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < payload.length; i++) {
+      const row = rowsToInsert[i];
+      const { error } = await supabase.from("posters").insert(payload[i]);
+      if (error) {
+        failed++;
+        update(row.id, { status: "failed", error: error.message });
+      } else {
+        ok++;
+        update(row.id, { status: hidden ? "draft" : "published" });
+      }
     }
-    const newStatus: RowStatus = hidden ? "draft" : "published";
-    rowsToInsert.forEach((r) => update(r.id, { status: newStatus }));
-    toast.success(
-      `${hidden ? "Saved" : "Published"} ${rowsToInsert.length} poster${rowsToInsert.length === 1 ? "" : "s"}`,
-    );
-    setSelected(new Set());
+    const parts = [
+      `${hidden ? "Saved" : "Published"}: ${ok}`,
+      stillUploading.length ? `Skipped uploading: ${stillUploading.length}` : null,
+      alreadyPublished.length ? `Already published: ${alreadyPublished.length}` : null,
+      failed ? `Failed: ${failed}` : null,
+    ].filter(Boolean).join(" · ");
+    if (ok > 0) toast.success(parts);
+    else toast.error(parts);
+    if (ok > 0) setSelected(new Set());
   };
 
   const publishSelected = () => insertPosters(Array.from(selected), false);
@@ -676,6 +700,47 @@ export function AiPosterUpload() {
       }),
     );
     if (n > 0) toast.success(`Marked ${n} as generated`);
+  };
+
+  // Re-check selected rows: if any usable image URL exists, mark row status as
+  // "ready" so publish/other actions stop blocking on legacy upload state.
+  const refreshUploadStatus = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    let fixed = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!selected.has(r.id)) return r;
+        const hasUrl = !!r.imageUrl || !!r.originalUrl;
+        if (!hasUrl) return r;
+        if (r.status === "uploaded" || r.status === "ai_generating" || r.status === "failed") {
+          fixed++;
+          return { ...r, status: "ready", error: undefined };
+        }
+        return r;
+      }),
+    );
+    toast.success(fixed ? `Refreshed — ${fixed} marked ready` : "All selected rows already up to date");
+  };
+
+  // Admin escape hatch: force any selected row that has a URL out of stuck
+  // "uploading" state. Does not touch the image itself.
+  const forceMarkReady = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    const targets = rowsRef.current.filter(
+      (r) => selected.has(r.id) && (!!r.imageUrl || !!r.originalUrl) && r.status !== "published",
+    );
+    if (!targets.length) {
+      toast.error("No selected rows have a usable image URL to force-ready.");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((r) =>
+        targets.find((t) => t.id === r.id)
+          ? { ...r, status: "ready", error: undefined }
+          : r,
+      ),
+    );
+    toast.success(`Force-marked ${targets.length} row(s) as ready`);
   };
 
   const deleteSelected = () => {
@@ -828,7 +893,9 @@ export function AiPosterUpload() {
             </p>
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <div>{counts.total} queued</div>
+            <div>
+              {counts.queued} queued · {counts.imageReady} ready
+            </div>
             <div>
               {counts.published} published · {counts.draft} drafts · {counts.failed} failed
             </div>
@@ -916,6 +983,22 @@ export function AiPosterUpload() {
                 className="inline-flex items-center gap-1 rounded-sm border border-primary bg-primary/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
               >
                 <Sparkles className="h-3 w-3" /> AI SEO
+              </button>
+              <button
+                disabled={selected.size === 0}
+                onClick={refreshUploadStatus}
+                title="Re-check selected rows and mark them ready if their image URL exists"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <RefreshCw className="h-3 w-3" /> Refresh status
+              </button>
+              <button
+                disabled={selected.size === 0}
+                onClick={forceMarkReady}
+                title="Force selected rows with valid URLs to Ready (admin escape hatch)"
+                className="inline-flex items-center gap-1 rounded-sm border border-amber-500/60 px-3 py-1.5 text-[10px] uppercase tracking-widest text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
+              >
+                <Zap className="h-3 w-3" /> Force ready
               </button>
               <button
                 disabled={busy || counts.needs === 0}
