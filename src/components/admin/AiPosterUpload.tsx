@@ -230,6 +230,8 @@ export function AiPosterUpload() {
       published: 0,
       draft: 0,
       failed: 0,
+      queued: 0,
+      imageReady: 0,
     };
     for (const r of rows) {
       if (r.status === "uploaded") c.uploaded++;
@@ -239,6 +241,10 @@ export function AiPosterUpload() {
       else if (r.status === "published") c.published++;
       else if (r.status === "draft") c.draft++;
       else if (r.status === "failed") c.failed++;
+      const hasUrl = !!r.imageUrl || !!r.originalUrl;
+      const stillUp = !hasUrl && (r.status === "uploaded" || r.status === "ai_generating");
+      if (stillUp) c.queued++;
+      if (hasUrl) c.imageReady++;
     }
     return c;
   }, [rows]);
