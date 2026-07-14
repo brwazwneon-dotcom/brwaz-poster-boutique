@@ -985,6 +985,22 @@ export function AiPosterUpload() {
                 <Sparkles className="h-3 w-3" /> AI SEO
               </button>
               <button
+                disabled={selected.size === 0}
+                onClick={refreshUploadStatus}
+                title="Re-check selected rows and mark them ready if their image URL exists"
+                className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
+              >
+                <RefreshCw className="h-3 w-3" /> Refresh status
+              </button>
+              <button
+                disabled={selected.size === 0}
+                onClick={forceMarkReady}
+                title="Force selected rows with valid URLs to Ready (admin escape hatch)"
+                className="inline-flex items-center gap-1 rounded-sm border border-amber-500/60 px-3 py-1.5 text-[10px] uppercase tracking-widest text-amber-600 hover:bg-amber-500/10 disabled:opacity-40"
+              >
+                <Zap className="h-3 w-3" /> Force ready
+              </button>
+              <button
                 disabled={busy || counts.needs === 0}
                 onClick={approveAllNeedsReview}
                 title="Mark every Needs Review row as Ready"
