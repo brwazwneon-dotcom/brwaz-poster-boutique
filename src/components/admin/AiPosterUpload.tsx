@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Upload,
@@ -12,11 +12,14 @@ import {
   Save,
   FileText,
   Plus,
+  Wrench,
 } from "lucide-react";
 import { RefreshCw, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
+import { PRICING_DEFAULTS } from "@/lib/use-settings";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { POSTER_BADGES } from "@/lib/poster-badges";
@@ -40,6 +43,11 @@ type RowStatus =
   | "draft"
   | "failed";
 
+type ImageStatus = "uploading_original" | "generating_thumbnail" | "generating_preview" | "ready" | "failed" | "stuck";
+type UploadStatus = "queued" | "uploading" | "completed" | "failed";
+type QueueStatus = "queued" | "processing" | "completed" | "failed";
+type SeoStatus = "idle" | "generating" | "complete" | "failed";
+
 type Row = {
   id: string;
   file: File;
@@ -48,6 +56,16 @@ type Row = {
   error?: string;
   imageUrl?: string;
   originalUrl?: string | null;
+  thumbnailUrl?: string | null;
+  previewUrl?: string | null;
+  image_status: ImageStatus;
+  upload_status: UploadStatus;
+  queue_status: QueueStatus;
+  seo_status: SeoStatus;
+  createdAt: number;
+  uploadStartedAt: number | null;
+  statusUpdatedAt: number;
+  activityLog: string[];
   title: string;
   description: string;
   seo_title: string;
@@ -71,6 +89,7 @@ type Row = {
 const UPLOAD_CONCURRENCY = 4;
 const AI_CONCURRENCY = 3;
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+const STUCK_UPLOAD_MS = 5 * 60 * 1000;
 
 function slugify(s: string) {
   return s
@@ -86,6 +105,23 @@ function isHeic(file: File) {
   return t.includes("heic") || t.includes("heif") || n.endsWith(".heic") || n.endsWith(".heif");
 }
 
+function isStorageImageUrl(url?: string | null) {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url);
+}
+
+function getBestImageUrl(row: Row) {
+  return [row.imageUrl, row.originalUrl, row.thumbnailUrl, row.previewUrl].find(isStorageImageUrl) ?? null;
+}
+
+function hasPublishableImage(row: Row) {
+  return !!getBestImageUrl(row);
+}
+
+function appendActivity(row: Row, message: string) {
+  return [...row.activityLog.slice(-9), `${new Date().toLocaleTimeString()} · ${message}`];
+}
+
 export function AiPosterUpload() {
   const { data: categories = [] } = useCategories();
   const qc = useQueryClient();
@@ -97,6 +133,48 @@ export function AiPosterUpload() {
     parentId ? categories.filter((c) => c.parent_id === parentId) : [];
   const categoriesRef = useRef<Category[]>(categories);
   categoriesRef.current = categories;
+
+  const findCategoryById = (id?: string | null) =>
+    id ? categoriesRef.current.find((c) => c.id === id) ?? null : null;
+  const resolveMainCategoryId = (row: Pick<Row, "category_id" | "subcategory_id">) => {
+    if (row.category_id) return row.category_id;
+    const sub = findCategoryById(row.subcategory_id);
+    return sub?.parent_id ?? null;
+  };
+  const syncReadyPatch = (row: Row, reason: string, status: RowStatus = "ready"): Row => ({
+    ...row,
+    status,
+    image_status: "ready",
+    upload_status: "completed",
+    queue_status: "completed",
+    error: undefined,
+    statusUpdatedAt: Date.now(),
+    activityLog: appendActivity(row, reason),
+  });
+  const failUploadPatch = (row: Row, reason: string): Row => ({
+    ...row,
+    status: "failed",
+    image_status: "failed",
+    upload_status: "failed",
+    queue_status: "failed",
+    error: reason,
+    statusUpdatedAt: Date.now(),
+    activityLog: appendActivity(row, reason),
+  });
+  const isUploadPending = (row: Row) =>
+    row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing" || row.image_status === "stuck";
+  const rowIssue = (row: Row) => {
+    if (!resolveMainCategoryId(row)) return "Missing main category";
+    if (!hasPublishableImage(row)) {
+      if (row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing") {
+        return row.image_status === "stuck" ? "Upload queue stuck" : "Original image missing";
+      }
+      return row.error || "Storage URL not found";
+    }
+    if (row.image_status === "stuck") return "Upload queue stuck";
+    if (!row.thumbnailUrl && !row.imageUrl) return "Thumbnail missing";
+    return row.error;
+  };
 
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const findSubByName = (parentId: string, name: string) => {
@@ -151,14 +229,57 @@ export function AiPosterUpload() {
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
+  useEffect(() => {
+    setRows((prev) => {
+      let changed = false;
+      const next = prev.map((r) => {
+        if (hasPublishableImage(r) && isUploadPending(r)) {
+          changed = true;
+          return syncReadyPatch(
+            r,
+            "Auto sync: image URL found while upload queue was pending",
+            r.status === "ai_generating" ? "ai_generating" : "ready",
+          );
+        }
+        return r;
+      });
+      return changed ? next : prev;
+    });
+  }, [rows]);
+
+  useEffect(() => {
+    if (!rows.length) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setRows((prev) =>
+        prev.map((r) => {
+          const pending = isUploadPending(r);
+          if (!pending) return r;
+          const startedAt = r.uploadStartedAt ?? r.createdAt;
+          if (now - startedAt < STUCK_UPLOAD_MS) return r;
+          if (hasPublishableImage(r)) {
+            return syncReadyPatch(r, "Auto timeout fixed: image URL found", r.status === "ai_generating" ? "ai_generating" : "ready");
+          }
+          return failUploadPatch(r, "Storage URL not found");
+        }),
+      );
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [rows.length]);
+
   // Track manual edits so AI regen doesn't overwrite them.
   const editField = (id: string, patch: Partial<Row>) =>
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
+        const inferredPatch = { ...patch };
+        if (inferredPatch.subcategory_id && !inferredPatch.category_id) {
+          const sub = findCategoryById(inferredPatch.subcategory_id);
+          if (sub?.parent_id) inferredPatch.category_id = sub.parent_id;
+        }
         const edited = { ...r.edited };
-        for (const k of Object.keys(patch)) edited[k] = true;
-        return { ...r, ...patch, edited };
+        for (const k of Object.keys(inferredPatch)) edited[k] = true;
+        return { ...r, ...inferredPatch, edited };
       }),
     );
 
@@ -172,7 +293,7 @@ export function AiPosterUpload() {
         // so we don't offer to create a duplicate.
         let subId = meta.subcategory_id;
         let suggestedSub = meta.suggested_subcategory_name;
-        const catId = meta.category_id;
+        const catId = meta.category_id ?? findCategoryById(subId)?.parent_id ?? null;
         if (!subId && catId && suggestedSub) {
           const existing = findSubByName(catId, suggestedSub);
           if (existing) {
@@ -199,6 +320,14 @@ export function AiPosterUpload() {
         return {
           ...r,
           status: autoApprove ? "ready" : "needs_review",
+          seo_status: "complete",
+          ...(hasPublishableImage(r)
+            ? {
+                image_status: "ready" as ImageStatus,
+                upload_status: "completed" as UploadStatus,
+                queue_status: "completed" as QueueStatus,
+              }
+            : {}),
           confidence: conf,
           review_reasons: reasons,
           colors: e.colors ? r.colors : meta.colors,
@@ -241,9 +370,8 @@ export function AiPosterUpload() {
       else if (r.status === "published") c.published++;
       else if (r.status === "draft") c.draft++;
       else if (r.status === "failed") c.failed++;
-      const hasUrl = !!r.imageUrl || !!r.originalUrl;
-      const stillUp = !hasUrl && (r.status === "uploaded" || r.status === "ai_generating");
-      if (stillUp) c.queued++;
+      const hasUrl = hasPublishableImage(r);
+      if (isUploadPending(r)) c.queued++;
       if (hasUrl) c.imageReady++;
     }
     return c;
@@ -256,11 +384,20 @@ export function AiPosterUpload() {
     if (!incoming.length) return;
     const next: Row[] = incoming.map((file) => {
       const baseName = file.name.replace(/\.[^.]+$/, "");
+      const now = Date.now();
       return {
         id: crypto.randomUUID(),
         file,
         preview: isHeic(file) ? "" : URL.createObjectURL(file),
         status: "uploaded",
+        image_status: "uploading_original",
+        upload_status: "queued",
+        queue_status: "queued",
+        seo_status: "idle",
+        createdAt: now,
+        uploadStartedAt: null,
+        statusUpdatedAt: now,
+        activityLog: [],
         title: baseName,
         description: "",
         seo_title: "",
@@ -334,7 +471,6 @@ export function AiPosterUpload() {
   };
 
   const processNew = async (ids: string[]) => {
-    setBusy(true);
     // Stage 1: upload concurrently.
     let cursor = 0;
     const uploadWorker = async () => {
@@ -344,15 +480,38 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
+          update(id, {
+            image_status: "uploading_original",
+            upload_status: "uploading",
+            queue_status: "processing",
+            uploadStartedAt: Date.now(),
+            error: undefined,
+            activityLog: appendActivity(r, "Upload started"),
+          });
           const { webUrl, origUrl } = await uploadOne(r);
           update(id, {
             imageUrl: webUrl,
             originalUrl: origUrl,
+            thumbnailUrl: webUrl,
+            previewUrl: webUrl,
+            image_status: "ready",
+            upload_status: "completed",
+            queue_status: "completed",
             status: "ai_generating",
+            statusUpdatedAt: Date.now(),
+            activityLog: appendActivity(r, "Upload completed; image marked ready"),
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Upload failed";
-          update(id, { status: "failed", error: msg });
+          update(id, {
+            status: "failed",
+            image_status: "failed",
+            upload_status: "failed",
+            queue_status: "failed",
+            error: msg,
+            statusUpdatedAt: Date.now(),
+            activityLog: appendActivity(r, msg),
+          });
         }
       }
     };
@@ -367,15 +526,17 @@ export function AiPosterUpload() {
         const i = aiCursor++;
         const id = ids[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl || r.status === "failed") continue;
+        if (!r || r.status === "failed") continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          update(id, { seo_status: "generating" });
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "AI failed";
           // Fallback: use filename as title, mark needs review.
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: msg,
             review_reasons: ["ai_failed"],
           });
@@ -385,7 +546,6 @@ export function AiPosterUpload() {
     await Promise.all(
       Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, aiWorker),
     );
-    setBusy(false);
   };
 
   const regenerateSelected = async () => {
@@ -404,10 +564,12 @@ export function AiPosterUpload() {
         continue;
       }
       const hasData =
-        !!r.imageUrl ||
+        hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
         !!(r.file?.name) ||
-        !!r.category_id;
+        !!r.category_id ||
+        !!r.subcategory_id ||
+        (r.tags?.length ?? 0) > 0;
       if (!hasData) {
         skipped.push({
           title: r.title || r.file.name || "(untitled)",
@@ -415,7 +577,7 @@ export function AiPosterUpload() {
         });
         continue;
       }
-      if (!r.imageUrl) textOnlyCount++;
+      if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -443,7 +605,7 @@ export function AiPosterUpload() {
     const ids = eligible;
     setBusy(true);
     // "Regenerate with AI" = intentional overwrite; clear the edited map.
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -452,11 +614,12 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -488,10 +651,12 @@ export function AiPosterUpload() {
         continue;
       }
       const hasData =
-        !!r.imageUrl ||
+        hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
         !!(r.file?.name) ||
-        !!r.category_id;
+        !!r.category_id ||
+        !!r.subcategory_id ||
+        (r.tags?.length ?? 0) > 0;
       if (!hasData) {
         skipped.push({
           title: r.title || r.file.name || "(untitled)",
@@ -499,7 +664,7 @@ export function AiPosterUpload() {
         });
         continue;
       }
-      if (!r.imageUrl) textOnlyCount++;
+      if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -522,7 +687,7 @@ export function AiPosterUpload() {
     }
     setBusy(true);
     // Do NOT clear edited map — this only fills missing fields.
-    eligible.forEach((id) => update(id, { status: "ai_generating", error: undefined }));
+    eligible.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined }));
     let cursor = 0;
     let okCount = 0;
     let failCount = 0;
@@ -533,13 +698,14 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
           okCount++;
         } catch (err) {
           failCount++;
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -561,31 +727,38 @@ export function AiPosterUpload() {
       return;
     }
     const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
-    // A row is publishable if it has ANY usable image URL (main or original),
-    // regardless of the legacy upload-queue status. AI SEO status is independent.
-    const hasImage = (r: Row) => !!r.imageUrl || !!r.originalUrl;
-    const stillUploading = selectedRows.filter(
-      (r) => !hasImage(r) && (r.status === "uploaded" || r.status === "ai_generating"),
-    );
+    // A row is publishable if it has an actual stored image URL and required catalog fields.
+    // Legacy upload queue status never blocks rows whose image URL exists.
     const alreadyPublished = selectedRows.filter((r) => r.status === "published");
+    const invalidRows = selectedRows.filter((r) => {
+      if (r.status === "published") return false;
+      if (!hasPublishableImage(r)) return true;
+      if (!(r.title || r.file.name).trim()) return true;
+      if (!resolveMainCategoryId(r)) return true;
+      return false;
+    });
     const rowsToInsert = selectedRows.filter(
-      (r) => hasImage(r) && r.status !== "published",
+      (r) =>
+        hasPublishableImage(r) &&
+        !!(r.title || r.file.name).trim() &&
+        !!resolveMainCategoryId(r) &&
+        r.status !== "published",
     );
     if (!rowsToInsert.length) {
-      if (alreadyPublished.length && !stillUploading.length) {
+      if (alreadyPublished.length && !invalidRows.length) {
         toast.error("Selected posters are already published.");
-      } else if (stillUploading.length && !alreadyPublished.length) {
-        toast.error(`${stillUploading.length} poster(s) are still uploading. Please wait.`);
+      } else if (invalidRows.length && !alreadyPublished.length) {
+        toast.error("Nothing to publish. Fix row warnings first.");
       } else {
         toast.error(
-          `Nothing to publish — ${alreadyPublished.length} already published, ${stillUploading.length} still uploading.`,
+          `Nothing to publish — ${alreadyPublished.length} already published, ${invalidRows.length} need fixes.`,
         );
       }
       return;
     }
-    if (stillUploading.length || alreadyPublished.length) {
+    if (invalidRows.length || alreadyPublished.length) {
       toast.message(
-        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${stillUploading.length} uploading, ${alreadyPublished.length} already published.`,
+        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${invalidRows.length} with row warnings, ${alreadyPublished.length} already published.`,
       );
     }
     // Warn about posters missing SEO (allowed, but flagged).
@@ -599,9 +772,10 @@ export function AiPosterUpload() {
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
-      image_url: (r.imageUrl || r.originalUrl)!,
+      image_url: getBestImageUrl(r)!,
       original_url: r.originalUrl ?? null,
       category_id: r.subcategory_id || r.category_id,
+      price: PRICING_DEFAULTS.frame.pvc["20x30"] ?? 190,
       tags: r.tags,
       description: r.description || null,
       seo_title: r.seo_title || null,
@@ -630,7 +804,7 @@ export function AiPosterUpload() {
     }
     const parts = [
       `${hidden ? "Saved" : "Published"}: ${ok}`,
-      stillUploading.length ? `Skipped uploading: ${stillUploading.length}` : null,
+      invalidRows.length ? `Skipped with warnings: ${invalidRows.length}` : null,
       alreadyPublished.length ? `Already published: ${alreadyPublished.length}` : null,
       failed ? `Failed: ${failed}` : null,
     ].filter(Boolean).join(" · ");
@@ -657,26 +831,27 @@ export function AiPosterUpload() {
 
   const regenerateNeedsReview = async () => {
     const ids = rowsRef.current
-      .filter((r) => r.status === "needs_review" && r.imageUrl)
+      .filter((r) => r.status === "needs_review")
       .map((r) => r.id);
     if (!ids.length) return toast.error("No rows need review");
     setSelected(new Set(ids));
     // Re-use existing regen worker path
     setBusy(true);
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
         const i = cursor++;
         const id = ids[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl) continue;
+        if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -702,24 +877,55 @@ export function AiPosterUpload() {
     if (n > 0) toast.success(`Marked ${n} as generated`);
   };
 
+  const logActivity = (message: string, metadata: Json) => {
+    void supabase.from("system_logs").insert({
+      level: "info",
+      source: "admin_ai_poster_upload",
+      category: "upload_status",
+      message,
+      metadata,
+      status: "open",
+    });
+  };
+
   // Re-check selected rows: if any usable image URL exists, mark row status as
   // "ready" so publish/other actions stop blocking on legacy upload state.
   const refreshUploadStatus = () => {
     if (!selected.size) return toast.error("Select rows first");
-    let fixed = 0;
+    let ready = 0;
+    let failed = 0;
     setRows((prev) =>
       prev.map((r) => {
         if (!selected.has(r.id)) return r;
-        const hasUrl = !!r.imageUrl || !!r.originalUrl;
-        if (!hasUrl) return r;
-        if (r.status === "uploaded" || r.status === "ai_generating" || r.status === "failed") {
-          fixed++;
-          return { ...r, status: "ready", error: undefined };
+        if (hasPublishableImage(r)) {
+          ready++;
+          return syncReadyPatch(r, "Refresh Upload Status: image URL found");
         }
-        return r;
+        failed++;
+        return failUploadPatch(r, "Storage URL not found");
       }),
     );
-    toast.success(fixed ? `Refreshed — ${fixed} marked ready` : "All selected rows already up to date");
+    toast.success(`Refresh complete — Ready: ${ready} · Failed: ${failed}`);
+  };
+
+  const fixStuckUploads = () => {
+    const targets = rowsRef.current.filter((r) => isUploadPending(r));
+    if (!targets.length) return toast.success("No stuck uploads found");
+    let ready = 0;
+    let failed = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!isUploadPending(r)) return r;
+        if (hasPublishableImage(r)) {
+          ready++;
+          return syncReadyPatch(r, "Fix Stuck Uploads: image URL found");
+        }
+        failed++;
+        return failUploadPatch(r, "Storage URL not found");
+      }),
+    );
+    logActivity("Fix Stuck Uploads", { checked: targets.length, ready, failed });
+    toast.success("Stuck uploads fixed successfully");
   };
 
   // Admin escape hatch: force any selected row that has a URL out of stuck
@@ -727,7 +933,7 @@ export function AiPosterUpload() {
   const forceMarkReady = () => {
     if (!selected.size) return toast.error("Select rows first");
     const targets = rowsRef.current.filter(
-      (r) => selected.has(r.id) && (!!r.imageUrl || !!r.originalUrl) && r.status !== "published",
+      (r) => selected.has(r.id) && hasPublishableImage(r) && r.status !== "published",
     );
     if (!targets.length) {
       toast.error("No selected rows have a usable image URL to force-ready.");
@@ -736,11 +942,36 @@ export function AiPosterUpload() {
     setRows((prev) =>
       prev.map((r) =>
         targets.find((t) => t.id === r.id)
-          ? { ...r, status: "ready", error: undefined }
+          ? syncReadyPatch(r, "Force ready: selected bulk action")
           : r,
       ),
     );
+    logActivity("Force ready selected posters", { count: targets.length, ids: targets.map((t) => t.id) });
     toast.success(`Force-marked ${targets.length} row(s) as ready`);
+  };
+
+  const forceOneReady = (id: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row || !hasPublishableImage(row)) return toast.error("No image URL found for this row.");
+    setRows((prev) => prev.map((r) => (r.id === id ? syncReadyPatch(r, "Force Mark Ready: row action") : r)));
+    logActivity("Force Mark Ready poster row", { id, title: row.title || row.file.name });
+    toast.success("Marked ready");
+  };
+
+  const retryUpload = (id: string) => {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row) return;
+    update(id, {
+      status: "uploaded",
+      image_status: "uploading_original",
+      upload_status: "queued",
+      queue_status: "queued",
+      error: undefined,
+      uploadStartedAt: null,
+      statusUpdatedAt: Date.now(),
+      activityLog: appendActivity(row, "Retry upload requested"),
+    });
+    void processNew([id]);
   };
 
   const deleteSelected = () => {
@@ -768,7 +999,11 @@ export function AiPosterUpload() {
         if (!selected.has(r.id)) return r;
         const patch: Partial<Row> = {};
         if (bulkCat) patch.category_id = bulkCat;
-        if (bulkSub) patch.subcategory_id = bulkSub;
+        if (bulkSub) {
+          patch.subcategory_id = bulkSub;
+          const parentId = findCategoryById(bulkSub)?.parent_id;
+          if (parentId) patch.category_id = parentId;
+        }
         if (bulkBadge) patch.badge = bulkBadge === "__none__" ? null : bulkBadge;
         if (tags.length) patch.tags = Array.from(new Set([...(r.tags ?? []), ...tags]));
         return { ...r, ...patch };
@@ -990,7 +1225,15 @@ export function AiPosterUpload() {
                 title="Re-check selected rows and mark them ready if their image URL exists"
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
               >
-                <RefreshCw className="h-3 w-3" /> Refresh status
+                <RefreshCw className="h-3 w-3" /> Refresh Upload Status
+              </button>
+              <button
+                disabled={busy || counts.queued === 0}
+                onClick={fixStuckUploads}
+                title="Fix rows stuck in queued or uploading when an image URL already exists"
+                className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-40"
+              >
+                <Wrench className="h-3 w-3" /> Fix Stuck Uploads
               </button>
               <button
                 disabled={selected.size === 0}
@@ -1083,7 +1326,11 @@ export function AiPosterUpload() {
               mains={subsOf(bulkCat)}
               placeholder="Sub-category…"
               disabled={false}
-              onChange={setBulkSub}
+              onChange={(v) => {
+                setBulkSub(v);
+                const parentId = findCategoryById(v)?.parent_id;
+                if (parentId) setBulkCat(parentId);
+              }}
               onCreate={() => {
                 if (!bulkCat) {
                   toast.error("Please select a Main Category first.");
@@ -1157,6 +1404,9 @@ export function AiPosterUpload() {
                     onEditCategory={(cat) => openEdit(cat)}
                     onDeleteCategory={(cat) => setDeleteState(cat)}
                     findCategory={(id) => categoriesRef.current.find((c) => c.id === id) ?? null}
+                    issue={rowIssue(r)}
+                    onForceReady={() => forceOneReady(r.id)}
+                    onRetryUpload={() => retryUpload(r.id)}
                   />
                 ))}
               </tbody>
@@ -1284,6 +1534,9 @@ function RowEditor({
   onEditCategory,
   onDeleteCategory,
   findCategory,
+  issue,
+  onForceReady,
+  onRetryUpload,
 }: {
   row: Row;
   selected: boolean;
@@ -1297,9 +1550,14 @@ function RowEditor({
   onEditCategory: (cat: Category) => void;
   onDeleteCategory: (cat: Category) => void;
   findCategory: (id: string) => Category | null;
+  issue?: string;
+  onForceReady: () => void;
+  onRetryUpload: () => void;
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
+  const forceReadyVisible = hasPublishableImage(row) && row.status !== "published" && row.image_status !== "ready";
+  const showRetry = row.status === "failed" || row.image_status === "failed" || row.image_status === "stuck";
   const showSuggestion =
     !!row.suggested_subcategory_name && !row.subcategory_id && !isLocked;
   return (
@@ -1315,7 +1573,7 @@ function RowEditor({
       <td className="pt-2">
         {row.preview ? (
           <img
-            src={row.preview}
+            src={row.thumbnailUrl || row.previewUrl || row.imageUrl || row.preview}
             alt=""
             className="h-20 w-16 rounded-sm border border-border object-cover"
           />
@@ -1323,6 +1581,30 @@ function RowEditor({
           <div className="flex h-20 w-16 items-center justify-center rounded-sm border border-border bg-background text-[9px] text-muted-foreground">
             HEIC
           </div>
+        )}
+        <ImageProgress row={row} />
+        {issue && issue !== "Missing main category" && (
+          <div className="mt-1 w-20 rounded-sm border border-amber-500/40 bg-amber-500/10 px-1 py-0.5 text-[8px] leading-tight text-amber-600">
+            {issue}
+          </div>
+        )}
+        {forceReadyVisible && (
+          <button
+            type="button"
+            onClick={onForceReady}
+            className="mt-1 w-16 rounded-sm border border-amber-500/60 px-1 py-0.5 text-[8px] uppercase tracking-widest text-amber-600 hover:bg-amber-500/10"
+          >
+            Force Mark Ready
+          </button>
+        )}
+        {showRetry && (
+          <button
+            type="button"
+            onClick={onRetryUpload}
+            className="mt-1 w-16 rounded-sm border border-border px-1 py-0.5 text-[8px] uppercase tracking-widest text-muted-foreground hover:bg-accent"
+          >
+            Retry Upload
+          </button>
         )}
       </td>
       <td className="space-y-1 pr-2">
@@ -1400,6 +1682,11 @@ function RowEditor({
             <Plus className="h-3 w-3" /> Create “{row.suggested_subcategory_name}”
           </button>
         )}
+        {issue === "Missing main category" && (
+          <div className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-600">
+            Please select main category before publishing
+          </div>
+        )}
         {row.detected_subject && (
           <div className="text-[10px] text-muted-foreground" title="AI detected subject">
             AI: {row.detected_subject}
@@ -1464,6 +1751,9 @@ function RowEditor({
       </td>
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
+        {row.seo_status === "generating" && (
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-primary">Text-Based SEO running</div>
+        )}
         {row.confidence != null && (
           <div
             className={cn(
@@ -1506,6 +1796,37 @@ function RowEditor({
       </td>
     </tr>
   );
+}
+
+function ImageProgress({ row }: { row: Row }) {
+  const steps: { key: ImageStatus | "uploading_original"; label: string }[] = [
+    { key: "uploading_original", label: "Uploading Original" },
+    { key: "generating_thumbnail", label: "Generating Thumbnail" },
+    { key: "generating_preview", label: "Generating Preview" },
+    { key: "ready", label: "Ready" },
+  ];
+  const failed = row.image_status === "failed";
+  const stuck = row.image_status === "stuck" || (isUploadPendingStatus(row) && hasPublishableImage(row));
+  const currentIndex = row.image_status === "ready" ? 3 : row.image_status === "generating_preview" ? 2 : row.image_status === "generating_thumbnail" ? 1 : 0;
+  const label = failed ? "Failed" : stuck ? "Stuck" : steps[currentIndex]?.label ?? "Uploading Original";
+  return (
+    <div className="mt-1 w-16">
+      <div className="h-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full transition-all",
+            failed ? "bg-destructive" : stuck ? "bg-amber-500" : row.image_status === "ready" ? "bg-emerald-500" : "bg-primary",
+          )}
+          style={{ width: failed || stuck ? "100%" : `${Math.max(20, (currentIndex + 1) * 25)}%` }}
+        />
+      </div>
+      <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function isUploadPendingStatus(row: Row) {
+  return row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing";
 }
 
 function StatusPill({ status, error }: { status: RowStatus; error?: string }) {
