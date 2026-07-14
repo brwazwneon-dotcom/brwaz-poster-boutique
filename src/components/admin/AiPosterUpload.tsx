@@ -471,7 +471,6 @@ export function AiPosterUpload() {
   };
 
   const processNew = async (ids: string[]) => {
-    setBusy(true);
     // Stage 1: upload concurrently.
     let cursor = 0;
     const uploadWorker = async () => {
@@ -547,7 +546,6 @@ export function AiPosterUpload() {
     await Promise.all(
       Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, aiWorker),
     );
-    setBusy(false);
   };
 
   const regenerateSelected = async () => {
