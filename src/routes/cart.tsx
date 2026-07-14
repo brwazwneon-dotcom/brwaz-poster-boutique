@@ -571,6 +571,16 @@ function CartPage() {
           currency: "EGP",
           order_id: `BRW-${Date.now()}`,
         }, { phone, city: governorate, country: "EG" });
+        // Mirror as a custom event for audiences that segment on OrderCreated.
+        try {
+          trackCustom("OrderCreated", {
+            content_ids: contentIds,
+            num_items: items.reduce((s, i) => s + i.qty, 0),
+            value: grand,
+            currency: "EGP",
+            order_id: `BRW-${Date.now()}`,
+          }, { phone, city: governorate, country: "EG" });
+        } catch { /* noop */ }
       } catch (err) {
         logCheckoutStep({ step: "meta_pixel_purchase", operation: "trackEvent", error: err });
       }
