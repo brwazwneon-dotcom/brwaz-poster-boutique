@@ -299,11 +299,22 @@ export function AiPosterUpload() {
     return { webUrl, origUrl };
   };
 
-  const runAi = async (row: Row, imageUrl: string) => {
+  const runAi = async (row: Row, imageUrl?: string) => {
+    const cat = row.category_id
+      ? categoriesRef.current.find((c) => c.id === row.category_id)
+      : null;
+    const sub = row.subcategory_id
+      ? categoriesRef.current.find((c) => c.id === row.subcategory_id)
+      : null;
     const meta: GeneratedPosterMeta = await generatePosterMeta({
       data: {
         imageUrl,
         filename: row.file.name,
+        title: row.title || undefined,
+        categoryName: cat?.name,
+        subcategoryName: sub?.name,
+        tags: row.tags?.length ? row.tags : undefined,
+        badge: row.badge,
         categories: categories.map((c) => ({
           id: c.id,
           name: c.name,
@@ -377,17 +388,27 @@ export function AiPosterUpload() {
     }
     const eligible: string[] = [];
     const skipped: { title: string; reason: string }[] = [];
+    let textOnlyCount = 0;
     for (const id of selectedIds) {
       const r = rowsRef.current.find((x) => x.id === id);
       if (!r) continue;
-      if (!r.imageUrl) {
-        skipped.push({ title: r.title || r.file.name, reason: "image still uploading" });
-        continue;
-      }
       if (r.status === "published") {
         skipped.push({ title: r.title || r.file.name, reason: "already published" });
         continue;
       }
+      const hasData =
+        !!r.imageUrl ||
+        !!(r.title && r.title.trim()) ||
+        !!(r.file?.name) ||
+        !!r.category_id;
+      if (!hasData) {
+        skipped.push({
+          title: r.title || r.file.name || "(untitled)",
+          reason: "no title, filename, or category",
+        });
+        continue;
+      }
+      if (!r.imageUrl) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -398,6 +419,11 @@ export function AiPosterUpload() {
       const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
       return toast.error(
         `Selected posters cannot be regenerated${reason ? `: ${reason}` : "."}`,
+      );
+    }
+    if (textOnlyCount) {
+      toast.message(
+        `SEO generation started using available text data. Visual SEO can be enhanced after images are ready.`,
       );
     }
     if (skipped.length) {
@@ -417,7 +443,7 @@ export function AiPosterUpload() {
         const i = cursor++;
         const id = ids[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl) continue;
+        if (!r) continue;
         try {
           const meta = await runAi(r, r.imageUrl);
           applyAiMeta(id, meta);
@@ -443,13 +469,10 @@ export function AiPosterUpload() {
     }
     const eligible: string[] = [];
     const skipped: { title: string; reason: string }[] = [];
+    let textOnlyCount = 0;
     for (const id of selectedIds) {
       const r = rowsRef.current.find((x) => x.id === id);
       if (!r) continue;
-      if (!r.imageUrl) {
-        skipped.push({ title: r.title || r.file.name, reason: "still uploading" });
-        continue;
-      }
       const hasAll =
         !!r.description && !!r.seo_title && !!r.seo_description &&
         !!r.alt_text && !!r.slug && (r.tags?.length ?? 0) > 0;
@@ -457,6 +480,19 @@ export function AiPosterUpload() {
         skipped.push({ title: r.title || r.file.name, reason: "SEO already complete" });
         continue;
       }
+      const hasData =
+        !!r.imageUrl ||
+        !!(r.title && r.title.trim()) ||
+        !!(r.file?.name) ||
+        !!r.category_id;
+      if (!hasData) {
+        skipped.push({
+          title: r.title || r.file.name || "(untitled)",
+          reason: "no title, filename, or category",
+        });
+        continue;
+      }
+      if (!r.imageUrl) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -466,6 +502,11 @@ export function AiPosterUpload() {
     if (!eligible.length) {
       const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
       return toast.error(`Nothing to generate${reason ? `: ${reason}` : "."}`);
+    }
+    if (textOnlyCount) {
+      toast.message(
+        `SEO generation started using available text data. Visual SEO can be enhanced after images are ready. (${textOnlyCount} text-only)`,
+      );
     }
     if (skipped.length) {
       toast.message(
@@ -483,7 +524,7 @@ export function AiPosterUpload() {
         const i = cursor++;
         const id = eligible[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl) continue;
+        if (!r) continue;
         try {
           const meta = await runAi(r, r.imageUrl);
           applyAiMeta(id, meta);
