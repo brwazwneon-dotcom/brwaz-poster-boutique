@@ -263,6 +263,7 @@ function AdminPage() {
         {tab === "ai-upload" && <AiPosterUpload />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "subcategories" && <SubCategoriesManagerTab />}
+        {tab === "display-order" && <DisplayOrderTab />}
         {tab === "orders" && <OrdersTab />}
         {tab === "customers" && <CustomersTab />}
         {tab === "abandoned" && <AbandonedOrdersTab />}
