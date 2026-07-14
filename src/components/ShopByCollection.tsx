@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 import { FramePreview } from "@/components/FramePreview";
+import { useCategories, isCategoryVisible } from "@/lib/use-categories";
 
 export type CollectionCard = {
   id: string;
@@ -243,8 +244,35 @@ function CollectionCover({ card }: { card: CollectionCard }) {
 
 export function ShopByCollection() {
   const { data } = useHomeCollections();
+  const { data: categories = [] } = useCategories();
   if (!data || !data.visible) return null;
-  const cards = data.cards.filter((c) => c.enabled !== false);
+  const baseCards = data.cards.filter((c) => c.enabled !== false);
+  const existingSlugs = new Set(
+    baseCards.map((c) => extractCategorySlug(c.link)).filter((s): s is string => !!s),
+  );
+  const autoCards: CollectionCard[] = categories
+    .filter(
+      (c) =>
+        !c.parent_id &&
+        isCategoryVisible(c) &&
+        (c.show_in_collections ?? true) &&
+        !existingSlugs.has(c.slug),
+    )
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((c) => ({
+      id: `auto-${c.slug}`,
+      title: c.name,
+      subtitle: c.description ?? "Explore the collection",
+      image: c.image ?? "",
+      link: `/category/${c.slug}`,
+      enabled: true,
+      coverMode: c.image ? "manual" : "auto",
+      coverPosterIds: [],
+      bw: false,
+      transitionMs: 6000,
+      overlayOpacity: 0.55,
+    }));
+  const cards = [...baseCards, ...autoCards];
   if (cards.length === 0) return null;
 
   return (
