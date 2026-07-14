@@ -702,6 +702,47 @@ export function AiPosterUpload() {
     if (n > 0) toast.success(`Marked ${n} as generated`);
   };
 
+  // Re-check selected rows: if any usable image URL exists, mark row status as
+  // "ready" so publish/other actions stop blocking on legacy upload state.
+  const refreshUploadStatus = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    let fixed = 0;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (!selected.has(r.id)) return r;
+        const hasUrl = !!r.imageUrl || !!r.originalUrl;
+        if (!hasUrl) return r;
+        if (r.status === "uploaded" || r.status === "ai_generating" || r.status === "failed") {
+          fixed++;
+          return { ...r, status: "ready", error: undefined };
+        }
+        return r;
+      }),
+    );
+    toast.success(fixed ? `Refreshed — ${fixed} marked ready` : "All selected rows already up to date");
+  };
+
+  // Admin escape hatch: force any selected row that has a URL out of stuck
+  // "uploading" state. Does not touch the image itself.
+  const forceMarkReady = () => {
+    if (!selected.size) return toast.error("Select rows first");
+    const targets = rowsRef.current.filter(
+      (r) => selected.has(r.id) && (!!r.imageUrl || !!r.originalUrl) && r.status !== "published",
+    );
+    if (!targets.length) {
+      toast.error("No selected rows have a usable image URL to force-ready.");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((r) =>
+        targets.find((t) => t.id === r.id)
+          ? { ...r, status: "ready", error: undefined }
+          : r,
+      ),
+    );
+    toast.success(`Force-marked ${targets.length} row(s) as ready`);
+  };
+
   const deleteSelected = () => {
     if (!selected.size) return;
     if (!confirm(`Remove ${selected.size} row(s) from the queue? Already published posters stay live.`))
