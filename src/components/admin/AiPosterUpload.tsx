@@ -893,7 +893,9 @@ export function AiPosterUpload() {
             </p>
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <div>{counts.total} queued</div>
+            <div>
+              {counts.queued} queued · {counts.imageReady} ready
+            </div>
             <div>
               {counts.published} published · {counts.draft} drafts · {counts.failed} failed
             </div>
