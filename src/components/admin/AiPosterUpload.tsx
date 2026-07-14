@@ -1583,6 +1583,11 @@ function RowEditor({
           </div>
         )}
         <ImageProgress row={row} />
+        {issue && issue !== "Missing main category" && (
+          <div className="mt-1 w-20 rounded-sm border border-amber-500/40 bg-amber-500/10 px-1 py-0.5 text-[8px] leading-tight text-amber-600">
+            {issue}
+          </div>
+        )}
         {forceReadyVisible && (
           <button
             type="button"
@@ -1746,11 +1751,6 @@ function RowEditor({
       </td>
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
-        {issue && issue !== "Missing main category" && (
-          <div className="mt-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-600">
-            {issue}
-          </div>
-        )}
         {row.seo_status === "generating" && (
           <div className="mt-1 text-[10px] uppercase tracking-widest text-primary">Text-Based SEO running</div>
         )}
