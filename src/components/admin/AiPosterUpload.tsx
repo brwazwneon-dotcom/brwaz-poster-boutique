@@ -436,12 +436,41 @@ export function AiPosterUpload() {
   };
 
   const insertPosters = async (ids: string[], hidden: boolean) => {
-    const rowsToInsert = rowsRef.current.filter(
-      (r) => ids.includes(r.id) && r.imageUrl && r.status !== "published",
+    if (!ids.length) {
+      toast.error("Please select posters first.");
+      return;
+    }
+    const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
+    const stillUploading = selectedRows.filter((r) => !r.imageUrl);
+    const alreadyPublished = selectedRows.filter((r) => r.imageUrl && r.status === "published");
+    const rowsToInsert = selectedRows.filter(
+      (r) => r.imageUrl && r.status !== "published",
     );
     if (!rowsToInsert.length) {
-      toast.error("Nothing to publish");
+      if (alreadyPublished.length && !stillUploading.length) {
+        toast.error("Selected posters are already published.");
+      } else if (stillUploading.length && !alreadyPublished.length) {
+        toast.error(`${stillUploading.length} poster(s) are still uploading. Please wait.`);
+      } else {
+        toast.error(
+          `Nothing to publish — ${alreadyPublished.length} already published, ${stillUploading.length} still uploading.`,
+        );
+      }
       return;
+    }
+    if (stillUploading.length || alreadyPublished.length) {
+      toast.message(
+        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${stillUploading.length} uploading, ${alreadyPublished.length} already published.`,
+      );
+    }
+    // Warn about posters missing SEO (allowed, but flagged).
+    const missingSeo = rowsToInsert.filter(
+      (r) => !r.seo_title || !r.seo_description || !r.description,
+    );
+    if (missingSeo.length) {
+      toast.message(
+        `${missingSeo.length} poster(s) missing SEO — publishing anyway. You can generate SEO later.`,
+      );
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
