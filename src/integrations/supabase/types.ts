@@ -776,6 +776,116 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_page_posters: {
+        Row: {
+          created_at: string
+          id: string
+          landing_page_id: string
+          pinned: boolean
+          poster_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landing_page_id: string
+          pinned?: boolean
+          poster_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landing_page_id?: string
+          pinned?: boolean
+          poster_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_page_posters_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_page_posters_poster_id_fkey"
+            columns: ["poster_id"]
+            isOneToOne: false
+            referencedRelation: "posters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_pages: {
+        Row: {
+          audience_key: string
+          created_at: string
+          cta_text: string | null
+          display_mode: string
+          hero_image: string | null
+          id: string
+          meta_description: string | null
+          poster_limit: number
+          seo_title: string | null
+          source_category_id: string | null
+          subtitle_ar: string | null
+          subtitle_en: string | null
+          title_ar: string | null
+          title_en: string | null
+          updated_at: string
+          visible: boolean
+          whatsapp_message: string | null
+        }
+        Insert: {
+          audience_key: string
+          created_at?: string
+          cta_text?: string | null
+          display_mode?: string
+          hero_image?: string | null
+          id?: string
+          meta_description?: string | null
+          poster_limit?: number
+          seo_title?: string | null
+          source_category_id?: string | null
+          subtitle_ar?: string | null
+          subtitle_en?: string | null
+          title_ar?: string | null
+          title_en?: string | null
+          updated_at?: string
+          visible?: boolean
+          whatsapp_message?: string | null
+        }
+        Update: {
+          audience_key?: string
+          created_at?: string
+          cta_text?: string | null
+          display_mode?: string
+          hero_image?: string | null
+          id?: string
+          meta_description?: string | null
+          poster_limit?: number
+          seo_title?: string | null
+          source_category_id?: string | null
+          subtitle_ar?: string | null
+          subtitle_en?: string | null
+          title_ar?: string | null
+          title_en?: string | null
+          updated_at?: string
+          visible?: boolean
+          whatsapp_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_pages_source_category_id_fkey"
+            columns: ["source_category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_secrets: {
         Row: {
           firebase_service_account: Json | null
@@ -1819,6 +1929,7 @@ export type Database = {
       }
       admin_abandoned_orders: { Args: { p_limit?: number }; Returns: Json }
       admin_behavior_dashboard: { Args: never; Returns: Json }
+      admin_campaign_report: { Args: never; Returns: Json }
       admin_clear_anonymous_behavior: {
         Args: { _older_than_days?: number }
         Returns: number
@@ -1895,6 +2006,7 @@ export type Database = {
         Returns: undefined
       }
       increment_poster_views: { Args: { p_id: string }; Returns: undefined }
+      landing_page_bundle: { Args: { _audience: string }; Returns: Json }
       merge_visitor_to_phone: {
         Args: { _phone: string; _visitor_id: string }
         Returns: undefined
