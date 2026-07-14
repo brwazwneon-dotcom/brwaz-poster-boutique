@@ -371,11 +371,43 @@ export function AiPosterUpload() {
   };
 
   const regenerateSelected = async () => {
-    const ids = Array.from(selected).filter((id) => {
+    const selectedIds = Array.from(selected);
+    if (!selectedIds.length) {
+      return toast.error("Please select at least one poster to regenerate.");
+    }
+    const eligible: string[] = [];
+    const skipped: { title: string; reason: string }[] = [];
+    for (const id of selectedIds) {
       const r = rowsRef.current.find((x) => x.id === id);
-      return r && r.imageUrl && r.status !== "published";
-    });
-    if (!ids.length) return toast.error("Select rows to regenerate");
+      if (!r) continue;
+      if (!r.imageUrl) {
+        skipped.push({ title: r.title || r.file.name, reason: "image still uploading" });
+        continue;
+      }
+      if (r.status === "published") {
+        skipped.push({ title: r.title || r.file.name, reason: "already published" });
+        continue;
+      }
+      eligible.push(id);
+    }
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug("[regenerateSelected]", { selectedIds, eligible, skipped });
+    }
+    if (!eligible.length) {
+      const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
+      return toast.error(
+        `Selected posters cannot be regenerated${reason ? `: ${reason}` : "."}`,
+      );
+    }
+    if (skipped.length) {
+      toast.message(
+        `Skipping ${skipped.length} of ${selectedIds.length}: ${skipped
+          .map((s) => `${s.title} (${s.reason})`)
+          .join(", ")}`,
+      );
+    }
+    const ids = eligible;
     setBusy(true);
     // "Regenerate with AI" = intentional overwrite; clear the edited map.
     ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
