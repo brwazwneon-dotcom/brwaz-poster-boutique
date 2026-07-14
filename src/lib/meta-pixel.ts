@@ -153,7 +153,12 @@ export { lastConfig as _lastMarketingConfig };
 export type CustomEvent =
   | "ViewCategory"
   | "PhotoPrintingCustomer"
-  | "CustomDesignCustomer";
+  | "CustomDesignCustomer"
+  | "ViewCart"
+  | "CartUpdated"
+  | "RemoveFromCart"
+  | "AddPhoneNumber"
+  | "OrderCreated";
 
 type QueuedEvent = {
   kind: "std" | "custom";
