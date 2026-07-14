@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
 import {
@@ -18,7 +18,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import { useSiteSettings, computeShipping, usePricing, usePhoto4x6Config, priceForFrame } from "@/lib/use-settings";
-import { trackEvent, setUserData } from "@/lib/meta-pixel";
+import { trackEvent, trackCustom, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
 
@@ -285,6 +285,37 @@ function CartPage() {
   const [dragOver, setDragOver] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [zoomItem, setZoomItem] = useState<null | { image: string; title: string; frameType: FrameTypeId; color: FrameColorId; editSettings?: import("@/lib/poster-edit").EditSettings }>(null);
+
+  // Fire a ViewCart custom event once per mount with the current cart contents
+  // so Meta audiences can retarget cart abandoners.
+  const viewCartFired = useRef(false);
+  useEffect(() => {
+    if (viewCartFired.current) return;
+    if (items.length === 0) return;
+    viewCartFired.current = true;
+    try {
+      trackCustom("ViewCart", {
+        content_ids: items.map((i) => i.posterId).filter(Boolean),
+        contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
+        content_type: "product",
+        num_items: items.reduce((s, i) => s + i.qty, 0),
+        value: total,
+        currency: "EGP",
+      });
+    } catch { /* noop */ }
+  }, [items, total]);
+
+  // Fire a Lead + AddPhoneNumber the first time the customer enters a valid
+  // Egyptian phone number. Debounced so we don't fire on every keystroke.
+  const phoneLeadFired = useRef(false);
+  useEffect(() => {
+    if (phoneLeadFired.current) return;
+    if (!EG_PHONE_RE.test(phone.trim())) return;
+    phoneLeadFired.current = true;
+    try { setUserData({ phone: phone.trim(), country: "EG" }); } catch { /* noop */ }
+    try { trackEvent("Lead", { content_name: "cart_phone_entered", currency: "EGP", value: total }, { phone: phone.trim(), country: "EG" }); } catch { /* noop */ }
+    try { trackCustom("AddPhoneNumber", { currency: "EGP", value: total }, { phone: phone.trim(), country: "EG" }); } catch { /* noop */ }
+  }, [phone, total]);
 
   const handleScreenshotChange = (file: File | null) => {
     if (!file) {
