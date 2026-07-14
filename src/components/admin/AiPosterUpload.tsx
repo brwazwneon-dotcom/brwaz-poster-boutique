@@ -592,10 +592,12 @@ export function AiPosterUpload() {
         continue;
       }
       const hasData =
-        !!r.imageUrl ||
+        hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
         !!(r.file?.name) ||
-        !!r.category_id;
+        !!r.category_id ||
+        !!r.subcategory_id ||
+        (r.tags?.length ?? 0) > 0;
       if (!hasData) {
         skipped.push({
           title: r.title || r.file.name || "(untitled)",
@@ -603,7 +605,7 @@ export function AiPosterUpload() {
         });
         continue;
       }
-      if (!r.imageUrl) textOnlyCount++;
+      if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -631,7 +633,7 @@ export function AiPosterUpload() {
     const ids = eligible;
     setBusy(true);
     // "Regenerate with AI" = intentional overwrite; clear the edited map.
-    ids.forEach((id) => update(id, { status: "ai_generating", error: undefined, edited: {} }));
+    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -640,11 +642,12 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -676,10 +679,12 @@ export function AiPosterUpload() {
         continue;
       }
       const hasData =
-        !!r.imageUrl ||
+        hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
         !!(r.file?.name) ||
-        !!r.category_id;
+        !!r.category_id ||
+        !!r.subcategory_id ||
+        (r.tags?.length ?? 0) > 0;
       if (!hasData) {
         skipped.push({
           title: r.title || r.file.name || "(untitled)",
@@ -687,7 +692,7 @@ export function AiPosterUpload() {
         });
         continue;
       }
-      if (!r.imageUrl) textOnlyCount++;
+      if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
     }
     if (import.meta.env.DEV) {
@@ -710,7 +715,7 @@ export function AiPosterUpload() {
     }
     setBusy(true);
     // Do NOT clear edited map — this only fills missing fields.
-    eligible.forEach((id) => update(id, { status: "ai_generating", error: undefined }));
+    eligible.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined }));
     let cursor = 0;
     let okCount = 0;
     let failCount = 0;
@@ -721,13 +726,14 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
           okCount++;
         } catch (err) {
           failCount++;
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: err instanceof Error ? err.message : "AI failed",
             review_reasons: ["ai_failed"],
           });
@@ -749,31 +755,39 @@ export function AiPosterUpload() {
       return;
     }
     const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
-    // A row is publishable if it has ANY usable image URL (main or original),
-    // regardless of the legacy upload-queue status. AI SEO status is independent.
-    const hasImage = (r: Row) => !!r.imageUrl || !!r.originalUrl;
-    const stillUploading = selectedRows.filter(
-      (r) => !hasImage(r) && (r.status === "uploaded" || r.status === "ai_generating"),
-    );
+    // A row is publishable if it has an actual stored image URL and required catalog fields.
+    // Legacy upload queue status never blocks rows whose image URL exists.
+    const alreadyPublished = selectedRows.filter((r) => r.status === "published");
+    const invalidRows = selectedRows.filter((r) => {
+      if (r.status === "published") return false;
+      if (!hasPublishableImage(r)) return true;
+      if (!(r.title || r.file.name).trim()) return true;
+      if (!resolveMainCategoryId(r)) return true;
+      return false;
+    });
     const alreadyPublished = selectedRows.filter((r) => r.status === "published");
     const rowsToInsert = selectedRows.filter(
-      (r) => hasImage(r) && r.status !== "published",
+      (r) =>
+        hasPublishableImage(r) &&
+        !!(r.title || r.file.name).trim() &&
+        !!resolveMainCategoryId(r) &&
+        r.status !== "published",
     );
     if (!rowsToInsert.length) {
-      if (alreadyPublished.length && !stillUploading.length) {
+      if (alreadyPublished.length && !invalidRows.length) {
         toast.error("Selected posters are already published.");
-      } else if (stillUploading.length && !alreadyPublished.length) {
-        toast.error(`${stillUploading.length} poster(s) are still uploading. Please wait.`);
+      } else if (invalidRows.length && !alreadyPublished.length) {
+        toast.error("Nothing to publish. Fix row warnings first.");
       } else {
         toast.error(
-          `Nothing to publish — ${alreadyPublished.length} already published, ${stillUploading.length} still uploading.`,
+          `Nothing to publish — ${alreadyPublished.length} already published, ${invalidRows.length} need fixes.`,
         );
       }
       return;
     }
-    if (stillUploading.length || alreadyPublished.length) {
+    if (invalidRows.length || alreadyPublished.length) {
       toast.message(
-        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${stillUploading.length} uploading, ${alreadyPublished.length} already published.`,
+        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${invalidRows.length} with row warnings, ${alreadyPublished.length} already published.`,
       );
     }
     // Warn about posters missing SEO (allowed, but flagged).
@@ -787,7 +801,7 @@ export function AiPosterUpload() {
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
-      image_url: (r.imageUrl || r.originalUrl)!,
+      image_url: getBestImageUrl(r)!,
       original_url: r.originalUrl ?? null,
       category_id: r.subcategory_id || r.category_id,
       tags: r.tags,
@@ -818,7 +832,7 @@ export function AiPosterUpload() {
     }
     const parts = [
       `${hidden ? "Saved" : "Published"}: ${ok}`,
-      stillUploading.length ? `Skipped uploading: ${stillUploading.length}` : null,
+      invalidRows.length ? `Skipped with warnings: ${invalidRows.length}` : null,
       alreadyPublished.length ? `Already published: ${alreadyPublished.length}` : null,
       failed ? `Failed: ${failed}` : null,
     ].filter(Boolean).join(" · ");
