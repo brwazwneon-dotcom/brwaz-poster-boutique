@@ -457,11 +457,22 @@ function Customizer({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  type PerPoster = { frameType: FrameTypeId; size: SizeId; color: FrameColorId };
+  const normalizeCombo = (c: PerPoster): PerPoster => {
+    let { frameType, size, color } = c;
+    if (frameType === "wood") {
+      color = "wood";
+    } else if (color === "wood") {
+      color = "black";
+    }
+    const allowed = sizesForFrame(frameType);
+    if (!allowed.includes(size)) size = allowed[0];
+    return { frameType, size, color };
+  };
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
   const [applyAll, setApplyAll] = useState(true);
-  type PerPoster = { frameType: FrameTypeId; size: SizeId; color: FrameColorId };
   const [perPoster, setPerPoster] = useState<Record<string, PerPoster>>({});
   const enabledVariants = useEnabledFrameVariants();
   const [quantity, setQuantity] = useState(1);
