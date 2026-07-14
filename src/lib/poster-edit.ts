@@ -33,7 +33,10 @@ export type EditSettings = {
 };
 
 export const DEFAULT_EDIT_SETTINGS: EditSettings = {
-  fit: "fill",
+  // Default to "fit" (contain) so a freshly uploaded image is fully visible
+  // inside the frame. Any empty area is filled with a blurred copy of the
+  // artwork via `extendMode` so it never reads as a black band.
+  fit: "fit",
   zoom: 1,
   offsetX: 0,
   offsetY: 0,
