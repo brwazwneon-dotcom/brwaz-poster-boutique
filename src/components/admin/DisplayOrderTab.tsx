@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SmartImage } from "@/components/SmartImage";
 import { cn } from "@/lib/utils";
 import { useAdminI18n } from "@/lib/admin-i18n";
-import { HelpTip, HelpIcon } from "@/components/admin/help/HelpTip";
+import { HelpTip } from "@/components/admin/help/HelpTip";
 
 type Cat = {
   id: string;
