@@ -108,7 +108,7 @@ function CategoryPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description")
+        .select("id,name,slug,image,sort_order,parent_id,description,sort_mode")
         .eq("slug", slug)
         .maybeSingle();
       if (error) throw error;
@@ -119,7 +119,15 @@ function CategoryPage() {
   if (!catLoading && !category) throw notFound();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sort, setSort] = useState<SortKey>("newest");
+  // Default the sort selector to what the admin configured for this category.
+  const initialSort = ((category as any)?.sort_mode as SortKey) || "newest";
+  const [sort, setSort] = useState<SortKey>(initialSort);
+  useEffect(() => {
+    const m = (category as any)?.sort_mode as SortKey | undefined;
+    if (m && (SORTS.some((s) => s.id === m) || m === "manual")) {
+      setSort(m);
+    }
+  }, [category?.id]);
   const [activeSubId, setActiveSubId] = useState<string>("");
   const { record } = useRecentlyViewed();
   const gridMode = useGridDisplayMode();
