@@ -765,7 +765,6 @@ export function AiPosterUpload() {
       if (!resolveMainCategoryId(r)) return true;
       return false;
     });
-    const alreadyPublished = selectedRows.filter((r) => r.status === "published");
     const rowsToInsert = selectedRows.filter(
       (r) =>
         hasPublishableImage(r) &&
