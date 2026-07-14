@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Upload,
@@ -12,6 +12,7 @@ import {
   Save,
   FileText,
   Plus,
+  Wrench,
 } from "lucide-react";
 import { RefreshCw, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,11 @@ type RowStatus =
   | "draft"
   | "failed";
 
+type ImageStatus = "uploading_original" | "generating_thumbnail" | "generating_preview" | "ready" | "failed" | "stuck";
+type UploadStatus = "queued" | "uploading" | "completed" | "failed";
+type QueueStatus = "queued" | "processing" | "completed" | "failed";
+type SeoStatus = "idle" | "generating" | "complete" | "failed";
+
 type Row = {
   id: string;
   file: File;
@@ -48,6 +54,16 @@ type Row = {
   error?: string;
   imageUrl?: string;
   originalUrl?: string | null;
+  thumbnailUrl?: string | null;
+  previewUrl?: string | null;
+  image_status: ImageStatus;
+  upload_status: UploadStatus;
+  queue_status: QueueStatus;
+  seo_status: SeoStatus;
+  createdAt: number;
+  uploadStartedAt: number | null;
+  statusUpdatedAt: number;
+  activityLog: string[];
   title: string;
   description: string;
   seo_title: string;
@@ -71,6 +87,7 @@ type Row = {
 const UPLOAD_CONCURRENCY = 4;
 const AI_CONCURRENCY = 3;
 const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+const STUCK_UPLOAD_MS = 5 * 60 * 1000;
 
 function slugify(s: string) {
   return s
@@ -84,6 +101,34 @@ function isHeic(file: File) {
   const t = file.type.toLowerCase();
   const n = file.name.toLowerCase();
   return t.includes("heic") || t.includes("heif") || n.endsWith(".heic") || n.endsWith(".heif");
+}
+
+function isStorageImageUrl(url?: string | null) {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url);
+}
+
+function getBestImageUrl(row: Row) {
+  return [row.imageUrl, row.originalUrl, row.thumbnailUrl, row.previewUrl].find(isStorageImageUrl) ?? null;
+}
+
+function hasPublishableImage(row: Row) {
+  return !!getBestImageUrl(row);
+}
+
+function markImageReadyPatch(note = "Image URL found") {
+  return {
+    image_status: "ready" as ImageStatus,
+    upload_status: "completed" as UploadStatus,
+    queue_status: "completed" as QueueStatus,
+    error: undefined,
+    statusUpdatedAt: Date.now(),
+    activityLog: [note],
+  };
+}
+
+function appendActivity(row: Row, message: string) {
+  return [...row.activityLog.slice(-9), `${new Date().toLocaleTimeString()} · ${message}`];
 }
 
 export function AiPosterUpload() {
