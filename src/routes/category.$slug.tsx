@@ -169,16 +169,34 @@ function CategoryPage() {
     queryFn: async ({ pageParam }) => {
       const from = (pageParam as number) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const sortDef = SORTS.find((s) => s.id === sort)!;
-      const { data, error } = await supabase
+      let q = supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller")
+        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller,pinned,sort_order,trending")
         .in("category_id", includedCategoryIds)
-        .eq("hidden", false)
-        .order(sortDef.col, { ascending: sortDef.asc })
-        .range(from, to);
+        .eq("hidden", false);
+      if (sort === "manual") {
+        q = q
+          .order("pinned", { ascending: false })
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: false });
+      } else if (sort === "trending") {
+        q = q.order("trending", { ascending: false }).order("views_count", { ascending: false });
+      } else if (sort === "random") {
+        q = q.order("id", { ascending: false });
+      } else if (sort === "ai") {
+        q = q.order("sales_count", { ascending: false }).order("views_count", { ascending: false });
+      } else {
+        const sortDef = SORTS.find((s) => s.id === sort) ?? SORTS[0];
+        // Manual-configured categories still honor pinned first for other modes too.
+        q = q.order("pinned", { ascending: false }).order(sortDef.col, { ascending: sortDef.asc });
+      }
+      const { data, error } = await q.range(from, to);
       if (error) throw error;
-      return (data ?? []) as Poster[];
+      let rows = (data ?? []) as Poster[];
+      if (sort === "random") {
+        rows = [...rows].sort(() => Math.random() - 0.5);
+      }
+      return rows;
     },
     getNextPageParam: (last, pages) =>
       last.length === PAGE_SIZE ? pages.length : undefined,
