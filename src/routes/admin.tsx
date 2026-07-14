@@ -1175,6 +1175,7 @@ function PostersTab() {
                 {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
                 {p.badge && <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">{p.badge}</span>}
+                <CampaignBadges posterId={p.id} />
               </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <FramePreview
@@ -1206,6 +1207,7 @@ function PostersTab() {
                   >
                     <Crop className="h-3.5 w-3.5" />
                   </button>
+                  <AddToCampaignButton posterId={p.id} />
                   <button
                     onClick={() => setEditing(p)}
                     className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
