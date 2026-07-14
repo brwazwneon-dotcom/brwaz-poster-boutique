@@ -15,9 +15,14 @@ async function assertAdmin(supabase: unknown, userId: string) {
 }
 
 type GenInput = {
-  imageUrl: string;
+  imageUrl?: string;
   filename?: string;
   categories: CategoryLite[];
+  title?: string;
+  categoryName?: string;
+  subcategoryName?: string;
+  tags?: string[];
+  badge?: string | null;
 };
 
 export type GeneratedPosterMeta = {
@@ -59,11 +64,26 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown): GenInput => {
     const d = data as GenInput;
-    if (!d || typeof d.imageUrl !== "string") throw new Error("imageUrl required");
+    if (!d) throw new Error("input required");
+    const hasImage = typeof d.imageUrl === "string" && d.imageUrl.length > 0;
+    const hasText =
+      (typeof d.title === "string" && d.title.trim().length > 0) ||
+      (typeof d.filename === "string" && d.filename.trim().length > 0) ||
+      (typeof d.categoryName === "string" && d.categoryName.trim().length > 0);
+    if (!hasImage && !hasText) {
+      throw new Error(
+        "Cannot generate SEO because this poster has no title, filename, or category.",
+      );
+    }
     return {
-      imageUrl: d.imageUrl,
+      imageUrl: hasImage ? d.imageUrl : undefined,
       filename: typeof d.filename === "string" ? d.filename : undefined,
       categories: Array.isArray(d.categories) ? d.categories : [],
+      title: typeof d.title === "string" ? d.title : undefined,
+      categoryName: typeof d.categoryName === "string" ? d.categoryName : undefined,
+      subcategoryName: typeof d.subcategoryName === "string" ? d.subcategoryName : undefined,
+      tags: Array.isArray(d.tags) ? d.tags.map((t) => String(t)).filter(Boolean) : undefined,
+      badge: typeof d.badge === "string" ? d.badge : null,
     };
   })
   .handler(async ({ data, context }): Promise<GeneratedPosterMeta> => {
@@ -85,7 +105,11 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
       })
       .join("\n");
 
-    const system = `You are an e-commerce SEO copywriter AND a visual recognition expert for BRWAZWNEON, a premium framed-poster store in Egypt selling Football, Movies, TV Series, Marvel & DC, Anime, Cars, Gaming, Portraits, Photography and Quotes posters. Analyze the poster image and return JSON only.
+    const hasImage = !!data.imageUrl;
+    const modeLine = hasImage
+      ? "Analyze the poster image and return JSON only."
+      : "The image is not available yet — generate SEO from the text hints below and return JSON only.";
+    const system = `You are an e-commerce SEO copywriter AND a visual recognition expert for BRWAZWNEON, a premium framed-poster store in Egypt selling Football, Movies, TV Series, Marvel & DC, Anime, Cars, Gaming, Portraits, Photography and Quotes posters. ${modeLine}
 
 VISUAL RECOGNITION — identify the exact subject. Do NOT stop at generic labels like "football player" — name the actual person, team, movie, anime, car, etc.
 
@@ -141,20 +165,32 @@ Return JSON with this exact shape:
 confidence is a number between 0 and 1 reflecting how confident you are that the subject, category and metadata are correct.
 No markdown, no commentary.`;
 
-    const userText = `Identify the subject of this poster image and generate the metadata. Filename hint: ${data.filename ?? "(none)"}.`;
+    const hints = [
+      data.title ? `Title: ${data.title}` : null,
+      data.filename ? `Filename: ${data.filename}` : null,
+      data.categoryName ? `Category: ${data.categoryName}` : null,
+      data.subcategoryName ? `Subcategory: ${data.subcategoryName}` : null,
+      data.tags?.length ? `Existing tags: ${data.tags.join(", ")}` : null,
+      data.badge ? `Badge: ${data.badge}` : null,
+    ].filter(Boolean).join("\n");
+    const userText = hasImage
+      ? `Identify the subject of this poster image and generate the metadata.\n${hints || `Filename hint: ${data.filename ?? "(none)"}`}`
+      : `Generate the metadata for this poster using ONLY these text hints (no image yet).\n${hints || "(no hints provided)"}`;
 
-    const inline = await urlToInlineData(data.imageUrl);
+    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+      { text: userText },
+    ];
+    if (hasImage) {
+      try {
+        const inline = await urlToInlineData(data.imageUrl!);
+        parts.push({ inlineData: { mimeType: inline.mimeType, data: inline.data } });
+      } catch {
+        // image not fetchable yet — fall back to text-only silently.
+      }
+    }
     const json = await geminiGenerate(GEMINI_TEXT_MODEL, {
       systemInstruction: { parts: [{ text: system }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: userText },
-            { inlineData: { mimeType: inline.mimeType, data: inline.data } },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.4 },
     });
     const content = extractText(json) ?? "";
