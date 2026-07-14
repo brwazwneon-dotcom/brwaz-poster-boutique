@@ -28,6 +28,7 @@ const EN: Dict = {
   "tab.assistant": "AI Assistant",
   "tab.categories": "Categories",
   "tab.subcategories": "Sub Categories",
+  "tab.display-order": "Display Order",
   "tab.orders": "Orders",
   "tab.custom": "Custom Designs",
   "tab.photo-4x6": "4×6 Photos",
