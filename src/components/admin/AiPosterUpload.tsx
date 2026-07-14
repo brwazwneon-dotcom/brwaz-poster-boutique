@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
+import { PRICING_DEFAULTS } from "@/lib/use-settings";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { POSTER_BADGES } from "@/lib/poster-badges";
@@ -776,6 +777,7 @@ export function AiPosterUpload() {
       image_url: getBestImageUrl(r)!,
       original_url: r.originalUrl ?? null,
       category_id: r.subcategory_id || r.category_id,
+      price: PRICING_DEFAULTS.frame.pvc["20x30"] ?? 190,
       tags: r.tags,
       description: r.description || null,
       seo_title: r.seo_title || null,
