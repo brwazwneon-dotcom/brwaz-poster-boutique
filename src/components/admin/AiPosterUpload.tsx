@@ -13,6 +13,7 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
+import { RefreshCw, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
