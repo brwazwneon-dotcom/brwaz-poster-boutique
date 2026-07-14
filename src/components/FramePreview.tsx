@@ -77,10 +77,14 @@ export function FramePreview({
   const rotateX = m.rotateX ?? 0;
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
-  // Always crop-cover so the printable area is fully filled and no black
-  // bars appear under posters with a different aspect ratio.
-  const objectFit = "cover" as const;
-  const showExtendedBackground = false;
+  // Respect the poster's stored edit settings:
+  //  - fit: "fit"    → contain (show the whole image, no cropping)
+  //  - fit: "fill"   → cover   (fill printable area, may crop)
+  //  - fit: "custom" → cover   (user is manually panning/zooming on top)
+  // When containing, we render a blurred copy of the artwork behind it so
+  // the letterboxed area never reads as an empty black band inside the frame.
+  const objectFit: "cover" | "contain" = s.fit === "fit" ? "contain" : "cover";
+  const showExtendedBackground = objectFit === "contain" && s.extendMode !== "none";
   const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
