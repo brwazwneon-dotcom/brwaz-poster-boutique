@@ -57,7 +57,7 @@ type Poster = {
 
 const PAGE_SIZE = 48;
 
-type SortKey = "newest" | "popular" | "bestselling" | "az";
+type SortKey = "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
 type SortDef = { id: SortKey; label: string; col: string; asc: boolean };
 const SORTS: SortDef[] = [
   { id: "newest", label: "Newest", col: "created_at", asc: false },
