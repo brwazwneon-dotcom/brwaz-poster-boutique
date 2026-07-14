@@ -196,6 +196,80 @@ export function AiPosterUpload() {
   const update = (id: string, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
+  const markRowReady = (id: string, reason: string) =>
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: r.status === "failed" || r.status === "uploaded" ? "ready" : r.status,
+              image_status: "ready",
+              upload_status: "completed",
+              queue_status: "completed",
+              error: undefined,
+              statusUpdatedAt: Date.now(),
+              activityLog: appendActivity(r, reason),
+            }
+          : r,
+      ),
+    );
+
+  const markRowFailed = (id: string, reason: string) =>
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: "failed",
+              image_status: "failed",
+              upload_status: "failed",
+              queue_status: "failed",
+              error: reason,
+              statusUpdatedAt: Date.now(),
+              activityLog: appendActivity(r, reason),
+            }
+          : r,
+      ),
+    );
+
+  useEffect(() => {
+    if (!rows.length) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setRows((prev) =>
+        prev.map((r) => {
+          const pending = r.upload_status === "queued" || r.upload_status === "uploading" || r.queue_status === "processing";
+          if (!pending) return r;
+          const startedAt = r.uploadStartedAt ?? r.createdAt;
+          if (now - startedAt < STUCK_UPLOAD_MS) return r;
+          if (hasPublishableImage(r)) {
+            return {
+              ...r,
+              status: r.status === "uploaded" || r.status === "failed" ? "ready" : r.status,
+              image_status: "ready",
+              upload_status: "completed",
+              queue_status: "completed",
+              error: undefined,
+              statusUpdatedAt: now,
+              activityLog: appendActivity(r, "Auto timeout fixed: image URL found"),
+            };
+          }
+          return {
+            ...r,
+            status: "failed",
+            image_status: "failed",
+            upload_status: "failed",
+            queue_status: "failed",
+            error: "Storage URL not found",
+            statusUpdatedAt: now,
+            activityLog: appendActivity(r, "Auto timeout failed: Storage URL not found"),
+          };
+        }),
+      );
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [rows.length]);
+
   // Track manual edits so AI regen doesn't overwrite them.
   const editField = (id: string, patch: Partial<Row>) =>
     setRows((prev) =>
@@ -301,11 +375,20 @@ export function AiPosterUpload() {
     if (!incoming.length) return;
     const next: Row[] = incoming.map((file) => {
       const baseName = file.name.replace(/\.[^.]+$/, "");
+      const now = Date.now();
       return {
         id: crypto.randomUUID(),
         file,
         preview: isHeic(file) ? "" : URL.createObjectURL(file),
         status: "uploaded",
+        image_status: "uploading_original",
+        upload_status: "queued",
+        queue_status: "queued",
+        seo_status: "idle",
+        createdAt: now,
+        uploadStartedAt: null,
+        statusUpdatedAt: now,
+        activityLog: [],
         title: baseName,
         description: "",
         seo_title: "",
@@ -389,15 +472,38 @@ export function AiPosterUpload() {
         const r = rowsRef.current.find((x) => x.id === id);
         if (!r) continue;
         try {
+          update(id, {
+            image_status: "uploading_original",
+            upload_status: "uploading",
+            queue_status: "processing",
+            uploadStartedAt: Date.now(),
+            error: undefined,
+            activityLog: appendActivity(r, "Upload started"),
+          });
           const { webUrl, origUrl } = await uploadOne(r);
           update(id, {
             imageUrl: webUrl,
             originalUrl: origUrl,
+            thumbnailUrl: webUrl,
+            previewUrl: webUrl,
+            image_status: "ready",
+            upload_status: "completed",
+            queue_status: "completed",
             status: "ai_generating",
+            statusUpdatedAt: Date.now(),
+            activityLog: appendActivity(r, "Upload completed; image marked ready"),
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Upload failed";
-          update(id, { status: "failed", error: msg });
+          update(id, {
+            status: "failed",
+            image_status: "failed",
+            upload_status: "failed",
+            queue_status: "failed",
+            error: msg,
+            statusUpdatedAt: Date.now(),
+            activityLog: appendActivity(r, msg),
+          });
         }
       }
     };
@@ -412,15 +518,17 @@ export function AiPosterUpload() {
         const i = aiCursor++;
         const id = ids[i];
         const r = rowsRef.current.find((x) => x.id === id);
-        if (!r || !r.imageUrl || r.status === "failed") continue;
+        if (!r || r.status === "failed") continue;
         try {
-          const meta = await runAi(r, r.imageUrl);
+          update(id, { seo_status: "generating" });
+          const meta = await runAi(r, getBestImageUrl(r) ?? undefined);
           applyAiMeta(id, meta);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "AI failed";
           // Fallback: use filename as title, mark needs review.
           update(id, {
             status: "needs_review",
+            seo_status: "failed",
             error: msg,
             review_reasons: ["ai_failed"],
           });
