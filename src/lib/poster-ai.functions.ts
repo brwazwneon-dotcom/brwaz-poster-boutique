@@ -177,9 +177,8 @@ No markdown, no commentary.`;
       ? `Identify the subject of this poster image and generate the metadata.\n${hints || `Filename hint: ${data.filename ?? "(none)"}`}`
       : `Generate the metadata for this poster using ONLY these text hints (no image yet).\n${hints || "(no hints provided)"}`;
 
-    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-      { text: userText },
-    ];
+    type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+    const parts: GeminiPart[] = [{ text: userText }];
     if (hasImage) {
       try {
         const inline = await urlToInlineData(data.imageUrl!);
