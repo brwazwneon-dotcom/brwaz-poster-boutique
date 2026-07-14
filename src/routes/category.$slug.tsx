@@ -457,31 +457,96 @@ function Customizer({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  type PerPoster = { frameType: FrameTypeId; size: SizeId; color: FrameColorId };
+  const normalizeCombo = (c: PerPoster): PerPoster => {
+    let { frameType, size, color } = c;
+    if (frameType === "wood") {
+      color = "wood";
+    } else if (color === "wood") {
+      color = "black";
+    }
+    const allowed = sizesForFrame(frameType);
+    if (!allowed.includes(size)) size = allowed[0];
+    return { frameType, size, color };
+  };
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
   const [color, setColor] = useState<FrameColorId>("black");
+  const [applyAll, setApplyAll] = useState(true);
+  const [perPoster, setPerPoster] = useState<Record<string, PerPoster>>({});
   const enabledVariants = useEnabledFrameVariants();
   const [quantity, setQuantity] = useState(1);
   const [previewIndex, setPreviewIndex] = useState(0);
   useEffect(() => {
     if (previewIndex > posters.length - 1) setPreviewIndex(0);
   }, [posters.length, previewIndex]);
-  const handleFrameType = (next: FrameTypeId) => {
-    setFrameType(next);
-    if (next === "wood") {
-      setColor("wood");
-    } else if (color === "wood") {
-      setColor("black");
-      if (!(["20x30", "30x40", "40x50"] as SizeId[]).includes(size)) {
-        setSize("30x40");
+  // Seed per-poster settings for any newly added poster from the current
+  // shared defaults so each image starts with sensible values.
+  useEffect(() => {
+    setPerPoster((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const p of posters) {
+        if (!next[p.id]) {
+          next[p.id] = { frameType, size, color };
+          changed = true;
+        }
       }
+      // Prune removed
+      for (const id of Object.keys(next)) {
+        if (!posters.find((p) => p.id === id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // Only depend on posters length + ids
+  }, [posters.map((p) => p.id).join(","), frameType, size, color]);
+
+  const primaryIdEarly = posters[previewIndex]?.id ?? posters[0]?.id ?? "";
+  const current: PerPoster =
+    perPoster[primaryIdEarly] ?? { frameType, size, color };
+
+  const applyPatch = (patch: Partial<PerPoster>) => {
+    setPerPoster((prev) => {
+      const next = { ...prev };
+      if (applyAll) {
+        for (const p of posters) {
+          const base = next[p.id] ?? { frameType, size, color };
+          next[p.id] = normalizeCombo({ ...base, ...patch });
+        }
+      } else {
+        const base = next[primaryIdEarly] ?? { frameType, size, color };
+        next[primaryIdEarly] = normalizeCombo({ ...base, ...patch });
+      }
+      return next;
+    });
+    if (applyAll) {
+      if (patch.frameType !== undefined) setFrameType(patch.frameType);
+      if (patch.size !== undefined) setSize(patch.size);
+      if (patch.color !== undefined) setColor(patch.color);
     }
+  };
+
+  const handleFrameType = (next: FrameTypeId) => {
+    const base = current;
+    const combo = normalizeCombo({
+      frameType: next,
+      size: base.size,
+      color: base.color,
+    });
+    applyPatch(combo);
   };
   const { add } = useCart();
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
-  const unit = priceForFrame(pricing, frameType, size) + (isCustom ? pricing.customDesignFee : 0);
-  const total = unit * posters.length * quantity;
+  const unitFor = (id: string) => {
+    const s = perPoster[id] ?? { frameType, size, color };
+    return priceForFrame(pricing, s.frameType, s.size) + (isCustom ? pricing.customDesignFee : 0);
+  };
+  const postersUnitSum = posters.reduce((sum, p) => sum + unitFor(p.id), 0);
+  const total = postersUnitSum * quantity;
 
   const primary = posters[previewIndex] ?? posters[0];
   const goPrev = () =>
@@ -492,16 +557,17 @@ function Customizer({
   const handleAdd = () => {
     for (let n = 0; n < quantity; n++) {
       posters.forEach((poster) => {
+        const s = perPoster[poster.id] ?? { frameType, size, color };
         add({
           posterId: poster.id,
           title: poster.title,
           image: poster.image_url,
           categoryId: category.id,
           categoryName: category.name,
-          frameType,
-          size,
-          color,
-          price: unit,
+          frameType: s.frameType,
+          size: s.size,
+          color: s.color,
+          price: unitFor(poster.id),
           editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
         });
       });
@@ -513,10 +579,12 @@ function Customizer({
 
   const waMsg =
     `Hi BRWAZWNEON, I'd like to order:\n` +
-    posters.map((p, i) => `${i + 1}. ${p.title}`).join("\n") +
-    `\nFrame: ${FRAME_TYPES.find((f) => f.id === frameType)?.label}` +
-    `\nSize: ${SIZES.find((s) => s.id === size)?.label}` +
-    `\nColor: ${FRAME_COLORS.find((c) => c.id === color)?.label}` +
+    posters
+      .map((p, i) => {
+        const s = perPoster[p.id] ?? { frameType, size, color };
+        return `${i + 1}. ${p.title} — ${FRAME_TYPES.find((f) => f.id === s.frameType)?.label}, ${SIZES.find((x) => x.id === s.size)?.label}, ${FRAME_COLORS.find((c) => c.id === s.color)?.label}`;
+      })
+      .join("\n") +
     `\nQuantity: ${quantity}` +
     `\nTotal: ${total} EGP`;
 
@@ -551,8 +619,8 @@ function Customizer({
               posterId={primary.id}
               posterUrl={primary.image_url}
               title={primary.title}
-              frameType={frameType}
-              color={color}
+              frameType={current.frameType}
+              color={current.color}
               editSettings={primary.edit_settings}
             />
           </div>
@@ -589,7 +657,9 @@ function Customizer({
       ) : null}
       {posters.length > 1 && (
       <div className="mt-3 grid grid-cols-5 gap-2">
-        {posters.map((p, i) => (
+        {posters.map((p, i) => {
+          const s = perPoster[p.id] ?? { frameType, size, color };
+          return (
           <div
             key={p.id}
             className={cn(
@@ -608,12 +678,15 @@ function Customizer({
             <FramePreview
               posterUrl={p.image_url}
               title={p.title}
-              frameType={frameType}
-              color={color}
+              frameType={s.frameType}
+              color={s.color}
               editSettings={p.edit_settings}
               bare
               className="h-full w-full"
             />
+            <span className="pointer-events-none absolute bottom-0 inset-x-0 z-10 bg-background/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-widest">
+              {s.size}
+            </span>
             <button
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.title}`}
@@ -622,40 +695,55 @@ function Customizer({
               <X className="h-3 w-3" />
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
+      )}
+
+      {posters.length > 1 && (
+        <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-sm border border-border bg-background/60 px-3 py-2">
+          <span className="text-[11px] font-semibold uppercase tracking-widest">
+            {applyAll ? "Same options for all" : `Editing: ${primary.title}`}
+          </span>
+          <input
+            type="checkbox"
+            checked={applyAll}
+            onChange={(e) => setApplyAll(e.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+        </label>
       )}
 
       <OptionGroup label="Frame Type">
         {FRAME_TYPES.map((f) => (
-          <OptionButton key={f.id} active={frameType === f.id} onClick={() => handleFrameType(f.id)}>
+          <OptionButton key={f.id} active={current.frameType === f.id} onClick={() => handleFrameType(f.id)}>
             {f.label}
           </OptionButton>
         ))}
       </OptionGroup>
 
       <OptionGroup label="Size">
-        {sizesForFrame(frameType).map((sid) => {
+        {sizesForFrame(current.frameType).map((sid) => {
           const s = SIZES.find((x) => x.id === sid)!;
           return (
-          <OptionButton key={s.id} active={size === s.id} onClick={() => setSize(s.id)}>
+          <OptionButton key={s.id} active={current.size === s.id} onClick={() => applyPatch({ size: s.id })}>
             {s.label}
           </OptionButton>
           );
         })}
       </OptionGroup>
-      <SizeGuide availableIds={sizesForFrame(frameType)} />
+      <SizeGuide availableIds={sizesForFrame(current.frameType)} />
 
-      {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
+      {current.frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
       <OptionGroup label="Frame Color">
         {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
           <button
             key={c.id}
             type="button"
-            onClick={() => setColor(c.id)}
+            onClick={() => applyPatch({ color: c.id })}
             className={cn(
               "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
-              color === c.id
+              current.color === c.id
                 ? "border-primary bg-accent"
                 : "border-border hover:border-muted-foreground",
             )}
@@ -699,8 +787,7 @@ function Customizer({
             {total} <span className="text-base text-muted-foreground">EGP</span>
           </div>
           <div className="text-xs text-muted-foreground">
-            {unit} × {posters.length}
-            {quantity > 1 ? ` × ${quantity}` : ""}
+            {postersUnitSum} EGP × {quantity}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
