@@ -31,6 +31,9 @@ import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
 import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
+import { LandingManagerTab } from "@/components/admin/LandingManagerTab";
+import { CampaignReportTab } from "@/components/admin/CampaignReportTab";
+import { AddToCampaignButton, CampaignBadges } from "@/components/admin/AddToCampaignButton";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
 import { NotificationsTab } from "@/components/admin/NotificationsTab";
@@ -136,7 +139,7 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "display-order" | "orders" | "customers" | "abandoned" | "custom" | "offers" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "images" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "display-order" | "orders" | "customers" | "abandoned" | "custom" | "offers" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "campaign-landings" | "campaign-report" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "images" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -246,7 +249,7 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "display-order", "orders", "customers", "abandoned", "custom", "offers", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "images", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
+        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "display-order", "orders", "customers", "abandoned", "custom", "offers", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "campaign-landings", "campaign-report", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "images", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -293,6 +296,8 @@ function AdminPage() {
         {tab === "reviews" && <ReviewsTab />}
         {tab === "before-after" && <BeforeAfterTab />}
         {tab === "marketing" && <MarketingTab />}
+        {tab === "campaign-landings" && <LandingManagerTab />}
+        {tab === "campaign-report" && <CampaignReportTab />}
         {tab === "social-proof" && <SocialProofTab />}
         {tab === "announcement" && <AnnouncementTab />}
         {tab === "size-guide" && <SizeGuideTab />}
@@ -1170,6 +1175,7 @@ function PostersTab() {
                 {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
                 {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
                 {p.badge && <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">{p.badge}</span>}
+                <CampaignBadges posterId={p.id} />
               </div>
               <div className="aspect-[2/3] overflow-hidden">
                 <FramePreview
@@ -1201,6 +1207,7 @@ function PostersTab() {
                   >
                     <Crop className="h-3.5 w-3.5" />
                   </button>
+                  <AddToCampaignButton posterId={p.id} />
                   <button
                     onClick={() => setEditing(p)}
                     className="rounded-sm p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"

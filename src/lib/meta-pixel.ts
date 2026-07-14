@@ -8,6 +8,18 @@ import { sendCapiEvent } from "./meta-capi.functions";
 import type { MarketingConfig } from "./use-marketing";
 import { gaEvent, type GAEventName } from "./ga4";
 import { isPreviewMode } from "./preview-mode";
+import { getAudienceAttribution } from "./landing-pages";
+
+function withAudience(params: Record<string, unknown>): Record<string, unknown> {
+  const a = getAudienceAttribution();
+  if (!a) return params;
+  return {
+    audience_type: a.audience_type,
+    landing_page: a.landing_page,
+    utm_campaign: a.utm_campaign,
+    ...params, // caller-provided values win
+  };
+}
 
 declare global {
   interface Window {
@@ -104,11 +116,12 @@ export function trackEvent(
   if (isPreviewMode()) return;
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
+  const enriched = withAudience(params);
 
   // 1) Browser pixel (with eventID for dedup).
   if (cfg.pixelEnabled && typeof window !== "undefined") {
     try {
-      window.fbq?.("track", name, params, { eventID: event_id });
+      window.fbq?.("track", name, enriched, { eventID: event_id });
     } catch { /* noop */ }
   }
 
@@ -120,7 +133,7 @@ export function trackEvent(
         event_name: name,
         event_id,
         event_source_url,
-        custom_data: params as Record<string, unknown>,
+        custom_data: enriched,
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       },
@@ -129,7 +142,7 @@ export function trackEvent(
 
   // 3) Mirror to GA4 (page_view handled separately by router).
   const ga = META_TO_GA[name];
-  if (ga && name !== "PageView") gaEvent(ga, params);
+  if (ga && name !== "PageView") gaEvent(ga, enriched);
 }
 
 const META_TO_GA: Partial<Record<StandardEvent, GAEventName>> = {
@@ -213,9 +226,10 @@ export function trackCustom(
   if (isPreviewMode()) return;
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
+  const enriched = withAudience(params);
 
   if (cfg.pixelEnabled && typeof window !== "undefined") {
-    try { window.fbq?.("trackCustom", name, params, { eventID: event_id }); } catch { /* noop */ }
+    try { window.fbq?.("trackCustom", name, enriched, { eventID: event_id }); } catch { /* noop */ }
   }
   if (cfg.capiEnabled) {
     const event_source_url = typeof window !== "undefined" ? window.location.href : undefined;
@@ -224,7 +238,7 @@ export function trackCustom(
         event_name: name,
         event_id,
         event_source_url,
-        custom_data: params as Record<string, unknown>,
+        custom_data: enriched,
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       },
