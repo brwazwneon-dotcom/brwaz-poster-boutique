@@ -90,6 +90,7 @@ const AR: Dict = {
   "tab.assistant": "المساعد الذكي",
   "tab.categories": "الأقسام",
   "tab.subcategories": "الأقسام الفرعية",
+  "tab.display-order": "ترتيب العرض",
   "tab.orders": "الطلبات",
   "tab.custom": "التصاميم المخصصة",
   "tab.photo-4x6": "طباعة 4×6",
