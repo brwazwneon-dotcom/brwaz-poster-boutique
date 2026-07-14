@@ -229,6 +229,24 @@ export function AiPosterUpload() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
   useEffect(() => {
+    setRows((prev) => {
+      let changed = false;
+      const next = prev.map((r) => {
+        if (hasPublishableImage(r) && isUploadPending(r)) {
+          changed = true;
+          return syncReadyPatch(
+            r,
+            "Auto sync: image URL found while upload queue was pending",
+            r.status === "ai_generating" ? "ai_generating" : "ready",
+          );
+        }
+        return r;
+      });
+      return changed ? next : prev;
+    });
+  }, [rows]);
+
+  useEffect(() => {
     if (!rows.length) return;
     const timer = window.setInterval(() => {
       const now = Date.now();
@@ -302,6 +320,13 @@ export function AiPosterUpload() {
           ...r,
           status: autoApprove ? "ready" : "needs_review",
           seo_status: "complete",
+          ...(hasPublishableImage(r)
+            ? {
+                image_status: "ready" as ImageStatus,
+                upload_status: "completed" as UploadStatus,
+                queue_status: "completed" as QueueStatus,
+              }
+            : {}),
           confidence: conf,
           review_reasons: reasons,
           colors: e.colors ? r.colors : meta.colors,
@@ -345,8 +370,7 @@ export function AiPosterUpload() {
       else if (r.status === "draft") c.draft++;
       else if (r.status === "failed") c.failed++;
       const hasUrl = hasPublishableImage(r);
-      const stillUp = !hasUrl && (r.upload_status === "queued" || r.upload_status === "uploading" || r.queue_status === "processing");
-      if (stillUp) c.queued++;
+      if (isUploadPending(r)) c.queued++;
       if (hasUrl) c.imageReady++;
     }
     return c;
