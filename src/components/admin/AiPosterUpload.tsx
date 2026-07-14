@@ -435,13 +435,114 @@ export function AiPosterUpload() {
     toast.success("Regeneration complete");
   };
 
+  // "AI SEO" = fill only missing SEO fields on selected rows (does not overwrite).
+  const aiSeoSelected = async () => {
+    const selectedIds = Array.from(selected);
+    if (!selectedIds.length) {
+      return toast.error("Please select at least one poster first.");
+    }
+    const eligible: string[] = [];
+    const skipped: { title: string; reason: string }[] = [];
+    for (const id of selectedIds) {
+      const r = rowsRef.current.find((x) => x.id === id);
+      if (!r) continue;
+      if (!r.imageUrl) {
+        skipped.push({ title: r.title || r.file.name, reason: "still uploading" });
+        continue;
+      }
+      const hasAll =
+        !!r.description && !!r.seo_title && !!r.seo_description &&
+        !!r.alt_text && !!r.slug && (r.tags?.length ?? 0) > 0;
+      if (hasAll) {
+        skipped.push({ title: r.title || r.file.name, reason: "SEO already complete" });
+        continue;
+      }
+      eligible.push(id);
+    }
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug("[aiSeoSelected]", { selectedIds, eligible, skipped });
+    }
+    if (!eligible.length) {
+      const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
+      return toast.error(`Nothing to generate${reason ? `: ${reason}` : "."}`);
+    }
+    if (skipped.length) {
+      toast.message(
+        `Generating for ${eligible.length}. Skipping ${skipped.length}: ${skipped.map((s) => `${s.title} (${s.reason})`).join(", ")}`,
+      );
+    }
+    setBusy(true);
+    // Do NOT clear edited map — this only fills missing fields.
+    eligible.forEach((id) => update(id, { status: "ai_generating", error: undefined }));
+    let cursor = 0;
+    let okCount = 0;
+    let failCount = 0;
+    const worker = async () => {
+      while (cursor < eligible.length) {
+        const i = cursor++;
+        const id = eligible[i];
+        const r = rowsRef.current.find((x) => x.id === id);
+        if (!r || !r.imageUrl) continue;
+        try {
+          const meta = await runAi(r, r.imageUrl);
+          applyAiMeta(id, meta);
+          okCount++;
+        } catch (err) {
+          failCount++;
+          update(id, {
+            status: "needs_review",
+            error: err instanceof Error ? err.message : "AI failed",
+            review_reasons: ["ai_failed"],
+          });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, eligible.length) }, worker));
+    setBusy(false);
+    if (failCount) {
+      toast.error(`AI SEO complete: ${okCount} ok, ${failCount} failed`);
+    } else {
+      toast.success(`AI SEO generated for ${okCount} poster(s)`);
+    }
+  };
+
   const insertPosters = async (ids: string[], hidden: boolean) => {
-    const rowsToInsert = rowsRef.current.filter(
-      (r) => ids.includes(r.id) && r.imageUrl && r.status !== "published",
+    if (!ids.length) {
+      toast.error("Please select posters first.");
+      return;
+    }
+    const selectedRows = rowsRef.current.filter((r) => ids.includes(r.id));
+    const stillUploading = selectedRows.filter((r) => !r.imageUrl);
+    const alreadyPublished = selectedRows.filter((r) => r.imageUrl && r.status === "published");
+    const rowsToInsert = selectedRows.filter(
+      (r) => r.imageUrl && r.status !== "published",
     );
     if (!rowsToInsert.length) {
-      toast.error("Nothing to publish");
+      if (alreadyPublished.length && !stillUploading.length) {
+        toast.error("Selected posters are already published.");
+      } else if (stillUploading.length && !alreadyPublished.length) {
+        toast.error(`${stillUploading.length} poster(s) are still uploading. Please wait.`);
+      } else {
+        toast.error(
+          `Nothing to publish — ${alreadyPublished.length} already published, ${stillUploading.length} still uploading.`,
+        );
+      }
       return;
+    }
+    if (stillUploading.length || alreadyPublished.length) {
+      toast.message(
+        `Publishing ${rowsToInsert.length} of ${selectedRows.length}. Skipped ${stillUploading.length} uploading, ${alreadyPublished.length} already published.`,
+      );
+    }
+    // Warn about posters missing SEO (allowed, but flagged).
+    const missingSeo = rowsToInsert.filter(
+      (r) => !r.seo_title || !r.seo_description || !r.description,
+    );
+    if (missingSeo.length) {
+      toast.message(
+        `${missingSeo.length} poster(s) missing SEO — publishing anyway. You can generate SEO later.`,
+      );
     }
     const payload = rowsToInsert.map((r) => ({
       title: r.title || r.file.name,
@@ -766,6 +867,14 @@ export function AiPosterUpload() {
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-40"
               >
                 <RotateCcw className="h-3 w-3" /> Regenerate
+              </button>
+              <button
+                disabled={busy || selected.size === 0}
+                onClick={aiSeoSelected}
+                title="Generate missing SEO fields for selected posters (does not overwrite)"
+                className="inline-flex items-center gap-1 rounded-sm border border-primary bg-primary/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
+              >
+                <Sparkles className="h-3 w-3" /> AI SEO
               </button>
               <button
                 disabled={busy || counts.needs === 0}
