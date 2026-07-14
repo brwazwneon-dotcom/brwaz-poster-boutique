@@ -57,6 +57,9 @@ import { OffersTab } from "@/components/admin/OffersTab";
 import { AdminAssistantButton } from "@/components/admin/AdminAssistantButton";
 import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
 import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
+import { HelpModeProvider } from "@/hooks/useHelpMode";
+import { HelpModeToggle } from "@/components/admin/help/HelpModeToggle";
+import { AdminTour } from "@/components/admin/help/AdminTour";
 import { DEFAULT_COLLECTIONS, type CollectionCard } from "@/components/ShopByCollection";
 import {
   loadImage,
@@ -124,8 +127,11 @@ export const Route = createFileRoute("/admin")({
 function AdminPageWithI18n() {
   return (
     <AdminI18nProvider>
-      <AdminPage />
-      <HelpButton />
+      <HelpModeProvider>
+        <AdminPage />
+        <HelpButton />
+        <AdminTour />
+      </HelpModeProvider>
     </AdminI18nProvider>
   );
 }
