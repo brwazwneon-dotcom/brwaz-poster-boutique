@@ -293,6 +293,8 @@ function AdminPage() {
         {tab === "reviews" && <ReviewsTab />}
         {tab === "before-after" && <BeforeAfterTab />}
         {tab === "marketing" && <MarketingTab />}
+        {tab === "campaign-landings" && <LandingManagerTab />}
+        {tab === "campaign-report" && <CampaignReportTab />}
         {tab === "social-proof" && <SocialProofTab />}
         {tab === "announcement" && <AnnouncementTab />}
         {tab === "size-guide" && <SizeGuideTab />}
