@@ -55,11 +55,19 @@ export function CategoryEditorDialog({
   const isSub = !!parentId;
 
   const [name, setName] = useState("");
+  const [nameAr, setNameAr] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+  const [icon, setIcon] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [active, setActive] = useState(true);
+  const [showInHeader, setShowInHeader] = useState(true);
+  const [showInHomepage, setShowInHomepage] = useState(true);
+  const [showInCollections, setShowInCollections] = useState(true);
+  const [showInSearch, setShowInSearch] = useState(true);
+  const [defaultMockupStyle, setDefaultMockupStyle] = useState<"auto" | "black" | "white" | "wood" | "none">("auto");
+  const [posterDisplayMode, setPosterDisplayMode] = useState<"manual" | "random" | "newest" | "trending" | "bestsellers">("manual");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -73,18 +81,34 @@ export function CategoryEditorDialog({
     if (!open) return;
     if (category) {
       setName(category.name);
+      setNameAr(category.name_ar ?? "");
       setSlug(category.slug);
       setSlugTouched(true);
       setImage(category.image ?? null);
+      setIcon(category.icon ?? "");
       setSortOrder(category.sort_order ?? 0);
       setActive(!(category.hidden || category.status === "draft"));
+      setShowInHeader(category.show_in_header ?? true);
+      setShowInHomepage(category.show_in_homepage ?? true);
+      setShowInCollections(category.show_in_collections ?? true);
+      setShowInSearch(category.show_in_search ?? true);
+      setDefaultMockupStyle((category.default_mockup_style as typeof defaultMockupStyle) ?? "auto");
+      setPosterDisplayMode((category.poster_display_mode as typeof posterDisplayMode) ?? "manual");
     } else {
       setName("");
+      setNameAr("");
       setSlug("");
       setSlugTouched(false);
       setImage(null);
+      setIcon("");
       setSortOrder(defaultSort);
       setActive(true);
+      setShowInHeader(true);
+      setShowInHomepage(true);
+      setShowInCollections(true);
+      setShowInSearch(true);
+      setDefaultMockupStyle("auto");
+      setPosterDisplayMode("manual");
     }
   }, [open, category, defaultSort]);
 
@@ -134,17 +158,25 @@ export function CategoryEditorDialog({
     try {
       const payload = {
         name: trimmed,
+        name_ar: nameAr.trim() || null,
         slug: finalSlug,
         image: image ?? null,
+        icon: icon.trim() || null,
         sort_order: Math.max(0, Math.floor(sortOrder) || 0),
         parent_id: parentId,
         hidden: !active,
         status: active ? "published" : "draft",
+        show_in_header: showInHeader,
+        show_in_homepage: showInHomepage,
+        show_in_collections: showInCollections,
+        show_in_search: showInSearch,
+        default_mockup_style: defaultMockupStyle,
+        poster_display_mode: posterDisplayMode,
       };
 
       const q = isEdit
-        ? supabase.from("categories").update(payload).eq("id", category!.id).select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status").single()
-        : supabase.from("categories").insert(payload).select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status").single();
+        ? supabase.from("categories").update(payload).eq("id", category!.id).select("*").single()
+        : supabase.from("categories").insert(payload).select("*").single();
 
       const { data, error } = await q;
       if (error) throw error;
@@ -186,6 +218,11 @@ export function CategoryEditorDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="cat-name-ar">Name (AR)</Label>
+            <Input id="cat-name-ar" dir="rtl" value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="أفلام" />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="cat-slug">Slug</Label>
             <Input
               id="cat-slug"
@@ -197,6 +234,11 @@ export function CategoryEditorDialog({
               placeholder="movies"
             />
             <p className="text-[10px] text-muted-foreground">URL-friendly; auto-generated from name.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-icon">Icon / Emoji</Label>
+            <Input id="cat-icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🎬" maxLength={4} />
           </div>
 
           <div className="space-y-1.5">
@@ -260,6 +302,49 @@ export function CategoryEditorDialog({
                 <Switch id="cat-active" checked={active} onCheckedChange={setActive} />
                 <span className="text-xs text-muted-foreground">{active ? "Active" : "Hidden"}</span>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-sm border border-border p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Visibility</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <label className="flex items-center gap-2"><Switch checked={showInHeader} onCheckedChange={setShowInHeader} /> Show in Header</label>
+              <label className="flex items-center gap-2"><Switch checked={showInHomepage} onCheckedChange={setShowInHomepage} /> Show in Homepage</label>
+              <label className="flex items-center gap-2"><Switch checked={showInCollections} onCheckedChange={setShowInCollections} /> Show in Collections</label>
+              <label className="flex items-center gap-2"><Switch checked={showInSearch} onCheckedChange={setShowInSearch} /> Show in Search</label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-mockup">Default Mockup</Label>
+              <select
+                id="cat-mockup"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                value={defaultMockupStyle}
+                onChange={(e) => setDefaultMockupStyle(e.target.value as typeof defaultMockupStyle)}
+              >
+                <option value="auto">Auto</option>
+                <option value="black">Black Frame</option>
+                <option value="white">White Frame</option>
+                <option value="wood">Wood Frame</option>
+                <option value="none">No Frame</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-display">Poster Display Mode</Label>
+              <select
+                id="cat-display"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                value={posterDisplayMode}
+                onChange={(e) => setPosterDisplayMode(e.target.value as typeof posterDisplayMode)}
+              >
+                <option value="manual">Manual Order</option>
+                <option value="random">Random</option>
+                <option value="newest">Newest First</option>
+                <option value="trending">Trending First</option>
+                <option value="bestsellers">Best Sellers First</option>
+              </select>
             </div>
           </div>
         </div>

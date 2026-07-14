@@ -423,6 +423,7 @@ export type Database = {
       categories: {
         Row: {
           created_at: string
+          default_mockup_style: string
           description: string | null
           featured: boolean
           hidden: boolean
@@ -430,7 +431,13 @@ export type Database = {
           id: string
           image: string | null
           name: string
+          name_ar: string | null
           parent_id: string | null
+          poster_display_mode: string
+          show_in_collections: boolean
+          show_in_header: boolean
+          show_in_homepage: boolean
+          show_in_search: boolean
           slug: string
           sort_mode: string
           sort_order: number
@@ -439,6 +446,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_mockup_style?: string
           description?: string | null
           featured?: boolean
           hidden?: boolean
@@ -446,7 +454,13 @@ export type Database = {
           id?: string
           image?: string | null
           name: string
+          name_ar?: string | null
           parent_id?: string | null
+          poster_display_mode?: string
+          show_in_collections?: boolean
+          show_in_header?: boolean
+          show_in_homepage?: boolean
+          show_in_search?: boolean
           slug: string
           sort_mode?: string
           sort_order?: number
@@ -455,6 +469,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_mockup_style?: string
           description?: string | null
           featured?: boolean
           hidden?: boolean
@@ -462,7 +477,13 @@ export type Database = {
           id?: string
           image?: string | null
           name?: string
+          name_ar?: string | null
           parent_id?: string | null
+          poster_display_mode?: string
+          show_in_collections?: boolean
+          show_in_header?: boolean
+          show_in_homepage?: boolean
+          show_in_search?: boolean
           slug?: string
           sort_mode?: string
           sort_order?: number

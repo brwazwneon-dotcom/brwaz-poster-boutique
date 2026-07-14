@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ShoppingBag, Search, Heart } from "lucide-react";
+import { ShoppingBag, Search, Heart, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { SearchBox } from "@/components/SearchBox";
@@ -22,12 +22,14 @@ export function SiteHeader() {
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
   const { data: categories = [] } = useCategories();
-  const featured = categories
-    .filter((c) => !c.parent_id && c.featured && isCategoryVisible(c))
+  const headerCats = categories
+    .filter((c) => !c.parent_id && isCategoryVisible(c) && (c.show_in_header ?? c.featured ?? false))
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .slice(0, 6)
     .map((c) => ({ label: c.name, href: `/category/${c.slug}` }));
-  const menu = featured.length > 0 ? featured : FALLBACK_MENU;
+  const menu = headerCats.length > 0 ? headerCats : FALLBACK_MENU;
+  const primaryMenu = menu.slice(0, 6);
+  const overflowMenu = menu.slice(6);
+  const [moreOpen, setMoreOpen] = useState(false);
   // Fallback chain: DB/branding logo (webp) -> bundled png -> text wordmark.
   // Guards against stale/broken remote URLs (Lovable preview, blob, etc.).
   const [logoStage, setLogoStage] = useState<0 | 1 | 2>(0);
@@ -58,7 +60,7 @@ export function SiteHeader() {
           <SearchBox variant="header" />
         </div>
         <nav className="hidden items-center gap-5 text-xs uppercase tracking-widest text-muted-foreground lg:flex">
-          {menu.slice(0, 6).map((m) => (
+          {primaryMenu.map((m) => (
             <a
               key={m.href}
               href={m.href}
@@ -67,6 +69,33 @@ export function SiteHeader() {
               {m.label}
             </a>
           ))}
+          {overflowMenu.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                onBlur={() => setTimeout(() => setMoreOpen(false), 120)}
+                className="flex items-center gap-1 whitespace-nowrap transition-colors hover:text-foreground"
+                aria-haspopup="true"
+                aria-expanded={moreOpen}
+              >
+                More <ChevronDown className="h-3 w-3" />
+              </button>
+              {moreOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 min-w-[180px] rounded-sm border border-border bg-background py-2 shadow-lg">
+                  {overflowMenu.map((m) => (
+                    <a
+                      key={m.href}
+                      href={m.href}
+                      className="block px-3 py-1.5 text-xs uppercase tracking-widest text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      {m.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
         <Link
           to="/search"

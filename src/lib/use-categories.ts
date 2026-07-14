@@ -13,6 +13,13 @@ export type Category = {
   hidden?: boolean;
   featured?: boolean;
   status?: "published" | "draft";
+  name_ar?: string | null;
+  show_in_header?: boolean;
+  show_in_homepage?: boolean;
+  show_in_collections?: boolean;
+  show_in_search?: boolean;
+  default_mockup_style?: "auto" | "black" | "white" | "wood" | "none";
+  poster_display_mode?: "manual" | "random" | "newest" | "trending" | "bestsellers";
 };
 
 export function useCategories() {
@@ -22,7 +29,7 @@ export function useCategories() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status")
+        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw error;
