@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -18,7 +18,6 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { FloatingOfferBubble } from "@/components/FloatingOfferBubble";
-import { AssistantButton } from "@/components/AssistantButton";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Toaster } from "@/components/ui/sonner";
 import { MarketingBoot } from "@/components/MarketingBoot";
@@ -32,6 +31,8 @@ import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
 import { AppPreloader } from "@/components/AppPreloader";
 import { usePerformanceFlags } from "@/lib/performance-flags";
+
+const AssistantButton = lazy(() => import("@/components/AssistantButton").then((m) => ({ default: m.AssistantButton })));
 
 function NotFoundComponent() {
   return (
@@ -125,9 +126,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "preload", as: "image", href: "/assets/mockups/frame-black.png" },
-      { rel: "preload", as: "image", href: "/assets/mockups/frame-white.png" },
-      { rel: "preload", as: "image", href: "/assets/mockups/frame-wood.png" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap",
@@ -211,7 +209,7 @@ function RootComponent() {
             </div>
             {!isAdmin && <WhatsAppButton />}
             {!isAdmin && <FloatingOfferGated />}
-            <AssistantButton />
+            <AssistantButtonGated isAdmin={isAdmin} />
             </MaintenanceGate>
             <Toaster richColors position="top-center" />
             <MarketingBoot />
@@ -246,4 +244,14 @@ function FloatingOfferGated() {
   const perf = usePerformanceFlags();
   if (perf.disable_floating_offer) return null;
   return <FloatingOfferBubble />;
+}
+
+function AssistantButtonGated({ isAdmin }: { isAdmin: boolean }) {
+  const perf = usePerformanceFlags();
+  if (isAdmin || perf.emergency_fast_mode) return null;
+  return (
+    <Suspense fallback={null}>
+      <AssistantButton />
+    </Suspense>
+  );
 }
