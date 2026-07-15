@@ -5,6 +5,46 @@ import { useCategories, isCategoryVisible } from "@/lib/use-categories";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { usePosterThumbs } from "@/lib/public-images";
 
+/**
+ * For a list of category ids, returns a { slug -> thumbnail URL } map picking
+ * the first visible poster's thumbnail per category. Used so collection cards
+ * always render a real image when the admin hasn't set a cover.
+ */
+function useAutoCoverPosters(items: { slug: string; id: string }[]): Record<string, string> {
+  const key = items.map((i) => `${i.slug}:${i.id}`).join("|");
+  const { data: firstPosters = [] } = useQuery({
+    queryKey: ["home-collections-auto-cover", key],
+    enabled: items.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const results: { slug: string; posterId: string }[] = [];
+      // Batch: one query per category (cheap; limit 1 each).
+      await Promise.all(
+        items.map(async ({ slug, id }) => {
+          const { data } = await supabase
+            .from("posters")
+            .select("id")
+            .eq("category_id", id)
+            .eq("hidden", false)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          const posterId = data?.[0]?.id;
+          if (posterId) results.push({ slug, posterId });
+        }),
+      );
+      return results;
+    },
+  });
+  const posterIds = firstPosters.map((p) => p.posterId);
+  const thumbs = usePosterThumbs(posterIds);
+  const out: Record<string, string> = {};
+  for (const { slug, posterId } of firstPosters) {
+    const url = thumbs[posterId];
+    if (url) out[slug] = url;
+  }
+  return out;
+}
+
 export type CollectionCard = {
   id: string;
   title: string;
