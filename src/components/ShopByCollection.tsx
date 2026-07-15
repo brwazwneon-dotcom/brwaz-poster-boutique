@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useCategories, isCategoryVisible } from "@/lib/use-categories";
 
 export type CollectionCard = {

@@ -26,7 +26,6 @@ type BSRow = {
   posters: {
     id: string;
     title: string;
-    image_url: string;
     badge: string | null;
     category_id: string | null;
     hidden: boolean;
@@ -110,7 +109,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
     add({
       posterId: p.id,
       title: p.title,
-      image: p.image_url,
+      image: thumbs[p.id] ?? "",
       categoryId: p.category_id,
       categoryName: p.categories?.name ?? "",
       frameType,
