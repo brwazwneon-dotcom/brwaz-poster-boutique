@@ -106,6 +106,6 @@ export function readPerfFlagsSync(): PerformanceFlags {
 export async function saveFlags(flags: PerformanceFlags): Promise<void> {
   const { error } = await supabase
     .from("site_settings")
-    .upsert({ key: PERFORMANCE_FLAGS_KEY, value: flags as unknown as Record<string, unknown> });
+    .upsert({ key: PERFORMANCE_FLAGS_KEY, value: flags as never });
   if (error) throw error;
 }
