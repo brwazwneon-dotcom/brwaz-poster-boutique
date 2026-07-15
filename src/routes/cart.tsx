@@ -151,7 +151,9 @@ export const Route = createFileRoute("/cart")({
     meta: [
       { title: "Cart — BRWAZWNEON" },
       { name: "description", content: "Review your framed posters and place your cash-on-delivery order." },
+      { name: "robots", content: "noindex" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/cart" }],
   }),
   component: CartPage,
 });
