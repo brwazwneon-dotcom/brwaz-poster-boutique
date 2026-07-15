@@ -18,7 +18,7 @@ export const Route = createFileRoute("/offers")({
   head: () => {
     const title = "Special Offers — BRWAZWNEON";
     const description = "Bundle deals on framed posters: 6 frames 20×30 for 790 EGP or 4 frames 30×40 for 890 EGP. Cash on delivery across Egypt.";
-    const url = "https://brwaz-poster-boutique.lovable.app/offers";
+    const url = "https://brwazwneon-com.lovable.app/offers";
     return {
       meta: [
         { title },

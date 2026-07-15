@@ -72,7 +72,7 @@ export const Route = createFileRoute("/category/$slug")({
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;
     const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
-    const url = `https://brwaz-poster-boutique.lovable.app/category/${params.slug}`;
+    const url = `https://brwazwneon-com.lovable.app/category/${params.slug}`;
     return {
       meta: [
         { title },
@@ -86,6 +86,19 @@ export const Route = createFileRoute("/category/$slug")({
         { name: "twitter:description", content: description },
       ],
       links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://brwazwneon-com.lovable.app/" },
+              { "@type": "ListItem", position: 2, name: pretty, item: url },
+            ],
+          }),
+        },
+      ],
     };
   },
   component: CategoryPage,
@@ -320,9 +333,24 @@ function CategoryPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.85fr_minmax(440px,540px)]">
         <div>
-          {postersQ.isLoading || catLoading ? (
-            <div className="py-20 text-center text-sm text-muted-foreground">
-              Loading posters…
+          {postersQ.isError ? (
+            <div className="rounded-sm border border-dashed border-destructive/40 p-12 text-center text-sm text-destructive">
+              <p>Couldn't load posters. Please try again.</p>
+              <button
+                onClick={() => postersQ.refetch()}
+                className="mt-4 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+              >
+                Retry
+              </button>
+            </div>
+          ) : postersQ.isLoading || catLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[2/3] animate-pulse rounded-sm bg-muted/40"
+                />
+              ))}
             </div>
           ) : filteredPosters.length === 0 ? (
             <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">

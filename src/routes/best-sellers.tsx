@@ -18,7 +18,9 @@ export const Route = createFileRoute("/best-sellers")({
       { property: "og:title", content: "Best Sellers — BRWAZWNEON" },
       { property: "og:description", content: "Our most-loved framed posters. Editorial picks trending across Egypt right now." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/best-sellers" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/best-sellers" }],
   }),
   component: BestSellersPage,
 });
@@ -149,7 +151,11 @@ function BestSellersPage() {
 
       <section className="container-page pb-24">
         {isLoading ? (
-          <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] animate-pulse rounded-sm bg-muted/40" />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-24 text-center text-sm text-muted-foreground">
             No best sellers match your filters yet.

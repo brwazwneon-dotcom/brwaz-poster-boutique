@@ -35,6 +35,12 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Premium framed posters — football, movies, TV series, anime and cars. Cash on delivery across Egypt." },
       { property: "og:title", content: "BRWAZWNEON — Turn Your Room Into A Piece Of Art" },
       { property: "og:description", content: "Premium framed posters delivered across Egypt." },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [
+      { rel: "canonical", href: "https://brwazwneon-com.lovable.app/" },
+      { rel: "preload", as: "image", href: hero, fetchpriority: "high" },
     ],
   }),
   component: Index,
@@ -136,6 +142,8 @@ function HeroSection() {
                 alt="Framed poster gallery wall"
                 width={1600}
                 height={1024}
+                fetchPriority="high"
+                decoding="async"
                 className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40 grayscale"
               />
               <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/50 via-background/80 to-background" />

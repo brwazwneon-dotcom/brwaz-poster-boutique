@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-const BASE_URL = "https://brwaz-poster-boutique.lovable.app";
+const BASE_URL = "https://brwazwneon-com.lovable.app";
 
 interface Entry { path: string; changefreq?: string; priority?: string; lastmod?: string }
 
@@ -13,8 +13,11 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/", changefreq: "daily", priority: "1.0" },
           { path: "/offers", changefreq: "weekly", priority: "0.9" },
           { path: "/sets", changefreq: "weekly", priority: "0.8" },
+          { path: "/best-sellers", changefreq: "weekly", priority: "0.8" },
+          { path: "/trending", changefreq: "daily", priority: "0.8" },
           { path: "/custom-design", changefreq: "monthly", priority: "0.7" },
           { path: "/photo-printing", changefreq: "monthly", priority: "0.7" },
+          { path: "/photo-4x6", changefreq: "monthly", priority: "0.7" },
           { path: "/search", changefreq: "monthly", priority: "0.5" },
         ];
 

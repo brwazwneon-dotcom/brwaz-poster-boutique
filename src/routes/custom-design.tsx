@@ -61,7 +61,10 @@ export const Route = createFileRoute("/custom-design")({
         content:
           "Upload your photos, choose a frame, and we deliver. Cash on delivery across Egypt.",
       },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/custom-design" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/custom-design" }],
   }),
   component: CustomDesignPage,
 });

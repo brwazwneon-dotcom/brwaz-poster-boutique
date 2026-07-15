@@ -23,7 +23,10 @@ export const Route = createFileRoute("/photo-4x6")({
       },
       { property: "og:title", content: "4×6 Photo Printing — BRWAZWNEON" },
       { property: "og:description", content: "Upload, enhance, and print your 4×6 photos with AI. Cash on delivery." },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/photo-4x6" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/photo-4x6" }],
   }),
   component: Photo4x6Page,
 });
