@@ -119,12 +119,6 @@ import {
 } from "@/lib/hero-banners";
 
 export const Route = createLazyFileRoute("/admin")({
-  head: () => ({
-    meta: [
-      { title: "Admin — BRWAZWNEON" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
   component: AdminPageWithI18n,
 });
 
