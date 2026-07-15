@@ -18,11 +18,11 @@ export function SafeImage({ src, onError, onLoad, loading, decoding, ...rest }: 
       try {
         const w = window as unknown as { __brwImageIssues?: Array<{ src: string; at: number; reason: string }> };
         w.__brwImageIssues = (w.__brwImageIssues ?? []).slice(-30);
-        w.__brwImageIssues.push({ src, at: Date.now(), reason: "timeout_1500ms" });
+        w.__brwImageIssues.push({ src, at: Date.now(), reason: "timeout_15000ms" });
       } catch {
         /* noop */
       }
-    }, 1500);
+    }, 15000);
     return () => window.clearTimeout(id);
   }, [src]);
   return (
