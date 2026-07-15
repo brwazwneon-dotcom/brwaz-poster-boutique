@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { useCategories, isCategoryVisible } from "@/lib/use-categories";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 
 export type CollectionCard = {
   id: string;
@@ -85,8 +86,9 @@ export function useHomeCollections() {
 }
 
 function CollectionCover({ card }: { card: CollectionCard }) {
+  const perf = usePerformanceFlags();
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const valid = card.image && !broken[card.image] ? [card.image] : [];
+  const valid = !perf.emergency_fast_mode && card.image && !broken[card.image] ? [card.image] : [];
   const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
   const noFrame = card.id === "photo-printing";

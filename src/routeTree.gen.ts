@@ -8,8 +8,6 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createFileRoute } from '@tanstack/react-router'
-
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as TrendingRouteImport } from './routes/trending'
@@ -24,19 +22,13 @@ import { Route as CustomDesignRouteImport } from './routes/custom-design'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as BestSellersRouteImport } from './routes/best-sellers'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
 import { Route as ApiPublicHooksBackupRouteImport } from './routes/api/public/hooks/backup'
 
-const AdminLazyRouteImport = createFileRoute('/admin')()
-
-const AdminLazyRoute = AdminLazyRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/admin.lazy').then((d) => d.Route))
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
   path: '/wishlist',
@@ -102,6 +94,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/admin.lazy').then((d) => d.Route))
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -130,6 +127,7 @@ const ApiPublicHooksBackupRoute = ApiPublicHooksBackupRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
@@ -143,7 +141,6 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
-  '/admin': typeof AdminLazyRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
@@ -151,6 +148,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
@@ -164,7 +162,6 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
-  '/admin': typeof AdminLazyRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
@@ -173,6 +170,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/best-sellers': typeof BestSellersRoute
   '/cart': typeof CartRoute
@@ -186,7 +184,6 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
-  '/admin': typeof AdminLazyRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
@@ -196,6 +193,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/auth'
     | '/best-sellers'
     | '/cart'
@@ -209,7 +207,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trending'
     | '/wishlist'
-    | '/admin'
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
@@ -217,6 +214,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/auth'
     | '/best-sellers'
     | '/cart'
@@ -230,7 +228,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trending'
     | '/wishlist'
-    | '/admin'
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
@@ -238,6 +235,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/auth'
     | '/best-sellers'
     | '/cart'
@@ -251,7 +249,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trending'
     | '/wishlist'
-    | '/admin'
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
@@ -260,6 +257,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   BestSellersRoute: typeof BestSellersRoute
   CartRoute: typeof CartRoute
@@ -273,7 +271,6 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrendingRoute: typeof TrendingRoute
   WishlistRoute: typeof WishlistRoute
-  AdminLazyRoute: typeof AdminLazyRoute
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
   CategorySlugRoute: typeof CategorySlugRoute
   LandingAudienceRoute: typeof LandingAudienceRoute
@@ -282,13 +279,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/wishlist': {
       id: '/wishlist'
       path: '/wishlist'
@@ -380,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -420,6 +417,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   BestSellersRoute: BestSellersRoute,
   CartRoute: CartRoute,
@@ -433,7 +431,6 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrendingRoute: TrendingRoute,
   WishlistRoute: WishlistRoute,
-  AdminLazyRoute: AdminLazyRoute,
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,
   CategorySlugRoute: CategorySlugRoute,
   LandingAudienceRoute: LandingAudienceRoute,
