@@ -189,6 +189,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const pathname = router.state.location.pathname;
+  const isAdmin = pathname.startsWith("/admin");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -204,15 +207,15 @@ function RootComponent() {
           </main>
           <SiteFooter />
             </div>
-            <WhatsAppButton />
-            <FloatingOfferBubble />
+            {!isAdmin && <WhatsAppButton />}
+            {!isAdmin && <FloatingOfferBubble />}
             <AssistantButton />
             </MaintenanceGate>
             <Toaster richColors position="top-center" />
             <MarketingBoot />
             <PwaBoot />
             <ErrorLoggerBoot />
-            <InstallPrompt />
+            {!isAdmin && <InstallPrompt />}
             <PreviewBadge />
             <SalesNotifications />
             <BehaviorBoot />
