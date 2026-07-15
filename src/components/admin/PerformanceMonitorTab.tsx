@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, Refr
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateVariantsFor } from "@/lib/image-pipeline";
+import { readPerfFlagsSync } from "@/lib/performance-flags";
 
 type Bucket = "good" | "warning" | "critical";
 
@@ -140,6 +141,10 @@ export function PerformanceMonitorTab() {
   }
 
   async function autoSpeedFix() {
+    if (readPerfFlagsSync().pause_heavy_jobs) {
+      toast.error("Heavy jobs موقوفة من Stability tab. فعّل 'Resume Heavy Jobs' أولًا.");
+      return;
+    }
     if (!confirm("تشغيل إصلاحات الأداء الآمنة؟ سيتم:\n- حذف قياسات > 7 أيام\n- إنشاء نسخ محسّنة للصور الناقصة (حتى 10)")) return;
     setAutoFixing(true);
     try {
