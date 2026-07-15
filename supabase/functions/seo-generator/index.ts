@@ -263,7 +263,8 @@ Deno.serve(async (req) => {
     geminiKeys.push({ label: "GEMINI_API_KEY", value: legacy });
   }
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (geminiKeys.length === 0 && !openrouterKey) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (geminiKeys.length === 0 && !openrouterKey && !lovableKey) {
     return json(500, { error: "AI is not configured on this project." });
   }
 
@@ -323,7 +324,25 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2) Final fallback: OpenRouter (only if configured and all Gemini attempts failed).
+  // 2) Fallback: Lovable AI Gateway (free, no user key required).
+  if (lovableKey) {
+    for (const m of LOVABLE_MODELS) {
+      try {
+        const content = await callLovableGateway(lovableKey, m, system, user);
+        const parsed = parseJson(content);
+        const result = normalize(parsed, fallbackTitle);
+        if (!result.description || !result.seo_description) {
+          throw new Error(`Missing fields from LovableAI:${m}`);
+        }
+        return json(200, { ...result, model: `LovableAI:${m}`, provider: "lovable", key: m });
+      } catch (e) {
+        lastErr = e;
+        console.error("[seo-generator] lovable", e instanceof Error ? e.message : String(e));
+      }
+    }
+  }
+
+  // 3) Final fallback: OpenRouter (only if configured and all previous attempts failed).
   if (openrouterKey) {
     for (const m of OPENROUTER_MODELS) {
       try {
