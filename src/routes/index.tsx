@@ -54,6 +54,10 @@ function Index() {
     "before-after",
     "reviews",
     "highlights",
+    "categories",
+    "frame-sets",
+    "trusted-quality",
+    "about",
   ]);
 
   const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
