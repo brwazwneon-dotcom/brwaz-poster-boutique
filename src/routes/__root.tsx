@@ -30,6 +30,7 @@ import { SalesNotifications } from "@/components/SocialProof";
 import { BehaviorBoot } from "@/components/BehaviorBoot";
 import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
+import { AppPreloader } from "@/components/AppPreloader";
 
 function NotFoundComponent() {
   return (
@@ -220,6 +221,7 @@ function RootComponent() {
             <SalesNotifications />
             <BehaviorBoot />
             <TestModeBadge />
+            <AppPreloader />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>

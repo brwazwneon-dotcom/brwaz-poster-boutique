@@ -1,74 +1,55 @@
-# Smart Tooltips & Help Hints — Admin Dashboard
+طلبك ضخم جدًا ويلمس تقريبًا كل الموقع. عشان أضمن جودة عالية وأقدر أختبر كل حاجة، هنفذها على مراحل. المرحلة الأولى (اللي هعملها دلوقتي) فيها أعلى تأثير على السرعة + الـ Preloader بالكامل، وباقي المراحل نعملها بعد ما نتأكد إن الأولى شغالة زي ما هي.
 
-نظام شامل للـ Tooltips والمساعدة داخل الداش بورد يشرح كل زر وكل حقل بالعربي والإنجليزي، مع Help Mode و First-Time Tour.
+## المرحلة 1 — دلوقتي (Speed Quick Wins + Preloader)
 
-## Phase 1 — البنية الأساسية (Foundation)
+### 1. Black Logo Preloader (كامل)
+- ملف جديد `src/components/AppPreloader.tsx`:
+  - خلفية سوداء fullscreen، اللوجو في النص
+  - Animation: fade in + pulse scale (0.96 ↔ 1.04) + glow ناعم
+  - Fade out في 500ms عند الجاهزية
+  - `min 600ms / max 2500ms`
+  - يظهر مرة واحدة فقط لكل session (`sessionStorage.preloaderShown`)
+  - يتحقن مبكر من غير Layout Shift، ومناسب للموبايل
+- يُركّب من `__root.tsx`
 
-**1. Tooltip Registry**
-- ملف واحد `src/lib/admin-help.ts` فيه قاموس شامل:
-  ```ts
-  helpTexts = {
-    "orders.view": { ar: "...", en: "..." , severity?: "info"|"warning"|"danger" },
-    "orders.mark_confirmed": { ... },
-    "images.optimize": { ... },
-    ...
-  }
-  ```
-- كل النصوص المطلوبة في الطلب (Orders / Images / Homepage / AI / Performance / Reports / Status Badges / Warnings) موجودة هنا.
+### 2. Thumbnails بدل الصور الأصلية في الـ grids
+- في كل الشاشات العامة (Home, Trending, Best Sellers, Category, Search, Related, Recently Viewed, Personal Rails, Poster Gallery):
+  - استخدم variant `thumb` أولاً، fallback على الأصلي
+  - كل `<img>` يحصل على `loading="lazy"`, `decoding="async"`, `width`, `height`
+  - أول صورة LCP في الهوم = `fetchpriority="high"` وبدون lazy
+- صفحة المنتج تستخدم `medium`، Lightbox يستخدم `large`، الأصلي يفضل للداش/الطباعة فقط
 
-**2. مكونات موحدة**
-- `<HelpTip id="orders.view">children</HelpTip>` — يلف أي زر/أيقونة ويظهر Tooltip.
-- `<HelpBadge status="new_order" />` — Badge بشرح تلقائي.
-- `<HelpIcon id="..." />` — أيقونة `?` صغيرة تظهر فقط عند تفعيل Help Mode.
-- `<ColumnHelp id="orders.total">Total</ColumnHelp>` — لرؤوس الجداول.
-- كلها فوق `shadcn/ui Tooltip` + دعم Long Press على الموبايل (`onTouchStart` مع مؤقت 500ms).
+### 3. فصل bundle الأدمن عن العميل
+- تأكيد إن كل ملفات `src/components/admin/**` و `src/routes/admin*` مش داخلة في bundle العميل عن طريق:
+  - dynamic import للـ admin route (lazy) بدل static import في routeTree
+  - إزالة أي import للأدمن من مكونات مشتركة
 
-**3. Help Mode Toggle**
-- Context: `HelpModeProvider` مع `useHelpMode()`.
-- زر في Header الداش بورد (أيقونة `?`) يفعّل/يعطّل الوضع.
-- لما يشتغل: تظهر أيقونات `?` صغيرة بجانب العناصر المهمة، و Tooltips تظهر بشرح أطول.
-- محفوظ في `localStorage`.
+### 4. تأجيل Analytics
+- تحميل Meta Pixel و GA4 بعد `requestIdleCallback` / `load` event بدل ما يكونوا blocking
+- لا تغيير في الوظائف، بس التوقيت
 
-**4. دعم اللغة و RTL**
-- يقرأ اللغة من `admin-i18n` الموجود.
-- Tooltip يتموضع تلقائياً حسب `dir=rtl`.
+### 5. تحسين الخطوط
+- تقليل أوزان Inter (400, 600 فقط — موجود بالفعل)
+- إضافة `&display=swap` (متأكد إنه موجود) + preconnect (موجود)
+- إزالة preloads غير ضرورية لو فيه
 
-## Phase 2 — التطبيق على كل العناصر
+### 6. تقليل الـ initial payload في Homepage
+- الأقسام تحت الفولد تتحمل بعد ما الصفحة تظهر (React `Suspense` + `React.lazy` أو `useInView` gate)
+- كل rail يبدأ بـ 8-12 عنصر فقط + زر Load More
 
-- **Orders Tab:** أزرار View / Change Status / Copy WA / Open WA / Download Original / Mark Printing / Mark Shipped / Add Note / Run Check + رؤوس الجدول (Status / Total / Last Activity).
-- **Images / Display Order Tab:** Replace / Adjust / Needs Edit / Ready / Quality / Optimize / Rebuild / HQ / Download / Delete / Hide-Show / Pin / Move.
-- **Homepage Tab:** Show-Hide Section / Move Up-Down / Add-Remove Trending / Save / Preview.
-- **AI Tab:** Run SEO / Bulk SEO / Test Key / Reset Cooldown / OpenRouter Fallback / Generate Desc / Copy Prompt.
-- **Performance Tab:** Run Check / Optimize / Clear Cache / Rebuild Thumbnails / Compress / Find Heavy / Fix Broken.
-- **Reports Tab:** Export CSV / Excel / Date Filter / Open Details.
-- **Status Badges:** New Order / Needs Review / Printing / Low Quality / Hidden / Trending / Critical.
-- **Warnings:** Delete / Bulk Hide / Restore Backup / Change Prices — بلون تحذيري (أحمر/برتقالي) في الـ Tooltip.
+## المرحلة 2 — لاحقًا (بعد ما توافق)
+- Speed Control Card في الداش (Optimize Images, Rebuild Thumbnails, Clear Cache, Auto Speed Fix...)
+- Rebuild thumbnails للصور القديمة
+- Performance Monitor يسجل أسباب البطء (heavy images, slow API, big bundle)
+- Auto Speed Fix logic
 
-## Phase 3 — First Time Guide + AI Help
+## المرحلة 3 — تحسينات متقدمة
+- AVIF variants
+- Responsive `srcset` كامل
+- Route-level prefetch tuning
 
-- **Tour:** مكون `AdminTour` بسيط بدون مكتبات — Overlay مع Highlight للعنصر الحالي + خطوات (Orders / Images / Status / WhatsApp / Performance / Homepage) + أزرار Next/Back/Skip/Don't show. محفوظ في `localStorage`.
-- **Ask AI about this:** زر داخل كل Tooltip موسع (في Help Mode) يفتح المساعد الذكي الموجود ويمرر له `helpId` ليشرح بتوسع.
-- **Help Content Manager (اختياري):** صفحة تحت الإعدادات للـ Owner فقط، تسمح بتعديل النصوص وإخفاء Tooltip معين وإرجاع الافتراضي. النصوص المعدلة تُحفظ في جدول `admin_help_overrides` (اختياري في Phase 3).
+---
 
-## ملاحظات مهمة
+**ليه المراحل؟** المرحلة 1 لوحدها تعديلات في 15+ ملف. لو عملنا كل حاجة مرة واحدة، الاختبار هيبقى صعب ومخاطرة كسر عالية.
 
-- ما يتغيرش أي منطق تشغيلي — إضافة UI فقط.
-- الأداء: Tooltip من `@radix-ui` (شغال أصلاً في المشروع)، Lazy render.
-- الموبايل: Long Press + أيقونة `?` في Help Mode.
-- كل الأزرار الخطيرة (Delete/Bulk/Restore/Change Prices) عليها تحذير أحمر واضح.
-
-## Technical Details
-
-- `src/lib/admin-help.ts` — قاموس النصوص (~80 مفتاح).
-- `src/components/admin/help/HelpTip.tsx`, `HelpBadge.tsx`, `HelpIcon.tsx`, `HelpModeToggle.tsx`, `AdminTour.tsx`.
-- `src/hooks/useHelpMode.tsx` — Context + localStorage.
-- تعديلات على مكونات التابات الموجودة لإضافة `<HelpTip id="..">` حول الأزرار.
-- بدون migration في Phase 1-2. Phase 3 (Help Content Manager) يحتاج جدول `admin_help_overrides`.
-
-## Rollout
-
-1. Phase 1 (Foundation + Help Mode + دعم اللغة والموبايل).
-2. Phase 2 (لف كل الأزرار في التابات الموجودة).
-3. Phase 3 (Tour + Ask AI + Content Manager).
-
-هل أبدأ بـ Phase 1 و 2 مباشرة؟
+هل أبدأ فورًا في المرحلة 1 كما هي، أم عايز تعدل الأولويات؟
