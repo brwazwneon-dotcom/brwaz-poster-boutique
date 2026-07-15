@@ -35,6 +35,12 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Premium framed posters — football, movies, TV series, anime and cars. Cash on delivery across Egypt." },
       { property: "og:title", content: "BRWAZWNEON — Turn Your Room Into A Piece Of Art" },
       { property: "og:description", content: "Premium framed posters delivered across Egypt." },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [
+      { rel: "canonical", href: "https://brwazwneon-com.lovable.app/" },
+      { rel: "preload", as: "image", href: hero, fetchpriority: "high" },
     ],
   }),
   component: Index,
