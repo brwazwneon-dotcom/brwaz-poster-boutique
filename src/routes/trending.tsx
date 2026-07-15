@@ -143,7 +143,11 @@ function TrendingPage() {
 
       <section className="container-page pb-24">
         {isLoading ? (
-          <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] animate-pulse rounded-sm bg-muted/40" />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-24 text-center text-sm text-muted-foreground">
             No trending posters match your filters yet.
