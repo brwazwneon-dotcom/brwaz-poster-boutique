@@ -13,6 +13,19 @@ const OPENROUTER_MODELS = [
 export const GEMINI_TEXT_MODEL = "gemini-2.5-flash";
 export const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
 
+export const GEMINI_KEY_LABELS = [
+  "GEMINI_API_KEY_1",
+  "GEMINI_API_KEY_2",
+  "GEMINI_API_KEY_3",
+  "GEMINI_API_KEY_4",
+  "GEMINI_API_KEY_5",
+  "GEMINI_API_KEY_6",
+  "GEMINI_API_KEY_7",
+  "GEMINI_API_KEY_8",
+  "GEMINI_API_KEY_9",
+  "GEMINI_API_KEY_10",
+] as const;
+
 export type GeminiKeyStatus = {
   label: string;
   masked: string;
