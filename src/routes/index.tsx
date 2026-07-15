@@ -42,23 +42,10 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const perf = usePerformanceFlags();
-  const { data: categories = [] } = useCategories(!perf.emergency_fast_mode);
+  const { data: categories = [] } = useCategories();
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
   const { data: picks = {} } = useHomeCategoryPicks();
-  const emergencyHidden = new Set([
-    "for-you",
-    "because-you-liked",
-    "recommended-for-you",
-    "recently-viewed",
-    "before-after",
-    "reviews",
-    "highlights",
-    "categories",
-    "frame-sets",
-    "trusted-quality",
-    "about",
-  ]);
 
   const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
   const resolveSubtitle = (s: HomeSectionConfig) => s.subtitle_en || s.subtitle || undefined;
@@ -93,7 +80,7 @@ function Index() {
     "recommended-for-you": (s) => (
       <RecommendedForYouSection key="recommended-for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
     ),
-    categories: () => perf.emergency_fast_mode ? null : (
+    categories: () => (
       <div key="categories">
         {FEATURED_SLUGS.map((slug, i) => {
           const cat = bySlug.get(slug);
@@ -117,12 +104,11 @@ function Index() {
 
   return (
     <div className="bg-background text-foreground">
-      {!perf.emergency_fast_mode && <HomeSlider />}
-      {!perf.emergency_fast_mode && <CollectionsQuickBar />}
+      <HomeSlider />
+      <CollectionsQuickBar />
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
         {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
-        .filter((s) => !perf.emergency_fast_mode || !emergencyHidden.has(s.key))
         .slice(0, perf.max_home_sections)
         .map((s, idx) => {
           const node = RENDERERS[s.key](s);
@@ -140,30 +126,6 @@ function Index() {
 }
 
 function HeroSection() {
-  const perf = usePerformanceFlags();
-  if (perf.emergency_fast_mode) {
-    return (
-      <section className="relative isolate overflow-hidden border-b border-border bg-background">
-        <div className="container-page flex min-h-[48vh] flex-col justify-end py-16">
-          <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
-            BRWAZWNEON · Framed in Egypt · Cash on delivery
-          </p>
-          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem]">
-            Turn Your Room<br />Into A Piece<br />Of Art.
-          </h1>
-          <div className="mt-8">
-            <Link
-              to="/category/$slug"
-              params={{ slug: "movies" }}
-              className="inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
-            >
-              Shop Posters
-            </Link>
-          </div>
-        </div>
-      </section>
-    );
-  }
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
         <HeroBannerSlider
@@ -326,11 +288,9 @@ function defaultName(slug: string) {
 
 function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
   const picksKey = pickedIds.join(",");
-  const perf = usePerformanceFlags();
-  const limit = perf.emergency_fast_mode ? 8 : 6;
+  const limit = 8;
   const { data: posters = [] } = useQuery({
     queryKey: ["home-posters", slug, picksKey, limit],
-    enabled: !perf.emergency_fast_mode,
     staleTime: 60_000,
     queryFn: async () => {
       // Admin-picked posters take priority (fixed order).
