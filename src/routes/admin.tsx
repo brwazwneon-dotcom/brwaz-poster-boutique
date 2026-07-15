@@ -865,6 +865,9 @@ type Poster = {
   description?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
+  alt_text?: string | null;
+  hashtags?: string[] | null;
+  slug?: string | null;
   edit_settings?: unknown;
   badge?: string | null;
   sales_count?: number | null;
@@ -1322,7 +1325,11 @@ function EditPosterModal({
   const [description, setDescription] = useState(poster.description ?? "");
   const [seoTitle, setSeoTitle] = useState(poster.seo_title ?? "");
   const [seoDescription, setSeoDescription] = useState(poster.seo_description ?? "");
+  const [altText, setAltText] = useState(poster.alt_text ?? "");
+  const [hashtags, setHashtags] = useState((poster.hashtags ?? []).join(", "));
+  const [slug, setSlug] = useState(poster.slug ?? "");
   const [aiBusy, setAiBusy] = useState(false);
+  const [regenBusy, setRegenBusy] = useState(false);
   const [featured, setFeatured] = useState(!!poster.featured);
   const [hidden, setHidden] = useState(!!poster.hidden);
   const [badge, setBadge] = useState<string>(poster.badge ?? "");
@@ -1347,6 +1354,9 @@ function EditPosterModal({
         description: description || null,
         seo_title: seoTitle || null,
         seo_description: seoDescription || null,
+        alt_text: altText || null,
+        hashtags: hashtags.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean),
+        slug: slug || null,
         featured,
         hidden,
         badge: badge || null,
@@ -1400,6 +1410,105 @@ function EditPosterModal({
     } finally {
       setAiBusy(false);
     }
+  };
+
+  const regenerateSeo = async () => {
+    setRegenBusy(true);
+    try {
+      const currentCat = categories.find((c) => c.id === categoryId);
+      const parentCat = currentCat?.parent_id
+        ? categories.find((c) => c.id === currentCat.parent_id)
+        : null;
+      const categoryLabel = [parentCat?.name, currentCat?.name].filter(Boolean).join(" › ");
+      const existingTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+      const { data, error } = await supabase.functions.invoke("seo-generator", {
+        body: {
+          title: title || poster.title,
+          subject: title || poster.title,
+          category: categoryLabel || undefined,
+          tags: existingTags,
+          include_hashtags: true,
+          include_alt_text: true,
+        },
+      });
+      if (error) throw error;
+      const meta = (data ?? {}) as {
+        title?: string;
+        description?: string;
+        seo_title?: string;
+        seo_description?: string;
+        tags?: string[];
+        hashtags?: string[];
+        alt_text?: string;
+        error?: string;
+      };
+      if (meta.error) throw new Error(meta.error);
+
+      const nextTitle = meta.title || title || poster.title;
+      const nextDescription = meta.description ?? "";
+      const nextSeoTitle = meta.seo_title ?? "";
+      const nextSeoDescription = meta.seo_description ?? "";
+      const nextAlt = meta.alt_text ?? "";
+      const nextTags = Array.isArray(meta.tags) ? meta.tags : [];
+      const nextHashtags = Array.isArray(meta.hashtags)
+        ? meta.hashtags.map((h) => h.replace(/^#/, "").trim()).filter(Boolean)
+        : [];
+      const nextSlug = slugify(nextTitle);
+
+      setTitle(nextTitle);
+      setDescription(nextDescription);
+      setSeoTitle(nextSeoTitle);
+      setSeoDescription(nextSeoDescription);
+      setAltText(nextAlt);
+      setTags(nextTags.join(", "));
+      setHashtags(nextHashtags.join(", "));
+      setSlug(nextSlug);
+
+      const { error: upErr } = await supabase
+        .from("posters")
+        .update({
+          title: nextTitle,
+          description: nextDescription || null,
+          seo_title: nextSeoTitle || null,
+          seo_description: nextSeoDescription || null,
+          alt_text: nextAlt || null,
+          tags: nextTags,
+          hashtags: nextHashtags,
+          slug: nextSlug || null,
+        })
+        .eq("id", poster.id);
+      if (upErr) throw upErr;
+      toast.success("SEO regenerated and saved");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Regenerate failed");
+    } finally {
+      setRegenBusy(false);
+    }
+  };
+
+  const clearSeo = async () => {
+    if (!confirm("Clear all SEO fields for this poster?")) return;
+    setDescription("");
+    setSeoTitle("");
+    setSeoDescription("");
+    setAltText("");
+    setTags("");
+    setHashtags("");
+    const { error } = await supabase
+      .from("posters")
+      .update({
+        description: null,
+        seo_title: null,
+        seo_description: null,
+        alt_text: null,
+        tags: [],
+        hashtags: [],
+      })
+      .eq("id", poster.id);
+    if (error) return toast.error(error.message);
+    toast.success("SEO cleared");
+    onSaved();
   };
 
   const saveArtwork = async (s: EditSettings) => {
@@ -1501,15 +1610,60 @@ function EditPosterModal({
               />
             </label>
           </div>
-          <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Alt text</span>
+              <input
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                maxLength={160}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Hashtags (comma separated, no #)</span>
+              <input
+                value={hashtags}
+                onChange={(e) => setHashtags(e.target.value)}
+                className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Slug</span>
+            <input
+              value={slug}
+              onChange={(e) => setSlug(slugify(e.target.value))}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={runAi}
-              disabled={aiBusy}
+              disabled={aiBusy || regenBusy}
               className="inline-flex items-center gap-2 rounded-sm border border-primary/60 bg-primary/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-50"
             >
               {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              {aiBusy ? "Generating…" : (description || seoTitle ? "Regenerate with AI" : "Generate with AI")}
+              {aiBusy ? "Generating…" : "AI SEO (fill missing)"}
+            </button>
+            <button
+              type="button"
+              onClick={regenerateSeo}
+              disabled={regenBusy || aiBusy}
+              className="inline-flex items-center gap-2 rounded-sm border border-primary bg-primary px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {regenBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {regenBusy ? "Regenerating…" : "Regenerate SEO"}
+            </button>
+            <button
+              type="button"
+              onClick={clearSeo}
+              disabled={regenBusy || aiBusy}
+              className="inline-flex items-center gap-2 rounded-sm border border-destructive/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear SEO
             </button>
           </div>
           <div className="flex gap-4 text-xs uppercase tracking-widest">
