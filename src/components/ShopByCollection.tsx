@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { useCategories, isCategoryVisible } from "@/lib/use-categories";
 import { usePerformanceFlags } from "@/lib/performance-flags";
+import { usePosterThumbs } from "@/lib/public-images";
 
 export type CollectionCard = {
   id: string;
@@ -85,10 +86,11 @@ export function useHomeCollections() {
   });
 }
 
-function CollectionCover({ card }: { card: CollectionCard }) {
+function CollectionCover({ card, autoImage }: { card: CollectionCard; autoImage?: string }) {
   const perf = usePerformanceFlags();
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const valid = !perf.emergency_fast_mode && card.image && !broken[card.image] ? [card.image] : [];
+  const primary = card.image || autoImage || "";
+  const valid = !perf.emergency_fast_mode && primary && !broken[primary] ? [primary] : [];
   const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
   const noFrame = card.id === "photo-printing";
@@ -189,6 +191,20 @@ export function ShopByCollection() {
   const cards = [...baseCards, ...autoCards].slice(0, perf.emergency_fast_mode ? 8 : 16);
   if (cards.length === 0) return null;
 
+  // For any card without an image, look up a first-poster thumbnail for its
+  // category slug so cards never render as empty black tiles.
+  const slugForCard = (c: CollectionCard) => extractCategorySlug(c.link);
+  const needAuto = cards.filter((c) => !c.image && slugForCard(c));
+  const catBySlug = new Map(categories.map((c) => [c.slug, c]));
+  const catIdBySlug = needAuto
+    .map((c) => ({ slug: slugForCard(c)!, id: catBySlug.get(slugForCard(c)!)?.id }))
+    .filter((x): x is { slug: string; id: string } => !!x.id);
+  const autoCoverBySlug = useAutoCoverPosters(catIdBySlug);
+  const autoImageFor = (c: CollectionCard) => {
+    const s = slugForCard(c);
+    return s ? autoCoverBySlug[s] : undefined;
+  };
+
   return (
     <section className="border-b border-border bg-background">
       <div className="container-page py-20">
@@ -212,7 +228,7 @@ export function ShopByCollection() {
               href={c.link}
               className="group relative block aspect-[4/5] min-w-[78%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:min-w-0"
             >
-              <CollectionCover card={c} />
+              <CollectionCover card={c} autoImage={autoImageFor(c)} />
               <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
                 <p className="text-[10px] uppercase tracking-[0.4em] text-white/60">
                   {c.subtitle}
