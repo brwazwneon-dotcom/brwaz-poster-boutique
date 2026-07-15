@@ -363,7 +363,6 @@ function CategoryPage() {
                         aspectClassName="aspect-[2/3]"
                         frameType={gridMode === "wood" ? "wood" : "pvc"}
                         color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
-                        bare
                         loading={idx >= 0 && idx < 4 ? "eager" : "lazy"}
                         className={cn(
                           "h-full w-full transition",
