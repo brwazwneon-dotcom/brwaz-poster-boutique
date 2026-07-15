@@ -22,9 +22,10 @@ export type Category = {
   poster_display_mode?: "manual" | "random" | "newest" | "trending" | "bestsellers";
 };
 
-export function useCategories() {
+export function useCategories(enabled = true) {
   return useQuery({
     queryKey: ["categories"],
+    enabled,
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase

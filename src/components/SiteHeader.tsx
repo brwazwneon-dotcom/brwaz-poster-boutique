@@ -23,7 +23,7 @@ export function SiteHeader() {
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
   const perf = usePerformanceFlags();
-  const { data: categories = [] } = useCategories();
+  const { data: categories = [] } = useCategories(!perf.emergency_fast_mode);
   const headerCats = perf.emergency_fast_mode ? [] : categories
     .filter((c) => !c.parent_id && isCategoryVisible(c) && (c.show_in_header ?? c.featured ?? false))
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
