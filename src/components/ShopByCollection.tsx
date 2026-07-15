@@ -131,6 +131,27 @@ export function useHomeCollections() {
   });
 }
 
+const CATEGORY_THEMES: Record<string, { from: string; via: string; to: string; emoji: string }> = {
+  football:         { from: "#0b3d1f", via: "#065f46", to: "#022c22", emoji: "⚽" },
+  movies:           { from: "#3b0764", via: "#581c87", to: "#1e1b4b", emoji: "🎬" },
+  "tv-series":      { from: "#1e1b4b", via: "#312e81", to: "#0f172a", emoji: "📺" },
+  "marvel-dc":      { from: "#7f1d1d", via: "#991b1b", to: "#1e3a8a", emoji: "🦸" },
+  anime:            { from: "#831843", via: "#9d174d", to: "#1e1b4b", emoji: "🗾" },
+  cars:             { from: "#0c4a6e", via: "#075985", to: "#0f172a", emoji: "🏎️" },
+  "custom-design":  { from: "#78350f", via: "#92400e", to: "#1c1917", emoji: "🖼️" },
+  "photo-printing": { from: "#134e4a", via: "#115e59", to: "#0c0a09", emoji: "📷" },
+  quotes:           { from: "#1f2937", via: "#111827", to: "#000000", emoji: "❝" },
+  islamic:          { from: "#064e3b", via: "#065f46", to: "#022c22", emoji: "🕌" },
+  countries:        { from: "#0e7490", via: "#155e75", to: "#0f172a", emoji: "🌍" },
+  "for-her":        { from: "#9d174d", via: "#831843", to: "#1e1b4b", emoji: "🌸" },
+  random:           { from: "#4c1d95", via: "#5b21b6", to: "#0f172a", emoji: "✨" },
+};
+
+function themeForCard(card: CollectionCard) {
+  const slug = card.link.match(/^\/category\/([^/?#]+)/)?.[1] ?? card.id;
+  return CATEGORY_THEMES[slug] ?? { from: "#1f2937", via: "#111827", to: "#000000", emoji: "★" };
+}
+
 function CollectionCover({ card, autoImage }: { card: CollectionCard; autoImage?: string }) {
   const perf = usePerformanceFlags();
   const [broken, setBroken] = useState<Record<string, boolean>>({});
@@ -139,17 +160,26 @@ function CollectionCover({ card, autoImage }: { card: CollectionCard; autoImage?
   const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
   const noFrame = card.id === "photo-printing";
+  const theme = themeForCard(card);
 
   return (
     <>
-      {/* Fallback gradient — always present so gaps are never blank */}
-      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
+      {/* Themed fallback gradient — always present so gaps are never blank */}
+      <div
+        className="absolute inset-0"
+        style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.via}, ${theme.to})` }}
+      />
 
       {/* Framed poster cover — centered inside the card */}
       <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-7">
         <div className="relative mx-auto aspect-[2/3] h-full max-h-full w-auto max-w-full transition-transform duration-700 group-hover:scale-[1.04]">
           {valid.length === 0 && !noFrame && (
-            <div className="h-full w-full rounded-sm border-[10px] border-black bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-2xl" />
+            <div
+              className="flex h-full w-full items-center justify-center rounded-sm border-[10px] border-black shadow-2xl"
+              style={{ background: `linear-gradient(160deg, ${theme.from}, ${theme.to})` }}
+            >
+              <span className="text-6xl opacity-60 sm:text-7xl">{theme.emoji}</span>
+            </div>
           )}
           {valid.map((url, i) => (
             <div
