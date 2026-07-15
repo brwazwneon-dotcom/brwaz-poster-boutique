@@ -206,7 +206,6 @@ function CategoryPage() {
 
   const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
   const posterThumbs = usePosterThumbs(posters.map((p) => p.id));
-  const selectedPreviewMap = usePosterPreviews(selectedPosters.map((p) => p.id));
   const filteredPosters = useMemo(
     () => posters,
     [posters],
@@ -217,13 +216,14 @@ function CategoryPage() {
       .filter(Boolean) as Poster[],
     [selectedIds, posters],
   );
+  const selectedPreviewMap = usePosterPreviews(selectedPosters.map((p) => p.id));
 
   const toggle = (p: Poster) => {
     if (category) {
       record({
         id: p.id,
         title: p.title,
-        image_url: p.image_url,
+        image_url: posterThumbs[p.id] ?? "",
         category_id: p.category_id,
         category_slug: category.slug,
         category_name: category.name,
@@ -403,6 +403,7 @@ function CategoryPage() {
           {selectedPosters.length > 0 && category ? (
             <Customizer
               posters={selectedPosters}
+              imageMap={selectedPreviewMap}
               category={category}
               onRemove={(id) =>
                 setSelectedIds((prev) => prev.filter((x) => x !== id))
@@ -431,6 +432,7 @@ function CategoryPage() {
         {selectedPosters.length > 0 && category && (
           <MobileCustomizerBar
             posters={selectedPosters}
+            imageMap={selectedPreviewMap}
             category={category}
             onRemove={(id) =>
               setSelectedIds((prev) => prev.filter((x) => x !== id))
@@ -478,11 +480,13 @@ function CategoryPage() {
 
 function Customizer({
   posters,
+  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
+  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -591,7 +595,7 @@ function Customizer({
         add({
           posterId: poster.id,
           title: poster.title,
-          image: poster.image_url,
+          image: imageMap[poster.id] ?? "",
           categoryId: category.id,
           categoryName: category.name,
           frameType: s.frameType,
@@ -647,7 +651,7 @@ function Customizer({
             <PosterGallery
               key={primary.id}
               posterId={primary.id}
-              posterUrl={primary.image_url}
+              posterUrl={imageMap[primary.id] ?? ""}
               title={primary.title}
               frameType={current.frameType}
               color={current.color}
@@ -706,7 +710,7 @@ function Customizer({
               className="absolute inset-0 z-10"
             />
             <FramePreview
-              posterUrl={p.image_url}
+              posterUrl={imageMap[p.id] ?? ""}
               title={p.title}
               frameType={s.frameType}
               color={s.color}
@@ -843,11 +847,13 @@ function Customizer({
 
 function MobileCustomizerBar({
   posters,
+  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
+  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -894,6 +900,7 @@ function MobileCustomizerBar({
         <div className="h-full">
           <Customizer
             posters={posters}
+            imageMap={imageMap}
             category={category}
             onRemove={onRemove}
             onClear={() => {
