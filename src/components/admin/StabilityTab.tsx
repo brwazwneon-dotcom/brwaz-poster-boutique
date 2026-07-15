@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, PauseCircle, PlayCircle, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, Loader2, PauseCircle, PlayCircle, RotateCcw, ShieldCheck, Zap } from "lucide-react";
 import {
   PERFORMANCE_DEFAULTS,
   saveFlags,
@@ -40,6 +40,28 @@ export function StabilityTab() {
 
   return (
     <div className="space-y-6">
+      {/* Restore full site look */}
+      <div className="rounded-md border border-primary/40 bg-primary/5 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <RotateCcw className="h-4 w-4" /> Restore Homepage Content
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              يرجع الوضع الافتراضي (Balanced Fast Mode): كل الأقسام والصور تظهر، ويوقف Emergency Fast Mode. لن يتم حذف أي بيانات.
+            </p>
+          </div>
+          <button
+            onClick={() => persist(PERFORMANCE_DEFAULTS, "تم استرجاع شكل الموقع الكامل")}
+            disabled={saving}
+            className="inline-flex shrink-0 items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-40"
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+            Restore Now
+          </button>
+        </div>
+      </div>
+
       {/* Status banner */}
       <div
         className={cn(
