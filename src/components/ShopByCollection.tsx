@@ -156,6 +156,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
 }
 
 export function ShopByCollection() {
+  const perf = usePerformanceFlags();
   const { data } = useHomeCollections();
   const { data: categories = [] } = useCategories();
   if (!data || !data.visible) return null;
@@ -185,7 +186,7 @@ export function ShopByCollection() {
       transitionMs: 6000,
       overlayOpacity: 0.55,
     }));
-  const cards = [...baseCards, ...autoCards];
+  const cards = [...baseCards, ...autoCards].slice(0, perf.emergency_fast_mode ? 8 : 16);
   if (cards.length === 0) return null;
 
   return (

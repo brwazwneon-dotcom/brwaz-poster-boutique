@@ -48,7 +48,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       const { data, error } = await supabase
         .from("best_sellers")
         .select(
-          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,categories(name,slug))",
+          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,badge,category_id,hidden,categories(name,slug))",
         )
         .eq("hidden", false)
         .order("pinned", { ascending: false })
