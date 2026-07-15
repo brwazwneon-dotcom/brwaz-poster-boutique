@@ -24,6 +24,7 @@ import { FrameSetsHome } from "@/components/FrameSetsHome";
 import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from "@/components/PersonalRails";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
+import { LazyOnView } from "@/components/LazyOnView";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -105,7 +106,17 @@ function Index() {
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
       {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
-        .map((s) => RENDERERS[s.key](s))}
+        .map((s, idx) => {
+          const node = RENDERERS[s.key](s);
+          // Keep hero + first section eager for LCP; defer the rest until
+          // they scroll near the viewport to shrink initial paint cost.
+          if (idx < 2 || s.key === "hero") return node;
+          return (
+            <LazyOnView key={`lazy-${s.key}-${idx}`} minHeight={520}>
+              {node}
+            </LazyOnView>
+          );
+        })}
     </div>
   );
 }
