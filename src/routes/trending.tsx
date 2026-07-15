@@ -16,7 +16,9 @@ export const Route = createFileRoute("/trending")({
       { property: "og:title", content: "Trending Now — BRWAZWNEON" },
       { property: "og:description", content: "Browse every trending framed poster on BRWAZWNEON right now." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/trending" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/trending" }],
   }),
   component: TrendingPage,
 });
