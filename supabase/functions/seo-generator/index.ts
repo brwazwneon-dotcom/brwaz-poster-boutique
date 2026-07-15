@@ -1,6 +1,6 @@
 // Edge Function: seo-generator
 // Generates poster SEO content using a strict API priority queue:
-//   GEMINI_API_KEY_1 → 2 → 3 → 4 → 5 → 6 → OPENROUTER_API_KEY (fallback only).
+//   GEMINI_API_KEY_1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → OPENROUTER_API_KEY (fallback only).
 // Rate-limit / quota / 5xx failures rotate to the next key automatically.
 // Admin-only. Called from the front-end via supabase.functions.invoke("seo-generator").
 
@@ -15,6 +15,10 @@ const GEMINI_KEY_LABELS = [
   "GEMINI_API_KEY_4",
   "GEMINI_API_KEY_5",
   "GEMINI_API_KEY_6",
+  "GEMINI_API_KEY_7",
+  "GEMINI_API_KEY_8",
+  "GEMINI_API_KEY_9",
+  "GEMINI_API_KEY_10",
 ];
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODELS = [
