@@ -41,11 +41,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { data: categories = [] } = useCategories();
+  const perf = usePerformanceFlags();
+  const { data: categories = [] } = useCategories(!perf.emergency_fast_mode);
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
   const { data: picks = {} } = useHomeCategoryPicks();
-  const perf = usePerformanceFlags();
   const emergencyHidden = new Set([
     "for-you",
     "because-you-liked",
@@ -93,7 +93,7 @@ function Index() {
     "recommended-for-you": (s) => (
       <RecommendedForYouSection key="recommended-for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
     ),
-    categories: () => (
+    categories: () => perf.emergency_fast_mode ? null : (
       <div key="categories">
         {FEATURED_SLUGS.map((slug, i) => {
           const cat = bySlug.get(slug);
@@ -330,6 +330,7 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
   const limit = perf.emergency_fast_mode ? 8 : 6;
   const { data: posters = [] } = useQuery({
     queryKey: ["home-posters", slug, picksKey, limit],
+    enabled: !perf.emergency_fast_mode,
     staleTime: 60_000,
     queryFn: async () => {
       // Admin-picked posters take priority (fixed order).
