@@ -33,14 +33,14 @@ export type PerformanceFlags = {
 };
 
 export const PERFORMANCE_DEFAULTS: PerformanceFlags = {
-  emergency_fast_mode: true,
+  emergency_fast_mode: false,
   safe_mode: false,
   pause_heavy_jobs: false,
-  disable_preloader: true,
-  max_home_sections: 6,
-  disable_social_proof: true,
-  disable_floating_offer: true,
-  analytics_defer_ms: 9000,
+  disable_preloader: false,
+  max_home_sections: 30,
+  disable_social_proof: false,
+  disable_floating_offer: false,
+  analytics_defer_ms: 3000,
 };
 
 /** Values applied when `safe_mode` is ON, regardless of other stored values. */
