@@ -72,7 +72,7 @@ export const Route = createFileRoute("/category/$slug")({
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;
     const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
-    const url = `https://brwaz-poster-boutique.lovable.app/category/${params.slug}`;
+    const url = `https://brwazwneon-com.lovable.app/category/${params.slug}`;
     return {
       meta: [
         { title },
@@ -86,6 +86,19 @@ export const Route = createFileRoute("/category/$slug")({
         { name: "twitter:description", content: description },
       ],
       links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://brwazwneon-com.lovable.app/" },
+              { "@type": "ListItem", position: 2, name: pretty, item: url },
+            ],
+          }),
+        },
+      ],
     };
   },
   component: CategoryPage,
