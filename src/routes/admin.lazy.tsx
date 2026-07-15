@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { TestModeControls } from "@/components/admin/TestModeControls";
@@ -118,7 +118,7 @@ import {
   type HeroBannerConfig,
 } from "@/lib/hero-banners";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createLazyFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Admin — BRWAZWNEON" },
