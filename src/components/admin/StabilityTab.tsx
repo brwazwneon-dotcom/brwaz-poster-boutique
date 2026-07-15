@@ -64,6 +64,19 @@ export function StabilityTab() {
       {/* Emergency actions */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <button
+          onClick={() => persist({ ...server, emergency_fast_mode: !server.emergency_fast_mode }, server.emergency_fast_mode ? "تم إيقاف Emergency Fast Mode" : "تم تفعيل Emergency Fast Mode")}
+          disabled={saving}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-md border px-4 py-6 text-sm font-semibold transition md:col-span-2",
+            server.emergency_fast_mode
+              ? "border-green-500/40 bg-green-500/10 hover:bg-green-500/20"
+              : "border-red-500/40 bg-red-500/10 hover:bg-red-500/20",
+          )}
+        >
+          <Zap className="h-5 w-5" />
+          {server.emergency_fast_mode ? "Emergency Fast Mode is ON" : "Turn On Emergency Fast Mode"}
+        </button>
+        <button
           onClick={() => persist({ ...server, safe_mode: !server.safe_mode }, server.safe_mode ? "تم إيقاف Performance Safe Mode" : "تم تفعيل Performance Safe Mode")}
           disabled={saving}
           className={cn(
@@ -97,6 +110,12 @@ export function StabilityTab() {
           Feature Toggles — أوقف أي ميزة يبدو أنها تسبب بطء
         </div>
         <div className="divide-y divide-border">
+          <Toggle
+            label="Emergency Fast Mode"
+            hint="أسرع وضع للواجهة: 8 منتجات، thumbnails فقط، إخفاء الأقسام البطيئة وتأجيل السكربتات."
+            checked={local.emergency_fast_mode}
+            onChange={(v) => setLocal({ ...local, emergency_fast_mode: v })}
+          />
           <Toggle
             label="Preloader (شاشة اللوجو السوداء)"
             hint="لو الصفحة تبطئ بعد ظهور اللوجو، اقفلها."
