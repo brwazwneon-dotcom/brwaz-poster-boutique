@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
 import { Flame, ArrowRight } from "lucide-react";
+import { usePerformanceFlags } from "@/lib/performance-flags";
+import { usePosterThumbs } from "@/lib/public-images";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -26,7 +28,8 @@ export function TrendingNow({
   manualIds?: string[];
 }) {
   const useManual = Array.isArray(manualIds) && manualIds.length > 0;
-  const displayCount = Math.min(Math.max(itemsCount, 1), 10);
+  const perf = usePerformanceFlags();
+  const displayCount = perf.emergency_fast_mode ? 8 : Math.min(Math.max(itemsCount, 1), 10);
   const { data = [] } = useQuery({
     queryKey: ["trending-now-home", useManual ? manualIds!.join(",") : "auto", displayCount],
     staleTime: 60_000,
@@ -34,25 +37,24 @@ export function TrendingNow({
       if (useManual) {
         const { data, error } = await supabase
           .from("posters")
-          .select("id,title,image_url,category_id,categories(name,slug)")
+          .select("id,title,category_id,categories(name,slug)")
           .in("id", manualIds!)
           .eq("hidden", false)
-          .not("image_url", "is", null);
         if (error) throw error;
         const m = new Map((data ?? []).map((p) => [p.id, p]));
         return manualIds!.map((id) => m.get(id)).filter(Boolean).slice(0, displayCount);
       }
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,categories(name,slug)")
+        .select("id,title,category_id,categories(name,slug)")
         .eq("trending", true)
         .eq("hidden", false)
-        .not("image_url", "is", null)
-        .limit(displayCount * 3);
+        .limit(displayCount);
       if (error) throw error;
-      return shuffle(data ?? []).slice(0, displayCount);
+      return perf.emergency_fast_mode ? (data ?? []) : shuffle(data ?? []).slice(0, displayCount);
     },
   });
+  const thumbs = usePosterThumbs(data.map((p: any) => p.id));
 
   if (data.length === 0) return null;
 
@@ -94,7 +96,7 @@ export function TrendingNow({
                 <Flame className="h-2.5 w-2.5" /> Trending
               </span>
               <FramePreview
-                posterUrl={p.image_url}
+                posterUrl={thumbs[p.id] ?? ""}
                 title={p.title}
                 frameType="pvc"
                 color="black"

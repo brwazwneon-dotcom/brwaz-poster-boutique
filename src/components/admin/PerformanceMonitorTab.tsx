@@ -125,13 +125,13 @@ export function PerformanceMonitorTab() {
   const slowCount = rows.filter((r) => r.value_ms > 3000).length;
 
   async function clearOld() {
-    if (!confirm("حذف كل قياسات الأداء الأقدم من 24 ساعة؟")) return;
+    if (!confirm("حذف كل قياسات الأداء الحالية والبدء بقياس جديد؟")) return;
     setClearing(true);
     try {
-      const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const cutoff = new Date(Date.now() + 60_000).toISOString();
       const { error } = await supabase.from("perf_metrics").delete().lt("created_at", cutoff);
       if (error) throw error;
-      toast.success("تم حذف القياسات القديمة");
+      toast.success("تم حذف القياسات الحالية — القياسات الجديدة ستظهر بعد زيارات جديدة");
       qc.invalidateQueries({ queryKey: ["perf-metrics"] });
     } catch (e) {
       toast.error("فشل الحذف: " + (e as Error).message);

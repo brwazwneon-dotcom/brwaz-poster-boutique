@@ -26,6 +26,7 @@ import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 import { LazyOnView } from "@/components/LazyOnView";
 import { usePerformanceFlags } from "@/lib/performance-flags";
+import { usePosterThumbs } from "@/lib/public-images";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,11 +41,24 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { data: categories = [] } = useCategories();
+  const perf = usePerformanceFlags();
+  const { data: categories = [] } = useCategories(!perf.emergency_fast_mode);
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
   const { data: picks = {} } = useHomeCategoryPicks();
-  const perf = usePerformanceFlags();
+  const emergencyHidden = new Set([
+    "for-you",
+    "because-you-liked",
+    "recommended-for-you",
+    "recently-viewed",
+    "before-after",
+    "reviews",
+    "highlights",
+    "categories",
+    "frame-sets",
+    "trusted-quality",
+    "about",
+  ]);
 
   const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
   const resolveSubtitle = (s: HomeSectionConfig) => s.subtitle_en || s.subtitle || undefined;
@@ -79,7 +93,7 @@ function Index() {
     "recommended-for-you": (s) => (
       <RecommendedForYouSection key="recommended-for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
     ),
-    categories: () => (
+    categories: () => perf.emergency_fast_mode ? null : (
       <div key="categories">
         {FEATURED_SLUGS.map((slug, i) => {
           const cat = bySlug.get(slug);
@@ -103,11 +117,12 @@ function Index() {
 
   return (
     <div className="bg-background text-foreground">
-      <HomeSlider />
-      <CollectionsQuickBar />
+      {!perf.emergency_fast_mode && <HomeSlider />}
+      {!perf.emergency_fast_mode && <CollectionsQuickBar />}
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
-      {sections
+        {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
+        .filter((s) => !perf.emergency_fast_mode || !emergencyHidden.has(s.key))
         .slice(0, perf.max_home_sections)
         .map((s, idx) => {
           const node = RENDERERS[s.key](s);
@@ -125,6 +140,30 @@ function Index() {
 }
 
 function HeroSection() {
+  const perf = usePerformanceFlags();
+  if (perf.emergency_fast_mode) {
+    return (
+      <section className="relative isolate overflow-hidden border-b border-border bg-background">
+        <div className="container-page flex min-h-[48vh] flex-col justify-end py-16">
+          <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
+            BRWAZWNEON · Framed in Egypt · Cash on delivery
+          </p>
+          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem]">
+            Turn Your Room<br />Into A Piece<br />Of Art.
+          </h1>
+          <div className="mt-8">
+            <Link
+              to="/category/$slug"
+              params={{ slug: "movies" }}
+              className="inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
+            >
+              Shop Posters
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
         <HeroBannerSlider
@@ -287,20 +326,22 @@ function defaultName(slug: string) {
 
 function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
   const picksKey = pickedIds.join(",");
+  const perf = usePerformanceFlags();
+  const limit = perf.emergency_fast_mode ? 8 : 6;
   const { data: posters = [] } = useQuery({
-    queryKey: ["home-posters", slug, picksKey],
+    queryKey: ["home-posters", slug, picksKey, limit],
+    enabled: !perf.emergency_fast_mode,
     staleTime: 60_000,
     queryFn: async () => {
       // Admin-picked posters take priority (fixed order).
       if (pickedIds.length > 0) {
         const { data, error } = await supabase
           .from("posters")
-          .select("id,title,image_url")
+          .select("id,title")
           .in("id", pickedIds)
-          .not("image_url", "is", null);
         if (error) throw error;
         const map = new Map((data ?? []).map((p) => [p.id, p]));
-        return pickedIds.map((id) => map.get(id)).filter(Boolean).slice(0, 6);
+        return pickedIds.map((id) => map.get(id)).filter(Boolean).slice(0, limit);
       }
       // Resolve category and its descendants (posters may live under subcategories).
       const { data: cat, error: catErr } = await supabase
@@ -317,22 +358,16 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
       const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url")
+        .select("id,title")
         .in("category_id", ids)
         .eq("hidden", false)
-        .not("image_url", "is", null)
         .order("created_at", { ascending: false })
-        .limit(48);
+        .limit(limit);
       if (error) throw error;
-      const rows = data ?? [];
-      // Shuffle so the homepage shows a random mix across subcategories.
-      for (let i = rows.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [rows[i], rows[j]] = [rows[j], rows[i]];
-      }
-      return rows.slice(0, 6);
+      return data ?? [];
     },
   });
+  const thumbs = usePosterThumbs(posters.map((p: any) => p.id));
 
   const reversed = index % 2 === 1;
 
@@ -370,7 +405,7 @@ function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; 
               >
                 <WishlistHeart posterId={p.id} />
                 <FramePreview
-                  posterUrl={p.image_url}
+                  posterUrl={thumbs[p.id] ?? ""}
                   title={p.title}
                   aspectClassName="aspect-[3/4]"
                   bare

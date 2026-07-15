@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
@@ -57,8 +57,16 @@ export function FramePreview({
   const m: FrameMockup = mockups[key];
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [mockupLoaded, setMockupLoaded] = useState(false);
-  const allLoaded = posterLoaded && mockupLoaded;
-  // Always use the uploaded PNG mockups — no CSS-based frame fallback.
+  const [showLoading, setShowLoading] = useState(true);
+  const useMockup = !bare && !!m.image;
+  const allLoaded = posterLoaded && (!useMockup || mockupLoaded);
+  useEffect(() => {
+    setPosterLoaded(false);
+    setMockupLoaded(false);
+    setShowLoading(true);
+    const id = window.setTimeout(() => setShowLoading(false), 1500);
+    return () => window.clearTimeout(id);
+  }, [posterUrl, useMockup, m.image]);
 
   const s: EditSettings = normalizeEditSettings(editSettings);
   // Translate as % so it scales with the printable area size.
@@ -94,7 +102,7 @@ export function FramePreview({
         "relative isolate w-full overflow-hidden",
         aspectClassName,
         bare
-          ? "drop-shadow-[0_12px_18px_rgba(0,0,0,0.35)]"
+          ? "bg-black/80 p-[7%] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_12px_18px_rgba(0,0,0,0.35)]"
           : "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
         className,
       )}
@@ -173,7 +181,7 @@ export function FramePreview({
       </div>
 
       {/* Transparent PNG frame overlay — sits on top of the artwork like a clipping mask */}
-      {m.image && (
+      {useMockup && (
         <img
           src={m.image}
           alt=""
@@ -188,7 +196,7 @@ export function FramePreview({
       )}
 
       {/* Loading indicator — clear feedback until both the artwork and the frame mockup are ready */}
-      {!allLoaded && (
+      {!bare && showLoading && !allLoaded && (
         <div className="pointer-events-none absolute inset-0 z-[30] flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
           <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />

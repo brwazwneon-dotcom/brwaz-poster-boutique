@@ -6,6 +6,7 @@ import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useLogoSize } from "@/lib/branding";
 import { useCategories, isCategoryVisible } from "@/lib/use-categories";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 const LOGO_PNG_FALLBACK = "/assets/brwazwneon-logo.png";
 
 const FALLBACK_MENU: { label: string; href: string }[] = [
@@ -21,8 +22,9 @@ export function SiteHeader() {
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
   const logo = useLogoSize("header");
-  const { data: categories = [] } = useCategories();
-  const headerCats = categories
+  const perf = usePerformanceFlags();
+  const { data: categories = [] } = useCategories(!perf.emergency_fast_mode);
+  const headerCats = perf.emergency_fast_mode ? [] : categories
     .filter((c) => !c.parent_id && isCategoryVisible(c) && (c.show_in_header ?? c.featured ?? false))
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((c) => ({ label: c.name, href: `/category/${c.slug}` }));

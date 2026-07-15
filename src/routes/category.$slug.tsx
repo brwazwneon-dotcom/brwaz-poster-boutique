@@ -1,5 +1,4 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
-import { SafeImage } from "@/components/SafeImage";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -41,11 +40,13 @@ import { useGridDisplayMode } from "@/lib/use-settings";
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Minus, Plus } from "lucide-react";
+import { usePerformanceFlags } from "@/lib/performance-flags";
+import { usePosterThumbs, usePosterPreviews } from "@/lib/public-images";
 
 type Poster = {
   id: string;
   title: string;
-  image_url: string;
+  image_url?: string;
   category_id: string | null;
   tags?: string[] | null;
   edit_settings?: unknown;
@@ -55,7 +56,7 @@ type Poster = {
   is_best_seller?: boolean | null;
 };
 
-const PAGE_SIZE = 48;
+const PAGE_SIZE = 24;
 
 type SortKey = "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
 type SortDef = { id: SortKey; label: string; col: string; asc: boolean };
@@ -131,6 +132,7 @@ function CategoryPage() {
   const [activeSubId, setActiveSubId] = useState<string>("");
   const { record } = useRecentlyViewed();
   const gridMode = useGridDisplayMode();
+  const perf = usePerformanceFlags();
 
   // Retargeting: fire ViewCategory once per category mount.
   useEffect(() => {
@@ -171,7 +173,7 @@ function CategoryPage() {
       const to = from + PAGE_SIZE - 1;
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller,pinned,sort_order,trending")
+        .select("id,title,category_id,tags,badge,sales_count,views_count,is_best_seller,pinned,sort_order,trending")
         .in("category_id", includedCategoryIds)
         .eq("hidden", false);
       if (sort === "manual") {
@@ -203,6 +205,7 @@ function CategoryPage() {
   });
 
   const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
+  const posterThumbs = usePosterThumbs(posters.map((p) => p.id));
   const filteredPosters = useMemo(
     () => posters,
     [posters],
@@ -213,13 +216,14 @@ function CategoryPage() {
       .filter(Boolean) as Poster[],
     [selectedIds, posters],
   );
+  const selectedPreviewMap = usePosterPreviews(selectedPosters.map((p) => p.id));
 
   const toggle = (p: Poster) => {
     if (category) {
       record({
         id: p.id,
         title: p.title,
-        image_url: p.image_url,
+        image_url: posterThumbs[p.id] ?? "",
         category_id: p.category_id,
         category_slug: category.slug,
         category_name: category.name,
@@ -353,14 +357,14 @@ function CategoryPage() {
                         <WishlistHeart posterId={p.id} />
                         <PosterBadge badge={p.badge} />
                       <FramePreview
-                        posterUrl={p.image_url}
+                        posterUrl={posterThumbs[p.id] ?? ""}
                         title={p.title}
-                        editSettings={p.edit_settings}
+                        editSettings={undefined}
                         aspectClassName="aspect-[2/3]"
                         frameType={gridMode === "wood" ? "wood" : "pvc"}
                         color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
                         bare
-                        loading={idx < 8 ? "eager" : "lazy"}
+                        loading={idx >= 0 && idx < 4 ? "eager" : "lazy"}
                         className={cn(
                           "h-full w-full transition",
                           active && "scale-[1.02]",
@@ -399,6 +403,7 @@ function CategoryPage() {
           {selectedPosters.length > 0 && category ? (
             <Customizer
               posters={selectedPosters}
+              imageMap={selectedPreviewMap}
               category={category}
               onRemove={(id) =>
                 setSelectedIds((prev) => prev.filter((x) => x !== id))
@@ -427,6 +432,7 @@ function CategoryPage() {
         {selectedPosters.length > 0 && category && (
           <MobileCustomizerBar
             posters={selectedPosters}
+            imageMap={selectedPreviewMap}
             category={category}
             onRemove={(id) =>
               setSelectedIds((prev) => prev.filter((x) => x !== id))
@@ -465,20 +471,22 @@ function CategoryPage() {
     )}
     {selectedPosters[0] && <FrameComparison />}
     {selectedPosters[0] && <BeforeAfter location="product" />}
-    <RecentlyViewed />
-    <CustomerReviews posterId={selectedPosters[0]?.id} />
-    <ProductInfoSections variant="all" />
+    {!perf.emergency_fast_mode && <RecentlyViewed />}
+    {!perf.emergency_fast_mode && <CustomerReviews posterId={selectedPosters[0]?.id} />}
+    {!perf.emergency_fast_mode && <ProductInfoSections variant="all" />}
     </>
   );
 }
 
 function Customizer({
   posters,
+  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
+  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -587,7 +595,7 @@ function Customizer({
         add({
           posterId: poster.id,
           title: poster.title,
-          image: poster.image_url,
+          image: imageMap[poster.id] ?? "",
           categoryId: category.id,
           categoryName: category.name,
           frameType: s.frameType,
@@ -643,7 +651,7 @@ function Customizer({
             <PosterGallery
               key={primary.id}
               posterId={primary.id}
-              posterUrl={primary.image_url}
+              posterUrl={imageMap[primary.id] ?? ""}
               title={primary.title}
               frameType={current.frameType}
               color={current.color}
@@ -702,7 +710,7 @@ function Customizer({
               className="absolute inset-0 z-10"
             />
             <FramePreview
-              posterUrl={p.image_url}
+              posterUrl={imageMap[p.id] ?? ""}
               title={p.title}
               frameType={s.frameType}
               color={s.color}
@@ -839,11 +847,13 @@ function Customizer({
 
 function MobileCustomizerBar({
   posters,
+  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
+  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -890,6 +900,7 @@ function MobileCustomizerBar({
         <div className="h-full">
           <Customizer
             posters={posters}
+            imageMap={imageMap}
             category={category}
             onRemove={onRemove}
             onClear={() => {

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useMemo, useState } from "react";
-import { FramePreview } from "@/components/FramePreview";
+import { useState } from "react";
 import { useCategories, isCategoryVisible } from "@/lib/use-categories";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 
 export type CollectionCard = {
   id: string;
@@ -85,89 +85,13 @@ export function useHomeCollections() {
   });
 }
 
-/** Fetch rotating cover images for a card according to its cover settings. */
-function useCoverImages(card: CollectionCard) {
-  const mode = card.coverMode ?? "auto";
-  const slug = extractCategorySlug(card.link);
-  const idsKey = (card.coverPosterIds ?? []).join(",");
-
-  return useQuery({
-    queryKey: ["collection-cover", card.id, mode, slug, idsKey, card.image],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<string[]> => {
-      if (mode === "manual") return card.image ? [card.image] : [];
-      if (mode === "selected") {
-        const ids = (card.coverPosterIds ?? []).filter(Boolean);
-        if (ids.length === 0) return card.image ? [card.image] : [];
-        const { data, error } = await supabase
-          .from("posters")
-          .select("id,image_url")
-          .in("id", ids);
-        if (error) throw error;
-        return (data ?? [])
-          .map((p) => p.image_url as string)
-          .filter((u): u is string => !!u);
-      }
-      // auto
-      if (!slug) return card.image ? [card.image] : [];
-      // Resolve category + child ids (posters may live under subcategories)
-      const { data: cat, error: catErr } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (catErr) throw catErr;
-      if (!cat) return card.image ? [card.image] : [];
-      const { data: kids } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("parent_id", cat.id);
-      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
-      const { data, error } = await supabase
-        .from("posters")
-        .select("image_url")
-        .in("category_id", ids)
-        .eq("hidden", false)
-        .not("image_url", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(24);
-      if (error) throw error;
-      const urls = (data ?? [])
-        .map((p) => p.image_url as string)
-        .filter((u): u is string => !!u);
-      // shuffle
-      for (let i = urls.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [urls[i], urls[j]] = [urls[j], urls[i]];
-      }
-      return urls.slice(0, 8);
-    },
-  });
-}
-
 function CollectionCover({ card }: { card: CollectionCard }) {
-  const { data: images = [] } = useCoverImages(card);
+  const perf = usePerformanceFlags();
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const validImages = useMemo(() => images.filter((u) => !broken[u]), [images, broken]);
-  const fallback = card.image ? [card.image] : [];
-  const valid = validImages.length > 0 ? validImages : fallback;
-  const [index, setIndex] = useState(0);
-  const interval = Math.max(2000, card.transitionMs ?? 6000);
+  const valid = !perf.emergency_fast_mode && card.image && !broken[card.image] ? [card.image] : [];
   const bw = card.bw === true;
   const overlay = Math.max(0, Math.min(1, card.overlayOpacity ?? 0.55));
   const noFrame = card.id === "photo-printing";
-
-  useEffect(() => {
-    if (valid.length < 2) return;
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % valid.length);
-    }, interval);
-    return () => clearInterval(id);
-  }, [valid.length, interval]);
-
-  useEffect(() => {
-    if (index >= valid.length) setIndex(0);
-  }, [valid.length, index]);
 
   return (
     <>
@@ -178,13 +102,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
       <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-7">
         <div className="relative mx-auto aspect-[2/3] h-full max-h-full w-auto max-w-full transition-transform duration-700 group-hover:scale-[1.04]">
           {valid.length === 0 && !noFrame && (
-            <FramePreview
-              posterUrl=""
-              title={card.title}
-              aspectClassName="aspect-[2/3]"
-              loading="lazy"
-              editSettings={{ fit: "cover", offsetX: 0, offsetY: 0, zoom: 1, stretchX: 1, stretchY: 1, rotate: 0 }}
-            />
+            <div className="h-full w-full rounded-sm border-[10px] border-black bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-2xl" />
           )}
           {valid.map((url, i) => (
             <div
@@ -192,7 +110,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
               className={[
                 "absolute inset-0 transition-opacity duration-[1400ms] ease-in-out",
                 bw ? "grayscale group-hover:grayscale-[30%]" : "",
-                i === index ? "opacity-100" : "opacity-0",
+                i === 0 ? "opacity-100" : "opacity-0",
               ].join(" ")}
             >
               {noFrame ? (
@@ -204,21 +122,16 @@ function CollectionCover({ card }: { card: CollectionCard }) {
                   onError={() => setBroken((b) => ({ ...b, [url]: true }))}
                 />
               ) : (
-              <FramePreview
-                posterUrl={url}
-                title={card.title}
-                aspectClassName="aspect-[2/3]"
-                loading="lazy"
-                editSettings={{
-                  fit: "cover",
-                  offsetX: 0,
-                  offsetY: 0,
-                  zoom: 1,
-                  stretchX: 1,
-                  stretchY: 1,
-                  rotate: 0,
-                }}
-              />
+                <img
+                  src={url}
+                  alt={card.title}
+                  loading="lazy"
+                  decoding="async"
+                  width={360}
+                  height={540}
+                  className="h-full w-full rounded-sm border-[10px] border-black object-cover shadow-2xl"
+                  onError={() => setBroken((b) => ({ ...b, [url]: true }))}
+                />
               )}
               {/* Detect broken source so we can drop it from rotation */}
               <img
@@ -243,6 +156,7 @@ function CollectionCover({ card }: { card: CollectionCard }) {
 }
 
 export function ShopByCollection() {
+  const perf = usePerformanceFlags();
   const { data } = useHomeCollections();
   const { data: categories = [] } = useCategories();
   if (!data || !data.visible) return null;
@@ -272,7 +186,7 @@ export function ShopByCollection() {
       transitionMs: 6000,
       overlayOpacity: 0.55,
     }));
-  const cards = [...baseCards, ...autoCards];
+  const cards = [...baseCards, ...autoCards].slice(0, perf.emergency_fast_mode ? 8 : 16);
   if (cards.length === 0) return null;
 
   return (

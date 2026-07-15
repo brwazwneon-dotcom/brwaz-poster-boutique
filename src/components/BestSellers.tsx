@@ -10,6 +10,8 @@ import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { useBestSellersConfig } from "@/lib/homepage-sections";
 import { ChevronLeft, ChevronRight, ShoppingCart, Eye, Flame } from "lucide-react";
 import { toast } from "sonner";
+import { usePerformanceFlags } from "@/lib/performance-flags";
+import { usePosterThumbs } from "@/lib/public-images";
 
 type BSRow = {
   id: string;
@@ -24,7 +26,6 @@ type BSRow = {
   posters: {
     id: string;
     title: string;
-    image_url: string;
     badge: string | null;
     category_id: string | null;
     hidden: boolean;
@@ -37,20 +38,22 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
   const pricing = usePricing();
   const { add } = useCart();
   const scroller = useRef<HTMLDivElement>(null);
+  const perf = usePerformanceFlags();
+  const count = perf.emergency_fast_mode ? 8 : Math.min(cfg.homepage_count, 12);
 
   const { data = [] } = useQuery({
-    queryKey: ["best-sellers", cfg.homepage_count],
+    queryKey: ["best-sellers", count],
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("best_sellers")
         .select(
-          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,categories(name,slug))",
+          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,badge,category_id,hidden,categories(name,slug))",
         )
         .eq("hidden", false)
         .order("pinned", { ascending: false })
         .order("position", { ascending: true })
-        .limit(cfg.homepage_count);
+        .limit(count);
       if (error) throw error;
       const now = Date.now();
       return (data as unknown as BSRow[]).filter((r) => {
@@ -61,6 +64,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       });
     },
   });
+  const thumbs = usePosterThumbs(data.map((r) => r.posters?.id).filter(Boolean) as string[]);
 
   // autoplay
   useEffect(() => {
@@ -105,7 +109,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
     add({
       posterId: p.id,
       title: p.title,
-      image: p.image_url,
+      image: thumbs[p.id] ?? "",
       categoryId: p.category_id,
       categoryName: p.categories?.name ?? "",
       frameType,
@@ -172,7 +176,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                   ) : null}
                   {cfg.show_wishlist ? <WishlistHeart posterId={p.id} /> : null}
                   <FramePreview
-                    posterUrl={p.image_url}
+                    posterUrl={thumbs[p.id] ?? ""}
                     title={p.title}
                     aspectClassName="aspect-[3/4]"
                     color="black"
