@@ -22,7 +22,10 @@ export const Route = createFileRoute("/photo-printing")({
         property: "og:description",
         content: "Premium Fuji photo printing. Upload, calculate, order. Cash on delivery.",
       },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/photo-printing" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/photo-printing" }],
   }),
   component: PhotoPrintingPage,
 });
