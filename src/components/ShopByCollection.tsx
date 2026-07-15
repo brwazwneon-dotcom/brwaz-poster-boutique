@@ -12,13 +12,13 @@ import { usePosterThumbs } from "@/lib/public-images";
  */
 function useAutoCoverPosters(items: { slug: string; id: string }[]): Record<string, string> {
   const key = items.map((i) => `${i.slug}:${i.id}`).join("|");
-  const { data: firstPosters = [] } = useQuery({
+  const { data: candidatePosters = [] } = useQuery({
     queryKey: ["home-collections-auto-cover", key],
     enabled: items.length > 0,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
     queryFn: async () => {
-      const results: { slug: string; posterId: string }[] = [];
-      // Batch: one query per category (cheap; limit 1 each).
+      const results: { slug: string; posterIds: string[] }[] = [];
+      // Fetch up to 5 recent visible posters per category; we pick one at random client-side.
       await Promise.all(
         items.map(async ({ slug, id }) => {
           const { data } = await supabase
@@ -27,20 +27,25 @@ function useAutoCoverPosters(items: { slug: string; id: string }[]): Record<stri
             .eq("category_id", id)
             .eq("hidden", false)
             .order("created_at", { ascending: false })
-            .limit(1);
-          const posterId = data?.[0]?.id;
-          if (posterId) results.push({ slug, posterId });
+            .limit(5);
+          const ids = (data ?? []).map((r) => r.id).filter(Boolean);
+          if (ids.length) results.push({ slug, posterIds: ids });
         }),
       );
       return results;
     },
   });
-  const posterIds = firstPosters.map((p) => p.posterId);
-  const thumbs = usePosterThumbs(posterIds);
+  const allIds = candidatePosters.flatMap((p) => p.posterIds);
+  const thumbs = usePosterThumbs(allIds);
   const out: Record<string, string> = {};
-  for (const { slug, posterId } of firstPosters) {
-    const url = thumbs[posterId];
-    if (url) out[slug] = url;
+  for (const { slug, posterIds } of candidatePosters) {
+    const valid = posterIds.map((id) => thumbs[id]).filter((u): u is string => !!u);
+    if (valid.length === 0) continue;
+    // Pick a stable random per page-load (index derived from slug + timestamp bucket).
+    const bucket = Math.floor(Date.now() / (10 * 60_000));
+    let hash = bucket;
+    for (let i = 0; i < slug.length; i++) hash = (hash * 31 + slug.charCodeAt(i)) >>> 0;
+    out[slug] = valid[hash % valid.length];
   }
   return out;
 }
