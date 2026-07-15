@@ -5,8 +5,9 @@ type Variant = "thumb" | "medium" | "large";
 
 /**
  * Public storefront image rule: use generated display variants only.
- * Never falls back to poster original/image_url; missing variants render the
- * lightweight placeholder from FramePreview/SafeImage instead.
+ * Falls back to the poster's stored image_url when a variant hasn't been
+ * generated yet — better than an empty frame on the storefront.
+ * Original/print-quality URLs are never used here.
  */
 export function usePosterImageVariants(ids: string[], variant: Variant = "thumb") {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean))).slice(0, 80);
@@ -16,20 +17,38 @@ export function usePosterImageVariants(ids: string[], variant: Variant = "thumb"
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Record<string, string>> => {
-      const { data, error } = await supabase
+      const out: Record<string, string> = {};
+      // 1) Preferred: the requested display variant.
+      const { data: variantRows } = await supabase
         .from("image_variants")
-        .select("source_id,url,width")
+        .select("source_id,url,variant")
         .eq("source_table", "posters")
-        .eq("variant", variant)
+        .in("variant", [variant, "medium", "thumb"])
         .eq("status", "done")
         .in("source_id", uniqueIds);
-      if (error) return {};
-      const out: Record<string, string> = {};
-      for (const row of data ?? []) {
+      // Priority per id: requested variant > medium > thumb
+      const priority: Record<string, number> = { [variant]: 0, medium: 1, thumb: 2 };
+      const best: Record<string, { url: string; rank: number }> = {};
+      for (const row of variantRows ?? []) {
         const id = String(row.source_id ?? "");
         const url = String(row.url ?? "");
         if (!id || !url) continue;
-        out[id] = url;
+        const rank = priority[String(row.variant)] ?? 9;
+        if (!best[id] || rank < best[id].rank) best[id] = { url, rank };
+      }
+      for (const id of uniqueIds) if (best[id]) out[id] = best[id].url;
+      // 2) Fallback: poster's own image_url for anything still missing.
+      const missing = uniqueIds.filter((id) => !out[id]);
+      if (missing.length > 0) {
+        const { data: posterRows } = await supabase
+          .from("posters")
+          .select("id,image_url")
+          .in("id", missing);
+        for (const row of posterRows ?? []) {
+          const id = String(row.id ?? "");
+          const url = String(row.image_url ?? "");
+          if (id && url) out[id] = url;
+        }
       }
       return out;
     },
