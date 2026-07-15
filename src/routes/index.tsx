@@ -113,7 +113,7 @@ function Index() {
 
   return (
     <div className="bg-background text-foreground">
-      <HomeSlider />
+      {!perf.emergency_fast_mode && <HomeSlider />}
       <CollectionsQuickBar />
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
         {sections
@@ -136,6 +136,30 @@ function Index() {
 }
 
 function HeroSection() {
+  const perf = usePerformanceFlags();
+  if (perf.emergency_fast_mode) {
+    return (
+      <section className="relative isolate overflow-hidden border-b border-border bg-background">
+        <div className="container-page flex min-h-[48vh] flex-col justify-end py-16">
+          <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
+            BRWAZWNEON · Framed in Egypt · Cash on delivery
+          </p>
+          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem]">
+            Turn Your Room<br />Into A Piece<br />Of Art.
+          </h1>
+          <div className="mt-8">
+            <Link
+              to="/category/$slug"
+              params={{ slug: "movies" }}
+              className="inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
+            >
+              Shop Posters
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
         <HeroBannerSlider
