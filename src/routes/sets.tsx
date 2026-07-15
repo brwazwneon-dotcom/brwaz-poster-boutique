@@ -65,7 +65,11 @@ function SetsPage() {
 
       <section className="container-page py-14">
         {isLoading ? (
-          <div className="text-center text-sm text-muted-foreground">Loading sets…</div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-[4/5] animate-pulse rounded-sm bg-muted/40" />
+            ))}
+          </div>
         ) : sets.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border p-14 text-center text-sm text-muted-foreground">
             New sets dropping soon.
