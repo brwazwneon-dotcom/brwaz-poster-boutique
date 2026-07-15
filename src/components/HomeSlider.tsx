@@ -22,6 +22,14 @@ export function HomeSlider() {
   });
 
   const [idx, setIdx] = useState(0);
+  // Only mount the first slide immediately; defer the rest until after
+  // first paint so the LCP image isn't fighting for bandwidth.
+  const [mountAll, setMountAll] = useState(false);
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const t = window.setTimeout(() => setMountAll(true), 1200);
+    return () => window.clearTimeout(t);
+  }, [slides.length]);
 
   useEffect(() => {
     if (slides.length < 2) return;
@@ -36,7 +44,14 @@ export function HomeSlider() {
   return (
     <section className="relative isolate overflow-hidden border-b border-border bg-card">
       <div className="relative h-[40vh] min-h-[260px] w-full sm:h-[55vh] md:h-[65vh]">
+        {/* Subtle skeleton so the hero area never reads as an empty band while
+            the first slide is still decoding. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60"
+        />
         {slides.map((s, i) => {
+          if (i > 0 && !mountAll) return null;
           const inner = (
             <SafeImage
               src={s.image_url}
@@ -44,6 +59,8 @@ export function HomeSlider() {
               className="h-full w-full object-cover"
               loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
+              // @ts-expect-error — React 19 accepts fetchPriority, older DOM libs may not type it.
+              fetchpriority={i === 0 ? "high" : "low"}
             />
           );
           return (
