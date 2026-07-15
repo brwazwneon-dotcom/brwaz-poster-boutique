@@ -118,7 +118,7 @@ function Index() {
   return (
     <div className="bg-background text-foreground">
       {!perf.emergency_fast_mode && <HomeSlider />}
-      <CollectionsQuickBar />
+      {!perf.emergency_fast_mode && <CollectionsQuickBar />}
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
         {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
