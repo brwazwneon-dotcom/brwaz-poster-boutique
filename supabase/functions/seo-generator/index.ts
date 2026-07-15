@@ -26,6 +26,12 @@ const OPENROUTER_MODELS = [
   "qwen/qwen-2.5-72b-instruct:free",
 ];
 
+const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_MODELS = [
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-flash-lite",
+];
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -156,6 +162,38 @@ async function callOpenRouter(
   const data = await res.json();
   const content: string = data?.choices?.[0]?.message?.content ?? "";
   if (!content) throw new Error(`Empty content from OpenRouter:${model}`);
+  return content;
+}
+
+async function callLovableGateway(
+  apiKey: string,
+  model: string,
+  system: string,
+  user: string,
+): Promise<string> {
+  const res = await fetch(LOVABLE_GATEWAY_URL, {
+    method: "POST",
+    headers: {
+      "Lovable-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`LovableAI ${res.status} on ${model}: ${txt.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const content: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!content) throw new Error(`Empty content from LovableAI:${model}`);
   return content;
 }
 
