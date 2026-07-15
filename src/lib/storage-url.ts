@@ -10,9 +10,16 @@ export const IMAGE_FALLBACK =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400">
-      <rect width="300" height="400" fill="#111"/>
-      <text x="50%" y="50%" fill="#666" font-family="sans-serif" font-size="14"
-        text-anchor="middle" dominant-baseline="middle">Image unavailable</text>
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1a1a1a"/>
+          <stop offset="100%" stop-color="#2a2a2a"/>
+        </linearGradient>
+      </defs>
+      <rect width="300" height="400" fill="url(#g)"/>
+      <rect x="18" y="18" width="264" height="364" fill="none" stroke="#3a3a3a" stroke-width="2"/>
+      <circle cx="150" cy="200" r="34" fill="none" stroke="#444" stroke-width="2"/>
+      <path d="M120 240 L145 210 L170 235 L200 195 L230 240" fill="none" stroke="#444" stroke-width="2"/>
     </svg>`,
   );
 
