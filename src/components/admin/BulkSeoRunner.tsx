@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sparkles, X, Pause, Play, StopCircle, RefreshCw, Loader2, Check, AlertTriangle, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { readPerfFlagsSync } from "@/lib/performance-flags";
 
 type PosterRow = {
   id: string;
@@ -100,6 +101,10 @@ export function BulkSeoRunner({
   );
 
   const start = async () => {
+    if (readPerfFlagsSync().pause_heavy_jobs) {
+      toast.error("Heavy jobs موقوفة من Stability tab. فعّل 'Resume Heavy Jobs' أولًا.");
+      return;
+    }
     if (!posters.length) { toast.error("No posters in this subcategory"); return; }
     if (!enabledFields.length) { toast.error("Pick at least one field"); return; }
     stopRef.current = false;

@@ -25,6 +25,7 @@ import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from 
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 import { LazyOnView } from "@/components/LazyOnView";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -43,6 +44,7 @@ function Index() {
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
   const { data: picks = {} } = useHomeCategoryPicks();
+  const perf = usePerformanceFlags();
 
   const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
   const resolveSubtitle = (s: HomeSectionConfig) => s.subtitle_en || s.subtitle || undefined;
@@ -106,6 +108,7 @@ function Index() {
       {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
       {sections
         .filter((s) => s.enabled && s.key in RENDERERS)
+        .slice(0, perf.max_home_sections)
         .map((s, idx) => {
           const node = RENDERERS[s.key](s);
           // Keep hero + first section eager for LCP; defer the rest until

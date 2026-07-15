@@ -31,6 +31,7 @@ import { BehaviorBoot } from "@/components/BehaviorBoot";
 import { ErrorLoggerBoot } from "@/components/ErrorLoggerBoot";
 import { TestModeBadge } from "@/components/TestModeBadge";
 import { AppPreloader } from "@/components/AppPreloader";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 
 function NotFoundComponent() {
   return (
@@ -209,7 +210,7 @@ function RootComponent() {
           <SiteFooter />
             </div>
             {!isAdmin && <WhatsAppButton />}
-            {!isAdmin && <FloatingOfferBubble />}
+            {!isAdmin && <FloatingOfferGated />}
             <AssistantButton />
             </MaintenanceGate>
             <Toaster richColors position="top-center" />
@@ -218,13 +219,31 @@ function RootComponent() {
             <ErrorLoggerBoot />
             {!isAdmin && <InstallPrompt />}
             <PreviewBadge />
-            <SalesNotifications />
+            <SocialProofGated isAdmin={isAdmin} />
             <BehaviorBoot />
             <TestModeBadge />
-            <AppPreloader />
+            <PreloaderGated />
           </RecentlyViewedProvider>
         </WishlistProvider>
       </CartProvider>
     </QueryClientProvider>
   );
+}
+
+function PreloaderGated() {
+  const perf = usePerformanceFlags();
+  if (perf.disable_preloader) return null;
+  return <AppPreloader />;
+}
+
+function SocialProofGated({ isAdmin }: { isAdmin: boolean }) {
+  const perf = usePerformanceFlags();
+  if (isAdmin || perf.disable_social_proof) return null;
+  return <SalesNotifications />;
+}
+
+function FloatingOfferGated() {
+  const perf = usePerformanceFlags();
+  if (perf.disable_floating_offer) return null;
+  return <FloatingOfferBubble />;
 }
