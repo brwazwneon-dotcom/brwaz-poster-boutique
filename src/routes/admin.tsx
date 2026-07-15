@@ -865,6 +865,9 @@ type Poster = {
   description?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
+  alt_text?: string | null;
+  hashtags?: string[] | null;
+  slug?: string | null;
   edit_settings?: unknown;
   badge?: string | null;
   sales_count?: number | null;
