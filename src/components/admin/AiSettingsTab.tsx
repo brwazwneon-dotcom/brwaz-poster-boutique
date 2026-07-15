@@ -227,7 +227,7 @@ export function AiSettingsTab() {
           <div className="font-medium text-foreground mb-1">API key</div>
           Priority queue: <code className="font-mono">GEMINI_API_KEY_1</code> →{" "}
           <code className="font-mono">…</code> →{" "}
-          <code className="font-mono">GEMINI_API_KEY_6</code> →{" "}
+          <code className="font-mono">GEMINI_API_KEY_10</code> →{" "}
           <code className="font-mono">OPENROUTER_API_KEY</code> (fallback only).
           Keys are never exposed to the browser. On 429 / quota-exceeded the
           key cools down for 60 minutes and the next one is used automatically.
@@ -372,7 +372,7 @@ export function AiSettingsTab() {
             </div>
             {!keysLoading && (keys?.length ?? 0) === 0 && (
               <div className="text-xs text-muted-foreground">
-                No Gemini keys detected. Add GEMINI_API_KEY_1 … GEMINI_API_KEY_6 in Secrets.
+                No Gemini keys detected. Add GEMINI_API_KEY_1 … GEMINI_API_KEY_10 in Secrets.
               </div>
             )}
           </div>
