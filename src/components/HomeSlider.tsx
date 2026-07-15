@@ -22,6 +22,14 @@ export function HomeSlider() {
   });
 
   const [idx, setIdx] = useState(0);
+  // Only mount the first slide immediately; defer the rest until after
+  // first paint so the LCP image isn't fighting for bandwidth.
+  const [mountAll, setMountAll] = useState(false);
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const t = window.setTimeout(() => setMountAll(true), 1200);
+    return () => window.clearTimeout(t);
+  }, [slides.length]);
 
   useEffect(() => {
     if (slides.length < 2) return;
@@ -43,6 +51,7 @@ export function HomeSlider() {
           className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60"
         />
         {slides.map((s, i) => {
+          if (i > 0 && !mountAll) return null;
           const inner = (
             <SafeImage
               src={s.image_url}
