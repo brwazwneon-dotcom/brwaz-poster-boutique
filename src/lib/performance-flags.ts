@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const PERFORMANCE_FLAGS_KEY = "performance_flags";
 
 export type PerformanceFlags = {
+  /** Emergency storefront mode: smallest public payload, no slow personal rails. */
+  emergency_fast_mode: boolean;
   /** Master switch. When ON, forces conservative defaults across the site. */
   safe_mode: boolean;
   /** Blocks bulk AI SEO runs and image variant auto-fix from starting. */
@@ -31,6 +33,7 @@ export type PerformanceFlags = {
 };
 
 export const PERFORMANCE_DEFAULTS: PerformanceFlags = {
+  emergency_fast_mode: true,
   safe_mode: false,
   pause_heavy_jobs: false,
   disable_preloader: false,
@@ -42,6 +45,7 @@ export const PERFORMANCE_DEFAULTS: PerformanceFlags = {
 
 /** Values applied when `safe_mode` is ON, regardless of other stored values. */
 const SAFE_MODE_OVERRIDES: Partial<PerformanceFlags> = {
+  emergency_fast_mode: true,
   disable_preloader: true,
   max_home_sections: 4,
   disable_social_proof: true,
@@ -49,10 +53,19 @@ const SAFE_MODE_OVERRIDES: Partial<PerformanceFlags> = {
   analytics_defer_ms: 6000,
 };
 
+const EMERGENCY_FAST_OVERRIDES: Partial<PerformanceFlags> = {
+  disable_preloader: true,
+  max_home_sections: 6,
+  disable_social_proof: true,
+  disable_floating_offer: true,
+  analytics_defer_ms: 9000,
+};
+
 function parseFlags(raw: unknown): PerformanceFlags {
   const base = { ...PERFORMANCE_DEFAULTS };
   if (raw && typeof raw === "object") {
     const v = raw as Partial<PerformanceFlags>;
+    if (typeof v.emergency_fast_mode === "boolean") base.emergency_fast_mode = v.emergency_fast_mode;
     if (typeof v.safe_mode === "boolean") base.safe_mode = v.safe_mode;
     if (typeof v.pause_heavy_jobs === "boolean") base.pause_heavy_jobs = v.pause_heavy_jobs;
     if (typeof v.disable_preloader === "boolean") base.disable_preloader = v.disable_preloader;
@@ -65,6 +78,7 @@ function parseFlags(raw: unknown): PerformanceFlags {
       base.analytics_defer_ms = Math.min(30_000, Math.round(v.analytics_defer_ms));
     }
   }
+  if (base.emergency_fast_mode) Object.assign(base, EMERGENCY_FAST_OVERRIDES);
   if (base.safe_mode) Object.assign(base, SAFE_MODE_OVERRIDES);
   // Cache the last resolved flags so non-React code (background jobs) can
   // read them synchronously without an extra round-trip.
