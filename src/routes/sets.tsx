@@ -14,7 +14,11 @@ export const Route = createFileRoute("/sets")({
       { title: "Frame Sets — BRWAZWNEON" },
       { name: "description", content: "Curated frame bundles — 3, 4, and 6 frame sets for your wall." },
       { property: "og:title", content: "Frame Sets — BRWAZWNEON" },
+      { property: "og:description", content: "Curated frame bundles — 3, 4, and 6 frame sets for your wall." },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/sets" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/sets" }],
   }),
   component: SetsPage,
 });
