@@ -288,11 +288,9 @@ function defaultName(slug: string) {
 
 function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
   const picksKey = pickedIds.join(",");
-  const perf = usePerformanceFlags();
-  const limit = perf.emergency_fast_mode ? 8 : 6;
+  const limit = 8;
   const { data: posters = [] } = useQuery({
     queryKey: ["home-posters", slug, picksKey, limit],
-    enabled: !perf.emergency_fast_mode,
     staleTime: 60_000,
     queryFn: async () => {
       // Admin-picked posters take priority (fixed order).
