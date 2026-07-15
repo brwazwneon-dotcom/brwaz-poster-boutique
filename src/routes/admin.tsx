@@ -41,6 +41,7 @@ import { NotificationBell } from "@/components/admin/NotificationBell";
 import { NotificationsCenterTab } from "@/components/admin/NotificationsCenterTab";
 import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
 import { PerformanceMonitorTab } from "@/components/admin/PerformanceMonitorTab";
+import { StabilityTab } from "@/components/admin/StabilityTab";
 import { ImageControlCenter } from "@/components/admin/ImageControlCenter";
 import { DisplayOrderTab } from "@/components/admin/DisplayOrderTab";
 import { BackupsTab } from "@/components/admin/BackupsTab";
