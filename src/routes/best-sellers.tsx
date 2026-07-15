@@ -18,7 +18,9 @@ export const Route = createFileRoute("/best-sellers")({
       { property: "og:title", content: "Best Sellers — BRWAZWNEON" },
       { property: "og:description", content: "Our most-loved framed posters. Editorial picks trending across Egypt right now." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://brwazwneon-com.lovable.app/best-sellers" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/best-sellers" }],
   }),
   component: BestSellersPage,
 });
