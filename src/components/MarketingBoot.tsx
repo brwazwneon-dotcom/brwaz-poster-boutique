@@ -5,6 +5,7 @@ import { setMarketingConfig, trackEvent, trackCustom } from "@/lib/meta-pixel";
 import { setGA4Config, gaPageView } from "@/lib/ga4";
 import { trackVisit } from "@/lib/analytics";
 import { rememberPublicRoute } from "@/lib/preview-mode";
+import { usePerformanceFlags } from "@/lib/performance-flags";
 
 /**
  * True for URLs where marketing/pixel tracking must NEVER run
@@ -20,6 +21,7 @@ function isAdminPath(pathname: string): boolean {
  */
 export function MarketingBoot() {
   const cfg = useMarketingConfig();
+  const perf = usePerformanceFlags();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const lastPath = useRef<string | null>(null);
   const lastFired = useRef<string | null>(null); // last path a PageView actually fired for
@@ -40,15 +42,15 @@ export function MarketingBoot() {
     let idleId: number | undefined;
     let toId: number | undefined;
     if (typeof w.requestIdleCallback === "function") {
-      idleId = w.requestIdleCallback(run, { timeout: 3000 });
+      idleId = w.requestIdleCallback(run, { timeout: Math.max(500, perf.analytics_defer_ms) });
     } else {
-      toId = window.setTimeout(run, 1200);
+      toId = window.setTimeout(run, Math.max(500, perf.analytics_defer_ms));
     }
     return () => {
       if (idleId != null && typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(idleId);
       if (toId != null) window.clearTimeout(toId);
     };
-  }, [pathname, cfg.pixelId, cfg.pixelEnabled, cfg.capiEnabled, cfg.advancedMatchingEnabled, cfg.ga4MeasurementId, cfg.ga4Enabled]);
+  }, [pathname, perf.analytics_defer_ms, cfg.pixelId, cfg.pixelEnabled, cfg.capiEnabled, cfg.advancedMatchingEnabled, cfg.ga4MeasurementId, cfg.ga4Enabled]);
 
   useEffect(() => {
     // Always update lastPath so we don't spam internal analytics.
