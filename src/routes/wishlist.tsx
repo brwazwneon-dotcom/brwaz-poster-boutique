@@ -15,7 +15,9 @@ export const Route = createFileRoute("/wishlist")({
     meta: [
       { title: "Your Wishlist — BRWAZWNEON" },
       { name: "description", content: "Posters you've saved for later." },
+      { name: "robots", content: "noindex" },
     ],
+    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/wishlist" }],
   }),
   component: WishlistPage,
 });
