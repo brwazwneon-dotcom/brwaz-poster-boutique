@@ -61,14 +61,7 @@ let KEYS: KeyEntry[] | null = null;
 
 function loadKeys(): KeyEntry[] {
   if (KEYS) return KEYS;
-  const labels = [
-    "GEMINI_API_KEY_1",
-    "GEMINI_API_KEY_2",
-    "GEMINI_API_KEY_3",
-    "GEMINI_API_KEY_4",
-    "GEMINI_API_KEY_5",
-    "GEMINI_API_KEY_6",
-  ];
+  const labels = GEMINI_KEY_LABELS;
   const seen = new Set<string>();
   const out: KeyEntry[] = [];
   for (const label of labels) {
@@ -161,14 +154,7 @@ export function resetGeminiKeyCooldown(label: string): boolean {
 }
 
 export function getGeminiKeysStatus(): GeminiKeyStatus[] {
-  const labels = [
-    "GEMINI_API_KEY_1",
-    "GEMINI_API_KEY_2",
-    "GEMINI_API_KEY_3",
-    "GEMINI_API_KEY_4",
-    "GEMINI_API_KEY_5",
-    "GEMINI_API_KEY_6",
-  ];
+  const labels = GEMINI_KEY_LABELS;
   const loaded = loadKeys();
   const byLabel = new Map(loaded.map((k) => [k.label, k]));
   const now = Date.now();
