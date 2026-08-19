@@ -603,6 +603,7 @@
   },
   "photoPrinting": {
     "title": "Photo Printing",
+    "ctaKicker": "Start Now",
     "subtitle": "High-quality photo prints on premium paper",
     "selectSize": "Select Size",
     "quantity": "Quantity",

@@ -7,6 +7,7 @@ import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { LazyOnView } from "@/components/LazyOnView";
 import { usePerformanceFlags } from "@/lib/performance-flags";
+import { Printer } from "lucide-react";
 
 const CustomerReviews = lazy(() =>
   import("@/components/CustomerReviews").then((module) => ({ default: module.CustomerReviews })),
@@ -207,7 +208,10 @@ class HomepageSectionBoundary extends Component<
 function HeroBannerSection() {
   const { t } = useTranslation();
   return (
-    <section data-hero-banner-section="true" className="relative isolate overflow-hidden border-b border-border">
+    <section
+      data-hero-banner-section="true"
+      className="relative isolate overflow-hidden border-b border-border"
+    >
       <HeroBannerSlider
         fallback={
           <>
@@ -271,9 +275,17 @@ function HeroBannerSection() {
 
           <Link
             to="/photo-printing"
-            className="w-full rounded-sm border border-border px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent sm:w-auto"
+            className="hero-print-cta flex w-full select-none flex-col items-center justify-center px-10 py-5 text-center sm:w-auto"
           >
-            {t("photoPrinting.title")}
+            <span className="hero-print-cta__kicker">{t("photoPrinting.ctaKicker")}</span>
+            <span className="hero-print-cta__label text-base font-black uppercase tracking-widest text-neutral-900 rtl:tracking-normal sm:text-lg">
+              <Printer
+                strokeWidth={2.2}
+                aria-hidden="true"
+                className="size-6 shrink-0 text-neutral-900 sm:size-7"
+              />
+              <span>{t("photoPrinting.title")}</span>
+            </span>
           </Link>
         </div>
 

@@ -1257,3 +1257,119 @@ a[aria-label*="Made with Lovable" i],
     transform: none;
   }
 }
+
+/* Hero "Photo Printing" — premium primary CTA.
+ * Layered box-shadows give a crisp light rim + deep drop shadow. The
+ * attention keyframes pulse scale and a warm-white glow in sync, while a
+ * clipped ::before band sweeps a soft shine across the face right→left.
+ * All motion is opt-in and removed under prefers-reduced-motion. */
+.hero-print-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f5f8 52%, #e2e5ea 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.08),
+    0 2px 5px rgba(0, 0, 0, 0.2),
+    0 22px 48px -14px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.28);
+  transition:
+    scale 180ms ease-out,
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out,
+    filter 180ms ease-out;
+  animation: hero-print-attention 2.5s ease-in-out infinite;
+}
+
+.hero-print-cta:hover,
+.hero-print-cta:active {
+  animation: none;
+}
+
+.hero-print-cta:hover {
+  scale: 1.05;
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.08),
+    0 4px 14px rgba(0, 0, 0, 0.28),
+    0 30px 60px -16px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.42),
+    0 0 26px rgba(255, 255, 255, 0.35);
+}
+
+.hero-print-cta:active {
+  scale: 0.97;
+  transform: none;
+}
+
+/* Soft shine band that sweeps across the button face (clipped). */
+.hero-print-cta::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.5) 48%,
+    transparent 72%
+  );
+  transform: translateX(150%) skewX(16deg);
+  animation: hero-print-shine 3.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.hero-print-cta__kicker {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: #a4761b;
+}
+
+[dir="rtl"] .hero-print-cta__kicker {
+  letter-spacing: 0.05em;
+}
+
+.hero-print-cta__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+@keyframes hero-print-attention {
+  0%,
+  100% {
+    scale: 1;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.12));
+  }
+  50% {
+    scale: 1.04;
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+  }
+}
+
+@keyframes hero-print-shine {
+  0%,
+  10% {
+    transform: translateX(150%) skewX(16deg);
+  }
+  48%,
+  100% {
+    transform: translateX(-170%) skewX(16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-print-cta,
+  .hero-print-cta::before {
+    animation: none;
+    transition: none;
+  }
+}
