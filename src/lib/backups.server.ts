@@ -53,7 +53,7 @@ export async function buildSnapshot(): Promise<SnapshotPayload> {
     const pageSize = 1000;
     let from = 0;
     // paginate to safely cover large tables
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
       const { data: page, error } = await admin
         .from(table)
@@ -117,10 +117,7 @@ async function deriveKey(): Promise<CryptoKey> {
   const secret = process.env.BACKUP_ENCRYPTION_KEY;
   if (!secret) throw new Error("BACKUP_ENCRYPTION_KEY not configured");
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
-  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -136,7 +133,9 @@ function fromBase64(b64: string): Uint8Array {
   return out;
 }
 
-export async function encryptJson(payload: unknown): Promise<{ blob: Uint8Array; checksum: string }> {
+export async function encryptJson(
+  payload: unknown,
+): Promise<{ blob: Uint8Array; checksum: string }> {
   const key = await deriveKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
@@ -171,17 +170,12 @@ export async function decryptJson<T = unknown>(blob: ArrayBuffer): Promise<T> {
   return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
 
-export async function uploadBackupBlob(
-  path: string,
-  blob: Uint8Array,
-): Promise<void> {
+export async function uploadBackupBlob(path: string, blob: Uint8Array): Promise<void> {
   const admin = getAdmin();
-  const { error } = await admin.storage
-    .from("backups")
-    .upload(path, blob, {
-      contentType: "application/octet-stream",
-      upsert: false,
-    });
+  const { error } = await admin.storage.from("backups").upload(path, blob, {
+    contentType: "application/octet-stream",
+    upsert: false,
+  });
   if (error) throw new Error(error.message);
 }
 

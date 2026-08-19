@@ -1,6 +1,16 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, Pencil, Sparkles, AlertTriangle } from "lucide-react";
+import {
+  Upload,
+  X,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Pencil,
+  Sparkles,
+  AlertTriangle,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -50,10 +60,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const mainCategories = useMemo(
-    () => categories.filter((c) => !c.parent_id),
-    [categories],
-  );
+  const mainCategories = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
   const subCategories = useMemo(
     () => categories.filter((c) => c.parent_id === mainCategoryId),
     [categories, mainCategoryId],
@@ -147,7 +154,11 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
             const outH = 2400;
             const outW = Math.round(outH * current.edit.ratio);
             const blob = await renderEditToBlob(img, current.edit, outW, outH, 0.92);
-            toOptimize = new File([blob], current.file.name.replace(/\.[^.]+$/, "") + "-edited.jpg", { type: "image/jpeg" });
+            toOptimize = new File(
+              [blob],
+              current.file.name.replace(/\.[^.]+$/, "") + "-edited.jpg",
+              { type: "image/jpeg" },
+            );
           }
           const optimized = await optimizeImage(toOptimize, { maxDim: 2000, quality: 0.85 });
 
@@ -181,7 +192,11 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
             .single();
           if (insErr) throw insErr;
 
-          update(id, { status: "done", posterId: inserted?.id, ai: aiEnabled ? "pending" : "idle" });
+          update(id, {
+            status: "done",
+            posterId: inserted?.id,
+            ai: aiEnabled ? "pending" : "idle",
+          });
 
           if (aiEnabled && inserted?.id) {
             // Fire-and-forget AI generation; do not block other uploads.
@@ -194,9 +209,7 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
         }
       }
     };
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()),
-    );
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
     setRunning(false);
     onDone();
     // Final summary
@@ -322,16 +335,14 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
             !mainCategoryId
               ? "Pick a main category first"
               : subCategories.length === 0
-              ? "— None available —"
-              : "— None —"
+                ? "— None available —"
+                : "— None —"
           }
           value={subCategoryId}
           onChange={setSubCategoryId}
           options={subCategories}
           parentId={mainCategoryId || null}
-          addDisabledReason={
-            mainCategoryId ? undefined : "Please select a Main Category first."
-          }
+          addDisabledReason={mainCategoryId ? undefined : "Please select a Main Category first."}
         />
         <label className="block lg:col-span-2">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -393,7 +404,8 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
           <span className="font-semibold">Click to choose</span> or drag &amp; drop images here
         </div>
         <div className="text-[11px] text-muted-foreground">
-          JPG / PNG / WEBP — auto resized to 2000px &amp; compressed for the website. Originals saved for admin.
+          JPG / PNG / WEBP — auto resized to 2000px &amp; compressed for the website. Originals
+          saved for admin.
         </div>
         <input
           ref={inputRef}
@@ -483,32 +495,47 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
         </>
       )}
 
-      {editingId && (() => {
-        const it = items.find((x) => x.id === editingId);
-        if (!it) return null;
-        return (
-          <PosterImageEditor
-            source={it.file}
-            initial={it.edit}
-            onCancel={() => setEditingId(null)}
-            onSave={(s) => {
-              update(it.id, { edit: s });
-              setEditingId(null);
-              toast.success("Edits saved — applied on upload");
-            }}
-          />
-        );
-      })()}
+      {editingId &&
+        (() => {
+          const it = items.find((x) => x.id === editingId);
+          if (!it) return null;
+          return (
+            <PosterImageEditor
+              source={it.file}
+              initial={it.edit}
+              onCancel={() => setEditingId(null)}
+              onSave={(s) => {
+                update(it.id, { edit: s });
+                setEditingId(null);
+                toast.success("Edits saved — applied on upload");
+              }}
+            />
+          );
+        })()}
     </div>
   );
 }
 
 function ItemTile({
-  item, onRemove, onEdit, onAcceptAspect, disabled,
-}: { item: UploadItem; onRemove: () => void; onEdit: () => void; onAcceptAspect: () => void; disabled: boolean }) {
+  item,
+  onRemove,
+  onEdit,
+  onAcceptAspect,
+  disabled,
+}: {
+  item: UploadItem;
+  onRemove: () => void;
+  onEdit: () => void;
+  onAcceptAspect: () => void;
+  disabled: boolean;
+}) {
   const edited = !!item.edit && !isDefaultEdit({ ...DEFAULT_EDIT_SETTINGS, ...item.edit });
   const showWarning =
-    !!item.aspectWarning && !item.aspectAccepted && !item.edit && item.status !== "done" && item.status !== "uploading";
+    !!item.aspectWarning &&
+    !item.aspectAccepted &&
+    !item.edit &&
+    item.status !== "done" &&
+    item.status !== "uploading";
   const warnLabel =
     item.aspectWarning === "square"
       ? "مقاس مربع"
@@ -538,7 +565,8 @@ function ItemTile({
       {showWarning && (
         <div className="absolute inset-x-0 top-0 flex flex-col gap-1 bg-amber-500/95 px-1.5 py-1 text-[10px] font-semibold text-black">
           <span className="inline-flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3" /> {warnLabel} {item.size ? `(${item.size.w}×${item.size.h})` : ""}
+            <AlertTriangle className="h-3 w-3" /> {warnLabel}{" "}
+            {item.size ? `(${item.size.w}×${item.size.h})` : ""}
           </span>
           <div className="flex gap-1">
             <button

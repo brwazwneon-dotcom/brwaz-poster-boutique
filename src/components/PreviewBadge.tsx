@@ -32,7 +32,9 @@ export function PreviewBadge() {
     if (window.opener) {
       window.close();
       // Fallback in case the browser blocks window.close for user-opened tabs.
-      setTimeout(() => { window.location.href = "/admin"; }, 200);
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 200);
     } else {
       window.location.href = "/admin";
     }

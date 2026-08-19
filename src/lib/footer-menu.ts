@@ -34,7 +34,10 @@ function normalize(raw: unknown): FooterMenuConfig {
   const v = raw as Partial<FooterMenuConfig>;
   const links = Array.isArray(v.links)
     ? v.links
-        .filter((l): l is FooterLink => !!l && typeof l === "object" && typeof (l as FooterLink).id === "string")
+        .filter(
+          (l): l is FooterLink =>
+            !!l && typeof l === "object" && typeof (l as FooterLink).id === "string",
+        )
         .map((l) => ({
           id: String(l.id),
           label: String(l.label ?? l.id),

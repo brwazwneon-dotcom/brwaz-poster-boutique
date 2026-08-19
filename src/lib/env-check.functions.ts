@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 
 export type CheckSeverity = "ok" | "warn" | "crit";
 
@@ -64,7 +66,12 @@ function isSecretName(name: string): boolean {
   return SECRET_MARKERS.some((m) => u.includes(m));
 }
 
-async function requireAdmin(ctx: { supabase: any; userId: string }) {
+type AuthContext = {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+};
+
+async function requireAdmin(ctx: AuthContext) {
   const { data } = await ctx.supabase
     .from("user_roles")
     .select("role")
@@ -76,15 +83,11 @@ async function requireAdmin(ctx: { supabase: any; userId: string }) {
 
 export const getEnvSecurityReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: { clientEnvKeys: string[] }) => ({
-      clientEnvKeys: Array.isArray(input?.clientEnvKeys)
-        ? input.clientEnvKeys.map(String)
-        : [],
-    }),
-  )
+  .validator((input: { clientEnvKeys: string[] }) => ({
+    clientEnvKeys: Array.isArray(input?.clientEnvKeys) ? input.clientEnvKeys.map(String) : [],
+  }))
   .handler(async ({ data, context }): Promise<EnvReport> => {
-    await requireAdmin(context as any);
+    await requireAdmin(context as AuthContext);
 
     const checks: EnvCheck[] = [];
     const env = process.env;
@@ -99,18 +102,28 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
       "FB_PIXEL_ID",
     ];
     const pixelEnvName = pixelEnvNames.find((k) => !!env[k]);
-    let pixelIdFromEnv = pixelEnvName ? String(env[pixelEnvName]) : "";
+    const pixelIdFromEnv = pixelEnvName ? String(env[pixelEnvName]) : "";
     let pixelIdFromDb = "";
     let capiTokenPresent = false;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const [{ data: s }, { data: sec }] = await Promise.all([
-        supabaseAdmin.from("site_settings").select("value").eq("key", "meta_pixel_id").maybeSingle(),
-        supabaseAdmin.from("marketing_secrets").select("meta_capi_access_token").eq("id", 1).maybeSingle(),
+        supabaseAdmin
+          .from("site_settings")
+          .select("value")
+          .eq("key", "meta_pixel_id")
+          .maybeSingle(),
+        supabaseAdmin
+          .from("marketing_secrets")
+          .select("meta_capi_access_token")
+          .eq("id", 1)
+          .maybeSingle(),
       ]);
-      pixelIdFromDb = String((s as any)?.value ?? "").trim();
-      capiTokenPresent = Boolean((sec as any)?.meta_capi_access_token);
-    } catch { /* best-effort */ }
+      pixelIdFromDb = String(s?.value ?? "").trim();
+      capiTokenPresent = Boolean(sec?.meta_capi_access_token);
+    } catch {
+      /* best-effort */
+    }
     const anyPixelId = pixelIdFromEnv || pixelIdFromDb;
     const capiConfigured = capiTokenPresent || !!env.META_PIXEL_ACCESS_TOKEN;
     const testEventCodePresent = !!env.META_CAPI_TEST_EVENT_CODE;
@@ -271,9 +284,7 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
       name: "Meta Pixel ID",
       severity: pixelClient || env.META_PIXEL_ID ? "ok" : "warn",
       message:
-        pixelClient || env.META_PIXEL_ID
-          ? "Pixel ID available (safe to expose)"
-          : "Not configured",
+        pixelClient || env.META_PIXEL_ID ? "Pixel ID available (safe to expose)" : "Not configured",
     });
 
     // 8) Firebase — client web config (apiKey/appId) is public by design; only
@@ -307,9 +318,7 @@ export const getEnvSecurityReport = createServerFn({ method: "POST" })
       crit: checks.filter((c) => c.severity === "crit").length,
     };
     const total = checks.length || 1;
-    const score = Math.round(
-      ((counts.ok + counts.warn * 0.5) / total) * 100 - counts.crit * 5,
-    );
+    const score = Math.round(((counts.ok + counts.warn * 0.5) / total) * 100 - counts.crit * 5);
 
     return {
       generatedAt: new Date().toISOString(),

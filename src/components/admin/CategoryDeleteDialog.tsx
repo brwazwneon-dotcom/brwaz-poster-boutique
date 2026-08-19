@@ -129,11 +129,13 @@ export function CategoryDeleteDialog({
             Delete “{category.name}”?
           </DialogTitle>
           <DialogDescription>
-            {loading ? "Checking category usage…" : hasProducts
-              ? `${postersCount} product${postersCount === 1 ? "" : "s"} ${hasSubs ? `and ${subCount} sub-categor${subCount === 1 ? "y" : "ies"} ` : ""}use this category. Move them somewhere first.`
-              : hasSubs
-                ? `This will also delete ${subCount} empty sub-categor${subCount === 1 ? "y" : "ies"}. This cannot be undone.`
-                : "This action cannot be undone."}
+            {loading
+              ? "Checking category usage…"
+              : hasProducts
+                ? `${postersCount} product${postersCount === 1 ? "" : "s"} ${hasSubs ? `and ${subCount} sub-categor${subCount === 1 ? "y" : "ies"} ` : ""}use this category. Move them somewhere first.`
+                : hasSubs
+                  ? `This will also delete ${subCount} empty sub-categor${subCount === 1 ? "y" : "ies"}. This cannot be undone.`
+                  : "This action cannot be undone."}
           </DialogDescription>
         </DialogHeader>
 

@@ -90,10 +90,25 @@ export function ErrorLogsTab() {
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={<ShieldAlert className="h-4 w-4" />} label="Critical Errors" value={counts.critical} tone="red" />
-        <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="High" value={counts.high} tone="orange" />
+        <StatCard
+          icon={<ShieldAlert className="h-4 w-4" />}
+          label="Critical Errors"
+          value={counts.critical}
+          tone="red"
+        />
+        <StatCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="High"
+          value={counts.high}
+          tone="orange"
+        />
         <StatCard icon={<Bug className="h-4 w-4" />} label="Open" value={counts.open} tone="blue" />
-        <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Resolved (24h)" value={counts.resolved24h} tone="green" />
+        <StatCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Resolved (24h)"
+          value={counts.resolved24h}
+          tone="green"
+        />
       </div>
 
       {/* Filters */}
@@ -265,7 +280,9 @@ function ErrorLogRow({
                 <span className={cn("rounded border px-1.5 py-0.5 font-semibold", sevStyle.badge)}>
                   {sevStyle.label}
                 </span>
-                <span className={cn("rounded border px-1.5 py-0.5 font-semibold", statusStyle.badge)}>
+                <span
+                  className={cn("rounded border px-1.5 py-0.5 font-semibold", statusStyle.badge)}
+                >
                   {statusStyle.label}
                 </span>
                 {log.category && (
@@ -330,20 +347,27 @@ function ErrorLogRow({
           </div>
 
           {open && (
-            <details open className="mt-3 rounded-sm border border-border bg-background/50 p-3 text-xs">
+            <details
+              open
+              className="mt-3 rounded-sm border border-border bg-background/50 p-3 text-xs"
+            >
               <summary className="cursor-pointer select-none text-[10px] uppercase tracking-widest text-muted-foreground">
                 Technical Details
               </summary>
               <div className="mt-2 space-y-2">
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Message</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Message
+                  </div>
                   <div className="mt-0.5 whitespace-pre-wrap break-words font-mono text-[11px]">
                     {log.message}
                   </div>
                 </div>
                 {log.stack && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Stack</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Stack
+                    </div>
                     <pre className="mt-0.5 max-h-64 overflow-auto rounded bg-black/40 p-2 font-mono text-[10px] leading-relaxed">
                       {log.stack}
                     </pre>
@@ -351,7 +375,9 @@ function ErrorLogRow({
                 )}
                 {log.metadata && Object.keys(log.metadata).length > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Metadata</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Metadata
+                    </div>
                     <pre className="mt-0.5 max-h-40 overflow-auto rounded bg-black/40 p-2 font-mono text-[10px] leading-relaxed">
                       {JSON.stringify(log.metadata, null, 2)}
                     </pre>

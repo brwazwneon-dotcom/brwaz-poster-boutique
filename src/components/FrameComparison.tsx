@@ -33,9 +33,9 @@ const CARDS: Card[] = [
   },
   {
     title: "Photo Printing",
-    tag: "Fuji",
+    tag: "FUJIFILM",
     features: [
-      "Premium Fuji printing",
+      "Premium FUJIFILM printing",
       "Multiple print sizes",
       "High color accuracy",
       "Minimum order 20 photos",
@@ -49,7 +49,8 @@ export function FrameComparison() {
       <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Compare</div>
       <h2 className="text-display text-3xl sm:text-4xl mt-2">Choose your finish</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Every BRWAZWNEON design ships in your choice of premium finish. Pick the one that fits your room.
+        Every BRWAZWNEON design ships in your choice of premium finish. Pick the one that fits your
+        room.
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {CARDS.map((c) => (

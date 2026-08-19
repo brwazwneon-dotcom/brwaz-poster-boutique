@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type MaybeRpc = {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 async function assertAdmin(supabase: unknown, userId: string) {
   const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
@@ -23,7 +26,8 @@ export const getAiSettingsStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AiSettingsStatus> => {
     await assertAdmin(context.supabase, context.userId);
-    const { GEMINI_TEXT_MODEL, GEMINI_IMAGE_MODEL, getGeminiKey } = await import("@/lib/gemini.server");
+    const { GEMINI_TEXT_MODEL, GEMINI_IMAGE_MODEL, getGeminiKey } =
+      await import("@/lib/gemini.server");
     return {
       provider: "gemini",
       configured: Boolean(getGeminiKey()),
@@ -75,7 +79,7 @@ export const getOpenRouterStatus = createServerFn({ method: "GET" })
 /** Admin controls: disable, enable, reset-cooldown per Gemini key. */
 export const setGeminiKeyState = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown): { label: string; action: "disable" | "enable" | "reset" } => {
+  .validator((data: unknown): { label: string; action: "disable" | "enable" | "reset" } => {
     const d = data as { label?: string; action?: string };
     if (!d?.label || !d?.action) throw new Error("invalid input");
     if (!["disable", "enable", "reset"].includes(d.action)) throw new Error("invalid action");
@@ -83,9 +87,8 @@ export const setGeminiKeyState = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }): Promise<{ ok: boolean }> => {
     await assertAdmin(context.supabase, context.userId);
-    const { disableGeminiKey, enableGeminiKey, resetGeminiKeyCooldown } = await import(
-      "@/lib/gemini.server"
-    );
+    const { disableGeminiKey, enableGeminiKey, resetGeminiKeyCooldown } =
+      await import("@/lib/gemini.server");
     let ok = false;
     if (data.action === "disable") ok = disableGeminiKey(data.label);
     else if (data.action === "enable") ok = enableGeminiKey(data.label);
@@ -95,16 +98,13 @@ export const setGeminiKeyState = createServerFn({ method: "POST" })
 
 export const testOneGeminiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown): { label: string } => {
+  .validator((data: unknown): { label: string } => {
     const d = data as { label?: string };
     if (!d?.label) throw new Error("invalid input");
     return { label: d.label };
   })
   .handler(
-    async ({
-      context,
-      data,
-    }): Promise<{ ok: boolean; latencyMs: number; error?: string }> => {
+    async ({ context, data }): Promise<{ ok: boolean; latencyMs: number; error?: string }> => {
       await assertAdmin(context.supabase, context.userId);
       const { testGeminiKey } = await import("@/lib/gemini.server");
       return testGeminiKey(data.label);
@@ -206,18 +206,16 @@ export const testAiConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AiTestResult> => {
     await assertAdmin(context.supabase, context.userId);
-    const { geminiGenerate, extractText, GEMINI_TEXT_MODEL, getGeminiKey } = await import(
-      "@/lib/gemini.server"
-    );
-    if (!getGeminiKey()) return { ok: false, latencyMs: 0, error: "GEMINI_API_KEY is not configured" };
+    const { geminiGenerate, extractText, GEMINI_TEXT_MODEL, getGeminiKey } =
+      await import("@/lib/gemini.server");
+    if (!getGeminiKey())
+      return { ok: false, latencyMs: 0, error: "GEMINI_API_KEY is not configured" };
     const started = Date.now();
     try {
       const res = await geminiGenerate(
         GEMINI_TEXT_MODEL,
         {
-          contents: [
-            { role: "user", parts: [{ text: 'Reply with the single word: OK' }] },
-          ],
+          contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
           generationConfig: { temperature: 0 },
         },
         { maxRetries: 0 },
@@ -245,9 +243,8 @@ export const generateTestProductData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AiTestProduct> => {
     await assertAdmin(context.supabase, context.userId);
-    const { geminiGenerate, extractText, GEMINI_TEXT_MODEL, getGeminiKey } = await import(
-      "@/lib/gemini.server"
-    );
+    const { geminiGenerate, extractText, GEMINI_TEXT_MODEL, getGeminiKey } =
+      await import("@/lib/gemini.server");
     if (!getGeminiKey()) return { ok: false, error: "GEMINI_API_KEY is not configured" };
     try {
       const res = await geminiGenerate(

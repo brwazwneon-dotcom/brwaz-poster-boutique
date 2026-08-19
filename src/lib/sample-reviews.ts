@@ -9,18 +9,56 @@
  */
 
 const FIRST_NAMES = [
-  "Ahmed", "Mohamed", "Youssef", "Omar", "Karim", "Mahmoud", "Mostafa", "Ali",
-  "Hassan", "Amr", "Tarek", "Ziad", "Hazem", "Sherif",
-  "Mariam", "Nour", "Aya", "Sara", "Salma", "Farah", "Heba", "Nada",
-  "Menna", "Habiba", "Yasmine", "Dina", "Rana", "Jana",
+  "Ahmed",
+  "Mohamed",
+  "Youssef",
+  "Omar",
+  "Karim",
+  "Mahmoud",
+  "Mostafa",
+  "Ali",
+  "Hassan",
+  "Amr",
+  "Tarek",
+  "Ziad",
+  "Hazem",
+  "Sherif",
+  "Mariam",
+  "Nour",
+  "Aya",
+  "Sara",
+  "Salma",
+  "Farah",
+  "Heba",
+  "Nada",
+  "Menna",
+  "Habiba",
+  "Yasmine",
+  "Dina",
+  "Rana",
+  "Jana",
 ];
 
 const LAST_INITIALS = ["A.", "M.", "H.", "S.", "K.", "E.", "R.", "T.", "N.", "F."];
 
 const CITIES = [
-  "Cairo", "Alexandria", "Giza", "Mansoura", "Tanta", "Zagazig", "Port Said",
-  "Ismailia", "Suez", "Fayoum", "Aswan", "Luxor", "Damietta", "Minya",
-  "Beni Suef", "Sohag", "Assiut",
+  "Cairo",
+  "Alexandria",
+  "Giza",
+  "Mansoura",
+  "Tanta",
+  "Zagazig",
+  "Port Said",
+  "Ismailia",
+  "Suez",
+  "Fayoum",
+  "Aswan",
+  "Luxor",
+  "Damietta",
+  "Minya",
+  "Beni Suef",
+  "Sohag",
+  "Assiut",
 ];
 
 const PRODUCTS = [

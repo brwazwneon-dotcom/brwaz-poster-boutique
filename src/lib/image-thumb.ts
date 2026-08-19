@@ -101,7 +101,10 @@ async function encodeVariant(
   return { file, width: targetW, height: targetH, size: blob.size, mime };
 }
 
-function assessPrintQuality(w: number, h: number): {
+function assessPrintQuality(
+  w: number,
+  h: number,
+): {
   dpiAt10x15cm: number;
   printQuality: ImageBundle["info"]["printQuality"];
 } {
@@ -121,7 +124,11 @@ function assessPrintQuality(w: number, h: number): {
  * Non-raster files (SVG, GIF) pass through — no thumbnails generated.
  */
 export async function buildImageBundle(file: File): Promise<ImageBundle | null> {
-  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
+  if (
+    !file.type.startsWith("image/") ||
+    file.type === "image/svg+xml" ||
+    file.type === "image/gif"
+  ) {
     return null;
   }
   const bitmap = await loadBitmap(file);
@@ -151,7 +158,9 @@ export async function buildImageBundle(file: File): Promise<ImageBundle | null> 
 }
 
 /** Read the dimensions of an image URL (used for backfill / quality checks). */
-export async function readImageDimensions(url: string): Promise<{ width: number; height: number } | null> {
+export async function readImageDimensions(
+  url: string,
+): Promise<{ width: number; height: number } | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;

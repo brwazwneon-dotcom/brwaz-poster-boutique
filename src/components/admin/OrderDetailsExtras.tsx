@@ -132,7 +132,11 @@ function OrderCheckBox({ g, primaryId }: { g: LiteGroup; primaryId: string }) {
             disabled={running}
             className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-2.5 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-50"
           >
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {running ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
             Run Order Check
           </button>
         </div>
@@ -140,10 +144,18 @@ function OrderCheckBox({ g, primaryId }: { g: LiteGroup; primaryId: string }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {items.map(({ key, label }) => (
-          <div key={key} className={cn("flex items-center gap-2 rounded-sm border px-2 py-1.5 text-xs", toneOf(check.groups[key]))}>
+          <div
+            key={key}
+            className={cn(
+              "flex items-center gap-2 rounded-sm border px-2 py-1.5 text-xs",
+              toneOf(check.groups[key]),
+            )}
+          >
             {iconOf(check.groups[key])}
             <span className="truncate">{label}</span>
-            <span className="ms-auto text-[9px] uppercase tracking-widest opacity-80">{check.groups[key]}</span>
+            <span className="ms-auto text-[9px] uppercase tracking-widest opacity-80">
+              {check.groups[key]}
+            </span>
           </div>
         ))}
       </div>
@@ -199,7 +211,9 @@ function WhatsAppMessages({ g, primaryId }: { g: LiteGroup; primaryId: string })
     }
     try {
       await addNote(primaryId, `تم إرسال رسالة واتساب: ${active}`);
-    } catch {/* ignore */}
+    } catch {
+      /* ignore */
+    }
     toast.success("Marked as sent");
   };
 
@@ -234,7 +248,8 @@ function WhatsAppMessages({ g, primaryId }: { g: LiteGroup; primaryId: string })
       />
       {!link && (
         <div className="mt-2 flex items-center gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-300">
-          <AlertTriangle className="h-3.5 w-3.5" /> Phone number is missing or invalid — WhatsApp link disabled.
+          <AlertTriangle className="h-3.5 w-3.5" /> Phone number is missing or invalid — WhatsApp
+          link disabled.
         </div>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -279,7 +294,11 @@ function InternalNotes({ orderIds, primaryId }: { orderIds: string[]; primaryId:
 
   const add = useMutation({
     mutationFn: (t: string) => addNote(primaryId, t),
-    onSuccess: () => { setText(""); invalidate(); toast.success("Note added"); },
+    onSuccess: () => {
+      setText("");
+      invalidate();
+      toast.success("Note added");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -290,7 +309,10 @@ function InternalNotes({ orderIds, primaryId }: { orderIds: string[]; primaryId:
   });
   const del = useMutation({
     mutationFn: (id: string) => deleteNote(id, primaryId),
-    onSuccess: () => { invalidate(); toast.success("Note deleted"); },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Note deleted");
+    },
   });
 
   return (
@@ -319,7 +341,9 @@ function InternalNotes({ orderIds, primaryId }: { orderIds: string[]; primaryId:
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) add.mutate(text.trim()); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text.trim()) add.mutate(text.trim());
+          }}
           placeholder="Add an internal note…"
           className="flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
@@ -361,7 +385,11 @@ function InternalNotes({ orderIds, primaryId }: { orderIds: string[]; primaryId:
                     className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                     title={n.pinned ? "Unpin" : "Pin"}
                   >
-                    {n.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                    {n.pinned ? (
+                      <PinOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Pin className="h-3.5 w-3.5" />
+                    )}
                   </button>
                   <button
                     onClick={() => confirm("Delete note?") && del.mutate(n.id)}
@@ -407,11 +435,13 @@ function OrderTimeline({ orderIds }: { orderIds: string[] }) {
               e.status === "failed"
                 ? "bg-red-500"
                 : e.status === "pending"
-                ? "bg-amber-500"
-                : "bg-emerald-500";
+                  ? "bg-amber-500"
+                  : "bg-emerald-500";
             return (
               <li key={e.id} className="relative">
-                <span className={cn("absolute -start-[21px] top-1.5 h-2.5 w-2.5 rounded-full", tone)} />
+                <span
+                  className={cn("absolute -start-[21px] top-1.5 h-2.5 w-2.5 rounded-full", tone)}
+                />
                 <div className="text-sm font-medium">{humanStage(e.stage)}</div>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   {new Date(e.created_at).toLocaleString()} · {e.actor ?? "system"} ·{" "}

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCategories, descendantIds, type Category } from "@/lib/use-categories";
@@ -19,9 +19,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { FramePreview } from "@/components/FramePreview";
-import { WishlistHeart } from "@/components/WishlistHeart";
-import { PosterBadge } from "@/components/PosterBadge";
+import { FramedArtwork } from "@/components/FramedArtwork";
 import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
@@ -36,12 +34,16 @@ import { trackPosterView } from "@/lib/poster-tracking";
 import { track as behavior } from "@/lib/behavior";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
 import { usePricing, priceForFrame, useEnabledFrameVariants } from "@/lib/use-settings";
-import { useGridDisplayMode } from "@/lib/use-settings";
 import { SizeGuide } from "@/components/SizeGuide";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Minus, Plus } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Minus, Plus, Truck, Clock } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { usePosterThumbs, usePosterPreviews } from "@/lib/public-images";
+import { resolveProductArtwork, usePosterPreviews } from "@/lib/public-images";
+import { useTranslation } from "react-i18next";
+import { StickyProductBar, type BarAction } from "@/components/StickyProductBar";
+import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
+import { InfiniteProductGrid } from "@/components/InfiniteProductGrid";
+import type { NormalizedProduct } from "@/hooks/useInfiniteProducts";
 
 type Poster = {
   id: string;
@@ -56,9 +58,8 @@ type Poster = {
   is_best_seller?: boolean | null;
 };
 
-const PAGE_SIZE = 24;
-
-type SortKey = "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
+type SortKey =
+  "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
 type SortDef = { id: SortKey; label: string; col: string; asc: boolean };
 const SORTS: SortDef[] = [
   { id: "newest", label: "Newest", col: "created_at", asc: false },
@@ -72,7 +73,7 @@ export const Route = createFileRoute("/category/$slug")({
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;
     const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
-    const url = `https://brwazwneon-com.lovable.app/category/${params.slug}`;
+    const url = `https://brwazwneon.com/category/${params.slug}`;
     return {
       meta: [
         { title },
@@ -93,7 +94,12 @@ export const Route = createFileRoute("/category/$slug")({
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Home", item: "https://brwazwneon-com.lovable.app/" },
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://brwazwneon.com/",
+              },
               { "@type": "ListItem", position: 2, name: pretty, item: url },
             ],
           }),
@@ -105,20 +111,21 @@ export const Route = createFileRoute("/category/$slug")({
   notFoundComponent: () => (
     <div className="container-page py-24 text-center">
       <h1 className="text-display text-4xl">Category not found</h1>
-      <Link to="/" className="mt-6 inline-block underline">Back home</Link>
+      <Link to="/" className="mt-6 inline-block underline">
+        Back home
+      </Link>
     </div>
   ),
 });
 
 function CategoryPage() {
   const { slug } = Route.useParams();
-  if (slug === "custom") {
-    return <Navigate to="/custom-design" replace />;
-  }
+  const isCustomSlug = slug === "custom";
   const { data: categories = [] } = useCategories();
 
   const { data: category, isLoading: catLoading } = useQuery({
     queryKey: ["category", slug],
+    enabled: !isCustomSlug,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
@@ -130,22 +137,32 @@ function CategoryPage() {
     },
   });
 
-  if (!catLoading && !category) throw notFound();
-
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Default the sort selector to what the admin configured for this category.
-  const initialSort = ((category as any)?.sort_mode as SortKey) || "newest";
+  const initialSort = (category?.sort_mode as SortKey | undefined) || "newest";
   const [sort, setSort] = useState<SortKey>(initialSort);
   useEffect(() => {
-    const m = (category as any)?.sort_mode as SortKey | undefined;
+    const m = category?.sort_mode as SortKey | undefined;
     if (m && (SORTS.some((s) => s.id === m) || m === "manual")) {
       setSort(m);
     }
   }, [category?.id]);
   const [activeSubId, setActiveSubId] = useState<string>("");
   const { record } = useRecentlyViewed();
-  const gridMode = useGridDisplayMode();
+
   const perf = usePerformanceFlags();
+  const { t } = useTranslation();
+  const sortLabels: Record<SortKey, string> = {
+    newest: "category.sortNewest",
+    bestselling: "category.sortPopular",
+    popular: "category.sortPopular",
+    az: "category.sortNameAsc",
+    manual: "category.sortNewest",
+    trending: "category.sortPopular",
+    random: "category.sortNewest",
+    ai: "category.sortPopular",
+  };
+  const sortLabel = (id: SortKey) => t(sortLabels[id]);
 
   // Retargeting: fire ViewCategory once per category mount.
   useEffect(() => {
@@ -159,16 +176,16 @@ function CategoryPage() {
     behavior.categoryBrowse(category.id);
   }, [category?.id]);
 
-  const includedCategoryIds = useMemo(
-    () => {
-      if (!category) return [];
-      if (activeSubId) return descendantIds(categories, activeSubId);
-      return descendantIds(categories, category.id);
-    },
-    [categories, category, activeSubId],
-  );
+  const includedCategoryIds = useMemo(() => {
+    if (!category) return [];
+    if (activeSubId) return descendantIds(categories, activeSubId);
+    return descendantIds(categories, category.id);
+  }, [categories, category, activeSubId]);
   const subcategories = useMemo(
-    () => (category ? categories.filter((c) => c.parent_id === category.id && !c.hidden && c.status !== "draft") : []),
+    () =>
+      category
+        ? categories.filter((c) => c.parent_id === category.id && !c.hidden && c.status !== "draft")
+        : [],
     [categories, category],
   );
 
@@ -177,74 +194,84 @@ function CategoryPage() {
     setActiveSubId("");
   }, [category?.id]);
 
-  const postersQ = useInfiniteQuery({
-    queryKey: ["posters", category?.id ?? slug, sort, includedCategoryIds.join(",")],
-    enabled: !!category?.id,
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const from = (pageParam as number) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      let q = supabase
-        .from("posters")
-        .select("id,title,category_id,tags,badge,sales_count,views_count,is_best_seller,pinned,sort_order,trending")
-        .in("category_id", includedCategoryIds)
-        .eq("hidden", false);
+  const sortQuery = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (q: any) => {
       if (sort === "manual") {
-        q = q
+        return q
           .order("pinned", { ascending: false })
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: false });
-      } else if (sort === "trending") {
-        q = q.order("trending", { ascending: false }).order("views_count", { ascending: false });
-      } else if (sort === "random") {
-        q = q.order("id", { ascending: false });
-      } else if (sort === "ai") {
-        q = q.order("sales_count", { ascending: false }).order("views_count", { ascending: false });
-      } else {
-        const sortDef = SORTS.find((s) => s.id === sort) ?? SORTS[0];
-        // Manual-configured categories still honor pinned first for other modes too.
-        q = q.order("pinned", { ascending: false }).order(sortDef.col, { ascending: sortDef.asc });
       }
-      const { data, error } = await q.range(from, to);
-      if (error) throw error;
-      let rows = (data ?? []) as Poster[];
+      if (sort === "trending") {
+        return q.order("trending", { ascending: false }).order("views_count", { ascending: false });
+      }
       if (sort === "random") {
-        rows = [...rows].sort(() => Math.random() - 0.5);
+        return q.order("id", { ascending: false });
       }
-      return rows;
+      if (sort === "ai") {
+        return q.order("sales_count", { ascending: false }).order("views_count", { ascending: false });
+      }
+      const sortDef = SORTS.find((s) => s.id === sort) ?? SORTS[0];
+      return q.order("pinned", { ascending: false }).order(sortDef.col, { ascending: sortDef.asc });
     },
-    getNextPageParam: (last, pages) =>
-      last.length === PAGE_SIZE ? pages.length : undefined,
-  });
-
-  const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
-  const posterThumbs = usePosterThumbs(posters.map((p) => p.id));
-  const filteredPosters = useMemo(
-    () => posters,
-    [posters],
+    [sort],
   );
-  const selectedPosters = useMemo(
-    () => selectedIds
-      .map((id) => posters.find((p) => p.id === id))
-      .filter(Boolean) as Poster[],
-    [selectedIds, posters],
+
+  const {
+    products,
+    state: paginationState,
+    error: paginationError,
+    loadMore,
+    retry,
+  } = useInfiniteProducts(includedCategoryIds, { query: sortQuery }, `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`);
+
+  const selectedPosters: Poster[] = useMemo(
+    () =>
+      selectedIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p): p is NormalizedProduct => p != null)
+        .map(
+          (p) =>
+            ({
+              id: p.id,
+              title: p.title,
+              image_url: p.cardArtworkUrl,
+              category_id: p.categoryId,
+              badge: p.badge,
+              sales_count: p.salesCount,
+              views_count: p.viewsCount,
+              is_best_seller: p.isBestSeller,
+            }) as Poster,
+        ),
+    [selectedIds, products],
   );
   const selectedPreviewMap = usePosterPreviews(selectedPosters.map((p) => p.id));
 
-  const toggle = (p: Poster) => {
+  if (isCustomSlug) {
+    return <Navigate to="/custom-design" replace />;
+  }
+
+  if (!catLoading && !category) throw notFound();
+
+  const toggle = (id: string) => {
+    const p = products.find((x) => x.id === id);
+    if (!p) return;
     if (category) {
       record({
         id: p.id,
         title: p.title,
-        image_url: posterThumbs[p.id] ?? "",
-        category_id: p.category_id,
+        image_url: p.cardArtworkUrl,
+        category_id: p.categoryId,
         category_slug: category.slug,
         category_name: category.name,
       });
       trackPosterView(p.id);
       try {
-        behavior.productView(p.id, { categoryId: p.category_id, tags: p.tags });
-      } catch { /* noop */ }
+        behavior.productView(p.id, { categoryId: p.categoryId, tags: [] });
+      } catch {
+        /* noop */
+      }
       try {
         trackEvent("ViewContent", {
           content_ids: [p.id],
@@ -253,229 +280,147 @@ function CategoryPage() {
           content_category: category.name,
           currency: "EGP",
         });
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     }
     setSelectedIds((prev) =>
-      prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
   return (
     <>
-    <div className="container-page py-12">
-      <div className="mb-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
-        Collection
-      </div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-display text-4xl sm:text-6xl">
-          {category?.name ?? "…"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Tap any poster to select. Select multiple to add a matching set.
-        </p>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <LiveVisitors variant="product" />
-        <RecentOrdersBadge surface="product" />
-      </div>
+      <div className="container-page py-12">
+        <div className="mb-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
+          {t("home.collection")}
+        </div>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h1 className="text-display text-4xl sm:text-6xl">{category?.name ?? "…"}</h1>
+          <p className="text-sm text-muted-foreground">{t("category.tapToSelect")}</p>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <LiveVisitors variant="product" />
+          <RecentOrdersBadge surface="product" />
+        </div>
 
-      {subcategories.length > 0 && (
-        <div
-          className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0 sm:overflow-visible sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <button
-            type="button"
-            onClick={() => setActiveSubId("")}
-            className={cn(
-              "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
-              !activeSubId
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            All
-          </button>
-          {subcategories.map((c) => (
+        {subcategories.length > 0 && (
+          <div className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0 sm:overflow-visible sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <button
-              key={c.id}
               type="button"
-              onClick={() => setActiveSubId(c.id === activeSubId ? "" : c.id)}
+              onClick={() => setActiveSubId("")}
               className={cn(
                 "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
-                activeSubId === c.id
+                !activeSubId
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
-              {c.name}
+              {t("category.all")}
+            </button>
+            {subcategories.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setActiveSubId(c.id === activeSubId ? "" : c.id)}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
+                  activeSubId === c.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+            {t("category.sortBy")}
+          </span>
+          {SORTS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSort(s.id)}
+              className={cn(
+                "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
+                sort === s.id
+                  ? "border-primary bg-accent text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {sortLabel(s.id)}
             </button>
           ))}
         </div>
-      )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Sort by</span>
-        {SORTS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setSort(s.id)}
-            className={cn(
-              "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
-              sort === s.id
-                ? "border-primary bg-accent text-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1.85fr_minmax(440px,540px)]">
-        <div>
-          {postersQ.isError ? (
-            <div className="rounded-sm border border-dashed border-destructive/40 p-12 text-center text-sm text-destructive">
-              <p>Couldn't load posters. Please try again.</p>
-              <button
-                onClick={() => postersQ.refetch()}
-                className="mt-4 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-              >
-                Retry
-              </button>
-            </div>
-          ) : postersQ.isLoading || catLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-[2/3] animate-pulse rounded-sm bg-muted/40"
-                />
-              ))}
-            </div>
-          ) : filteredPosters.length === 0 ? (
-            <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-              No posters in this category yet.
-            </div>
-          ) : (
-            <>
+        <div className="mt-10 grid gap-8 lg:grid-cols-[1.85fr_minmax(440px,540px)]">
+          <div>
+            {catLoading ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {filteredPosters.map((p) => {
-                  const active = selectedIds.includes(p.id);
-                  const idx = selectedIds.indexOf(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggle(p)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          toggle(p);
-                        }
-                      }}
-                      aria-pressed={active}
-                      className={cn(
-                        "group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-sm border-2 bg-card transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                        active
-                          ? "border-primary ring-4 ring-primary/30"
-                          : "border-transparent hover:border-border",
-                      )}
-                    >
-                        <WishlistHeart posterId={p.id} />
-                        <PosterBadge badge={p.badge} />
-                      <FramePreview
-                        posterUrl={posterThumbs[p.id] ?? ""}
-                        title={p.title}
-                        editSettings={undefined}
-                        aspectClassName="aspect-[2/3]"
-                        frameType={gridMode === "wood" ? "wood" : "pvc"}
-                        color={gridMode === "wood" ? "wood" : gridMode === "white" ? "white" : "black"}
-                        loading={idx >= 0 && idx < 4 ? "eager" : "lazy"}
-                        className={cn(
-                          "h-full w-full transition",
-                          active && "scale-[1.02]",
-                        )}
-                      />
-                      {active && (
-                        <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                          {idx + 1}
-                        </span>
-                      )}
-                      {(p.sales_count ?? 0) > 0 && (
-                        <span className="pointer-events-none absolute bottom-7 right-2 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
-                          ✔ {formatCount(p.sales_count)} sold
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="aspect-[2/3] animate-pulse rounded-sm bg-muted/30" />
+                ))}
               </div>
-              {postersQ.hasNextPage && (
-                <div className="mt-8 text-center">
-                  <button
-                    onClick={() => postersQ.fetchNextPage()}
-                    disabled={postersQ.isFetchingNextPage}
-                    className="rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-50"
-                  >
-                    {postersQ.isFetchingNextPage ? "Loading…" : "Load more"}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            ) : (
+              <InfiniteProductGrid
+                products={products}
+                state={paginationState}
+                error={paginationError}
+                selectedIds={selectedIds}
+                onToggle={toggle}
+                onLoadMore={loadMore}
+                onRetry={retry}
+              />
+            )}
+          </div>
 
-        <aside className="hidden lg:block lg:sticky lg:top-[90px] lg:self-start lg:h-[calc(100vh-110px)]">
-          {selectedPosters.length > 0 && category ? (
-            <Customizer
+          <aside className="hidden lg:block lg:sticky lg:top-[90px] lg:self-start lg:h-[calc(100vh-110px)]">
+            {selectedPosters.length > 0 && category ? (
+              <Customizer
+                posters={selectedPosters}
+                imageMap={selectedPreviewMap}
+                category={category}
+                onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
+                onClear={() => setSelectedIds([])}
+              />
+            ) : (
+              <div className="rounded-sm border border-border bg-card p-8 text-center">
+                <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  {t("category.step")} 1
+                </div>
+                <p className="mt-3 text-lg">{t("category.selectPosters")}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{t("category.tapToSelect")}</p>
+                <Link
+                  to="/offers"
+                  className="mt-6 inline-flex rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+                >
+                  {t("nav.orGrabBundle")}
+                </Link>
+              </div>
+            )}
+          </aside>
+
+          {selectedPosters.length > 0 && category && (
+            <MobileCustomizerBar
               posters={selectedPosters}
               imageMap={selectedPreviewMap}
               category={category}
-              onRemove={(id) =>
-                setSelectedIds((prev) => prev.filter((x) => x !== id))
-              }
+              onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
               onClear={() => setSelectedIds([])}
             />
-          ) : (
-            <div className="rounded-sm border border-border bg-card p-8 text-center">
-              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                Step 1
-              </div>
-              <p className="mt-3 text-lg">Select one or more posters.</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Tap images to add them, then pick your frame, size and color.
-              </p>
-              <Link
-                to="/offers"
-                className="mt-6 inline-flex rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
-              >
-                Or grab a bundle offer →
-              </Link>
-            </div>
           )}
-        </aside>
+        </div>
 
-        {selectedPosters.length > 0 && category && (
-          <MobileCustomizerBar
-            posters={selectedPosters}
-            imageMap={selectedPreviewMap}
-            category={category}
-            onRemove={(id) =>
-              setSelectedIds((prev) => prev.filter((x) => x !== id))
-            }
-            onClear={() => setSelectedIds([])}
-          />
-        )}
-      </div>
-
-      {subcategories.length > 0 && (
-        <div className="mt-16 border-t border-border pt-10">
-          <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            More in {category?.name ?? "this collection"}
-          </h3>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {subcategories.map((c) => (
+        {subcategories.length > 0 && (
+          <div className="mt-16 border-t border-border pt-10">
+            <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {t("category.moreIn")} {category?.name ?? "this collection"}
+            </h3>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {subcategories.map((c) => (
                 <Link
                   key={c.slug}
                   to="/category/$slug"
@@ -485,22 +430,22 @@ function CategoryPage() {
                   {c.name}
                 </Link>
               ))}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+      {selectedPosters[0] && (
+        <RelatedPosters
+          poster={selectedPosters[0]}
+          categorySlug={category?.slug}
+          categoryName={category?.name}
+        />
       )}
-    </div>
-    {selectedPosters[0] && (
-      <RelatedPosters
-        poster={selectedPosters[0]}
-        categorySlug={category?.slug}
-        categoryName={category?.name}
-      />
-    )}
-    {selectedPosters[0] && <FrameComparison />}
-    {selectedPosters[0] && <BeforeAfter location="product" />}
-    {!perf.emergency_fast_mode && <RecentlyViewed />}
-    {!perf.emergency_fast_mode && <CustomerReviews posterId={selectedPosters[0]?.id} />}
-    {!perf.emergency_fast_mode && <ProductInfoSections variant="all" />}
+      {selectedPosters[0] && <FrameComparison />}
+      {selectedPosters[0] && <BeforeAfter location="product" />}
+      {!perf.emergency_fast_mode && <RecentlyViewed />}
+      {!perf.emergency_fast_mode && <CustomerReviews posterId={selectedPosters[0]?.id} />}
+      {!perf.emergency_fast_mode && <ProductInfoSections variant="all" />}
     </>
   );
 }
@@ -518,9 +463,11 @@ function Customizer({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  const { t } = useTranslation();
   type PerPoster = { frameType: FrameTypeId; size: SizeId; color: FrameColorId };
   const normalizeCombo = (c: PerPoster): PerPoster => {
-    let { frameType, size, color } = c;
+    const { frameType } = c;
+    let { size, color } = c;
     if (frameType === "wood") {
       color = "wood";
     } else if (color === "wood") {
@@ -566,8 +513,7 @@ function Customizer({
   }, [posters.map((p) => p.id).join(","), frameType, size, color]);
 
   const primaryIdEarly = posters[previewIndex]?.id ?? posters[0]?.id ?? "";
-  const current: PerPoster =
-    perPoster[primaryIdEarly] ?? { frameType, size, color };
+  const current: PerPoster = perPoster[primaryIdEarly] ?? { frameType, size, color };
 
   const applyPatch = (patch: Partial<PerPoster>) => {
     setPerPoster((prev) => {
@@ -610,10 +556,8 @@ function Customizer({
   const total = postersUnitSum * quantity;
 
   const primary = posters[previewIndex] ?? posters[0];
-  const goPrev = () =>
-    setPreviewIndex((i) => (i - 1 + posters.length) % posters.length);
-  const goNext = () =>
-    setPreviewIndex((i) => (i + 1) % posters.length);
+  const goPrev = () => setPreviewIndex((i) => (i - 1 + posters.length) % posters.length);
+  const goNext = () => setPreviewIndex((i) => (i + 1) % posters.length);
 
   const handleAdd = () => {
     for (let n = 0; n < quantity; n++) {
@@ -622,7 +566,7 @@ function Customizer({
         add({
           posterId: poster.id,
           title: poster.title,
-          image: imageMap[poster.id] ?? "",
+          image: resolveProductArtwork(poster, imageMap),
           categoryId: category.id,
           categoryName: category.name,
           frameType: s.frameType,
@@ -634,7 +578,7 @@ function Customizer({
       });
     }
     const totalItems = posters.length * quantity;
-    toast.success(`Added ${totalItems} poster${totalItems > 1 ? "s" : ""} to cart`);
+    toast.success(t("product.addToCart", { count: totalItems }));
     onClear();
   };
 
@@ -653,13 +597,13 @@ function Customizer({
     <div className="flex h-full flex-col rounded-sm border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          {posters.length} selected
+          {posters.length} {t("category.selected")}
         </div>
         <button
           onClick={onClear}
           className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
         >
-          Clear all
+          {t("common.clearAll")}
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-3 [scrollbar-width:thin]">
@@ -668,7 +612,7 @@ function Customizer({
             <button
               type="button"
               onClick={goPrev}
-              aria-label="Previous poster"
+              aria-label={t("category.previousPoster")}
               className="absolute left-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -678,7 +622,7 @@ function Customizer({
             <PosterGallery
               key={primary.id}
               posterId={primary.id}
-              posterUrl={imageMap[primary.id] ?? ""}
+              posterUrl={resolveProductArtwork(primary, imageMap)}
               title={primary.title}
               frameType={current.frameType}
               color={current.color}
@@ -689,157 +633,170 @@ function Customizer({
             <button
               type="button"
               onClick={goNext}
-              aria-label="Next poster"
+              aria-label={t("category.nextPoster")}
               className="absolute right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           )}
         </div>
-      {posters.length > 1 && (
-        <div className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          Preview {previewIndex + 1} / {posters.length} · {primary.title}
-        </div>
-      )}
-      {(primary.sales_count ?? 0) > 0 || (primary.views_count ?? 0) > 0 || primary.is_best_seller ? (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-          {(primary.sales_count ?? 0) > 0 && (
-            <span>✔ {formatCount(primary.sales_count)} sold</span>
-          )}
-          {(primary.views_count ?? 0) > 0 && (
-            <span>👁 {formatCount(primary.views_count)} views</span>
-          )}
-          {primary.is_best_seller ? (
-            <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
-              ⭐ Best Seller
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      {posters.length > 1 && (
-      <div className="mt-3 grid grid-cols-5 gap-2">
-        {posters.map((p, i) => {
-          const s = perPoster[p.id] ?? { frameType, size, color };
-          return (
-          <div
-            key={p.id}
-            className={cn(
-              "group relative aspect-[2/3] overflow-hidden rounded-sm border transition",
-              i === previewIndex
-                ? "border-primary ring-2 ring-primary"
-                : "border-transparent hover:border-border",
+        {posters.length > 1 && (
+          <div className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+            Preview {previewIndex + 1} / {posters.length} · {primary.title}
+          </div>
+        )}
+        {(primary.sales_count ?? 0) > 0 ||
+        (primary.views_count ?? 0) > 0 ||
+        primary.is_best_seller ? (
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            {(primary.sales_count ?? 0) > 0 && (
+              <span>✔ {formatCount(primary.sales_count)} sold</span>
             )}
-          >
+            {(primary.views_count ?? 0) > 0 && (
+              <span>👁 {formatCount(primary.views_count)} views</span>
+            )}
+            {primary.is_best_seller ? (
+              <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
+                ⭐ {t("category.bestSeller")}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {posters.length > 1 && (
+          <div className="mt-3 grid grid-cols-5 gap-2">
+            {posters.map((p, i) => {
+              const s = perPoster[p.id] ?? { frameType, size, color };
+              return (
+                <div
+                  key={p.id}
+                  className={cn(
+                    "group relative aspect-[2/3] overflow-hidden rounded-sm border transition",
+                    i === previewIndex
+                      ? "border-primary ring-2 ring-primary"
+                      : "border-transparent hover:border-border",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewIndex(i)}
+                    aria-label={`Preview ${p.title}`}
+                    className="absolute inset-0 z-10"
+                  />
+                  <FramedArtwork
+                    posterUrl={resolveProductArtwork(p, imageMap)}
+                    title={p.title}
+                    frameType={s.frameType}
+                    color={s.color}
+                    editSettings={p.edit_settings}
+                    className="h-full w-full"
+                  />
+                  <span className="pointer-events-none absolute bottom-0 inset-x-0 z-10 bg-background/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-widest">
+                    {s.size}
+                  </span>
+                  <button
+                    onClick={() => onRemove(p.id)}
+                    aria-label={`Remove ${p.title}`}
+                    className="absolute right-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {posters.length > 1 && (
+          <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-sm border border-border bg-background/60 px-3 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-widest">
+              {applyAll
+                ? t("category.sameOptionsForAll")
+                : `${t("category.editing")}: ${primary.title}`}
+            </span>
+            <input
+              type="checkbox"
+              checked={applyAll}
+              onChange={(e) => setApplyAll(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+        )}
+
+        <OptionGroup label={t("product.frameType")}>
+          {FRAME_TYPES.map((f) => (
+            <OptionButton
+              key={f.id}
+              active={current.frameType === f.id}
+              onClick={() => handleFrameType(f.id)}
+            >
+              {t(`product.frame_${f.id}` as const)}
+            </OptionButton>
+          ))}
+        </OptionGroup>
+
+        <OptionGroup label={t("product.size")}>
+          {sizesForFrame(current.frameType).map((sid) => {
+            const s = SIZES.find((x) => x.id === sid)!;
+            return (
+              <OptionButton
+                key={s.id}
+                active={current.size === s.id}
+                onClick={() => applyPatch({ size: s.id })}
+              >
+                {t(`product.size_${s.id}` as const)}
+              </OptionButton>
+            );
+          })}
+        </OptionGroup>
+        <SizeGuide availableIds={sizesForFrame(current.frameType)} />
+
+        {current.frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
+          <OptionGroup label={t("product.frameColor")}>
+            {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map(
+              (c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => applyPatch({ color: c.id })}
+                  className={cn(
+                    "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
+                    current.color === c.id
+                      ? "border-primary bg-accent"
+                      : "border-border hover:border-muted-foreground",
+                  )}
+                >
+                  <span
+                    className="h-5 w-5 rounded-full border border-border"
+                    style={{ backgroundColor: c.swatch }}
+                  />
+                  {t(`product.color_${c.id}` as const)}
+                </button>
+              ),
+            )}
+          </OptionGroup>
+        )}
+
+        <OptionGroup label={t("product.quantity")}>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setPreviewIndex(i)}
-              aria-label={`Preview ${p.title}`}
-              className="absolute inset-0 z-10"
-            />
-            <FramePreview
-              posterUrl={imageMap[p.id] ?? ""}
-              title={p.title}
-              frameType={s.frameType}
-              color={s.color}
-              editSettings={p.edit_settings}
-              bare
-              className="h-full w-full"
-            />
-            <span className="pointer-events-none absolute bottom-0 inset-x-0 z-10 bg-background/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-widest">
-              {s.size}
-            </span>
-            <button
-              onClick={() => onRemove(p.id)}
-              aria-label={`Remove ${p.title}`}
-              className="absolute right-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+              aria-label={t("product.decreaseQty")}
             >
-              <X className="h-3 w-3" />
+              <Minus className="h-4 w-4" />
+            </button>
+            <div className="min-w-[3rem] text-center text-lg font-semibold">{quantity}</div>
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+              className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+              aria-label={t("product.increaseQty")}
+            >
+              <Plus className="h-4 w-4" />
             </button>
           </div>
-          );
-        })}
-      </div>
-      )}
-
-      {posters.length > 1 && (
-        <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-sm border border-border bg-background/60 px-3 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-widest">
-            {applyAll ? "Same options for all" : `Editing: ${primary.title}`}
-          </span>
-          <input
-            type="checkbox"
-            checked={applyAll}
-            onChange={(e) => setApplyAll(e.target.checked)}
-            className="h-4 w-4 accent-primary"
-          />
-        </label>
-      )}
-
-      <OptionGroup label="Frame Type">
-        {FRAME_TYPES.map((f) => (
-          <OptionButton key={f.id} active={current.frameType === f.id} onClick={() => handleFrameType(f.id)}>
-            {f.label}
-          </OptionButton>
-        ))}
-      </OptionGroup>
-
-      <OptionGroup label="Size">
-        {sizesForFrame(current.frameType).map((sid) => {
-          const s = SIZES.find((x) => x.id === sid)!;
-          return (
-          <OptionButton key={s.id} active={current.size === s.id} onClick={() => applyPatch({ size: s.id })}>
-            {s.label}
-          </OptionButton>
-          );
-        })}
-      </OptionGroup>
-      <SizeGuide availableIds={sizesForFrame(current.frameType)} />
-
-      {current.frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
-      <OptionGroup label="Frame Color">
-        {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => applyPatch({ color: c.id })}
-            className={cn(
-              "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
-              current.color === c.id
-                ? "border-primary bg-accent"
-                : "border-border hover:border-muted-foreground",
-            )}
-          >
-            <span
-              className="h-5 w-5 rounded-full border border-border"
-              style={{ backgroundColor: c.swatch }}
-            />
-            {c.label}
-          </button>
-        ))}
-      </OptionGroup>
-      )}
-
-      <OptionGroup label="Quantity">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
-            aria-label="Decrease quantity"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <div className="min-w-[3rem] text-center text-lg font-semibold">{quantity}</div>
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.min(99, q + 1))}
-            className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
-            aria-label="Increase quantity"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-      </OptionGroup>
+        </OptionGroup>
       </div>
 
       <div className="sticky bottom-0 border-t border-border bg-card px-5 py-4">
@@ -852,20 +809,30 @@ function Customizer({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={handleAdd}
-          className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-2"
-        >
-          <Check className="h-4 w-4" /> Add {posters.length} to cart
-        </button>
-        <a
-          href={whatsappLink(waMsg)}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
-        >
-          WhatsApp order
-        </a>
+          <button
+            onClick={handleAdd}
+            className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-2"
+          >
+            <Check className="h-4 w-4" /> {t("category.addToCart", { count: posters.length })}
+          </button>
+          <a
+            href={whatsappLink(waMsg)}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+          >
+            {t("nav.whatsappOrder")}
+          </a>
+        </div>
+        <div className="mt-4 space-y-2 border-t border-border pt-4">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Truck className="h-3.5 w-3.5" />
+            <span>{t("product.shippingInfo")}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            <span>{t("product.productionTime")}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -886,44 +853,38 @@ function MobileCustomizerBar({
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { t, i18n } = useTranslation();
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
+  const isRtl = i18n.language?.startsWith("ar");
   // Quick estimate at default 30x40 PVC for the bar
   const estUnit = priceForFrame(pricing, "pvc", "30x40") + (isCustom ? pricing.customDesignFee : 0);
   const estTotal = estUnit * posters.length;
-  // Expose bar height so floating buttons (WhatsApp / Offers / Assistant)
-  // can shift above it on mobile and not overlap the Customize action.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--mobile-bar-h", "76px");
-    return () => { root.style.removeProperty("--mobile-bar-h"); };
-  }, []);
+  const priceLabel = `${estTotal} EGP`;
+
+  const customizeAction: BarAction = {
+    kind: "customize",
+    label: isRtl ? "تخصيص التصميم" : "CUSTOMIZE",
+    onClick: () => setOpen(true),
+  };
+
+  const cartAction: BarAction = {
+    kind: "cart",
+    label: t("category.customize"),
+    onClick: () => setOpen(true),
+  };
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-              {posters.length} selected
-            </div>
-            <div className="truncate text-sm font-semibold">
-              from {estTotal} EGP
-            </div>
-          </div>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="rounded-sm bg-primary px-5 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
-            >
-              Customize
-            </button>
-          </SheetTrigger>
-        </div>
-      </div>
-      <SheetContent
-        side="bottom"
-        className="h-[92vh] overflow-hidden p-0"
-      >
+      <StickyProductBar
+        content={{
+          price: priceLabel,
+          size: `${posters.length} ${t("category.selected")}`,
+        }}
+        primary={customizeAction}
+        secondary={cartAction}
+      />
+      <SheetContent side="bottom" className="h-[92vh] overflow-hidden p-0" style={{ zIndex: 80 }}>
         <div className="h-full">
           <Customizer
             posters={posters}

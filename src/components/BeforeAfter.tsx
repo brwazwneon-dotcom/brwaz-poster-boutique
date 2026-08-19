@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type Item = {
   id: string;
@@ -14,7 +15,12 @@ type Item = {
   sort_order: number;
 };
 
-export function BeforeAfter({ location }: { location: "homepage" | "product" | "photo-printing" | "custom-design" }) {
+export function BeforeAfter({
+  location,
+}: {
+  location: "homepage" | "product" | "photo-printing" | "custom-design";
+}) {
+  const { t } = useTranslation();
   const { data: items = [] } = useQuery({
     queryKey: ["before_after", location],
     queryFn: async () => {
@@ -33,10 +39,12 @@ export function BeforeAfter({ location }: { location: "homepage" | "product" | "
 
   return (
     <section className="container-page py-12">
-      <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">See the difference</div>
-      <h2 className="text-display text-3xl sm:text-4xl mt-2">Before & After</h2>
+      <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+        {t("beforeAfter.label")}
+      </div>
+      <h2 className="text-display text-3xl sm:text-4xl mt-2">{t("beforeAfter.title")}</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Professional enhancement before printing for the best possible result.
+        {t("beforeAfter.description")}
       </p>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -69,6 +77,7 @@ export function Slider({
   title?: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(50);
   const dragging = useRef(false);
@@ -84,7 +93,10 @@ export function Slider({
   return (
     <div
       ref={ref}
-      className={cn("relative aspect-[4/3] w-full select-none overflow-hidden rounded-sm bg-background", className)}
+      className={cn(
+        "relative aspect-[4/3] w-full select-none overflow-hidden rounded-sm bg-background",
+        className,
+      )}
       onMouseDown={(e) => {
         dragging.current = true;
         move(e.clientX);
@@ -95,25 +107,31 @@ export function Slider({
       onTouchStart={(e) => move(e.touches[0].clientX)}
       onTouchMove={(e) => move(e.touches[0].clientX)}
     >
-      <SafeImage src={after} alt={title ? `${title} after` : "After"} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      <SafeImage
+        src={after}
+        alt={title ? t("beforeAfter.afterAlt", { title }) : t("beforeAfter.after")}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+      />
       <SafeImage
         src={before}
-        alt={title ? `${title} before` : "Before"}
+        alt={title ? t("beforeAfter.beforeAlt", { title }) : t("beforeAfter.before")}
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
         draggable={false}
         style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
       />
-      <div
-        className="absolute inset-y-0 w-0.5 bg-primary"
-        style={{ left: `calc(${pos}% - 1px)` }}
-      >
+      <div className="absolute inset-y-0 w-0.5 bg-primary" style={{ left: `calc(${pos}% - 1px)` }}>
         <div className="absolute top-1/2 left-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-primary bg-background text-xs font-bold">
           ⇆
         </div>
       </div>
-      <span className="pointer-events-none absolute left-2 top-2 rounded-sm bg-background/85 px-2 py-0.5 text-[10px] uppercase tracking-widest">Before</span>
-      <span className="pointer-events-none absolute right-2 top-2 rounded-sm bg-background/85 px-2 py-0.5 text-[10px] uppercase tracking-widest">After</span>
+      <span className="pointer-events-none absolute left-2 top-2 rounded-sm bg-background/85 px-2 py-0.5 text-[10px] uppercase tracking-widest">
+        {t("beforeAfter.before")}
+      </span>
+      <span className="pointer-events-none absolute right-2 top-2 rounded-sm bg-background/85 px-2 py-0.5 text-[10px] uppercase tracking-widest">
+        {t("beforeAfter.after")}
+      </span>
     </div>
   );
 }

@@ -27,7 +27,10 @@ function parse(raw: unknown): AnnouncementConfig {
   return {
     enabled: typeof v.enabled === "boolean" ? v.enabled : ANNOUNCEMENT_DEFAULTS.enabled,
     text: typeof v.text === "string" && v.text.trim() ? v.text : ANNOUNCEMENT_DEFAULTS.text,
-    speed: Number.isFinite(Number(v.speed)) && Number(v.speed) > 0 ? Number(v.speed) : ANNOUNCEMENT_DEFAULTS.speed,
+    speed:
+      Number.isFinite(Number(v.speed)) && Number(v.speed) > 0
+        ? Number(v.speed)
+        : ANNOUNCEMENT_DEFAULTS.speed,
     bg: typeof v.bg === "string" && v.bg ? v.bg : ANNOUNCEMENT_DEFAULTS.bg,
     color: typeof v.color === "string" && v.color ? v.color : ANNOUNCEMENT_DEFAULTS.color,
     accent: typeof v.accent === "string" && v.accent ? v.accent : ANNOUNCEMENT_DEFAULTS.accent,
@@ -56,18 +59,25 @@ export function AnnouncementBar() {
   if (!cfg.enabled || !cfg.text.trim()) return null;
 
   // Highlight numbers + currency subtly with the accent color.
-  const parts = cfg.text.split(/(\d[\d,\.]*\s*(?:EGP|LE|EUR|USD)?)/gi);
+  const parts = cfg.text.split(/(\d[\d,.]*\s*(?:EGP|LE|EUR|USD)?)/gi);
 
   const item = (key: string) => (
-    <span key={key} className="mx-8 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] sm:text-[13px]">
+    <span
+      key={key}
+      className="mx-8 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] sm:text-[13px]"
+    >
       {parts.map((p, i) =>
         /\d/.test(p) ? (
-          <span key={i} style={{ color: cfg.accent }}>{p}</span>
+          <span key={i} style={{ color: cfg.accent }}>
+            {p}
+          </span>
         ) : (
           <span key={i}>{p}</span>
         ),
       )}
-      <span aria-hidden style={{ color: cfg.accent }}>•</span>
+      <span aria-hidden style={{ color: cfg.accent }}>
+        •
+      </span>
     </span>
   );
 
@@ -83,13 +93,16 @@ export function AnnouncementBar() {
       aria-label="Site announcement"
     >
       <div
+        data-brw-marquee
         className="flex whitespace-nowrap py-1.5 will-change-transform"
         style={{
           animation: `brw-marquee ${cfg.speed}s linear infinite`,
         }}
       >
         <div className="flex shrink-0">{track}</div>
-        <div className="flex shrink-0" aria-hidden>{track2}</div>
+        <div className="flex shrink-0" aria-hidden>
+          {track2}
+        </div>
       </div>
       <style>{`
         @keyframes brw-marquee {

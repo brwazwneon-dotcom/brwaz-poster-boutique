@@ -1,5 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Eye, ChevronDown, Home, MapPin, Package, LayoutGrid, Smartphone, Tablet, Monitor } from "lucide-react";
+import {
+  Eye,
+  ChevronDown,
+  Home,
+  MapPin,
+  Package,
+  LayoutGrid,
+  Smartphone,
+  Tablet,
+  Monitor,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { openPreviewWindow, getLastPublicRoute, type PreviewDevice } from "@/lib/preview-mode";
 import { cn } from "@/lib/utils";
@@ -71,7 +81,11 @@ export function PreviewAsClient() {
           <MenuItem Icon={Home} label="Preview homepage" onClick={() => preview("home")} />
           <MenuItem Icon={MapPin} label="Preview current page" onClick={() => preview("current")} />
           <MenuItem Icon={Package} label="Preview product" onClick={() => preview("product")} />
-          <MenuItem Icon={LayoutGrid} label="Preview collection" onClick={() => preview("collection")} />
+          <MenuItem
+            Icon={LayoutGrid}
+            label="Preview collection"
+            onClick={() => preview("collection")}
+          />
 
           <div className="my-2 border-t border-border" />
           <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">

@@ -6,9 +6,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Slide = { id: string; image_url: string; title: string | null; link_url: string | null };
 
-export function HomeSlider() {
+export function HomepageSlider() {
   const { data: slides = [] } = useQuery({
-    queryKey: ["slider"],
+    queryKey: ["homepage-slider"],
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -42,7 +42,10 @@ export function HomeSlider() {
   const go = (n: number) => setIdx((n + slides.length) % slides.length);
 
   return (
-    <section className="relative isolate overflow-hidden border-b border-border bg-card">
+    <section
+      data-homepage-slider="true"
+      className="relative isolate overflow-hidden border-b border-border bg-card"
+    >
       <div className="relative h-[40vh] min-h-[260px] w-full sm:h-[55vh] md:h-[65vh]">
         {/* Subtle skeleton so the hero area never reads as an empty band while
             the first slide is still decoding. */}
@@ -59,8 +62,7 @@ export function HomeSlider() {
               className="h-full w-full object-cover"
               loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
-              // @ts-expect-error — React 19 accepts fetchPriority, older DOM libs may not type it.
-              fetchpriority={i === 0 ? "high" : "low"}
+              fetchPriority={i === 0 ? "high" : "low"}
             />
           );
           return (
@@ -70,7 +72,9 @@ export function HomeSlider() {
               aria-hidden={i !== idx}
             >
               {s.link_url ? (
-                <a href={s.link_url} className="block h-full w-full">{inner}</a>
+                <a href={s.link_url} className="block h-full w-full">
+                  {inner}
+                </a>
               ) : (
                 inner
               )}

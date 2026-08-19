@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Sparkles, Search as SearchIcon, X, Heart, MessageCircle, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useWishlist } from "@/lib/wishlist";
 import { whatsappLink } from "@/lib/whatsapp";
 import { sessionId } from "@/lib/analytics";
 import { trackEvent } from "@/lib/meta-pixel";
-import { FramePreview } from "@/components/FramePreview";
+import { FramedArtwork } from "@/components/FramedArtwork";
+import { Z } from "@/lib/floating-tools";
 import {
   CATEGORY_CHIPS,
   matchSuggestions,
@@ -61,6 +63,8 @@ export function AssistantButton() {
   const [activeChip, setActiveChip] = useState<AssistantCategory | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { has, toggle } = useWishlist();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language?.startsWith("ar");
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
@@ -71,8 +75,17 @@ export function AssistantButton() {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
+
+  // Listen for open-assistant event from MobileToolsSheet
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("brw:open-assistant", handler);
+    return () => window.removeEventListener("brw:open-assistant", handler);
+  }, []);
 
   const term = query.trim();
   const suggestions = useMemo(() => matchSuggestions(term, 8), [term]);
@@ -82,7 +95,11 @@ export function AssistantButton() {
     if (term.length < 2) return;
     const t = setTimeout(() => {
       logRequest({ keyword: term, action: "search" });
-      try { trackEvent("Search", { search_string: term, source: "assistant" }); } catch { /* noop */ }
+      try {
+        trackEvent("Search", { search_string: term, source: "assistant" });
+      } catch {
+        /* noop */
+      }
     }, 700);
     return () => clearTimeout(t);
   }, [term]);
@@ -107,7 +124,12 @@ export function AssistantButton() {
   const chooseSuggestion = (s: Suggestion) => {
     setQuery(s.q);
     setActiveChip(s.category);
-    logRequest({ keyword: s.q, category: s.category, action: "select", meta: { source: "suggestion" } });
+    logRequest({
+      keyword: s.q,
+      category: s.category,
+      action: "select",
+      meta: { source: "suggestion" },
+    });
   };
 
   const clickChip = (cat: AssistantCategory) => {
@@ -128,31 +150,39 @@ export function AssistantButton() {
 
   return (
     <>
-      {/* Floating trigger — sits above WhatsApp button */}
+      {/* Floating trigger — secondary tool, collapses on mobile */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="مساعد اختيار الصور"
-        className="fixed bottom-[calc(6rem+var(--mobile-bar-h,0px))] right-5 z-50 flex items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-br from-neutral-900 to-black px-4 py-3 text-xs font-medium text-primary-foreground shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-[1.03] hover:shadow-[0_14px_36px_rgba(255,255,255,0.15)] sm:bottom-28 sm:right-8"
+        aria-label={t("assistant.title")}
+        className="floating-tool secondary fixed right-5 hidden items-center gap-2 rounded-full border border-primary/40 bg-gradient-to-br from-neutral-900 to-black px-4 py-3 text-xs font-medium text-primary-foreground shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-[1.03] hover:shadow-[0_14px_36px_rgba(255,255,255,0.15)] sm:right-8 sm:flex"
+        style={{
+          bottom: "calc(5rem + var(--sticky-bar-h, 0px) + env(safe-area-inset-bottom, 0px))",
+          zIndex: Z.FLOATING_TOOLS,
+        }}
       >
         <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Sparkles className="h-3.5 w-3.5" />
           <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
         </span>
-        <span className="hidden text-[11px] uppercase tracking-widest sm:inline">مساعد اختيار الصور</span>
-        <span className="sm:hidden text-[11px]">مساعد الصور</span>
+        <span className="hidden text-[11px] uppercase tracking-widest sm:inline">
+          {t("assistant.title")}
+        </span>
+        <span className="sm:hidden text-[11px]">{t("assistant.shortTitle")}</span>
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-6"
+          className="fixed inset-0 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-6"
           onClick={() => setOpen(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Poster assistant"
+          aria-label={t("assistant.title")}
+          style={{ zIndex: Z.MODAL_OVERLAY }}
         >
           <div
             className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:h-[85vh] sm:rounded-2xl"
+            style={{ zIndex: Z.MODAL_CONTENT }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -162,12 +192,14 @@ export function AssistantButton() {
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">Assistant</div>
-                  <div className="text-sm font-semibold sm:text-base">مساعد اختيار الصور</div>
+                  <div className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">
+                    {t("assistant.eyebrow")}
+                  </div>
+                  <div className="text-sm font-semibold sm:text-base">{t("assistant.title")}</div>
                 </div>
               </div>
               <button
-                aria-label="Close"
+                aria-label={t("common.close")}
                 onClick={() => setOpen(false)}
                 className="rounded-full border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
@@ -188,15 +220,18 @@ export function AssistantButton() {
                   ref={inputRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="اكتب اسم لاعب، فيلم، أنمي… / Cristiano, Batman, Naruto…"
+                  placeholder={t("assistant.placeholder")}
                   className="w-full rounded-sm border border-border bg-card py-3 pl-9 pr-3 text-sm outline-none focus:border-primary"
                   autoComplete="off"
                   spellCheck={false}
                 />
                 {query && (
                   <button
-                    aria-label="Clear"
-                    onClick={() => { setQuery(""); setActiveChip(null); }}
+                    aria-label={t("assistant.clear")}
+                    onClick={() => {
+                      setQuery("");
+                      setActiveChip(null);
+                    }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -213,7 +248,7 @@ export function AssistantButton() {
                       onClick={() => chooseSuggestion(s)}
                       className="rounded-sm border border-border bg-card px-2.5 py-1 text-xs hover:border-primary"
                     >
-                      {s.labelAr ? `${s.label} · ${s.labelAr}` : s.label}
+                      {isArabic ? (s.labelAr ?? s.label) : s.label}
                     </button>
                   ))}
                 </div>
@@ -222,7 +257,7 @@ export function AssistantButton() {
               {/* Category chips */}
               <div className="mt-4">
                 <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  اختصارات · Suggested
+                  {t("assistant.shortcuts")}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {CATEGORY_CHIPS.map((c) => {
@@ -238,8 +273,7 @@ export function AssistantButton() {
                         }`}
                       >
                         <span aria-hidden>{c.emoji}</span>
-                        <span>{c.labelAr}</span>
-                        <span className="text-[10px] opacity-60">· {c.label}</span>
+                        <span>{isArabic ? c.labelAr : c.label}</span>
                       </button>
                     );
                   })}
@@ -252,7 +286,12 @@ export function AssistantButton() {
                       onClick={() => setOpen(false)}
                       className="text-[11px] uppercase tracking-widest text-primary underline-offset-4 hover:underline"
                     >
-                      Browse full "{activeChip}" collection →
+                      {t("assistant.browseCollection", {
+                        collection:
+                          CATEGORY_CHIPS.find((c) => c.key === activeChip)?.[
+                            isArabic ? "labelAr" : "label"
+                          ] ?? activeChip,
+                      })}
                     </Link>
                   </div>
                 )}
@@ -261,7 +300,9 @@ export function AssistantButton() {
               {/* Suggestions from chip when no query */}
               {!term && chipSuggestions.length > 0 && (
                 <div className="mt-4">
-                  <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Popular in category</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {t("assistant.popularInCategory")}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {chipSuggestions.map((s) => (
                       <button
@@ -269,7 +310,7 @@ export function AssistantButton() {
                         onClick={() => chooseSuggestion(s)}
                         className="rounded-sm border border-border bg-card px-2.5 py-1 text-xs hover:border-primary"
                       >
-                        {s.labelAr ? `${s.label} · ${s.labelAr}` : s.label}
+                        {isArabic ? (s.labelAr ?? s.label) : s.label}
                       </button>
                     ))}
                   </div>
@@ -281,22 +322,29 @@ export function AssistantButton() {
                 <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {isFetching ? "Searching…" : `${posters.length} result${posters.length === 1 ? "" : "s"} for "${term}"`}
+                      {isFetching
+                        ? t("assistant.searching")
+                        : t("assistant.results", { count: posters.length, term })}
                     </div>
                   </div>
 
                   {posters.length === 0 && !isFetching ? (
                     <div className="rounded-sm border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                      لسه ماعندناش نتيجة مباشرة لـ "{term}". ابعتلنا لينك الصورة اللي عايزها على واتساب ونجهزها لك.
+                      لسه ماعندناش نتيجة مباشرة لـ "{term}". ابعتلنا لينك الصورة اللي عايزها على
+                      واتساب ونجهزها لك.
                       <div className="mt-3">
                         <a
-                          href={whatsappLink(`Hello, I want a poster of: ${term}. I want to print it as a frame.`)}
+                          href={whatsappLink(
+                            `Hello, I want a poster of: ${term}. I want to print it as a frame.`,
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => logRequest({ keyword: term, action: "whatsapp", meta: { empty: true } })}
+                          onClick={() =>
+                            logRequest({ keyword: term, action: "whatsapp", meta: { empty: true } })
+                          }
                           className="inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-3 py-2 text-xs font-medium text-white hover:opacity-90"
                         >
-                          <MessageCircle className="h-4 w-4" /> Send on WhatsApp
+                          <MessageCircle className="h-4 w-4" /> {t("assistant.sendOnWhatsapp")}
                         </a>
                       </div>
                     </div>
@@ -337,13 +385,20 @@ export function AssistantButton() {
                               action: "whatsapp",
                             });
                           }}
+                          selectLabel={t("assistant.select")}
+                          wishlistLabel={t("nav.wishlist")}
+                          whatsappLabel={t("assistant.sendOnWhatsapp")}
                         />
                       ))}
                     </div>
                   )}
 
-                  <p className="mt-4 rounded-sm border border-border bg-card/50 p-3 text-[11px] leading-relaxed text-muted-foreground" dir="rtl">
-                    اختار الصورة أو ابعتلنا لينك الصورة اللي عجبتك، واحنا هنجهزها للطباعة بأعلى جودة.
+                  <p
+                    className="mt-4 rounded-sm border border-border bg-card/50 p-3 text-[11px] leading-relaxed text-muted-foreground"
+                    dir="rtl"
+                  >
+                    اختار الصورة أو ابعتلنا لينك الصورة اللي عجبتك، واحنا هنجهزها للطباعة بأعلى
+                    جودة.
                   </p>
                 </div>
               )}
@@ -362,6 +417,9 @@ function ResultCard({
   onSelect,
   onWish,
   onWhats,
+  selectLabel,
+  wishlistLabel,
+  whatsappLabel,
 }: {
   poster: PosterHit;
   keyword: string;
@@ -369,17 +427,19 @@ function ResultCard({
   onSelect: () => void;
   onWish: () => void;
   onWhats: () => void;
+  selectLabel: string;
+  wishlistLabel: string;
+  whatsappLabel: string;
 }) {
   const slug = poster.category_slug ?? "";
   const msg = `Hello, I want this design: ${poster.title} (search: ${keyword}). I want to print it as a frame.`;
   return (
     <div className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary">
       <div className="relative aspect-[3/4] overflow-hidden">
-        <FramePreview
+        <FramedArtwork
           posterUrl={poster.image_url}
           title={poster.title}
           aspectClassName="aspect-[3/4]"
-          bare
           loading="lazy"
           className="h-full w-full"
         />
@@ -397,19 +457,19 @@ function ResultCard({
               onClick={onSelect}
               className="inline-flex flex-1 items-center justify-center gap-1 rounded-sm bg-primary px-2 py-1.5 text-[10px] font-medium uppercase tracking-widest text-primary-foreground hover:opacity-90"
             >
-              <Check className="h-3 w-3" /> Select
+              <Check className="h-3 w-3" /> {selectLabel}
             </Link>
           ) : (
             <button
               onClick={onSelect}
               className="inline-flex flex-1 items-center justify-center gap-1 rounded-sm bg-primary px-2 py-1.5 text-[10px] font-medium uppercase tracking-widest text-primary-foreground"
             >
-              <Check className="h-3 w-3" /> Select
+              <Check className="h-3 w-3" /> {selectLabel}
             </button>
           )}
           <button
             onClick={onWish}
-            aria-label="Wishlist"
+            aria-label={wishlistLabel}
             className={`inline-flex items-center justify-center rounded-sm border p-1.5 text-xs ${wished ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             <Heart className={`h-3.5 w-3.5 ${wished ? "fill-current" : ""}`} />
@@ -419,7 +479,7 @@ function ResultCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={onWhats}
-            aria-label="Send on WhatsApp"
+            aria-label={whatsappLabel}
             className="inline-flex items-center justify-center rounded-sm border border-border p-1.5 text-[#25D366] hover:bg-accent"
           >
             <MessageCircle className="h-3.5 w-3.5" />

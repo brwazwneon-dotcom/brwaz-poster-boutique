@@ -35,15 +35,15 @@ import {
 } from "@/lib/ai-review";
 
 type RowStatus =
-  | "uploaded"
-  | "ai_generating"
-  | "ready"
-  | "needs_review"
-  | "published"
-  | "draft"
-  | "failed";
+  "uploaded" | "ai_generating" | "ready" | "needs_review" | "published" | "draft" | "failed";
 
-type ImageStatus = "uploading_original" | "generating_thumbnail" | "generating_preview" | "ready" | "failed" | "stuck";
+type ImageStatus =
+  | "uploading_original"
+  | "generating_thumbnail"
+  | "generating_preview"
+  | "ready"
+  | "failed"
+  | "stuck";
 type UploadStatus = "queued" | "uploading" | "completed" | "failed";
 type QueueStatus = "queued" | "processing" | "completed" | "failed";
 type SeoStatus = "idle" | "generating" | "complete" | "failed";
@@ -111,7 +111,10 @@ function isStorageImageUrl(url?: string | null) {
 }
 
 function getBestImageUrl(row: Row) {
-  return [row.imageUrl, row.originalUrl, row.thumbnailUrl, row.previewUrl].find(isStorageImageUrl) ?? null;
+  return (
+    [row.imageUrl, row.originalUrl, row.thumbnailUrl, row.previewUrl].find(isStorageImageUrl) ??
+    null
+  );
 }
 
 function hasPublishableImage(row: Row) {
@@ -135,7 +138,7 @@ export function AiPosterUpload() {
   categoriesRef.current = categories;
 
   const findCategoryById = (id?: string | null) =>
-    id ? categoriesRef.current.find((c) => c.id === id) ?? null : null;
+    id ? (categoriesRef.current.find((c) => c.id === id) ?? null) : null;
   const resolveMainCategoryId = (row: Pick<Row, "category_id" | "subcategory_id">) => {
     if (row.category_id) return row.category_id;
     const sub = findCategoryById(row.subcategory_id);
@@ -162,11 +165,18 @@ export function AiPosterUpload() {
     activityLog: appendActivity(row, reason),
   });
   const isUploadPending = (row: Row) =>
-    row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing" || row.image_status === "stuck";
+    row.upload_status === "queued" ||
+    row.upload_status === "uploading" ||
+    row.queue_status === "processing" ||
+    row.image_status === "stuck";
   const rowIssue = (row: Row) => {
     if (!resolveMainCategoryId(row)) return "Missing main category";
     if (!hasPublishableImage(row)) {
-      if (row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing") {
+      if (
+        row.upload_status === "queued" ||
+        row.upload_status === "uploading" ||
+        row.queue_status === "processing"
+      ) {
         return row.image_status === "stuck" ? "Upload queue stuck" : "Original image missing";
       }
       return row.error || "Storage URL not found";
@@ -176,14 +186,16 @@ export function AiPosterUpload() {
     return row.error;
   };
 
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   const findSubByName = (parentId: string, name: string) => {
     const target = norm(name);
     if (!target) return null;
     return (
-      categoriesRef.current.find(
-        (c) => c.parent_id === parentId && norm(c.name) === target,
-      ) ?? null
+      categoriesRef.current.find((c) => c.parent_id === parentId && norm(c.name) === target) ?? null
     );
   };
 
@@ -202,19 +214,30 @@ export function AiPosterUpload() {
 
   // Inline category management
   type EditorState =
-    | { mode: "create"; parentId: string | null; parentName?: string | null; onSaved: (row: Category) => void }
+    | {
+        mode: "create";
+        parentId: string | null;
+        parentName?: string | null;
+        onSaved: (row: Category) => void;
+      }
     | { mode: "edit"; category: Category; onSaved: (row: Category) => void }
     | null;
   const [editorState, setEditorState] = useState<EditorState>(null);
   const [deleteState, setDeleteState] = useState<Category | null>(null);
   const editorSiblings = useMemo(() => {
     if (!editorState) return [] as Category[];
-    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    const pid =
+      editorState.mode === "create"
+        ? editorState.parentId
+        : (editorState.category.parent_id ?? null);
     return categories.filter((c) => (c.parent_id ?? null) === pid);
   }, [editorState, categories]);
   const editorParentName = useMemo(() => {
     if (!editorState) return null;
-    const pid = editorState.mode === "create" ? editorState.parentId : (editorState.category.parent_id ?? null);
+    const pid =
+      editorState.mode === "create"
+        ? editorState.parentId
+        : (editorState.category.parent_id ?? null);
     if (!pid) return null;
     return categories.find((c) => c.id === pid)?.name ?? null;
   }, [editorState, categories]);
@@ -258,7 +281,11 @@ export function AiPosterUpload() {
           const startedAt = r.uploadStartedAt ?? r.createdAt;
           if (now - startedAt < STUCK_UPLOAD_MS) return r;
           if (hasPublishableImage(r)) {
-            return syncReadyPatch(r, "Auto timeout fixed: image URL found", r.status === "ai_generating" ? "ai_generating" : "ready");
+            return syncReadyPatch(
+              r,
+              "Auto timeout fixed: image URL found",
+              r.status === "ai_generating" ? "ai_generating" : "ready",
+            );
           }
           return failUploadPatch(r, "Storage URL not found");
         }),
@@ -302,14 +329,22 @@ export function AiPosterUpload() {
           }
         }
         const threshold = aiThresholdRef.current;
-        const parentHasSubs = catId ? categoriesRef.current.some((c) => c.parent_id === catId) : false;
+        const parentHasSubs = catId
+          ? categoriesRef.current.some((c) => c.parent_id === catId)
+          : false;
         const reasons = computeReviewReasons(
           {
             confidence: conf,
             category_id: e.category_id ? r.category_id : catId,
             subcategory_id: e.subcategory_id ? r.subcategory_id : subId,
-            suggested_category_name: e.category_id ? r.suggested_category_name : (catId ? null : meta.suggested_category_name),
-            suggested_subcategory_name: e.subcategory_id ? r.suggested_subcategory_name : suggestedSub,
+            suggested_category_name: e.category_id
+              ? r.suggested_category_name
+              : catId
+                ? null
+                : meta.suggested_category_name,
+            suggested_subcategory_name: e.subcategory_id
+              ? r.suggested_subcategory_name
+              : suggestedSub,
             hasSubsUnderParent: parentHasSubs,
           },
           threshold,
@@ -341,8 +376,14 @@ export function AiPosterUpload() {
           tags: e.tags ? r.tags : meta.tags,
           category_id: e.category_id ? r.category_id : catId,
           subcategory_id: e.subcategory_id ? r.subcategory_id : subId,
-          suggested_subcategory_name: e.subcategory_id ? r.suggested_subcategory_name : suggestedSub,
-          suggested_category_name: e.category_id ? r.suggested_category_name : (catId ? null : meta.suggested_category_name),
+          suggested_subcategory_name: e.subcategory_id
+            ? r.suggested_subcategory_name
+            : suggestedSub,
+          suggested_category_name: e.category_id
+            ? r.suggested_category_name
+            : catId
+              ? null
+              : meta.suggested_category_name,
           detected_subject: meta.detected_subject,
           badge: e.badge ? r.badge : meta.badge,
         };
@@ -378,9 +419,7 @@ export function AiPosterUpload() {
   }, [rows]);
 
   const addFiles = (files: FileList | File[]) => {
-    const incoming = Array.from(files).filter(
-      (f) => f.type.startsWith("image/") || isHeic(f),
-    );
+    const incoming = Array.from(files).filter((f) => f.type.startsWith("image/") || isHeic(f));
     if (!incoming.length) return;
     const next: Row[] = incoming.map((file) => {
       const baseName = file.name.replace(/\.[^.]+$/, "");
@@ -543,9 +582,7 @@ export function AiPosterUpload() {
         }
       }
     };
-    await Promise.all(
-      Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, aiWorker),
-    );
+    await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, ids.length) }, aiWorker));
   };
 
   const regenerateSelected = async () => {
@@ -566,7 +603,7 @@ export function AiPosterUpload() {
       const hasData =
         hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
-        !!(r.file?.name) ||
+        !!r.file?.name ||
         !!r.category_id ||
         !!r.subcategory_id ||
         (r.tags?.length ?? 0) > 0;
@@ -580,15 +617,9 @@ export function AiPosterUpload() {
       if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
     }
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug("[regenerateSelected]", { selectedIds, eligible, skipped });
-    }
     if (!eligible.length) {
       const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
-      return toast.error(
-        `Selected posters cannot be regenerated${reason ? `: ${reason}` : "."}`,
-      );
+      return toast.error(`Selected posters cannot be regenerated${reason ? `: ${reason}` : "."}`);
     }
     if (textOnlyCount) {
       toast.message(
@@ -605,7 +636,14 @@ export function AiPosterUpload() {
     const ids = eligible;
     setBusy(true);
     // "Regenerate with AI" = intentional overwrite; clear the edited map.
-    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
+    ids.forEach((id) =>
+      update(id, {
+        status: "ai_generating",
+        seo_status: "generating",
+        error: undefined,
+        edited: {},
+      }),
+    );
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -644,8 +682,12 @@ export function AiPosterUpload() {
       const r = rowsRef.current.find((x) => x.id === id);
       if (!r) continue;
       const hasAll =
-        !!r.description && !!r.seo_title && !!r.seo_description &&
-        !!r.alt_text && !!r.slug && (r.tags?.length ?? 0) > 0;
+        !!r.description &&
+        !!r.seo_title &&
+        !!r.seo_description &&
+        !!r.alt_text &&
+        !!r.slug &&
+        (r.tags?.length ?? 0) > 0;
       if (hasAll) {
         skipped.push({ title: r.title || r.file.name, reason: "SEO already complete" });
         continue;
@@ -653,7 +695,7 @@ export function AiPosterUpload() {
       const hasData =
         hasPublishableImage(r) ||
         !!(r.title && r.title.trim()) ||
-        !!(r.file?.name) ||
+        !!r.file?.name ||
         !!r.category_id ||
         !!r.subcategory_id ||
         (r.tags?.length ?? 0) > 0;
@@ -666,10 +708,6 @@ export function AiPosterUpload() {
       }
       if (!hasPublishableImage(r)) textOnlyCount++;
       eligible.push(id);
-    }
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug("[aiSeoSelected]", { selectedIds, eligible, skipped });
     }
     if (!eligible.length) {
       const reason = skipped.map((s) => `${s.title} (${s.reason})`).join(", ");
@@ -687,7 +725,9 @@ export function AiPosterUpload() {
     }
     setBusy(true);
     // Do NOT clear edited map — this only fills missing fields.
-    eligible.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined }));
+    eligible.forEach((id) =>
+      update(id, { status: "ai_generating", seo_status: "generating", error: undefined }),
+    );
     let cursor = 0;
     let okCount = 0;
     let failCount = 0;
@@ -807,7 +847,9 @@ export function AiPosterUpload() {
       invalidRows.length ? `Skipped with warnings: ${invalidRows.length}` : null,
       alreadyPublished.length ? `Already published: ${alreadyPublished.length}` : null,
       failed ? `Failed: ${failed}` : null,
-    ].filter(Boolean).join(" · ");
+    ]
+      .filter(Boolean)
+      .join(" · ");
     if (ok > 0) toast.success(parts);
     else toast.error(parts);
     if (ok > 0) setSelected(new Set());
@@ -830,14 +872,19 @@ export function AiPosterUpload() {
   };
 
   const regenerateNeedsReview = async () => {
-    const ids = rowsRef.current
-      .filter((r) => r.status === "needs_review")
-      .map((r) => r.id);
+    const ids = rowsRef.current.filter((r) => r.status === "needs_review").map((r) => r.id);
     if (!ids.length) return toast.error("No rows need review");
     setSelected(new Set(ids));
     // Re-use existing regen worker path
     setBusy(true);
-    ids.forEach((id) => update(id, { status: "ai_generating", seo_status: "generating", error: undefined, edited: {} }));
+    ids.forEach((id) =>
+      update(id, {
+        status: "ai_generating",
+        seo_status: "generating",
+        error: undefined,
+        edited: {},
+      }),
+    );
     let cursor = 0;
     const worker = async () => {
       while (cursor < ids.length) {
@@ -946,14 +993,19 @@ export function AiPosterUpload() {
           : r,
       ),
     );
-    logActivity("Force ready selected posters", { count: targets.length, ids: targets.map((t) => t.id) });
+    logActivity("Force ready selected posters", {
+      count: targets.length,
+      ids: targets.map((t) => t.id),
+    });
     toast.success(`Force-marked ${targets.length} row(s) as ready`);
   };
 
   const forceOneReady = (id: string) => {
     const row = rowsRef.current.find((r) => r.id === id);
     if (!row || !hasPublishableImage(row)) return toast.error("No image URL found for this row.");
-    setRows((prev) => prev.map((r) => (r.id === id ? syncReadyPatch(r, "Force Mark Ready: row action") : r)));
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? syncReadyPatch(r, "Force Mark Ready: row action") : r)),
+    );
     logActivity("Force Mark Ready poster row", { id, title: row.title || row.file.name });
     toast.success("Marked ready");
   };
@@ -976,7 +1028,11 @@ export function AiPosterUpload() {
 
   const deleteSelected = () => {
     if (!selected.size) return;
-    if (!confirm(`Remove ${selected.size} row(s) from the queue? Already published posters stay live.`))
+    if (
+      !confirm(
+        `Remove ${selected.size} row(s) from the queue? Already published posters stay live.`,
+      )
+    )
       return;
     setRows((prev) =>
       prev.filter((r) => {
@@ -1051,10 +1107,7 @@ export function AiPosterUpload() {
   const createAllSuggested = async () => {
     const targets = rowsRef.current.filter(
       (r) =>
-        selected.has(r.id) &&
-        r.category_id &&
-        r.suggested_subcategory_name &&
-        !r.subcategory_id,
+        selected.has(r.id) && r.category_id && r.suggested_subcategory_name && !r.subcategory_id,
     );
     if (!targets.length) return toast.error("No suggestions in selection");
     // Group by parent+normalized-name so we insert each new sub only once.
@@ -1063,7 +1116,12 @@ export function AiPosterUpload() {
       const key = `${r.category_id}::${norm(r.suggested_subcategory_name!)}`;
       const g = groups.get(key);
       if (g) g.rowIds.push(r.id);
-      else groups.set(key, { parentId: r.category_id!, name: r.suggested_subcategory_name!.trim(), rowIds: [r.id] });
+      else
+        groups.set(key, {
+          parentId: r.category_id!,
+          name: r.suggested_subcategory_name!.trim(),
+          rowIds: [r.id],
+        });
     }
     let created = 0;
     for (const g of groups.values()) {
@@ -1076,7 +1134,13 @@ export function AiPosterUpload() {
         const slugBase = slugify(`${parent?.slug ?? "cat"}-${g.name}`) || slugify(g.name);
         const { data, error } = await supabase
           .from("categories")
-          .insert({ name: g.name, slug: slugBase, parent_id: g.parentId, sort_order: maxOrder + 1, status: "draft" })
+          .insert({
+            name: g.name,
+            slug: slugBase,
+            parent_id: g.parentId,
+            sort_order: maxOrder + 1,
+            status: "draft",
+          })
           .select("id")
           .single();
         if (error || !data) continue;
@@ -1095,10 +1159,7 @@ export function AiPosterUpload() {
     () =>
       rows.filter(
         (r) =>
-          selected.has(r.id) &&
-          r.category_id &&
-          r.suggested_subcategory_name &&
-          !r.subcategory_id,
+          selected.has(r.id) && r.category_id && r.suggested_subcategory_name && !r.subcategory_id,
       ).length,
     [rows, selected],
   );
@@ -1312,14 +1373,22 @@ export function AiPosterUpload() {
                 setBulkSub("");
               }}
               onCreate={() => openCreateMain((row) => setBulkCat(row.id))}
-              onEdit={bulkCat ? () => {
-                const c = categoriesRef.current.find((x) => x.id === bulkCat);
-                if (c) openEdit(c);
-              } : undefined}
-              onDelete={bulkCat ? () => {
-                const c = categoriesRef.current.find((x) => x.id === bulkCat);
-                if (c) setDeleteState(c);
-              } : undefined}
+              onEdit={
+                bulkCat
+                  ? () => {
+                      const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                      if (c) openEdit(c);
+                    }
+                  : undefined
+              }
+              onDelete={
+                bulkCat
+                  ? () => {
+                      const c = categoriesRef.current.find((x) => x.id === bulkCat);
+                      if (c) setDeleteState(c);
+                    }
+                  : undefined
+              }
             />
             <CategorySelect
               value={bulkSub}
@@ -1338,14 +1407,22 @@ export function AiPosterUpload() {
                 }
                 openCreateSub(bulkCat, (row) => setBulkSub(row.id));
               }}
-              onEdit={bulkSub ? () => {
-                const c = categoriesRef.current.find((x) => x.id === bulkSub);
-                if (c) openEdit(c);
-              } : undefined}
-              onDelete={bulkSub ? () => {
-                const c = categoriesRef.current.find((x) => x.id === bulkSub);
-                if (c) setDeleteState(c);
-              } : undefined}
+              onEdit={
+                bulkSub
+                  ? () => {
+                      const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                      if (c) openEdit(c);
+                    }
+                  : undefined
+              }
+              onDelete={
+                bulkSub
+                  ? () => {
+                      const c = categoriesRef.current.find((x) => x.id === bulkSub);
+                      if (c) setDeleteState(c);
+                    }
+                  : undefined
+              }
             />
             <select
               value={bulkBadge}
@@ -1417,11 +1494,15 @@ export function AiPosterUpload() {
 
       <CategoryEditorDialog
         open={!!editorState}
-        onOpenChange={(o) => { if (!o) setEditorState(null); }}
+        onOpenChange={(o) => {
+          if (!o) setEditorState(null);
+        }}
         category={editorState?.mode === "edit" ? editorState.category : null}
         parentId={
           editorState
-            ? (editorState.mode === "create" ? editorState.parentId : editorState.category.parent_id ?? null)
+            ? editorState.mode === "create"
+              ? editorState.parentId
+              : (editorState.category.parent_id ?? null)
             : null
         }
         parentName={editorParentName}
@@ -1430,17 +1511,21 @@ export function AiPosterUpload() {
       />
       <CategoryDeleteDialog
         open={!!deleteState}
-        onOpenChange={(o) => { if (!o) setDeleteState(null); }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteState(null);
+        }}
         category={deleteState}
         allCategories={categories}
         onDeleted={(id) => {
           if (bulkCat === id) setBulkCat("");
           if (bulkSub === id) setBulkSub("");
-          setRows((prev) => prev.map((r) => ({
-            ...r,
-            category_id: r.category_id === id ? null : r.category_id,
-            subcategory_id: r.subcategory_id === id ? null : r.subcategory_id,
-          })));
+          setRows((prev) =>
+            prev.map((r) => ({
+              ...r,
+              category_id: r.category_id === id ? null : r.category_id,
+              subcategory_id: r.subcategory_id === id ? null : r.subcategory_id,
+            })),
+          );
         }}
       />
     </div>
@@ -1556,19 +1641,15 @@ function RowEditor({
 }) {
   const subs = subsOf(row.category_id);
   const isLocked = row.status === "published";
-  const forceReadyVisible = hasPublishableImage(row) && row.status !== "published" && row.image_status !== "ready";
-  const showRetry = row.status === "failed" || row.image_status === "failed" || row.image_status === "stuck";
-  const showSuggestion =
-    !!row.suggested_subcategory_name && !row.subcategory_id && !isLocked;
+  const forceReadyVisible =
+    hasPublishableImage(row) && row.status !== "published" && row.image_status !== "ready";
+  const showRetry =
+    row.status === "failed" || row.image_status === "failed" || row.image_status === "stuck";
+  const showSuggestion = !!row.suggested_subcategory_name && !row.subcategory_id && !isLocked;
   return (
     <tr className={cn("align-top", selected && "bg-accent/30")}>
       <td className="pt-2">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelect}
-          disabled={isLocked}
-        />
+        <input type="checkbox" checked={selected} onChange={onToggleSelect} disabled={isLocked} />
       </td>
       <td className="pt-2">
         {row.preview ? (
@@ -1640,14 +1721,22 @@ function RowEditor({
           onCreate={() =>
             onCreateMain((cat) => onChange({ category_id: cat.id, subcategory_id: null }))
           }
-          onEdit={row.category_id ? () => {
-            const c = findCategory(row.category_id!);
-            if (c) onEditCategory(c);
-          } : undefined}
-          onDelete={row.category_id ? () => {
-            const c = findCategory(row.category_id!);
-            if (c) onDeleteCategory(c);
-          } : undefined}
+          onEdit={
+            row.category_id
+              ? () => {
+                  const c = findCategory(row.category_id!);
+                  if (c) onEditCategory(c);
+                }
+              : undefined
+          }
+          onDelete={
+            row.category_id
+              ? () => {
+                  const c = findCategory(row.category_id!);
+                  if (c) onDeleteCategory(c);
+                }
+              : undefined
+          }
         />
         <CategorySelect
           value={row.subcategory_id ?? ""}
@@ -1662,14 +1751,22 @@ function RowEditor({
             }
             onCreateSub(row.category_id, (cat) => onChange({ subcategory_id: cat.id }));
           }}
-          onEdit={row.subcategory_id ? () => {
-            const c = findCategory(row.subcategory_id!);
-            if (c) onEditCategory(c);
-          } : undefined}
-          onDelete={row.subcategory_id ? () => {
-            const c = findCategory(row.subcategory_id!);
-            if (c) onDeleteCategory(c);
-          } : undefined}
+          onEdit={
+            row.subcategory_id
+              ? () => {
+                  const c = findCategory(row.subcategory_id!);
+                  if (c) onEditCategory(c);
+                }
+              : undefined
+          }
+          onDelete={
+            row.subcategory_id
+              ? () => {
+                  const c = findCategory(row.subcategory_id!);
+                  if (c) onDeleteCategory(c);
+                }
+              : undefined
+          }
         />
         {showSuggestion && (
           <button
@@ -1752,7 +1849,9 @@ function RowEditor({
       <td className="pt-2">
         <StatusPill status={row.status} error={row.error} />
         {row.seo_status === "generating" && (
-          <div className="mt-1 text-[10px] uppercase tracking-widest text-primary">Text-Based SEO running</div>
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-primary">
+            Text-Based SEO running
+          </div>
         )}
         {row.confidence != null && (
           <div
@@ -1806,16 +1905,34 @@ function ImageProgress({ row }: { row: Row }) {
     { key: "ready", label: "Ready" },
   ];
   const failed = row.image_status === "failed";
-  const stuck = row.image_status === "stuck" || (isUploadPendingStatus(row) && hasPublishableImage(row));
-  const currentIndex = row.image_status === "ready" ? 3 : row.image_status === "generating_preview" ? 2 : row.image_status === "generating_thumbnail" ? 1 : 0;
-  const label = failed ? "Failed" : stuck ? "Stuck" : steps[currentIndex]?.label ?? "Uploading Original";
+  const stuck =
+    row.image_status === "stuck" || (isUploadPendingStatus(row) && hasPublishableImage(row));
+  const currentIndex =
+    row.image_status === "ready"
+      ? 3
+      : row.image_status === "generating_preview"
+        ? 2
+        : row.image_status === "generating_thumbnail"
+          ? 1
+          : 0;
+  const label = failed
+    ? "Failed"
+    : stuck
+      ? "Stuck"
+      : (steps[currentIndex]?.label ?? "Uploading Original");
   return (
     <div className="mt-1 w-16">
       <div className="h-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn(
             "h-full transition-all",
-            failed ? "bg-destructive" : stuck ? "bg-amber-500" : row.image_status === "ready" ? "bg-emerald-500" : "bg-primary",
+            failed
+              ? "bg-destructive"
+              : stuck
+                ? "bg-amber-500"
+                : row.image_status === "ready"
+                  ? "bg-emerald-500"
+                  : "bg-primary",
           )}
           style={{ width: failed || stuck ? "100%" : `${Math.max(20, (currentIndex + 1) * 25)}%` }}
         />
@@ -1826,7 +1943,11 @@ function ImageProgress({ row }: { row: Row }) {
 }
 
 function isUploadPendingStatus(row: Row) {
-  return row.upload_status === "queued" || row.upload_status === "uploading" || row.queue_status === "processing";
+  return (
+    row.upload_status === "queued" ||
+    row.upload_status === "uploading" ||
+    row.queue_status === "processing"
+  );
 }
 
 function StatusPill({ status, error }: { status: RowStatus; error?: string }) {

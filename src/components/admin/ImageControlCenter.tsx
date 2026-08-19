@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Image as ImageIcon, RefreshCw, HardDrive, AlertTriangle, CheckCircle2, PlayCircle, Loader2 } from "lucide-react";
+import {
+  Image as ImageIcon,
+  RefreshCw,
+  HardDrive,
+  AlertTriangle,
+  CheckCircle2,
+  PlayCircle,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useImageStats } from "@/lib/image-variants";
 import { generateVariantsFor } from "@/lib/image-pipeline";
@@ -20,7 +28,9 @@ export function ImageControlCenter() {
   const qc = useQueryClient();
   const stats = useImageStats();
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number; failed: number } | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; failed: number } | null>(
+    null,
+  );
 
   const { data: needs = [], refetch: refetchNeeds } = useQuery({
     queryKey: ["admin-posters-needing-variants"],
@@ -68,24 +78,56 @@ export function ImageControlCenter() {
           <ImageIcon className="h-5 w-5" /> Image Control Center
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          إدارة النسخ المحسّنة لصور الموقع (Thumbnail / Preview / Large). الصور الأصلية للطباعة تظل محفوظة كما هي.
+          إدارة النسخ المحسّنة لصور الموقع (Thumbnail / Preview / Large). الصور الأصلية للطباعة تظل
+          محفوظة كما هي.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={<ImageIcon className="h-4 w-4" />} label="Total posters" value={s?.posters_total ?? 0} />
-        <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="With thumbnails" value={s?.posters_with_thumb ?? 0} tone="good" />
+        <StatCard
+          icon={<ImageIcon className="h-4 w-4" />}
+          label="Total posters"
+          value={s?.posters_total ?? 0}
+        />
+        <StatCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="With thumbnails"
+          value={s?.posters_with_thumb ?? 0}
+          tone="good"
+        />
         <StatCard
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Missing thumbnails"
           value={s?.posters_missing_thumb ?? 0}
           tone={(s?.posters_missing_thumb ?? 0) > 0 ? "warning" : "good"}
         />
-        <StatCard icon={<HardDrive className="h-4 w-4" />} label="Optimized variants" value={s?.variants_done ?? 0} />
-        <StatCard icon={<HardDrive className="h-4 w-4" />} label="Storage used" value={formatBytes(s?.variants_bytes ?? 0)} />
-        <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="Heavy variants (>1.5MB)" value={s?.heavy_variants ?? 0} tone={(s?.heavy_variants ?? 0) > 0 ? "warning" : "good"} />
-        <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="Failed" value={s?.variants_failed ?? 0} tone={(s?.variants_failed ?? 0) > 0 ? "critical" : "good"} />
-        <StatCard icon={<Loader2 className="h-4 w-4" />} label="Pending" value={s?.variants_pending ?? 0} />
+        <StatCard
+          icon={<HardDrive className="h-4 w-4" />}
+          label="Optimized variants"
+          value={s?.variants_done ?? 0}
+        />
+        <StatCard
+          icon={<HardDrive className="h-4 w-4" />}
+          label="Storage used"
+          value={formatBytes(s?.variants_bytes ?? 0)}
+        />
+        <StatCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="Heavy variants (>1.5MB)"
+          value={s?.heavy_variants ?? 0}
+          tone={(s?.heavy_variants ?? 0) > 0 ? "warning" : "good"}
+        />
+        <StatCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="Failed"
+          value={s?.variants_failed ?? 0}
+          tone={(s?.variants_failed ?? 0) > 0 ? "critical" : "good"}
+        />
+        <StatCard
+          icon={<Loader2 className="h-4 w-4" />}
+          label="Pending"
+          value={s?.variants_pending ?? 0}
+        />
       </div>
 
       <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
@@ -118,7 +160,11 @@ export function ImageControlCenter() {
               disabled={running || needs.length === 0}
               className="inline-flex items-center gap-1 rounded-sm bg-primary px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {running ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlayCircle className="h-3 w-3" />}
+              {running ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <PlayCircle className="h-3 w-3" />
+              )}
               {running ? "Processing…" : "Optimize Now"}
             </button>
           </div>
@@ -130,7 +176,9 @@ export function ImageControlCenter() {
               <span>
                 Processing {progress.done} / {progress.total} — Failed: {progress.failed}
               </span>
-              <span>{progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%</span>
+              <span>
+                {progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%
+              </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div
@@ -166,7 +214,8 @@ export function ImageControlCenter() {
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        Thumbnails: 400px · Medium: 900px · Large: 1600px · Format: WebP (fallback JPEG) · Quality: 82–90.
+        Thumbnails: 400px · Medium: 900px · Large: 1600px · Format: WebP (fallback JPEG) · Quality:
+        82–90.
       </div>
     </div>
   );

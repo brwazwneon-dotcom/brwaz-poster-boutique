@@ -58,7 +58,10 @@ function Photo4x6Settings() {
   const addPkg = () =>
     setCfg((c) => ({
       ...c,
-      packages: [...c.packages, { key: `p${c.packages.length + 1}`, photos: 8, price: 80, label: "New Package" }],
+      packages: [
+        ...c.packages,
+        { key: `p${c.packages.length + 1}`, photos: 8, price: 80, label: "New Package" },
+      ],
     }));
 
   const removePkg = (idx: number) =>
@@ -112,17 +115,47 @@ function Photo4x6Settings() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* Toggles */}
         <div className="space-y-3">
-          <Toggle label="Service enabled" value={cfg.enabled} onChange={(v) => setCfg((c) => ({ ...c, enabled: v }))} />
-          <Toggle label="AI Photo Enhancement" value={cfg.aiEnhanceEnabled} onChange={(v) => setCfg((c) => ({ ...c, aiEnhanceEnabled: v }))} />
-          <Toggle label='Wear a Suit ("خلي الصورة ببدلة")' value={cfg.aiSuitEnabled} onChange={(v) => setCfg((c) => ({ ...c, aiSuitEnabled: v }))} />
-          <Toggle label="Checkout upsell popup" value={cfg.upsellEnabled} onChange={(v) => setCfg((c) => ({ ...c, upsellEnabled: v }))} />
+          <Toggle
+            label="Service enabled"
+            value={cfg.enabled}
+            onChange={(v) => setCfg((c) => ({ ...c, enabled: v }))}
+          />
+          <Toggle
+            label="AI Photo Enhancement"
+            value={cfg.aiEnhanceEnabled}
+            onChange={(v) => setCfg((c) => ({ ...c, aiEnhanceEnabled: v }))}
+          />
+          <Toggle
+            label='Wear a Suit ("خلي الصورة ببدلة")'
+            value={cfg.aiSuitEnabled}
+            onChange={(v) => setCfg((c) => ({ ...c, aiSuitEnabled: v }))}
+          />
+          <Toggle
+            label="Checkout upsell popup"
+            value={cfg.upsellEnabled}
+            onChange={(v) => setCfg((c) => ({ ...c, upsellEnabled: v }))}
+          />
         </div>
 
         {/* Upsell copy */}
         <div className="space-y-3">
-          <Text label="Popup title" value={cfg.upsellTitle} onChange={(v) => setCfg((c) => ({ ...c, upsellTitle: v }))} />
-          <Text label="Popup subtitle" value={cfg.upsellSubtitle} onChange={(v) => setCfg((c) => ({ ...c, upsellSubtitle: v }))} textarea />
-          <Text label="Popup example image URL" value={cfg.upsellExampleImage} onChange={(v) => setCfg((c) => ({ ...c, upsellExampleImage: v }))} placeholder="https://…" />
+          <Text
+            label="Popup title"
+            value={cfg.upsellTitle}
+            onChange={(v) => setCfg((c) => ({ ...c, upsellTitle: v }))}
+          />
+          <Text
+            label="Popup subtitle"
+            value={cfg.upsellSubtitle}
+            onChange={(v) => setCfg((c) => ({ ...c, upsellSubtitle: v }))}
+            textarea
+          />
+          <Text
+            label="Popup example image URL"
+            value={cfg.upsellExampleImage}
+            onChange={(v) => setCfg((c) => ({ ...c, upsellExampleImage: v }))}
+            placeholder="https://…"
+          />
         </div>
       </div>
 
@@ -139,10 +172,21 @@ function Photo4x6Settings() {
         </div>
         <div className="mt-4 space-y-2">
           {cfg.packages.map((p, i) => (
-            <div key={i} className="grid gap-2 rounded-sm border border-border bg-background p-3 sm:grid-cols-[100px_100px_100px_1fr_40px] sm:items-end">
+            <div
+              key={i}
+              className="grid gap-2 rounded-sm border border-border bg-background p-3 sm:grid-cols-[100px_100px_100px_1fr_40px] sm:items-end"
+            >
               <Text label="Key" value={p.key} onChange={(v) => updatePkg(i, { key: v })} />
-              <Text label="Photos" value={String(p.photos)} onChange={(v) => updatePkg(i, { photos: Number(v) || 0 })} />
-              <Text label="Price (EGP)" value={String(p.price)} onChange={(v) => updatePkg(i, { price: Number(v) || 0 })} />
+              <Text
+                label="Photos"
+                value={String(p.photos)}
+                onChange={(v) => updatePkg(i, { photos: Number(v) || 0 })}
+              />
+              <Text
+                label="Price (EGP)"
+                value={String(p.price)}
+                onChange={(v) => updatePkg(i, { price: Number(v) || 0 })}
+              />
               <Text label="Label" value={p.label} onChange={(v) => updatePkg(i, { label: v })} />
               <button
                 onClick={() => removePkg(i)}
@@ -159,21 +203,48 @@ function Photo4x6Settings() {
   );
 }
 
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label className="flex cursor-pointer items-center justify-between gap-4 rounded-sm border border-border bg-background p-3">
       <span className="text-sm">{label}</span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4" />
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4"
+      />
     </label>
   );
 }
 
-function Text({ label, value, onChange, textarea, placeholder }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean; placeholder?: string }) {
+function Text({
+  label,
+  value,
+  onChange,
+  textarea,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  textarea?: boolean;
+  placeholder?: string;
+}) {
   const props = {
     value,
     placeholder,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: "mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary",
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      onChange(e.target.value),
+    className:
+      "mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary",
   };
   return (
     <label className="block">
@@ -218,7 +289,9 @@ function Photo4x6Orders() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-display text-2xl">4×6 Photo Orders</h2>
-          <p className="mt-1 text-xs text-muted-foreground">{orders.length} order{orders.length === 1 ? "" : "s"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {orders.length} order{orders.length === 1 ? "" : "s"}
+          </p>
         </div>
         <select
           value={statusFilter}
@@ -226,7 +299,11 @@ function Photo4x6Orders() {
           className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -236,14 +313,25 @@ function Photo4x6Orders() {
       )}
 
       <div className="mt-6 space-y-4">
-        {orders.map((o) => <OrderCard key={o.id} order={o} onStatus={setStatus} />)}
+        {orders.map((o) => (
+          <OrderCard key={o.id} order={o} onStatus={setStatus} />
+        ))}
       </div>
     </section>
   );
 }
 
-function OrderCard({ order, onStatus }: { order: Order; onStatus: (id: string, status: string) => void }) {
+function OrderCard({
+  order,
+  onStatus,
+}: {
+  order: Order;
+  onStatus: (id: string, status: string) => void;
+}) {
   const [signedByPath, setSignedByPath] = useState<Record<string, string>>({});
+  const config = usePhoto4x6Config();
+  const pkgLabel =
+    config.packages.find((p) => p.key === order.package_key)?.label ?? order.package_key;
 
   const allPaths = useMemo(
     () => [...order.original_paths, ...order.enhanced_paths, ...order.suit_paths],
@@ -264,7 +352,9 @@ function OrderCard({ order, onStatus }: { order: Order; onStatus: (id: string, s
       });
       setSignedByPath(map);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [allPaths]);
 
   const downloadAll = async () => {
@@ -290,18 +380,51 @@ function OrderCard({ order, onStatus }: { order: Order; onStatus: (id: string, s
             {new Date(order.created_at).toLocaleString()} · {order.status}
           </div>
           <div className="mt-2 text-sm">
-            <div><span className="text-muted-foreground">Customer:</span> {order.customer_name} · {order.phone}</div>
-            <div><span className="text-muted-foreground">Address:</span> {order.governorate} · {order.address}</div>
-            <div><span className="text-muted-foreground">Package:</span> {order.package_key} · {order.photo_count} photos · {order.total_price} EGP</div>
+            <div>
+              <span className="text-muted-foreground">Customer:</span> {order.customer_name} ·{" "}
+              {order.phone}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Address:</span> {order.governorate} ·{" "}
+              {order.address}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Package:</span> {pkgLabel} ·{" "}
+              {order.photo_count} photos · {order.total_price} EGP
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={downloadAll} className="flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent">
+          <button
+            onClick={downloadAll}
+            className="flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent"
+          >
             <Download className="h-3 w-3" /> Download all
           </button>
-          <button onClick={() => onStatus(order.id, "printed")} className="rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent">Mark printed</button>
-          <button onClick={() => onStatus(order.id, "delivered")} className="rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent">Mark delivered</button>
+          <button
+            onClick={() => onStatus(order.id, "printed")}
+            className="rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent"
+          >
+            Mark printed
+          </button>
+          <button
+            onClick={() => onStatus(order.id, "delivered")}
+            className="rounded-sm border border-border px-2 py-1 text-[11px] uppercase tracking-widest hover:bg-accent"
+          >
+            Mark delivered
+          </button>
         </div>
+      </div>
+
+      <div className="mt-4 rounded-sm border border-primary/30 bg-primary/5 p-3">
+        <div className="text-[10px] uppercase tracking-widest text-primary">
+          Customer Notes · ملاحظات العميل
+        </div>
+        {order.notes?.trim() ? (
+          <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{order.notes}</p>
+        ) : (
+          <p className="mt-1.5 text-sm text-muted-foreground">No notes from customer.</p>
+        )}
       </div>
 
       <PhotoGroup title="Originals" paths={order.original_paths} signedByPath={signedByPath} />
@@ -315,16 +438,34 @@ function OrderCard({ order, onStatus }: { order: Order; onStatus: (id: string, s
   );
 }
 
-function PhotoGroup({ title, paths, signedByPath }: { title: string; paths: string[]; signedByPath: Record<string, string> }) {
+function PhotoGroup({
+  title,
+  paths,
+  signedByPath,
+}: {
+  title: string;
+  paths: string[];
+  signedByPath: Record<string, string>;
+}) {
   return (
     <div className="mt-4">
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{title} · {paths.length}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+        {title} · {paths.length}
+      </div>
       <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
         {paths.map((p) => {
           const url = signedByPath[p];
           return (
-            <a key={p} href={url} target="_blank" rel="noreferrer" className="aspect-square overflow-hidden rounded-sm bg-muted">
-              {url ? <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+            <a
+              key={p}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="aspect-square overflow-hidden rounded-sm bg-muted"
+            >
+              {url ? (
+                <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+              ) : null}
             </a>
           );
         })}

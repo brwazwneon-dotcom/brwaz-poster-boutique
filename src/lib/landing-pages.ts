@@ -74,7 +74,9 @@ export function persistAudienceAttribution(audience: string, params: URLSearchPa
       window.localStorage.setItem("brw-audience", JSON.stringify(payload));
     }
     window.sessionStorage.setItem("brw-audience-current", JSON.stringify(payload));
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 export function getAudienceAttribution(): Record<string, string> | null {
@@ -82,7 +84,9 @@ export function getAudienceAttribution(): Record<string, string> | null {
   try {
     const raw = window.localStorage.getItem("brw-audience");
     return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 /** Client fetch of a landing page bundle (page + posters). */
@@ -90,7 +94,10 @@ export function useLandingBundle(audience: string) {
   return useQuery({
     queryKey: ["landing-bundle", audience],
     queryFn: async (): Promise<LandingBundle> => {
-      const { data, error } = await supabase.rpc("landing_page_bundle" as never, { _audience: audience } as never);
+      const { data, error } = await supabase.rpc(
+        "landing_page_bundle" as never,
+        { _audience: audience } as never,
+      );
       if (error) throw error;
       return (data as LandingBundle) ?? null;
     },

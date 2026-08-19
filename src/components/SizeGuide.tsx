@@ -12,9 +12,10 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
   const [tab, setTab] = useState<Tab>("compare-all");
 
   const sizes = useMemo(
-    () => (availableIds && availableIds.length
-      ? cfg.sizes.filter((s) => availableIds.includes(s.id))
-      : cfg.sizes),
+    () =>
+      availableIds && availableIds.length
+        ? cfg.sizes.filter((s) => availableIds.includes(s.id))
+        : cfg.sizes,
     [cfg.sizes, availableIds],
   );
 
@@ -83,14 +84,24 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-[11px] uppercase tracking-widest transition",
-        active ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:bg-accent",
+        active
+          ? "border-primary bg-primary/10 text-foreground"
+          : "border-border text-muted-foreground hover:bg-accent",
       )}
     >
       {children}
@@ -135,7 +146,11 @@ function CompareAll({ sizes }: { sizes: SizeGuideItem[] }) {
 }
 
 function CompareTwo({
-  sizes, a, b, onA, onB,
+  sizes,
+  a,
+  b,
+  onA,
+  onB,
 }: {
   sizes: SizeGuideItem[];
   a: SizeGuideItem;
@@ -161,7 +176,15 @@ function CompareTwo({
   );
 }
 
-function RectPreview({ item, scale, tone }: { item: SizeGuideItem; scale: number; tone: "a" | "b" }) {
+function RectPreview({
+  item,
+  scale,
+  tone,
+}: {
+  item: SizeGuideItem;
+  scale: number;
+  tone: "a" | "b";
+}) {
   const w = Math.round(item.width * scale);
   const h = Math.round(item.height * scale);
   return (
@@ -169,19 +192,28 @@ function RectPreview({ item, scale, tone }: { item: SizeGuideItem; scale: number
       <div
         className={cn(
           "flex items-center justify-center rounded-sm border",
-          tone === "a" ? "border-primary/70 bg-primary/15" : "border-foreground/40 bg-foreground/10",
+          tone === "a"
+            ? "border-primary/70 bg-primary/15"
+            : "border-foreground/40 bg-foreground/10",
         )}
         style={{ width: w, height: h }}
       >
-        <span className="text-[11px] uppercase tracking-widest">{item.width}×{item.height}</span>
+        <span className="text-[11px] uppercase tracking-widest">
+          {item.width}×{item.height}
+        </span>
       </div>
-      <div className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground">{item.label}</div>
+      <div className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+        {item.label}
+      </div>
     </div>
   );
 }
 
 function SizeSelect({
-  value, onChange, sizes, label,
+  value,
+  onChange,
+  sizes,
+  label,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -190,14 +222,18 @@ function SizeSelect({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-sm border border-border bg-background px-2 py-2 text-sm"
       >
         {sizes.map((s) => (
-          <option key={s.id} value={s.id}>{s.label}</option>
+          <option key={s.id} value={s.id}>
+            {s.label}
+          </option>
         ))}
       </select>
     </label>
@@ -205,7 +241,11 @@ function SizeSelect({
 }
 
 function RoomPreview({
-  sizes, active, onPick, roomImageUrl, wallWidthCm,
+  sizes,
+  active,
+  onPick,
+  roomImageUrl,
+  wallWidthCm,
 }: {
   sizes: SizeGuideItem[];
   active: SizeGuideItem;
@@ -256,7 +296,9 @@ function RoomPreview({
             onClick={() => onPick(s.id)}
             className={cn(
               "snap-start shrink-0 rounded-sm border px-3 py-1.5 text-[11px] uppercase tracking-widest transition",
-              s.id === active.id ? "border-primary bg-primary/15" : "border-border text-muted-foreground hover:bg-accent",
+              s.id === active.id
+                ? "border-primary bg-primary/15"
+                : "border-border text-muted-foreground hover:bg-accent",
             )}
           >
             {s.label}

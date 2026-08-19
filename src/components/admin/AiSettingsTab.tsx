@@ -2,7 +2,17 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Sparkles, Zap, ShieldCheck, Power, RotateCcw, Play } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Sparkles,
+  Zap,
+  ShieldCheck,
+  Power,
+  RotateCcw,
+  Play,
+} from "lucide-react";
 import {
   getAiSettingsStatus,
   testAiConnection,
@@ -49,10 +59,7 @@ export function AiSettingsTab() {
     try {
       const { error } = await supabase
         .from("site_settings")
-        .upsert(
-          { key: AI_THRESHOLD_KEY, value: value as unknown as never },
-          { onConflict: "key" },
-        );
+        .upsert({ key: AI_THRESHOLD_KEY, value: value as unknown as never }, { onConflict: "key" });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["ai-auto-approve-threshold"] });
       toast.success(`Auto-approve threshold saved: ${Math.round(value * 100)}%`);
@@ -96,8 +103,8 @@ export function AiSettingsTab() {
         action === "disable"
           ? `${label} disabled`
           : action === "enable"
-          ? `${label} enabled`
-          : `${label} cooldown reset`,
+            ? `${label} enabled`
+            : `${label} cooldown reset`,
       );
       refetchKeys();
     } catch (e) {
@@ -182,8 +189,8 @@ export function AiSettingsTab() {
       <div>
         <h2 className="text-2xl font-bold">AI Settings</h2>
         <p className="text-sm text-muted-foreground">
-          All AI features run through your own Google Gemini API key stored server-side.
-          No Lovable credits are used for AI generation.
+          All AI features run through your own Google Gemini API key stored server-side. No Lovable
+          credits are used for AI generation.
         </p>
       </div>
 
@@ -228,9 +235,9 @@ export function AiSettingsTab() {
           Priority queue: <code className="font-mono">GEMINI_API_KEY_1</code> →{" "}
           <code className="font-mono">…</code> →{" "}
           <code className="font-mono">GEMINI_API_KEY_10</code> →{" "}
-          <code className="font-mono">OPENROUTER_API_KEY</code> (fallback only).
-          Keys are never exposed to the browser. On 429 / quota-exceeded the
-          key cools down for 60 minutes and the next one is used automatically.
+          <code className="font-mono">OPENROUTER_API_KEY</code> (fallback only). Keys are never
+          exposed to the browser. On 429 / quota-exceeded the key cools down for 60 minutes and the
+          next one is used automatically.
         </div>
 
         <div className="rounded border p-3">
@@ -238,8 +245,8 @@ export function AiSettingsTab() {
             <div>
               <div className="text-sm font-semibold">API Priority Queue</div>
               <div className="text-xs text-muted-foreground">
-                Requests try keys 1 → 6 in order. OpenRouter is used only when
-                every Gemini key is rate-limited, disabled, or failed.
+                Requests try keys 1 → 6 in order. OpenRouter is used only when every Gemini key is
+                rate-limited, disabled, or failed.
               </div>
             </div>
             <button
@@ -247,7 +254,11 @@ export function AiSettingsTab() {
               disabled={testingAll}
               className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
             >
-              {testingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              {testingAll ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Zap className="h-3.5 w-3.5" />
+              )}
               Test All Gemini Keys
             </button>
           </div>
@@ -258,25 +269,25 @@ export function AiSettingsTab() {
               const stateStyles = !k.present
                 ? "bg-muted text-muted-foreground"
                 : state === "available"
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : state === "rate_limited"
-                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                : state === "disabled"
-                ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
-                : state === "failed"
-                ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                : "bg-muted text-muted-foreground";
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : state === "rate_limited"
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : state === "disabled"
+                      ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
+                      : state === "failed"
+                        ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                        : "bg-muted text-muted-foreground";
               const stateLabel = !k.present
                 ? "Not configured"
                 : state === "available"
-                ? "Available"
-                : state === "rate_limited"
-                ? "Rate limited"
-                : state === "disabled"
-                ? "Disabled"
-                : state === "failed"
-                ? "Failed"
-                : "Unknown";
+                  ? "Available"
+                  : state === "rate_limited"
+                    ? "Rate limited"
+                    : state === "disabled"
+                      ? "Disabled"
+                      : state === "failed"
+                        ? "Failed"
+                        : "Unknown";
               const busy = busyLabel === k.label;
               return (
                 <div
@@ -356,15 +367,15 @@ export function AiSettingsTab() {
                   !openRouter?.present
                     ? "bg-muted text-muted-foreground"
                     : openRouter.lastUsedAt
-                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 }`}
               >
                 {!openRouter?.present
                   ? "Not configured"
                   : openRouter.lastUsedAt
-                  ? "Fallback active"
-                  : "Standby (not used)"}
+                    ? "Fallback active"
+                    : "Standby (not used)"}
               </span>
               <div className="ml-auto text-xs text-muted-foreground">
                 Last fallback use: {fmtTime(openRouter?.lastUsedAt ?? null)}
@@ -380,8 +391,8 @@ export function AiSettingsTab() {
 
         {!connected && (
           <div className="rounded border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-600 dark:text-red-400">
-            GEMINI_API_KEY is not configured. All AI features will show
-            "AI temporarily unavailable" until it is added.
+            GEMINI_API_KEY is not configured. All AI features will show "AI temporarily unavailable"
+            until it is added.
           </div>
         )}
 
@@ -399,13 +410,19 @@ export function AiSettingsTab() {
             disabled={genLoading || !connected}
             className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
           >
-            {genLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {genLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
             Generate Test Product Data
           </button>
         </div>
 
         {test && (
-          <div className={`rounded border p-3 text-sm ${test.ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+          <div
+            className={`rounded border p-3 text-sm ${test.ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}
+          >
             {test.ok ? (
               <div>
                 <div className="font-medium text-emerald-600 dark:text-emerald-400">
@@ -422,7 +439,9 @@ export function AiSettingsTab() {
         )}
 
         {gen && (
-          <div className={`rounded border p-3 text-sm ${gen.ok ? "" : "border-red-500/30 bg-red-500/5"}`}>
+          <div
+            className={`rounded border p-3 text-sm ${gen.ok ? "" : "border-red-500/30 bg-red-500/5"}`}
+          >
             {gen.ok ? (
               <div className="space-y-2">
                 <div>
@@ -437,7 +456,9 @@ export function AiSettingsTab() {
                   <div className="text-xs text-muted-foreground">Tags</div>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {gen.tags?.map((t) => (
-                      <span key={t} className="rounded bg-muted px-2 py-0.5 text-xs">{t}</span>
+                      <span key={t} className="rounded bg-muted px-2 py-0.5 text-xs">
+                        {t}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -455,9 +476,9 @@ export function AiSettingsTab() {
           <div>
             <div className="text-lg font-semibold">AI Auto-Approval Confidence</div>
             <div className="text-xs text-muted-foreground">
-              Images at or above this confidence auto-fill title, category, tags & SEO
-              and go straight to <span className="font-medium">Ready</span>. Below it, they
-              land in <span className="font-medium">Needs Review</span>.
+              Images at or above this confidence auto-fill title, category, tags & SEO and go
+              straight to <span className="font-medium">Ready</span>. Below it, they land in{" "}
+              <span className="font-medium">Needs Review</span>.
             </div>
           </div>
         </div>
@@ -483,7 +504,11 @@ export function AiSettingsTab() {
             disabled={savingThreshold || threshold === savedThreshold}
             className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
           >
-            {savingThreshold ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            {savingThreshold ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
             Save Threshold
           </button>
           <button
@@ -501,8 +526,8 @@ export function AiSettingsTab() {
         <div className="text-xs text-muted-foreground">
           Range: {Math.round(AI_THRESHOLD_MIN * 100)}% – {Math.round(AI_THRESHOLD_MAX * 100)}%.
           Default: {Math.round(AI_THRESHOLD_DEFAULT * 100)}%. Clear posters (comics, anime,
-          football, cars, movies) still get title and tags generated even when category
-          confidence is low.
+          football, cars, movies) still get title and tags generated even when category confidence
+          is low.
         </div>
       </div>
 
@@ -514,9 +539,9 @@ export function AiSettingsTab() {
           <li>4×6 Photo enhancement suite (sharpen, colors, "wear a suit", etc.)</li>
         </ul>
         <div className="text-xs text-muted-foreground pt-2">
-          On rate limits, requests automatically retry with 5s → 10s → 20s backoff.
-          If Gemini remains unavailable, the UI shows "AI temporarily unavailable" —
-          no fallback to Lovable AI Gateway is attempted.
+          On rate limits, requests automatically retry with 5s → 10s → 20s backoff. If Gemini
+          remains unavailable, the UI shows "AI temporarily unavailable" — no fallback to Lovable AI
+          Gateway is attempted.
         </div>
       </div>
     </div>

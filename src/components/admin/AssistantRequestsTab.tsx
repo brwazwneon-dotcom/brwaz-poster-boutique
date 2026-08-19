@@ -17,12 +17,19 @@ const ACTIONS = ["all", "search", "select", "wishlist", "whatsapp", "chip"] as c
 
 export function AssistantRequestsTab() {
   const [action, setAction] = useState<(typeof ACTIONS)[number]>("all");
-  const { data = [], isLoading, refetch, isFetching } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["assistant-requests", action],
     queryFn: async () => {
       let q = supabase
         .from("assistant_requests")
-        .select("id, keyword, category, selected_title, selected_poster_id, action, session_id, created_at")
+        .select(
+          "id, keyword, category, selected_title, selected_poster_id, action, session_id, created_at",
+        )
         .order("created_at", { ascending: false })
         .limit(500);
       if (action !== "all") q = q.eq("action", action);
@@ -74,7 +81,9 @@ export function AssistantRequestsTab() {
               key={a}
               onClick={() => setAction(a)}
               className={`rounded-sm border px-2.5 py-1 text-xs uppercase tracking-widest ${
-                action === a ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"
+                action === a
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-accent"
               }`}
             >
               {a}
@@ -108,9 +117,17 @@ export function AssistantRequestsTab() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td className="p-4 text-muted-foreground" colSpan={5}>Loading…</td></tr>
+              <tr>
+                <td className="p-4 text-muted-foreground" colSpan={5}>
+                  Loading…
+                </td>
+              </tr>
             ) : data.length === 0 ? (
-              <tr><td className="p-4 text-muted-foreground" colSpan={5}>No assistant activity yet.</td></tr>
+              <tr>
+                <td className="p-4 text-muted-foreground" colSpan={5}>
+                  No assistant activity yet.
+                </td>
+              </tr>
             ) : (
               data.map((r) => (
                 <tr key={r.id} className="border-t border-border">

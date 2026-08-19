@@ -1,45 +1,82 @@
-import { createFileRoute } from "@tanstack/react-router";
-import type React from "react";
-import { SafeImage } from "@/components/SafeImage";
-import { FramePreview } from "@/components/FramePreview";
-import { WishlistHeart } from "@/components/WishlistHeart";
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useCategories } from "@/lib/use-categories";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import hero from "@/assets/hero.jpg";
-import { HomeSlider } from "@/components/HomeSlider";
-import { RecentlyViewed } from "@/components/RecentlyViewed";
-import { CustomerReviews } from "@/components/CustomerReviews";
-import { BeforeAfter } from "@/components/BeforeAfter";
-import { ShopByCollection } from "@/components/ShopByCollection";
-import { Highlights } from "@/components/Highlights";
-import { BestSellers } from "@/components/BestSellers";
-import { CollectionsQuickBar } from "@/components/CollectionsQuickBar";
-import { TrustedQuality } from "@/components/TrustedQuality";
-import { AboutBrwaz } from "@/components/AboutBrwaz";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
-import { TrendingNow } from "@/components/TrendingNow";
-import { FrameSetsHome } from "@/components/FrameSetsHome";
-import { ForYouSection, BecauseYouLikedSection, RecommendedForYouSection } from "@/components/PersonalRails";
+import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
-import { FEATURED_SLUGS, useHomeCategoryPicks } from "@/lib/home-category-picks";
 import { LazyOnView } from "@/components/LazyOnView";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { usePosterThumbs } from "@/lib/public-images";
+
+const CustomerReviews = lazy(() =>
+  import("@/components/CustomerReviews").then((module) => ({ default: module.CustomerReviews })),
+);
+const ShopByCollection = lazy(() =>
+  import("@/components/ShopByCollection").then((module) => ({
+    default: module.ShopByCollection,
+  })),
+);
+const BestSellers = lazy(() =>
+  import("@/components/BestSellers").then((module) => ({ default: module.BestSellers })),
+);
+const TrustedQuality = lazy(() =>
+  import("@/components/TrustedQuality").then((module) => ({ default: module.TrustedQuality })),
+);
+const TrendingNow = lazy(() =>
+  import("@/components/TrendingNow").then((module) => ({ default: module.TrendingNow })),
+);
+const RoomTransformation = lazy(() =>
+  import("@/components/RoomTransformation").then((module) => ({
+    default: module.RoomTransformation,
+  })),
+);
+const WallOfInspiration = lazy(() =>
+  import("@/components/WallOfInspiration").then((module) => ({
+    default: module.WallOfInspiration,
+  })),
+);
+const PhotoEnhancementBeforeAfter = lazy(() =>
+  import("@/components/PhotoEnhancementBeforeAfter").then((module) => ({
+    default: module.PhotoEnhancementBeforeAfter,
+  })),
+);
+const StorefrontFAQ = lazy(() =>
+  import("@/components/StorefrontFAQ").then((module) => ({ default: module.StorefrontFAQ })),
+);
+const Highlights = lazy(() =>
+  import("@/components/Highlights").then((module) => ({ default: module.Highlights })),
+);
+const FrameSetsHome = lazy(() =>
+  import("@/components/FrameSetsHome").then((module) => ({ default: module.FrameSetsHome })),
+);
+const PersonalizedSections = lazy(() =>
+  import("@/components/PersonalizedSections").then((module) => ({
+    default: module.PersonalizedSections,
+  })),
+);
+const BeforeAfter = lazy(() =>
+  import("@/components/BeforeAfter").then((module) => ({ default: module.BeforeAfter })),
+);
+const CategoryGrids = lazy(() =>
+  import("@/components/CategoryGrids").then((module) => ({ default: module.CategoryGrids })),
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BRWAZWNEON — Turn Your Room Into A Piece Of Art" },
-      { name: "description", content: "Premium framed posters — football, movies, TV series, anime and cars. Cash on delivery across Egypt." },
+      { title: "BRWAZWNEON — Premium Framed Posters & Custom Design | مصر" },
+      {
+        name: "description",
+        content:
+          "BRWAZWNEON: Premium framed posters, custom design & photo printing. Cash on delivery across Egypt. Football, movies, anime & more.",
+      },
       { property: "og:title", content: "BRWAZWNEON — Turn Your Room Into A Piece Of Art" },
       { property: "og:description", content: "Premium framed posters delivered across Egypt." },
-      { property: "og:url", content: "https://brwazwneon-com.lovable.app/" },
+      { property: "og:url", content: "https://brwazwneon.com/" },
       { property: "og:type", content: "website" },
     ],
     links: [
-      { rel: "canonical", href: "https://brwazwneon-com.lovable.app/" },
+      { rel: "canonical", href: "https://brwazwneon.com/" },
       { rel: "preload", as: "image", href: hero, fetchpriority: "high" },
     ],
   }),
@@ -48,25 +85,20 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const perf = usePerformanceFlags();
-  const { data: categories = [] } = useCategories();
-  const bySlug = new Map(categories.map((c) => [c.slug, c]));
   const sections = useHomeSections();
-  const { data: picks = {} } = useHomeCategoryPicks();
+  const { i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
 
-  const resolveTitle = (s: HomeSectionConfig) => s.title_en || s.title || undefined;
-  const resolveSubtitle = (s: HomeSectionConfig) => s.subtitle_en || s.subtitle || undefined;
+  const resolveTitle = (s: HomeSectionConfig) =>
+    (isArabic ? s.title_ar : s.title_en) || s.title || undefined;
+  const resolveSubtitle = (s: HomeSectionConfig) =>
+    (isArabic ? s.subtitle_ar : s.subtitle_en) || s.subtitle || undefined;
 
-  const RENDERERS: Record<string, (s: HomeSectionConfig) => React.ReactNode> = {
-    hero: () => <HeroSection key="hero" />,
-    trust: () => <TrustSection key="trust" />,
-    "trusted-quality": (s) => <TrustedQuality key="trusted-quality" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />,
-    about: () => <AboutBrwaz key="about" />,
-    highlights: () => <Highlights key="highlights" />,
-    "best-sellers": (s) => <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />,
-    benefits: () => <BenefitsBar key="benefits" />,
-    collections: () => <ShopByCollection key="collections" />,
-    "frame-sets": (s) => (
-      <FrameSetsHome key="frame-sets" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
+  const RENDERERS: Record<string, (s: HomeSectionConfig) => ReactNode> = {
+    homepage_slider: () => <HomepageSlider key="homepage_slider" />,
+    hero_banners: () => <HeroBannerSection key="hero_banners" />,
+    "best-sellers": (s) => (
+      <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
     ),
     "trending-now": (s) => (
       <TrendingNow
@@ -77,351 +109,289 @@ function Index() {
         manualIds={s.source_type === "manual" ? s.manual_ids : undefined}
       />
     ),
-    "for-you": (s) => (
-      <ForYouSection key="for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
-    ),
-    "because-you-liked": (s) => (
-      <BecauseYouLikedSection key="because-you-liked" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
-    ),
-    "recommended-for-you": (s) => (
-      <RecommendedForYouSection key="recommended-for-you" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} itemsCount={s.items_count ?? 12} />
-    ),
-    categories: () => (
-      <div key="categories">
-        {FEATURED_SLUGS.map((slug, i) => {
-          const cat = bySlug.get(slug);
-          return (
-            <CategorySection
-              key={slug}
-              slug={slug}
-              name={cat?.name ?? defaultName(slug)}
-              index={i}
-              pickedIds={picks[slug] ?? []}
-            />
-          );
-        })}
-      </div>
-    ),
-    offers: () => <OffersSection key="offers" />,
-    "recently-viewed": () => <RecentlyViewed key="recently-viewed" />,
-    "before-after": () => <BeforeAfter key="before-after" location="homepage" />,
+    collections: () => <ShopByCollection key="collections" />,
+    "custom-design": () => <CustomDesignSection key="custom-design" />,
+    "photo-enhancement": () => <PhotoEnhancementBeforeAfter key="photo-enhancement" />,
     reviews: () => <CustomerReviews key="reviews" />,
+    "how-it-works": () => <HowItWorksSection key="how-it-works" />,
+    "trusted-quality": () => <TrustedQuality key="trusted-quality" />,
+    "quality-section": () => <QualitySection key="quality-section" />,
+    faq: () => <StorefrontFAQ key="faq" />,
+    highlights: () => <Highlights key="highlights" />,
+    "frame-sets": (s) => (
+      <FrameSetsHome key="frame-sets" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
+    ),
+    "before-after": () => <BeforeAfter key="before-after" location="homepage" />,
+    "recently-viewed": () => <PersonalizedSections key="recently-viewed" />,
+    "for-you": () => <PersonalizedSections key="for-you" />,
+    "because-you-liked": () => <PersonalizedSections key="because-you-liked" />,
+    "recommended-for-you": () => <PersonalizedSections key="recommended-for-you" />,
+    "wall-of-inspiration": () => <WallOfInspiration key="wall-of-inspiration" />,
+    "room-transformation": () => <RoomTransformation key="room-transformation" />,
+    categories: (s) => (
+      <CategoryGrids
+        key="categories"
+        title={resolveTitle(s)}
+        subtitle={resolveSubtitle(s)}
+        itemsCount={s.items_count ?? 8}
+      />
+    ),
+  };
+
+  const renderSection = (section: HomeSectionConfig) => {
+    const renderer = RENDERERS[section.key];
+    if (renderer) return renderer(section);
+    if (section.custom && section.manual_ids?.length) {
+      return (
+        <TrendingNow
+          key={section.key}
+          title={resolveTitle(section)}
+          subtitle={resolveSubtitle(section)}
+          itemsCount={section.items_count ?? 8}
+          manualIds={section.manual_ids}
+        />
+      );
+    }
+    return null;
   };
 
   return (
     <div className="bg-background text-foreground">
-      <HomeSlider />
-      <CollectionsQuickBar />
-      {/* Personalized rails are now controlled via Homepage Sections (For You / Because You Liked / Recommended For You). */}
-        {sections
-        .filter((s) => s.enabled && s.key in RENDERERS)
+      {sections
+        .filter((s) => s.enabled && s.visible !== false)
         .slice(0, perf.max_home_sections)
         .map((s, idx) => {
-          const node = RENDERERS[s.key](s);
-          // Keep hero + first section eager for LCP; defer the rest until
-          // they scroll near the viewport to shrink initial paint cost.
-          if (idx < 2 || s.key === "hero") return node;
+          const node = renderSection(s);
+          if (!node) return null;
+          const guarded = (
+            <HomepageSectionBoundary key={`section-${s.id ?? s.key}`} sectionKey={s.key}>
+              <Suspense fallback={<div className="min-h-80 bg-background" />}>{node}</Suspense>
+            </HomepageSectionBoundary>
+          );
+          if (idx < 2 || s.key === "hero_banners") {
+            return (
+              <div key={`home-${s.id ?? s.key}`} id={`home-${s.key}`}>
+                {guarded}
+              </div>
+            );
+          }
           return (
-            <LazyOnView key={`lazy-${s.key}-${idx}`} minHeight={520}>
-              {node}
-            </LazyOnView>
+            <div key={`lazy-${s.id ?? s.key}-${idx}`} id={`home-${s.key}`}>
+              <LazyOnView minHeight={520}>{guarded}</LazyOnView>
+            </div>
           );
         })}
     </div>
   );
 }
 
-function HeroSection() {
+class HomepageSectionBoundary extends Component<
+  { sectionKey: string; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`Homepage section failed: ${this.props.sectionKey}`, error, info);
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function HeroBannerSection() {
+  const { t } = useTranslation();
   return (
-    <section className="relative isolate overflow-hidden border-b border-border">
-        <HeroBannerSlider
-          fallback={
-            <>
-              <img
-                src={hero}
-                alt="Framed poster gallery wall"
-                width={1600}
-                height={1024}
-                fetchPriority="high"
-                decoding="async"
-                className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40 grayscale"
-              />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/50 via-background/80 to-background" />
-            </>
-          }
-        />
-        <div className="container-page flex min-h-[85vh] flex-col justify-end py-20">
-          <p className="mb-5 text-[10px] uppercase tracking-[0.5em] text-muted-foreground sm:text-xs">
-            BRWAZWNEON · Framed in Egypt · Cash on delivery
-          </p>
-          <h1 className="text-display text-5xl leading-[0.92] sm:text-7xl md:text-[8.5rem]">
-            Turn Your Room<br />Into A Piece<br />Of Art.
+    <section data-hero-banner-section="true" className="relative isolate overflow-hidden border-b border-border">
+      <HeroBannerSlider
+        fallback={
+          <>
+            <img
+              src={hero}
+              alt="Framed poster gallery wall"
+              width={1600}
+              height={1024}
+              fetchPriority="high"
+              decoding="async"
+              className="absolute inset-0 -z-10 h-full w-full object-cover opacity-40 grayscale"
+            />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/50 via-background/80 to-background" />
+          </>
+        }
+      />
+      <div className="container-page flex min-h-[85vh] flex-col justify-end py-20">
+        <div
+          dir="rtl"
+          className="max-w-3xl animate-in fade-in-0 slide-in-from-bottom-4 text-right duration-700 ease-out"
+        >
+          <h1 className="max-w-[11ch] text-balance text-5xl font-black leading-[1.05] tracking-tight             text-white drop-shadow-[0_3px_18px_rgba(0,0,0,0.55)] sm:text-7xl md:text-[6.75rem]">
+            فن يعبّر عن شخصيتك
           </h1>
-          <p className="mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
-            Premium framed posters of the films, players, shows, anime and cars
-            you actually care about. Gallery-grade frames, hand-printed.
-          </p>
-          <div className="mt-10 flex flex-col items-start gap-6 sm:flex-row sm:flex-wrap sm:items-end">
-            <Link
-              to="/category/$slug"
-              params={{ slug: "movies" }}
-              className="w-full rounded-sm bg-primary px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 sm:w-auto"
-            >
-              Shop Posters
-            </Link>
-
-            <div className="flex w-full flex-col items-start sm:w-auto sm:items-center">
-              <span className="mb-2 inline-flex items-center gap-1 rounded-sm border border-border bg-background/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.3em] text-foreground">
-                ⭐ Most Popular
-              </span>
-              <Link
-                to="/custom-design"
-                onClick={(e) => {
-                  const el = document.getElementById("custom-design");
-                  if (el) {
-                    e.preventDefault();
-                    el.scrollIntoView({ behavior: "smooth" });
-                  }
-                }}
-                className="group relative w-full overflow-hidden rounded-sm border border-white/70 bg-black px-10 py-5 text-center text-sm font-semibold uppercase tracking-widest text-white shadow-[0_0_0_rgba(255,255,255,0)] transition-all duration-[250ms] hover:-translate-y-0.5 hover:border-white hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] sm:w-auto"
-              >
-                🎨 Customize Your Frame
-                <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 skew-x-12 bg-white/10 opacity-0 transition-all duration-700 group-hover:left-full group-hover:opacity-100" />
-              </Link>
-              <p className="mt-3 max-w-xs text-[11px] leading-relaxed text-muted-foreground sm:text-center">
-                Upload your own photo or artwork and our designers will prepare it for premium-quality printing.
-              </p>
-            </div>
-
-            <Link
-              to="/photo-printing"
-              className="w-full rounded-sm border border-border px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent sm:w-auto"
-            >
-              Print Your Photos
-            </Link>
-          </div>
-
-          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
-            {[
-              "Professional Designer Included",
-              "We Enhance Your Photo Before Printing",
-              "Preview Before Printing",
-            ].map((t) => (
-              <li key={t} className="flex items-center gap-2">
-                <span className="text-foreground">✔</span>
-                {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-    </section>
-  );
-}
-
-function TrustSection() {
-  return (
-    <section className="border-b border-border bg-card">
-        <div className="container-page py-6 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-foreground sm:text-sm">
-            <span className="mr-2">⭐</span>
-            Over 7 Million Photos Printed — And We're Still Creating Memories With You.
+          <p className="mt-6 max-w-2xl text-sm leading-8 text-foreground/80 drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)] sm:text-base sm:leading-9 md:text-lg">
+            صمّم مساحتك بطريقتك مع آلاف التصاميم الحصرية، أو اطبع صورتك بأعلى جودة على خامات Premium
+            تمنح كل جدار هوية مميزة.
           </p>
         </div>
-    </section>
-  );
-}
+        <div className="mt-10 flex flex-col items-start gap-6 sm:flex-row sm:flex-wrap sm:items-end">
+          <Link
+            to="/category/$slug"
+            params={{ slug: "movies" }}
+            className="w-full rounded-sm bg-primary px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 sm:w-auto"
+          >
+            {t("home.shopNow")}
+          </Link>
 
-function BenefitsBar() {
-  return (
-    <section className="border-b border-border bg-background">
-        <div className="container-page py-5">
-          <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
-            {[
-              "Premium PVC Frames",
-              "Wooden Portraits",
-              "Photo Printing",
-              "Cash On Delivery",
-              "Shipping Across Egypt",
-            ].map((b) => (
-              <li key={b} className="flex items-center gap-2">
-                <span className="text-foreground">✓</span>
-                {b}
-              </li>
-            ))}
-          </ul>
-        </div>
-    </section>
-  );
-}
-
-function OffersSection() {
-  return (
-    <section className="border-t border-border bg-card">
-        <div className="container-page py-20">
-          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Limited time
-          </p>
-          <h2 className="text-display mt-3 text-4xl sm:text-6xl">Special Offers</h2>
-          <div className="mt-10 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2">
-            <OfferCard
-              title="6 Frames"
-              size="20 × 30 cm"
-              price="790"
-            />
-            <OfferCard
-              title="4 Frames"
-              size="30 × 40 cm"
-              price="890"
-            />
-          </div>
-          <div className="mt-10">
+          <div className="flex w-full flex-col items-start sm:w-auto sm:items-center">
+            <span className="mb-2 inline-flex items-center gap-1 rounded-sm border border-border bg-background/60 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.3em] text-foreground">
+              ⭐ {t("common.featured")}
+            </span>
             <Link
-              to="/offers"
-              className="inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
+              to="/custom-design"
+              onClick={(e) => {
+                const el = document.getElementById("custom-design");
+                if (el) {
+                  e.preventDefault();
+                  el.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="group relative w-full overflow-hidden rounded-sm border border-white/70 bg-black px-10 py-5 text-center text-sm font-semibold uppercase tracking-widest text-white shadow-[0_0_0_rgba(255,255,255,0)] transition-all duration-[250ms] hover:-translate-y-0.5 hover:border-white hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] sm:w-auto"
             >
-              Claim an offer
+              🎨 {t("customDesign.title")}
+              <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 skew-x-12 bg-white/10 opacity-0 transition-all duration-700 group-hover:left-full group-hover:opacity-100" />
             </Link>
-          </div>
-        </div>
-    </section>
-  );
-}
-
-function defaultName(slug: string) {
-  return slug
-    .split("-")
-    .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function CategorySection({ slug, name, index, pickedIds = [] }: { slug: string; name: string; index: number; pickedIds?: string[] }) {
-  const picksKey = pickedIds.join(",");
-  const limit = 8;
-  const { data: posters = [] } = useQuery({
-    queryKey: ["home-posters", slug, picksKey, limit],
-    staleTime: 60_000,
-    queryFn: async () => {
-      // Admin-picked posters take priority (fixed order).
-      if (pickedIds.length > 0) {
-        const { data, error } = await supabase
-          .from("posters")
-          .select("id,title")
-          .in("id", pickedIds)
-        if (error) throw error;
-        const map = new Map((data ?? []).map((p) => [p.id, p]));
-        return pickedIds.map((id) => map.get(id)).filter(Boolean).slice(0, limit);
-      }
-      // Resolve category and its descendants (posters may live under subcategories).
-      const { data: cat, error: catErr } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (catErr) throw catErr;
-      if (!cat) return [];
-      const { data: kids } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("parent_id", cat.id);
-      const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
-      const { data, error } = await supabase
-        .from("posters")
-        .select("id,title")
-        .in("category_id", ids)
-        .eq("hidden", false)
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-  const thumbs = usePosterThumbs(posters.map((p: any) => p.id));
-
-  const reversed = index % 2 === 1;
-
-  return (
-    <section className={`border-t border-border ${reversed ? "bg-card" : "bg-background"}`}>
-      <div className="container-page py-20">
-        <div className="mb-10 flex items-end justify-between gap-6">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-              0{index + 1} · Collection
+            <p className="mt-3 max-w-xs text-[11px] leading-relaxed text-muted-foreground sm:text-center">
+              {t("customDesign.subtitle")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{name} Posters</h2>
           </div>
+
           <Link
-            to="/category/$slug"
-            params={{ slug }}
-            className="hidden shrink-0 rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent sm:inline-flex"
+            to="/photo-printing"
+            className="w-full rounded-sm border border-border px-8 py-4 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent sm:w-auto"
           >
-            View all →
+            {t("photoPrinting.title")}
           </Link>
         </div>
 
-        {posters.length === 0 ? (
-          <div className="rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            New {name.toLowerCase()} posters dropping soon.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-            {posters.map((p: any) => (
-              <Link
-                key={p.id}
-                to="/category/$slug"
-                params={{ slug }}
-                className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
-              >
-                <WishlistHeart posterId={p.id} />
-                <FramePreview
-                  posterUrl={thumbs[p.id] ?? ""}
-                  title={p.title}
-                  aspectClassName="aspect-[3/4]"
-                  bare
-                  loading="lazy"
-                  className="h-full w-full transition duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-x-0 bottom-0 translate-y-full bg-background/90 px-3 py-2 text-[10px] uppercase tracking-widest transition group-hover:translate-y-0">
-                  {p.title}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-6 sm:hidden">
-          <Link
-            to="/category/$slug"
-            params={{ slug }}
-            className="inline-flex rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
-          >
-            View all {name} →
-          </Link>
-        </div>
+        <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
+          {[t("nav.customDesign"), t("photoPrinting.title"), "Preview Before Printing"].map((t) => (
+            <li key={t} className="flex items-center gap-2">
+              <span className="text-foreground">✔</span>
+              {t}
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
 }
 
-function OfferCard({ title, size, price }: { title: string; size: string; price: string }) {
+function CustomDesignSection() {
+  const { t } = useTranslation();
   return (
-    <div className="relative flex flex-col justify-between bg-background p-8 sm:p-10">
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">Bundle</p>
-        <h3 className="text-display mt-3 text-4xl sm:text-5xl">{title}</h3>
-        <p className="mt-2 text-sm text-muted-foreground">{size}</p>
-      </div>
-      <div className="mt-10 flex items-end justify-between">
-        <div>
-          <div className="text-display text-5xl leading-none">{price}</div>
-          <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">EGP</div>
+    <section className="border-t border-border bg-background">
+      <div className="container-page py-20">
+        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          {t("customDesign.title")}
+        </p>
+        <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("customDesign.heading")}</h2>
+        <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{t("customDesign.subtitle")}</p>
+        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <div className="rounded-sm border border-border bg-card p-6">
+            <div className="text-2xl">🎨</div>
+            <h3 className="mt-3 text-sm font-semibold">{t("customDesign.step1Title")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("customDesign.step1Desc")}</p>
+          </div>
+          <div className="rounded-sm border border-border bg-card p-6">
+            <div className="text-2xl">🖼️</div>
+            <h3 className="mt-3 text-sm font-semibold">{t("customDesign.step2Title")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("customDesign.step2Desc")}</p>
+          </div>
+          <div className="rounded-sm border border-border bg-card p-6">
+            <div className="text-2xl">🚚</div>
+            <h3 className="mt-3 text-sm font-semibold">{t("customDesign.step3Title")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("customDesign.step3Desc")}</p>
+          </div>
         </div>
         <Link
-          to="/offers"
-          className="rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
+          to="/custom-design"
+          className="mt-8 inline-flex rounded-sm bg-primary px-8 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90"
         >
-          Order →
+          {t("customDesign.cta")} →
         </Link>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function HowItWorksSection() {
+  const { t } = useTranslation();
+  const steps = [
+    { icon: "🔍", title: t("howItWorks.step1Title"), desc: t("howItWorks.step1Desc") },
+    { icon: "🖼️", title: t("howItWorks.step2Title"), desc: t("howItWorks.step2Desc") },
+    { icon: "📦", title: t("howItWorks.step3Title"), desc: t("howItWorks.step3Desc") },
+    { icon: "🚚", title: t("howItWorks.step4Title"), desc: t("howItWorks.step4Desc") },
+  ];
+  return (
+    <section className="border-t border-border bg-background">
+      <div className="container-page py-20 text-center">
+        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          {t("howItWorks.label")}
+        </p>
+        <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("howItWorks.title")}</h2>
+        <div className="mt-14 grid gap-8 sm:grid-cols-4">
+          {steps.map((step, i) => (
+            <div key={i}>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-card text-2xl shadow-sm ring-1 ring-border">
+                {step.icon}
+              </div>
+              <h3 className="mt-4 text-sm font-semibold">{step.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QualitySection() {
+  const { t } = useTranslation();
+  const items = [
+    { icon: "📸", label: t("quality.millionPhotos") },
+    { icon: "🖼️", label: t("quality.premiumFrames") },
+    { icon: "📄", label: t("quality.fujifilmPaper") },
+    { icon: "🎨", label: t("quality.proDesigner") },
+    { icon: "🚚", label: t("home.fastDelivery") },
+    { icon: "💳", label: t("checkout.cashOnDelivery") },
+    { icon: "👁️", label: t("home.previewBeforePrinting") },
+    { icon: "💬", label: t("nav.whatsapp") },
+    { icon: "🔒", label: t("cart.secureCheckout") },
+    { icon: "🇪🇬", label: t("quality.madeInEgypt") },
+  ];
+  return (
+    <section className="border-t border-border bg-card">
+      <div className="container-page py-20">
+        <p className="text-center text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          {t("quality.label")}
+        </p>
+        <h2 className="text-display mt-3 text-center text-4xl sm:text-6xl">{t("quality.title")}</h2>
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {items.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-3 rounded-sm border border-border bg-background p-4"
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-xs uppercase tracking-widest">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

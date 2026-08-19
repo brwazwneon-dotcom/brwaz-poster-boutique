@@ -1,7 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Activity, AlertTriangle, CheckCircle2, Database, Gauge, HardDrive, RefreshCcw, Trash2, Zap } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  Gauge,
+  HardDrive,
+  RefreshCcw,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateVariantsFor } from "@/lib/image-pipeline";
@@ -16,9 +26,21 @@ function bucket(ms: number, warn = 1500, crit = 3000): Bucket {
 }
 
 const BUCKET_STYLES: Record<Bucket, { badge: string; label: string; tone: string }> = {
-  good: { badge: "bg-green-500/15 text-green-300 border-green-500/30", label: "Good", tone: "text-green-300" },
-  warning: { badge: "bg-amber-500/15 text-amber-300 border-amber-500/30", label: "Warning", tone: "text-amber-300" },
-  critical: { badge: "bg-red-500/15 text-red-300 border-red-500/30", label: "Critical", tone: "text-red-300" },
+  good: {
+    badge: "bg-green-500/15 text-green-300 border-green-500/30",
+    label: "Good",
+    tone: "text-green-300",
+  },
+  warning: {
+    badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    label: "Warning",
+    tone: "text-amber-300",
+  },
+  critical: {
+    badge: "bg-red-500/15 text-red-300 border-red-500/30",
+    label: "Critical",
+    tone: "text-red-300",
+  },
 };
 
 type PerfRow = { page_path: string; metric: string; value_ms: number; created_at: string };
@@ -84,7 +106,11 @@ export function PerformanceMonitorTab() {
   const [range, setRange] = useState<TimeRange>("24h");
   const [clearing, setClearing] = useState(false);
   const [autoFixing, setAutoFixing] = useState(false);
-  const { data: rows = [], isLoading, refetch } = useQuery({
+  const {
+    data: rows = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["perf-metrics", range],
     queryFn: () => fetchPerf(range),
     refetchInterval: 60_000,
@@ -121,7 +147,9 @@ export function PerformanceMonitorTab() {
     .sort((a, b) => b.avg - a.avg);
   const slowest = pageAvg.slice(0, 10);
 
-  const overallAvg = rows.length ? Math.round(rows.reduce((a, r) => a + r.value_ms, 0) / rows.length) : 0;
+  const overallAvg = rows.length
+    ? Math.round(rows.reduce((a, r) => a + r.value_ms, 0) / rows.length)
+    : 0;
   const slowCount = rows.filter((r) => r.value_ms > 3000).length;
 
   async function clearOld() {
@@ -145,7 +173,12 @@ export function PerformanceMonitorTab() {
       toast.error("Heavy jobs موقوفة من Stability tab. فعّل 'Resume Heavy Jobs' أولًا.");
       return;
     }
-    if (!confirm("تشغيل إصلاحات الأداء الآمنة؟ سيتم:\n- حذف قياسات > 7 أيام\n- إنشاء نسخ محسّنة للصور الناقصة (حتى 10)")) return;
+    if (
+      !confirm(
+        "تشغيل إصلاحات الأداء الآمنة؟ سيتم:\n- حذف قياسات > 7 أيام\n- إنشاء نسخ محسّنة للصور الناقصة (حتى 10)",
+      )
+    )
+      return;
     setAutoFixing(true);
     try {
       // 1. Clean old metrics
@@ -231,13 +264,25 @@ export function PerformanceMonitorTab() {
           icon={<Activity className="h-4 w-4" />}
           label="عدد الأخطاء اليوم"
           value={String(errStats?.errors ?? 0)}
-          bucket={(errStats?.errors ?? 0) > 20 ? "critical" : (errStats?.errors ?? 0) > 5 ? "warning" : "good"}
+          bucket={
+            (errStats?.errors ?? 0) > 20
+              ? "critical"
+              : (errStats?.errors ?? 0) > 5
+                ? "warning"
+                : "good"
+          }
         />
         <MetricCard
           icon={<HardDrive className="h-4 w-4" />}
           label="Failed uploads (24h)"
           value={String(errStats?.uploadFails ?? 0)}
-          bucket={(errStats?.uploadFails ?? 0) > 10 ? "critical" : (errStats?.uploadFails ?? 0) > 2 ? "warning" : "good"}
+          bucket={
+            (errStats?.uploadFails ?? 0) > 10
+              ? "critical"
+              : (errStats?.uploadFails ?? 0) > 2
+                ? "warning"
+                : "good"
+          }
         />
       </div>
 
@@ -270,7 +315,9 @@ export function PerformanceMonitorTab() {
             <div className="flex items-center gap-2 text-sm font-semibold">
               <HardDrive className="h-4 w-4" /> حالة التخزين
             </div>
-            <span className={cn("rounded border px-1.5 py-0.5 text-[10px]", BUCKET_STYLES.good.badge)}>
+            <span
+              className={cn("rounded border px-1.5 py-0.5 text-[10px]", BUCKET_STYLES.good.badge)}
+            >
               يعمل
             </span>
           </div>
@@ -283,7 +330,8 @@ export function PerformanceMonitorTab() {
       {/* Slowest pages */}
       <div className="rounded-md border border-border bg-card">
         <div className="border-b border-border p-4 text-sm font-semibold">
-          أبطأ الصفحات ({range === "24h" ? "آخر 24 ساعة" : range === "7d" ? "آخر 7 أيام" : "كل الفترات"})
+          أبطأ الصفحات (
+          {range === "24h" ? "آخر 24 ساعة" : range === "7d" ? "آخر 7 أيام" : "كل الفترات"})
         </div>
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
@@ -298,7 +346,10 @@ export function PerformanceMonitorTab() {
               const b = bucket(p.avg);
               const st = BUCKET_STYLES[b];
               return (
-                <li key={p.path} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                <li
+                  key={p.path}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                >
                   <div className="min-w-0">
                     <div className="truncate font-medium">{pathToLabel(p.path)}</div>
                     <div className="text-[10px] text-muted-foreground">{p.path}</div>
@@ -306,7 +357,9 @@ export function PerformanceMonitorTab() {
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">{p.count} قياس</span>
                     <span className={st.tone}>Avg {Math.round(p.avg)} ms</span>
-                    <span className={cn("rounded border px-1.5 py-0.5 text-[10px]", st.badge)}>{st.label}</span>
+                    <span className={cn("rounded border px-1.5 py-0.5 text-[10px]", st.badge)}>
+                      {st.label}
+                    </span>
                   </div>
                 </li>
               );
@@ -326,7 +379,11 @@ export function PerformanceMonitorTab() {
               .sort((a, b) => b[1].sum / b[1].count - a[1].sum / a[1].count)
               .map(([metric, s]) => {
                 const avg = Math.round(s.sum / s.count);
-                const b = bucket(avg, metric === "TTFB" ? 500 : 1500, metric === "TTFB" ? 1500 : 3000);
+                const b = bucket(
+                  avg,
+                  metric === "TTFB" ? 500 : 1500,
+                  metric === "TTFB" ? 1500 : 3000,
+                );
                 const st = BUCKET_STYLES[b];
                 return (
                   <li key={metric} className="flex items-center justify-between px-4 py-3 text-sm">
@@ -334,7 +391,9 @@ export function PerformanceMonitorTab() {
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-muted-foreground">{s.count} قياس</span>
                       <span className={st.tone}>Avg {avg} ms</span>
-                      <span className={cn("rounded border px-1.5 py-0.5 text-[10px]", st.badge)}>{st.label}</span>
+                      <span className={cn("rounded border px-1.5 py-0.5 text-[10px]", st.badge)}>
+                        {st.label}
+                      </span>
                     </div>
                   </li>
                 );

@@ -47,7 +47,8 @@ export function SalesNotifications() {
   const shownCount = useRef(0);
 
   const paused =
-    (cfg.pauseOnCheckout && (location.pathname === "/cart" || location.pathname.startsWith("/checkout"))) ||
+    (cfg.pauseOnCheckout &&
+      (location.pathname === "/cart" || location.pathname.startsWith("/checkout"))) ||
     (cfg.hideForAdmin && (isAdmin || location.pathname.startsWith("/admin")));
 
   const deviceOk =
@@ -74,12 +75,10 @@ export function SalesNotifications() {
 
   useEffect(() => {
     if (!active) return;
-    let timer: number | undefined;
     const show = () => {
       if (shownCount.current >= cfg.sales.maxPerSession) return;
-      const poster = cfg.sales.useRealProducts && posters && posters.length
-        ? pick(posters)
-        : undefined;
+      const poster =
+        cfg.sales.useRealProducts && posters && posters.length ? pick(posters) : undefined;
       const n: Notice = {
         id: Math.random().toString(36).slice(2),
         name: cfg.sales.useFakeNames ? pick(EG_NAMES) : "Someone",
@@ -90,18 +89,29 @@ export function SalesNotifications() {
       };
       setNotice(n);
       shownCount.current += 1;
-      window.setTimeout(() => {
-        setNotice((cur) => (cur?.id === n.id ? null : cur));
-      }, Math.max(3, cfg.sales.durationSec) * 1000);
+      window.setTimeout(
+        () => {
+          setNotice((cur) => (cur?.id === n.id ? null : cur));
+        },
+        Math.max(3, cfg.sales.durationSec) * 1000,
+      );
     };
     // First one after a short delay
     const first = window.setTimeout(show, 6000);
-    timer = window.setInterval(show, Math.max(10, cfg.sales.intervalSec) * 1000);
+    const timer = window.setInterval(show, Math.max(10, cfg.sales.intervalSec) * 1000);
     return () => {
       window.clearTimeout(first);
       if (timer) window.clearInterval(timer);
     };
-  }, [active, cfg.sales.intervalSec, cfg.sales.durationSec, cfg.sales.maxPerSession, cfg.sales.useFakeNames, cfg.sales.useRealProducts, posters]);
+  }, [
+    active,
+    cfg.sales.intervalSec,
+    cfg.sales.durationSec,
+    cfg.sales.maxPerSession,
+    cfg.sales.useFakeNames,
+    cfg.sales.useRealProducts,
+    posters,
+  ]);
 
   if (!active || !notice) return null;
 
@@ -117,9 +127,7 @@ export function SalesNotifications() {
       }
       style={{
         // Mobile: bottom center above sticky/WhatsApp
-        ...(isMobile
-          ? { left: "50%", transform: "translateX(-50%)", bottom: "5.5rem" }
-          : {}),
+        ...(isMobile ? { left: "50%", transform: "translateX(-50%)", bottom: "5.5rem" } : {}),
       }}
     >
       <div className="relative rounded-xl border border-white/10 bg-black/80 px-3.5 py-2.5 pr-8 text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
@@ -163,7 +171,9 @@ export function LiveVisitors({ variant = "product" }: { variant?: "product" | "o
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground transition-opacity">
       <Icon className="h-3.5 w-3.5 text-primary" />
-      <span key={count} className="animate-fade-in">{label}</span>
+      <span key={count} className="animate-fade-in">
+        {label}
+      </span>
     </div>
   );
 }

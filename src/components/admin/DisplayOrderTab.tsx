@@ -44,6 +44,10 @@ type Poster = {
   badge: string | null;
 };
 
+type EditorTab = "posters" | "subs" | "settings";
+type VisibilityFilter = "all" | "visible" | "hidden";
+type FlagFilter = "all" | "trending" | "bestseller" | "pinned";
+
 const SORT_MODES = [
   { id: "manual", label: "Manual Order", ar: "ترتيب يدوي" },
   { id: "newest", label: "Newest First", ar: "الأحدث" },
@@ -53,6 +57,16 @@ const SORT_MODES = [
   { id: "random", label: "Random", ar: "عشوائي" },
   { id: "ai", label: "AI Recommended", ar: "اقتراح ذكي" },
 ];
+
+const EDITOR_TABS: Array<{ id: EditorTab; label: (lang: "en" | "ar") => string }> = [
+  { id: "posters", label: (lang) => (lang === "ar" ? "ترتيب البوسترات" : "Posters Order") },
+  { id: "subs", label: (lang) => (lang === "ar" ? "ترتيب الأقسام الفرعية" : "Sub Categories") },
+  { id: "settings", label: (lang) => (lang === "ar" ? "إعدادات الفرز" : "Sort Mode") },
+];
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function DisplayOrderTab() {
   const { lang } = useAdminI18n();
@@ -70,11 +84,8 @@ export function DisplayOrderTab() {
     },
   });
 
-  const roots = useMemo(
-    () => categories.filter((c) => !c.parent_id),
-    [categories],
-  );
-  const openCat = openId ? categories.find((c) => c.id === openId) ?? null : null;
+  const roots = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
+  const openCat = openId ? (categories.find((c) => c.id === openId) ?? null) : null;
 
   if (openCat) {
     return (
@@ -113,11 +124,7 @@ export function DisplayOrderTab() {
               >
                 <div className="aspect-[3/2] w-full bg-muted">
                   {c.image && (
-                    <SmartImage
-                      src={c.image}
-                      alt={c.name}
-                      className="h-full w-full object-cover"
-                    />
+                    <SmartImage src={c.image} alt={c.name} className="h-full w-full object-cover" />
                   )}
                 </div>
                 <div className="p-3">
@@ -152,11 +159,11 @@ function CategoryOrderEditor({
   lang: "en" | "ar";
 }) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"posters" | "subs" | "settings">("posters");
+  const [tab, setTab] = useState<EditorTab>("posters");
   const [search, setSearch] = useState("");
   const [subFilter, setSubFilter] = useState<string>("");
-  const [visibility, setVisibility] = useState<"all" | "visible" | "hidden">("all");
-  const [flag, setFlag] = useState<"all" | "trending" | "bestseller" | "pinned">("all");
+  const [visibility, setVisibility] = useState<VisibilityFilter>("all");
+  const [flag, setFlag] = useState<FlagFilter>("all");
   const [limit, setLimit] = useState(PAGE_SIZE);
 
   const includedIds = useMemo(() => {
@@ -169,7 +176,9 @@ function CategoryOrderEditor({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posters")
-        .select("id,title,image_url,category_id,sort_order,pinned,hidden,is_best_seller,trending,badge")
+        .select(
+          "id,title,image_url,category_id,sort_order,pinned,hidden,is_best_seller,trending,badge",
+        )
         .in("category_id", includedIds)
         .order("pinned", { ascending: false })
         .order("sort_order", { ascending: true })
@@ -253,9 +262,11 @@ function CategoryOrderEditor({
       }
       setOrderOverride(null);
       qc.invalidateQueries({ queryKey: ["display-order-posters", cat.id] });
-      toast.success(lang === "ar" ? "تم حفظ ترتيب الكاتجوري بنجاح" : "Category order updated successfully");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to save");
+      toast.success(
+        lang === "ar" ? "تم حفظ ترتيب الكاتجوري بنجاح" : "Category order updated successfully",
+      );
+    } catch (e) {
+      toast.error(errorMessage(e, "Failed to save"));
     }
   };
 
@@ -321,20 +332,16 @@ function CategoryOrderEditor({
       </div>
 
       <div className="mb-6 flex gap-2 border-b border-border">
-        {[
-          { id: "posters", label: lang === "ar" ? "ترتيب البوسترات" : "Posters Order" },
-          { id: "subs", label: lang === "ar" ? "ترتيب الأقسام الفرعية" : "Sub Categories" },
-          { id: "settings", label: lang === "ar" ? "إعدادات الفرز" : "Sort Mode" },
-        ].map((x) => (
+        {EDITOR_TABS.map((x) => (
           <button
             key={x.id}
-            onClick={() => setTab(x.id as any)}
+            onClick={() => setTab(x.id)}
             className={cn(
               "border-b-2 px-4 py-2 text-xs font-semibold uppercase tracking-widest",
               tab === x.id ? "border-primary" : "border-transparent text-muted-foreground",
             )}
           >
-            {x.label}
+            {x.label(lang)}
           </button>
         ))}
       </div>
@@ -353,17 +360,24 @@ function CategoryOrderEditor({
             </div>
             <select
               value={subFilter}
-              onChange={(e) => { setSubFilter(e.target.value); setOrderOverride(null); }}
+              onChange={(e) => {
+                setSubFilter(e.target.value);
+                setOrderOverride(null);
+              }}
               className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
-              <option value="">{lang === "ar" ? "كل الأقسام الفرعية" : "All sub categories"}</option>
+              <option value="">
+                {lang === "ar" ? "كل الأقسام الفرعية" : "All sub categories"}
+              </option>
               {subcats.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
             <select
               value={visibility}
-              onChange={(e) => setVisibility(e.target.value as any)}
+              onChange={(e) => setVisibility(e.target.value as VisibilityFilter)}
               className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="all">All</option>
@@ -372,7 +386,7 @@ function CategoryOrderEditor({
             </select>
             <select
               value={flag}
-              onChange={(e) => setFlag(e.target.value as any)}
+              onChange={(e) => setFlag(e.target.value as FlagFilter)}
               className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="all">All flags</option>
@@ -389,7 +403,10 @@ function CategoryOrderEditor({
               {visible.map((p) => {
                 const idx = posters.findIndex((x) => x.id === p.id);
                 return (
-                  <div key={p.id} className="relative overflow-hidden rounded-sm border border-border bg-card">
+                  <div
+                    key={p.id}
+                    className="relative overflow-hidden rounded-sm border border-border bg-card"
+                  >
                     <div className="relative aspect-[2/3] bg-muted">
                       <SmartImage
                         src={p.image_url}
@@ -425,7 +442,9 @@ function CategoryOrderEditor({
                       </span>
                     </div>
                     <div className="p-2">
-                      <div className="truncate text-xs font-semibold" title={p.title}>{p.title}</div>
+                      <div className="truncate text-xs font-semibold" title={p.title}>
+                        {p.title}
+                      </div>
                       <div className="mt-1 flex items-center gap-1">
                         <input
                           type="number"
@@ -439,16 +458,28 @@ function CategoryOrderEditor({
                           className="w-14 rounded-sm border border-border bg-background px-2 py-1 text-xs"
                         />
                         <div className="ml-auto flex items-center gap-0.5">
-                          <IconBtn helpId="images.pin_top" title="Top" onClick={() => sendToTop(idx)}>
+                          <IconBtn
+                            helpId="images.pin_top"
+                            title="Top"
+                            onClick={() => sendToTop(idx)}
+                          >
                             <ArrowUpToLine className="h-3.5 w-3.5" />
                           </IconBtn>
                           <IconBtn helpId="images.move_up" title="Up" onClick={() => move(idx, -1)}>
                             <ArrowUp className="h-3.5 w-3.5" />
                           </IconBtn>
-                          <IconBtn helpId="images.move_down" title="Down" onClick={() => move(idx, 1)}>
+                          <IconBtn
+                            helpId="images.move_down"
+                            title="Down"
+                            onClick={() => move(idx, 1)}
+                          >
                             <ArrowDown className="h-3.5 w-3.5" />
                           </IconBtn>
-                          <IconBtn helpId="images.send_bottom" title="Bottom" onClick={() => sendToBottom(idx)}>
+                          <IconBtn
+                            helpId="images.send_bottom"
+                            title="Bottom"
+                            onClick={() => sendToBottom(idx)}
+                          >
                             <ArrowDownToLine className="h-3.5 w-3.5" />
                           </IconBtn>
                         </div>
@@ -460,14 +491,22 @@ function CategoryOrderEditor({
                           onClick={() => togglePin(p)}
                           className={p.pinned ? "bg-yellow-100 dark:bg-yellow-900/40" : ""}
                         >
-                          {p.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                          {p.pinned ? (
+                            <PinOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Pin className="h-3.5 w-3.5" />
+                          )}
                         </IconBtn>
                         <IconBtn
                           helpId={p.hidden ? "images.show" : "images.hide"}
                           title={p.hidden ? "Show" : "Hide"}
                           onClick={() => toggleHide(p)}
                         >
-                          {p.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          {p.hidden ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
                         </IconBtn>
                       </div>
                     </div>
@@ -509,7 +548,10 @@ function CategoryOrderEditor({
               <button
                 key={m.id}
                 onClick={async () => {
-                  const { error } = await supabase.rpc("admin_set_category_sort_mode", { _id: cat.id, _mode: m.id });
+                  const { error } = await supabase.rpc("admin_set_category_sort_mode", {
+                    _id: cat.id,
+                    _mode: m.id,
+                  });
                   if (error) return toast.error(error.message);
                   qc.invalidateQueries({ queryKey: ["display-order-cats"] });
                   toast.success(lang === "ar" ? "تم التحديث" : "Updated");
@@ -566,13 +608,20 @@ function SubcategoryOrderEditor({
     toast.success(lang === "ar" ? "تم الحفظ" : "Saved");
   };
   if (initial.length === 0) {
-    return <div className="text-sm text-muted-foreground">{lang === "ar" ? "لا توجد أقسام فرعية." : "No sub categories."}</div>;
+    return (
+      <div className="text-sm text-muted-foreground">
+        {lang === "ar" ? "لا توجد أقسام فرعية." : "No sub categories."}
+      </div>
+    );
   }
   return (
     <div className="max-w-xl">
       <div className="space-y-2">
         {list.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-3 rounded-sm border border-border bg-card p-3">
+          <div
+            key={s.id}
+            className="flex items-center gap-3 rounded-sm border border-border bg-card p-3"
+          >
             <span className="w-6 text-center text-sm font-bold">{i + 1}</span>
             <div className="flex-1 text-sm">{s.name}</div>
             <IconBtn helpId="images.move_up" title="Up" onClick={() => move(i, -1)}>
@@ -614,7 +663,10 @@ function IconBtn({
       type="button"
       onClick={onClick}
       title={title}
-      className={cn("inline-flex h-7 w-7 items-center justify-center rounded-sm border border-border hover:bg-accent", className)}
+      className={cn(
+        "inline-flex h-7 w-7 items-center justify-center rounded-sm border border-border hover:bg-accent",
+        className,
+      )}
     >
       {children}
     </button>

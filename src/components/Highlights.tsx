@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "./SafeImage";
@@ -37,13 +38,14 @@ type Highlight = {
 };
 
 export function Highlights() {
+  const { t } = useTranslation();
   const { data = [] } = useQuery({
     queryKey: ["highlights"],
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("highlights")
-        .select("*")
+        .select("id,key,title,link,sort_order,image_url,enabled")
         .eq("enabled", true)
         .order("sort_order", { ascending: true });
       if (error) throw error;
@@ -58,8 +60,10 @@ export function Highlights() {
       <div className="container-page py-8 sm:py-10">
         <div className="mb-5 flex items-end justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">Explore</p>
-            <h2 className="text-display mt-2 text-2xl sm:text-3xl">Highlights</h2>
+            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+              {t("home.highlights")}
+            </p>
+            <h2 className="text-display mt-2 text-2xl sm:text-3xl">{t("home.highlights")}</h2>
           </div>
         </div>
         <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

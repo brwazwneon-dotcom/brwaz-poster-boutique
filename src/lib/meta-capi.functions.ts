@@ -1,17 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const UserDataSchema = z.object({
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  city: z.string().optional(),
-  country: z.string().optional(),
-}).default({});
+const UserDataSchema = z
+  .object({
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    city: z.string().optional(),
+    country: z.string().optional(),
+  })
+  .default({});
 
 const InputSchema = z.object({
   // Accept standard + custom event names so retargeting audiences
   // (ViewCategory, PhotoPrintingCustomer, CustomDesignCustomer, …) flow through.
-  event_name: z.string().min(1).max(64).regex(/^[A-Za-z0-9_]+$/),
+  event_name: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_]+$/),
   event_id: z.string().min(1).max(128),
   event_source_url: z.string().url().optional(),
   custom_data: z.record(z.string(), z.unknown()).default({}),
@@ -27,12 +33,18 @@ async function sha256Hex(value: string) {
     .join("");
 }
 
-function normEmail(v: string) { return v.trim().toLowerCase(); }
-function normPhone(v: string) { return v.replace(/[^\d]/g, ""); }
-function normName(v: string) { return v.trim().toLowerCase(); }
+function normEmail(v: string) {
+  return v.trim().toLowerCase();
+}
+function normPhone(v: string) {
+  return v.replace(/[^\d]/g, "");
+}
+function normName(v: string) {
+  return v.trim().toLowerCase();
+}
 
 export const sendCapiEvent = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => InputSchema.parse(input))
+  .validator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -58,7 +70,8 @@ export const sendCapiEvent = createServerFn({ method: "POST" })
     const accessToken = secretRes.data?.meta_capi_access_token ?? "";
 
     if (!capiEnabled) return { ok: true, skipped: true, reason: "capi_disabled" };
-    if (!pixelId || !/^\d{6,20}$/.test(pixelId)) return { ok: false, skipped: true, reason: "invalid_pixel_id" };
+    if (!pixelId || !/^\d{6,20}$/.test(pixelId))
+      return { ok: false, skipped: true, reason: "invalid_pixel_id" };
     if (!accessToken) return { ok: false, skipped: true, reason: "no_access_token" };
 
     // Build user_data (hashed) for Advanced Matching when enabled.
@@ -67,9 +80,9 @@ export const sendCapiEvent = createServerFn({ method: "POST" })
       client_user_agent: data.client_user_agent,
     };
     if (advancedMatching) {
-      if (u.email)   user_data.em = [await sha256Hex(normEmail(u.email))];
-      if (u.phone)   user_data.ph = [await sha256Hex(normPhone(u.phone))];
-      if (u.city)    user_data.ct = [await sha256Hex(normName(u.city))];
+      if (u.email) user_data.em = [await sha256Hex(normEmail(u.email))];
+      if (u.phone) user_data.ph = [await sha256Hex(normPhone(u.phone))];
+      if (u.city) user_data.ct = [await sha256Hex(normName(u.city))];
       if (u.country) user_data.country = [await sha256Hex(normName(u.country))];
     }
 

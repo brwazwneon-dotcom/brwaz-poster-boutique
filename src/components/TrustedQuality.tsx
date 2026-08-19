@@ -1,64 +1,55 @@
 import { memo } from "react";
 import {
-  Sparkles,
-  Frame,
+  BadgeCheck,
   Camera,
-  Palette,
-  Truck,
   Eye,
-  MapPin,
+  Frame,
+  Palette,
+  Sparkles,
+  Truck,
+  WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useInView } from "@/hooks/use-in-view";
+import { trustDescription, useStorefrontContent } from "@/lib/storefront-content";
 
 type Card = { icon: LucideIcon; title: string; body: string };
 
-const CARDS: Card[] = [
-  {
-    icon: Sparkles,
-    title: "Over 7 Million Photos Printed",
-    body: "Printed with experience trusted by thousands of customers.",
-  },
-  {
-    icon: Frame,
-    title: "Premium PVC Frames",
-    body: "Durable premium-quality frames with elegant finishing.",
-  },
-  {
-    icon: Camera,
-    title: "Original Fujifilm Photo Paper",
-    body: "Sharp colors, museum-quality printing and long-lasting durability.",
-  },
-  {
-    icon: Palette,
-    title: "Professional Designer Included",
-    body: "Every order is reviewed before printing.",
-  },
-  {
-    icon: Truck,
-    title: "Cash on Delivery",
-    body: "Available across all Egypt.",
-  },
-  {
-    icon: Eye,
-    title: "Preview Before Printing",
-    body: "Approve your artwork before production.",
-  },
-  {
-    icon: MapPin,
-    title: "Made in Egypt",
-    body: "Designed, printed and framed locally with care.",
-  },
-];
+const ICONS: Record<string, LucideIcon> = {
+  sparkles: Sparkles,
+  camera: Camera,
+  "badge-check": BadgeCheck,
+  eye: Eye,
+  truck: Truck,
+  wallet: WalletCards,
+  palette: Palette,
+  frame: Frame,
+};
 
 /** Gold accent used only as a hairline / small mark. */
 const GOLD = "#c9a24a";
 
-export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?: string }) {
+export function TrustedQuality() {
   const [sectionRef, inView] = useInView<HTMLElement>({ rootMargin: "0px 0px -80px 0px" });
+  const { i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
+  const content = useStorefrontContent();
+  const cards: Card[] = content.trust.points
+    .filter((point) => point.enabled)
+    .map((point) => ({
+      icon: ICONS[point.icon] ?? Sparkles,
+      title: isArabic ? point.ar : point.en,
+      body: isArabic
+        ? (point.description?.ar ?? trustDescription(point.id).ar)
+        : (point.description?.en ?? trustDescription(point.id).en),
+    }));
 
   return (
-    <section ref={sectionRef} className="relative isolate overflow-hidden border-t border-border bg-black text-white">
+    <section
+      ref={sectionRef}
+      className="relative isolate overflow-hidden border-t border-border bg-black text-white"
+    >
       {/* Ambient depth — subtle radial + top/bottom fades */}
       <div
         aria-hidden="true"
@@ -88,44 +79,36 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
           ].join(" ")}
         >
           <div className="mx-auto mb-6 flex items-center justify-center gap-3">
-            <span className="h-px w-10" style={{ background: `linear-gradient(to right, transparent, ${GOLD})` }} />
+            <span
+              className="h-px w-10"
+              style={{ background: `linear-gradient(to right, transparent, ${GOLD})` }}
+            />
             <span
               className="text-[10px] font-medium uppercase tracking-[0.55em]"
               style={{ color: GOLD }}
             >
-              The BRWAZWNEON Standard
+              {isArabic ? content.trust.label.ar : content.trust.label.en}
             </span>
-            <span className="h-px w-10" style={{ background: `linear-gradient(to left, transparent, ${GOLD})` }} />
+            <span
+              className="h-px w-10"
+              style={{ background: `linear-gradient(to left, transparent, ${GOLD})` }}
+            />
           </div>
 
           <h2 className="text-display text-4xl leading-[1.05] sm:text-6xl">
-            {title ?? "Crafted With Uncompromising Care."}
+            {isArabic ? content.trust.heading.ar : content.trust.heading.en}
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-white/60 sm:text-base">
-            {subtitle ??
-              "For over 25 years we've been framing memories — every piece reviewed, refined and finished by hand with a quiet obsession for the smallest detail."}
+            {isArabic ? content.trust.description.ar : content.trust.description.en}
           </p>
         </div>
 
-        {/* Stat strip — 25-year badge flanked by proof stats */}
-        <div
-          className={[
-            "mx-auto mt-12 flex max-w-5xl flex-wrap items-stretch justify-center gap-3 transition-all duration-1000 ease-out sm:mt-14 sm:gap-4",
-            "will-change-transform",
-            inView ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0",
-          ].join(" ")}
-          style={{ transitionDelay: inView ? "180ms" : "0ms" }}
-        >
-          <StatCard value="7M+" label={"Photos\nPrinted"} />
-          <StatCard value="50K+" label={"Happy\nClients"} />
-          <YearsBadge />
-          <StatCard value="100%" label={"Hand\nFinished"} />
-          <StatCard value="27" label={"Governorates\nDelivered"} />
-        </div>
-
         {/* Feature blocks — staggered 2-col on desktop, single column on mobile */}
-        <ul className="mx-auto mt-20 grid max-w-5xl grid-cols-1 gap-6 sm:mt-24 sm:gap-8 md:grid-cols-2 md:gap-x-10 md:gap-y-14">
-          {CARDS.map((card, i) => (
+        <ul
+          className="mx-auto mt-20 grid max-w-5xl grid-cols-1 gap-6 sm:mt-24 sm:gap-8 md:auto-rows-fr md:grid-cols-2 md:gap-x-10 md:gap-y-14"
+          dir={isArabic ? "rtl" : "ltr"}
+        >
+          {cards.map((card, i) => (
             <FeatureBlock key={card.title} card={card} index={i} />
           ))}
         </ul>
@@ -134,7 +117,7 @@ export function TrustedQuality({ title, subtitle }: { title?: string; subtitle?:
         <div className="mx-auto mt-24 flex max-w-md items-center justify-center gap-4 text-[10px] uppercase tracking-[0.5em] text-white/40">
           <span className="h-px flex-1 bg-white/10" />
           <span style={{ color: GOLD }}>✦</span>
-          <span>Made With Care · Egypt</span>
+          <span>{isArabic ? "صُنع بعناية في مصر" : "Made With Care · Egypt"}</span>
           <span style={{ color: GOLD }}>✦</span>
           <span className="h-px flex-1 bg-white/10" />
         </div>
@@ -154,7 +137,7 @@ const FeatureBlock = memo(function FeatureBlock({ card, index }: { card: Card; i
     <li
       ref={ref}
       className={[
-        "group relative overflow-hidden rounded-md border border-white/10 bg-white/[0.02] p-8 backdrop-blur-md transition-all duration-700 ease-out sm:p-10",
+        "group relative h-full overflow-hidden rounded-md border border-white/10 bg-white/[0.02] p-8 backdrop-blur-md transition-all duration-700 ease-out sm:p-10",
         "shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_60px_-30px_rgba(0,0,0,0.9)]",
         "hover:-translate-y-1.5 hover:border-white/25 hover:bg-white/[0.04]",
         "hover:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_35px_80px_-25px_rgba(0,0,0,0.9),0_0_0_1px_rgba(201,162,74,0.15)]",
@@ -184,16 +167,12 @@ const FeatureBlock = memo(function FeatureBlock({ card, index }: { card: Card; i
 
         {/* Copy */}
         <div className="min-w-0 flex-1">
-          <h3 className="text-display text-xl leading-tight text-white sm:text-2xl">
-            {title}
-          </h3>
+          <h3 className="text-display text-xl leading-tight text-white sm:text-2xl">{title}</h3>
           <div
             className="mt-4 h-px w-10 transition-all duration-500 group-hover:w-20"
             style={{ background: `linear-gradient(to right, ${GOLD}, transparent)` }}
           />
-          <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-[15px]">
-            {body}
-          </p>
+          <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-[15px]">{body}</p>
         </div>
       </div>
     </li>
@@ -210,10 +189,26 @@ function YearsBadge() {
       }}
     >
       {/* Gold corner accents */}
-      <span aria-hidden className="absolute left-1.5 top-1.5 h-2 w-2 border-l border-t" style={{ borderColor: GOLD }} />
-      <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 border-r border-t" style={{ borderColor: GOLD }} />
-      <span aria-hidden className="absolute bottom-1.5 left-1.5 h-2 w-2 border-b border-l" style={{ borderColor: GOLD }} />
-      <span aria-hidden className="absolute bottom-1.5 right-1.5 h-2 w-2 border-b border-r" style={{ borderColor: GOLD }} />
+      <span
+        aria-hidden
+        className="absolute left-1.5 top-1.5 h-2 w-2 border-l border-t"
+        style={{ borderColor: GOLD }}
+      />
+      <span
+        aria-hidden
+        className="absolute right-1.5 top-1.5 h-2 w-2 border-r border-t"
+        style={{ borderColor: GOLD }}
+      />
+      <span
+        aria-hidden
+        className="absolute bottom-1.5 left-1.5 h-2 w-2 border-b border-l"
+        style={{ borderColor: GOLD }}
+      />
+      <span
+        aria-hidden
+        className="absolute bottom-1.5 right-1.5 h-2 w-2 border-b border-r"
+        style={{ borderColor: GOLD }}
+      />
 
       <span
         className="text-display text-5xl leading-none sm:text-6xl"
@@ -226,7 +221,9 @@ function YearsBadge() {
       </span>
       <span className="h-10 w-px bg-white/20" />
       <span className="text-left text-[10px] font-medium uppercase leading-[1.5] tracking-[0.35em] text-white/80">
-        Years<br />of Craft
+        Years
+        <br />
+        of Craft
       </span>
     </div>
   );
@@ -235,10 +232,7 @@ function YearsBadge() {
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex min-w-[110px] flex-col items-center justify-center rounded-md border border-white/10 bg-white/[0.02] px-5 py-4 backdrop-blur-md transition-colors hover:border-white/20 hover:bg-white/[0.04] sm:min-w-[130px] sm:px-6 sm:py-5">
-      <span
-        className="text-display text-3xl leading-none sm:text-4xl"
-        style={{ color: GOLD }}
-      >
+      <span className="text-display text-3xl leading-none sm:text-4xl" style={{ color: GOLD }}>
         {value}
       </span>
       <span className="mt-3 whitespace-pre-line text-center text-[9px] font-medium uppercase leading-[1.5] tracking-[0.3em] text-white/55">

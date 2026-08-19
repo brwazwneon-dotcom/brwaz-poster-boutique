@@ -8,12 +8,14 @@ import { cn } from "@/lib/utils";
 import type { Category } from "@/lib/use-categories";
 
 function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || `cat-${Date.now()}`;
+  return (
+    s
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || `cat-${Date.now()}`
+  );
 }
 
 type Props = {
@@ -113,9 +115,7 @@ export function CategoryPicker({
   return (
     <>
       <div className="block">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          {label}
-        </span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
         <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
           <PopoverTrigger asChild>
             <button
@@ -210,9 +210,7 @@ export function CategoryPicker({
             className="w-full max-w-sm rounded-sm border border-border bg-card p-5 shadow-2xl"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-widest">
-                Add {label}
-              </h3>
+              <h3 className="text-sm font-semibold uppercase tracking-widest">Add {label}</h3>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
@@ -252,7 +250,11 @@ export function CategoryPicker({
                 disabled={saving || !newName.trim()}
                 className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-40"
               >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
                 {saving ? "Saving…" : "Add"}
               </button>
             </div>

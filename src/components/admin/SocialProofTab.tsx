@@ -20,7 +20,9 @@ import { X, Sparkles } from "lucide-react";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-sm border border-border bg-card p-5">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h3>
       <div className="mt-4 space-y-4">{children}</div>
     </div>
   );
@@ -40,7 +42,10 @@ export function SocialProofTab() {
   const [cfg, setCfg] = useState<SocialProofConfig>(DEFAULT_SOCIAL_PROOF);
   const [saving, setSaving] = useState(false);
   const [previewNotice, setPreviewNotice] = useState<null | {
-    name: string; city: string; message: string; minsAgo: number;
+    name: string;
+    city: string;
+    message: string;
+    minsAgo: number;
   }>(null);
 
   const { data, isLoading } = useQuery({
@@ -90,13 +95,22 @@ export function SocialProofTab() {
     setCfg((c) => ({ ...c, [k]: v }));
   }
 
-  function updateSales<K extends keyof SocialProofConfig["sales"]>(k: K, v: SocialProofConfig["sales"][K]) {
+  function updateSales<K extends keyof SocialProofConfig["sales"]>(
+    k: K,
+    v: SocialProofConfig["sales"][K],
+  ) {
     setCfg((c) => ({ ...c, sales: { ...c.sales, [k]: v } }));
   }
-  function updateVisitors<K extends keyof SocialProofConfig["visitors"]>(k: K, v: SocialProofConfig["visitors"][K]) {
+  function updateVisitors<K extends keyof SocialProofConfig["visitors"]>(
+    k: K,
+    v: SocialProofConfig["visitors"][K],
+  ) {
     setCfg((c) => ({ ...c, visitors: { ...c.visitors, [k]: v } }));
   }
-  function updateOrders<K extends keyof SocialProofConfig["orders"]>(k: K, v: SocialProofConfig["orders"][K]) {
+  function updateOrders<K extends keyof SocialProofConfig["orders"]>(
+    k: K,
+    v: SocialProofConfig["orders"][K],
+  ) {
     setCfg((c) => ({ ...c, orders: { ...c.orders, [k]: v } }));
   }
 
@@ -107,7 +121,9 @@ export function SocialProofTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-display text-2xl">Social Proof</h2>
-          <p className="text-sm text-muted-foreground">Sales popups, live visitors, and recent-orders counters.</p>
+          <p className="text-sm text-muted-foreground">
+            Sales popups, live visitors, and recent-orders counters.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -119,7 +135,10 @@ export function SocialProofTab() {
                 minsAgo: randomInt(1, 42),
               };
               setPreviewNotice(n);
-              window.setTimeout(() => setPreviewNotice(null), Math.max(3, cfg.sales.durationSec) * 1000);
+              window.setTimeout(
+                () => setPreviewNotice(null),
+                Math.max(3, cfg.sales.durationSec) * 1000,
+              );
             }}
             className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
           >
@@ -144,12 +163,17 @@ export function SocialProofTab() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title="Sales Notifications">
           <Row label="Enabled">
-            <Switch checked={cfg.sales.enabled} onCheckedChange={(v) => updateSales("enabled", v)} />
+            <Switch
+              checked={cfg.sales.enabled}
+              onCheckedChange={(v) => updateSales("enabled", v)}
+            />
           </Row>
           <Row label="Show on">
             <select
               value={cfg.sales.device}
-              onChange={(e) => updateSales("device", e.target.value as SocialProofConfig["sales"]["device"])}
+              onChange={(e) =>
+                updateSales("device", e.target.value as SocialProofConfig["sales"]["device"])
+              }
               className="rounded-sm border border-border bg-background px-2 py-1 text-sm"
             >
               <option value="both">Both</option>
@@ -159,84 +183,162 @@ export function SocialProofTab() {
           </Row>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Interval</span><span className="text-muted-foreground">{cfg.sales.intervalSec}s</span>
+              <span>Interval</span>
+              <span className="text-muted-foreground">{cfg.sales.intervalSec}s</span>
             </div>
-            <Slider min={10} max={120} step={5} value={[cfg.sales.intervalSec]} onValueChange={(v) => updateSales("intervalSec", v[0])} />
+            <Slider
+              min={10}
+              max={120}
+              step={5}
+              value={[cfg.sales.intervalSec]}
+              onValueChange={(v) => updateSales("intervalSec", v[0])}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Duration</span><span className="text-muted-foreground">{cfg.sales.durationSec}s</span>
+              <span>Duration</span>
+              <span className="text-muted-foreground">{cfg.sales.durationSec}s</span>
             </div>
-            <Slider min={3} max={20} step={1} value={[cfg.sales.durationSec]} onValueChange={(v) => updateSales("durationSec", v[0])} />
+            <Slider
+              min={3}
+              max={20}
+              step={1}
+              value={[cfg.sales.durationSec]}
+              onValueChange={(v) => updateSales("durationSec", v[0])}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Max per session</span><span className="text-muted-foreground">{cfg.sales.maxPerSession}</span>
+              <span>Max per session</span>
+              <span className="text-muted-foreground">{cfg.sales.maxPerSession}</span>
             </div>
-            <Slider min={1} max={30} step={1} value={[cfg.sales.maxPerSession]} onValueChange={(v) => updateSales("maxPerSession", v[0])} />
+            <Slider
+              min={1}
+              max={30}
+              step={1}
+              value={[cfg.sales.maxPerSession]}
+              onValueChange={(v) => updateSales("maxPerSession", v[0])}
+            />
           </div>
           <Row label="Use real products">
-            <Switch checked={cfg.sales.useRealProducts} onCheckedChange={(v) => updateSales("useRealProducts", v)} />
+            <Switch
+              checked={cfg.sales.useRealProducts}
+              onCheckedChange={(v) => updateSales("useRealProducts", v)}
+            />
           </Row>
           <Row label="Use fake / demo names">
-            <Switch checked={cfg.sales.useFakeNames} onCheckedChange={(v) => updateSales("useFakeNames", v)} />
+            <Switch
+              checked={cfg.sales.useFakeNames}
+              onCheckedChange={(v) => updateSales("useFakeNames", v)}
+            />
           </Row>
         </Section>
 
         <Section title="Live Visitors">
           <Row label="Enabled">
-            <Switch checked={cfg.visitors.enabled} onCheckedChange={(v) => updateVisitors("enabled", v)} />
+            <Switch
+              checked={cfg.visitors.enabled}
+              onCheckedChange={(v) => updateVisitors("enabled", v)}
+            />
           </Row>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Min visitors</span><span className="text-muted-foreground">{cfg.visitors.min}</span>
+              <span>Min visitors</span>
+              <span className="text-muted-foreground">{cfg.visitors.min}</span>
             </div>
-            <Slider min={1} max={30} step={1} value={[cfg.visitors.min]} onValueChange={(v) => updateVisitors("min", Math.min(v[0], cfg.visitors.max))} />
+            <Slider
+              min={1}
+              max={30}
+              step={1}
+              value={[cfg.visitors.min]}
+              onValueChange={(v) => updateVisitors("min", Math.min(v[0], cfg.visitors.max))}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Max visitors</span><span className="text-muted-foreground">{cfg.visitors.max}</span>
+              <span>Max visitors</span>
+              <span className="text-muted-foreground">{cfg.visitors.max}</span>
             </div>
-            <Slider min={2} max={50} step={1} value={[cfg.visitors.max]} onValueChange={(v) => updateVisitors("max", Math.max(v[0], cfg.visitors.min))} />
+            <Slider
+              min={2}
+              max={50}
+              step={1}
+              value={[cfg.visitors.max]}
+              onValueChange={(v) => updateVisitors("max", Math.max(v[0], cfg.visitors.min))}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span>Update interval</span><span className="text-muted-foreground">{cfg.visitors.updateSec}s</span>
+              <span>Update interval</span>
+              <span className="text-muted-foreground">{cfg.visitors.updateSec}s</span>
             </div>
-            <Slider min={10} max={90} step={5} value={[cfg.visitors.updateSec]} onValueChange={(v) => updateVisitors("updateSec", v[0])} />
+            <Slider
+              min={10}
+              max={90}
+              step={5}
+              value={[cfg.visitors.updateSec]}
+              onValueChange={(v) => updateVisitors("updateSec", v[0])}
+            />
           </div>
           <Row label="Show on product pages">
-            <Switch checked={cfg.visitors.onProduct} onCheckedChange={(v) => updateVisitors("onProduct", v)} />
+            <Switch
+              checked={cfg.visitors.onProduct}
+              onCheckedChange={(v) => updateVisitors("onProduct", v)}
+            />
           </Row>
           <Row label="Show on offers pages">
-            <Switch checked={cfg.visitors.onOffers} onCheckedChange={(v) => updateVisitors("onOffers", v)} />
+            <Switch
+              checked={cfg.visitors.onOffers}
+              onCheckedChange={(v) => updateVisitors("onOffers", v)}
+            />
           </Row>
         </Section>
 
         <Section title="Recent Orders Counter">
           <Row label="Enabled">
-            <Switch checked={cfg.orders.enabled} onCheckedChange={(v) => updateOrders("enabled", v)} />
+            <Switch
+              checked={cfg.orders.enabled}
+              onCheckedChange={(v) => updateOrders("enabled", v)}
+            />
           </Row>
           <Row label="Use real orders">
-            <Switch checked={cfg.orders.useRealOrders} onCheckedChange={(v) => updateOrders("useRealOrders", v)} />
+            <Switch
+              checked={cfg.orders.useRealOrders}
+              onCheckedChange={(v) => updateOrders("useRealOrders", v)}
+            />
           </Row>
           <Row label="Fallback to demo numbers">
-            <Switch checked={cfg.orders.fallbackDemo} onCheckedChange={(v) => updateOrders("fallbackDemo", v)} />
+            <Switch
+              checked={cfg.orders.fallbackDemo}
+              onCheckedChange={(v) => updateOrders("fallbackDemo", v)}
+            />
           </Row>
           <Row label="Show on product pages">
-            <Switch checked={cfg.orders.onProduct} onCheckedChange={(v) => updateOrders("onProduct", v)} />
+            <Switch
+              checked={cfg.orders.onProduct}
+              onCheckedChange={(v) => updateOrders("onProduct", v)}
+            />
           </Row>
           <Row label="Show on offers">
-            <Switch checked={cfg.orders.onOffers} onCheckedChange={(v) => updateOrders("onOffers", v)} />
+            <Switch
+              checked={cfg.orders.onOffers}
+              onCheckedChange={(v) => updateOrders("onOffers", v)}
+            />
           </Row>
           <Row label="Show on checkout">
-            <Switch checked={cfg.orders.onCheckout} onCheckedChange={(v) => updateOrders("onCheckout", v)} />
+            <Switch
+              checked={cfg.orders.onCheckout}
+              onCheckedChange={(v) => updateOrders("onCheckout", v)}
+            />
           </Row>
         </Section>
 
         <Section title="Global">
           <Row label="Pause while checkout is open">
-            <Switch checked={cfg.pauseOnCheckout} onCheckedChange={(v) => update("pauseOnCheckout", v)} />
+            <Switch
+              checked={cfg.pauseOnCheckout}
+              onCheckedChange={(v) => update("pauseOnCheckout", v)}
+            />
           </Row>
           <Row label="Hide for returning admin">
             <Switch checked={cfg.hideForAdmin} onCheckedChange={(v) => update("hideForAdmin", v)} />
@@ -252,7 +354,8 @@ export function SocialProofTab() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-semibold">
-                {previewNotice.name} <span className="text-white/60">from {previewNotice.city}</span>
+                {previewNotice.name}{" "}
+                <span className="text-white/60">from {previewNotice.city}</span>
               </div>
               <div className="truncate text-[12px] text-white/80">{previewNotice.message}</div>
               <div className="mt-0.5 text-[10px] uppercase tracking-widest text-white/50">

@@ -20,6 +20,7 @@ export type Category = {
   show_in_search?: boolean;
   default_mockup_style?: "auto" | "black" | "white" | "wood" | "none";
   poster_display_mode?: "manual" | "random" | "newest" | "trending" | "bestsellers";
+  sort_mode?: string | null;
 };
 
 export function useCategories(enabled = true) {
@@ -30,7 +31,9 @@ export function useCategories(enabled = true) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode")
+        .select(
+          "id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode,sort_mode",
+        )
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw error;

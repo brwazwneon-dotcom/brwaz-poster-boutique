@@ -19,9 +19,11 @@ async function loadServiceAccount(admin: Awaited<ReturnType<typeof getAdmin>>) {
     .eq("id", 1)
     .maybeSingle();
   if (error) throw error;
-  const sa = data?.firebase_service_account as
-    | { client_email?: string; private_key?: string; project_id?: string }
-    | null;
+  const sa = data?.firebase_service_account as {
+    client_email?: string;
+    private_key?: string;
+    project_id?: string;
+  } | null;
   if (!sa || !sa.client_email || !sa.private_key || !sa.project_id) {
     throw new Error("Firebase service account is not configured");
   }
@@ -39,10 +41,7 @@ async function loadDeviceTokens(admin: Awaited<ReturnType<typeof getAdmin>>) {
   return (data ?? []).map((r) => r.fcm_token as string).filter(Boolean);
 }
 
-async function pruneInvalid(
-  admin: Awaited<ReturnType<typeof getAdmin>>,
-  tokens: string[],
-) {
+async function pruneInvalid(admin: Awaited<ReturnType<typeof getAdmin>>, tokens: string[]) {
   if (tokens.length === 0) return;
   await admin.from("admin_devices").delete().in("fcm_token", tokens);
 }
@@ -69,7 +68,9 @@ async function logNotification(
       status: row.status,
       error: row.error ?? null,
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 /**
@@ -78,7 +79,7 @@ async function logNotification(
  * endpoint cannot be used to send arbitrary payloads.
  */
 export const notifyNewOrder = createServerFn({ method: "POST" })
-  .inputValidator((input: { orderId: string }) => {
+  .validator((input: { orderId: string }) => {
     if (!input || typeof input.orderId !== "string" || input.orderId.length < 8) {
       throw new Error("orderId is required");
     }
@@ -88,7 +89,9 @@ export const notifyNewOrder = createServerFn({ method: "POST" })
     const admin = await getAdmin();
     const { data: order, error } = await admin
       .from("orders")
-      .select("id, order_number, customer_name, phone, governorate, total_price, payment_method, status")
+      .select(
+        "id, order_number, customer_name, phone, governorate, total_price, payment_method, status",
+      )
       .eq("id", data.orderId)
       .maybeSingle<OrderRow>();
     if (error || !order) return { ok: false, reason: "order-not-found" as const };
@@ -109,7 +112,9 @@ export const notifyNewOrder = createServerFn({ method: "POST" })
       order.customer_name ?? "",
       order.governorate ?? "",
       `Total: ${Number(order.total_price ?? 0)} EGP`,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const payload = {
       order_id: order.id,
@@ -142,7 +147,15 @@ export const notifyNewOrder = createServerFn({ method: "POST" })
       return { ok: true, sent: result.sent, failed: result.failed };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await logNotification(admin, { title, body, payload, sent: 0, failed: tokens.length, status: "error", error: msg });
+      await logNotification(admin, {
+        title,
+        body,
+        payload,
+        sent: 0,
+        failed: tokens.length,
+        status: "error",
+        error: msg,
+      });
       return { ok: false, reason: "fcm-error" as const, error: msg };
     }
   });

@@ -27,15 +27,11 @@ const OPENROUTER_MODELS = [
 ];
 
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_MODELS = [
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
-];
+const LOVABLE_MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -91,11 +87,7 @@ Return STRICT JSON only, no markdown, no commentary. Shape:
   return { system, user };
 }
 
-async function callGemini(
-  keyValue: string,
-  system: string,
-  user: string,
-): Promise<string> {
+async function callGemini(keyValue: string, system: string, user: string): Promise<string> {
   const url = `${GEMINI_BASE}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${encodeURIComponent(keyValue)}`;
   const res = await fetch(url, {
     method: "POST",
@@ -142,7 +134,7 @@ async function callOpenRouter(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://brwazwneon.lovable.app",
+      "HTTP-Referer": "https://brwazwneon.com",
       "X-Title": "BRWAZWNEON SEO Generator",
     },
     body: JSON.stringify({
@@ -214,19 +206,26 @@ function parseJson(content: string): Partial<SeoResult> {
 }
 
 function normalize(parsed: Partial<SeoResult>, fallbackTitle: string): SeoResult {
-  const title = String(parsed.title ?? "").trim().slice(0, 120) || fallbackTitle;
-  const description = String(parsed.description ?? "").trim().slice(0, 900);
-  let seo_title = String(parsed.seo_title ?? "").trim().slice(0, 70);
+  const title =
+    String(parsed.title ?? "")
+      .trim()
+      .slice(0, 120) || fallbackTitle;
+  const description = String(parsed.description ?? "")
+    .trim()
+    .slice(0, 900);
+  let seo_title = String(parsed.seo_title ?? "")
+    .trim()
+    .slice(0, 70);
   if (seo_title && !/brwazwneon/i.test(seo_title)) {
     seo_title = `${seo_title} | BRWAZWNEON`.slice(0, 70);
   }
-  const seo_description = String(parsed.seo_description ?? "").trim().slice(0, 200);
+  const seo_description = String(parsed.seo_description ?? "")
+    .trim()
+    .slice(0, 200);
   const tags = Array.isArray(parsed.tags)
     ? Array.from(
         new Set(
-          parsed.tags
-            .map((t) => String(t).toLowerCase().trim())
-            .filter((t) => t && t.length <= 40),
+          parsed.tags.map((t) => String(t).toLowerCase().trim()).filter((t) => t && t.length <= 40),
         ),
       ).slice(0, 20)
     : [];
@@ -239,9 +238,10 @@ function normalize(parsed: Partial<SeoResult>, fallbackTitle: string): SeoResult
         ),
       ).slice(0, 15)
     : undefined;
-  const alt_text = typeof parsed.alt_text === "string"
-    ? parsed.alt_text.trim().slice(0, 160) || undefined
-    : undefined;
+  const alt_text =
+    typeof parsed.alt_text === "string"
+      ? parsed.alt_text.trim().slice(0, 160) || undefined
+      : undefined;
   return { title, description, seo_title, seo_description, tags, hashtags, alt_text };
 }
 
@@ -308,7 +308,12 @@ Deno.serve(async (req) => {
       if (!result.description || !result.seo_description) {
         throw new Error(`Missing fields from Gemini:${gk.label}`);
       }
-      return json(200, { ...result, model: `Gemini:${gk.label}`, provider: "gemini", key: gk.label });
+      return json(200, {
+        ...result,
+        model: `Gemini:${gk.label}`,
+        provider: "gemini",
+        key: gk.label,
+      });
     } catch (e) {
       lastErr = e;
       const msg = e instanceof Error ? e.message : String(e);

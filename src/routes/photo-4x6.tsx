@@ -1,10 +1,27 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, Loader2, Sparkles, Palette, ScanFace, Focus, Printer, Shirt, Check } from "lucide-react";
+import {
+  Upload,
+  X,
+  Loader2,
+  Sparkles,
+  Palette,
+  ScanFace,
+  Focus,
+  Printer,
+  Shirt,
+  Check,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
-import { useSiteSettings, computeShipping, usePhoto4x6Config, type Photo4x6Package } from "@/lib/use-settings";
+import {
+  useSiteSettings,
+  computeShipping,
+  usePhoto4x6Config,
+  readPostOrderMessageEnabled,
+  type Photo4x6Package,
+} from "@/lib/use-settings";
 import { Slider as BeforeAfterSlider } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { enhancePhoto, type PhotoAiAction } from "@/lib/photo-ai.functions";
@@ -22,25 +39,51 @@ export const Route = createFileRoute("/photo-4x6")({
           "Print your personal photos in 4×6 with premium quality. AI enhancement, formal suit transformation, cash on delivery across Egypt.",
       },
       { property: "og:title", content: "4×6 Photo Printing — BRWAZWNEON" },
-      { property: "og:description", content: "Upload, enhance, and print your 4×6 photos with AI. Cash on delivery." },
-      { property: "og:url", content: "https://brwazwneon-com.lovable.app/photo-4x6" },
+      {
+        property: "og:description",
+        content: "Upload, enhance, and print your 4×6 photos with AI. Cash on delivery.",
+      },
+      { property: "og:url", content: "https://brwazwneon.com/photo-4x6" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/photo-4x6" }],
+    links: [{ rel: "canonical", href: "https://brwazwneon.com/photo-4x6" }],
   }),
   component: Photo4x6Page,
 });
 
 const GOVERNORATES = [
-  "Cairo", "Giza", "Alexandria", "Qalyubia", "Sharqia", "Dakahlia",
-  "Beheira", "Gharbia", "Monufia", "Kafr El Sheikh", "Damietta",
-  "Port Said", "Ismailia", "Suez", "Faiyum", "Beni Suef", "Minya",
-  "Asyut", "Sohag", "Qena", "Luxor", "Aswan", "Red Sea", "New Valley",
-  "Matrouh", "North Sinai", "South Sinai",
+  "Cairo",
+  "Giza",
+  "Alexandria",
+  "Qalyubia",
+  "Sharqia",
+  "Dakahlia",
+  "Beheira",
+  "Gharbia",
+  "Monufia",
+  "Kafr El Sheikh",
+  "Damietta",
+  "Port Said",
+  "Ismailia",
+  "Suez",
+  "Faiyum",
+  "Beni Suef",
+  "Minya",
+  "Asyut",
+  "Sohag",
+  "Qena",
+  "Luxor",
+  "Aswan",
+  "Red Sea",
+  "New Valley",
+  "Matrouh",
+  "North Sinai",
+  "South Sinai",
 ];
 
 const MAX_FILE_MB = 8;
 const MAX_LONG_EDGE = 2400;
+const MAX_NOTE_CHARS = 300;
 
 type PicVersion = "original" | "enhanced" | "suit";
 
@@ -55,13 +98,20 @@ type Pic = {
   warnLowRes?: boolean;
 };
 
-async function fileToCompressedDataUrl(file: File): Promise<{ dataUrl: string; blob: Blob; warnLowRes: boolean }> {
+async function fileToCompressedDataUrl(
+  file: File,
+): Promise<{ dataUrl: string; blob: Blob; warnLowRes: boolean }> {
   // HEIC → decode via dynamic import
   let workingFile: Blob = file;
-  const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
+  const isHeic =
+    /\.(heic|heif)$/i.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
   if (isHeic) {
     try {
-      const heic2any = (await import("heic2any")).default as (opts: { blob: Blob; toType?: string; quality?: number }) => Promise<Blob | Blob[]>;
+      const heic2any = (await import("heic2any")).default as (opts: {
+        blob: Blob;
+        toType?: string;
+        quality?: number;
+      }) => Promise<Blob | Blob[]>;
       const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 });
       workingFile = Array.isArray(out) ? out[0] : out;
     } catch {
@@ -120,6 +170,7 @@ function Photo4x6Page() {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [beforeAfterId, setBeforeAfterId] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // If packages array changed via admin, keep selection valid
@@ -199,9 +250,12 @@ function Photo4x6Page() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pics.length < pkg.photos) return toast.error(`Please upload ${pkg.photos} photos for this package`);
+    if (pics.length < pkg.photos)
+      return toast.error(`Please upload ${pkg.photos} photos for this package`);
     if (pics.length > pkg.photos)
-      return toast.error(`This package includes ${pkg.photos} photos. Remove ${pics.length - pkg.photos}.`);
+      return toast.error(
+        `This package includes ${pkg.photos} photos. Remove ${pics.length - pkg.photos}.`,
+      );
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
       return toast.error("Please fill in all delivery details");
     if (!/^01\d{9}$/.test(phone.trim()))
@@ -223,16 +277,22 @@ function Photo4x6Page() {
         const prefix = `${orderId}/${String(i).padStart(3, "0")}`;
         // upload original (from compressed data url = jpg)
         const origPath = `${prefix}-orig.jpg`;
-        await supabase.storage.from("photo-4x6").upload(origPath, dataUrlToBlob(p.originalDataUrl), { contentType: "image/jpeg" });
+        await supabase.storage
+          .from("photo-4x6")
+          .upload(origPath, dataUrlToBlob(p.originalDataUrl), { contentType: "image/jpeg" });
         originals.push(origPath);
         if (p.enhancedDataUrl) {
           const path = `${prefix}-enhanced.jpg`;
-          await supabase.storage.from("photo-4x6").upload(path, dataUrlToBlob(p.enhancedDataUrl), { contentType: "image/jpeg" });
+          await supabase.storage
+            .from("photo-4x6")
+            .upload(path, dataUrlToBlob(p.enhancedDataUrl), { contentType: "image/jpeg" });
           enhanced.push(path);
         }
         if (p.suitDataUrl) {
           const path = `${prefix}-suit.jpg`;
-          await supabase.storage.from("photo-4x6").upload(path, dataUrlToBlob(p.suitDataUrl), { contentType: "image/jpeg" });
+          await supabase.storage
+            .from("photo-4x6")
+            .upload(path, dataUrlToBlob(p.suitDataUrl), { contentType: "image/jpeg" });
           suits.push(path);
         }
         selected[String(i)] = p.selected;
@@ -251,6 +311,7 @@ function Photo4x6Page() {
           package_key: pkg.key,
           photo_count: pkg.photos,
           total_price: total,
+          notes: notes.trim() || null,
           original_paths: originals,
           enhanced_paths: enhanced,
           suit_paths: suits,
@@ -269,12 +330,19 @@ function Photo4x6Page() {
         `Governorate: ${governorate}`,
         `Address: ${address}`,
         `Package: ${pkg.label} (${pkg.photos} photos)`,
+        ...(notes.trim() ? [`Customer notes: ${notes.trim()}`] : []),
         `Total: ${total} EGP (Cash on delivery)`,
       ].join("\n");
 
-      toast.success("Order submitted! Opening WhatsApp…");
+      if (await readPostOrderMessageEnabled().catch(() => true)) {
+        toast.success("Order submitted! Opening WhatsApp…");
+      }
       setPics([]);
-      setName(""); setPhone(""); setGovernorate(""); setAddress("");
+      setName("");
+      setPhone("");
+      setGovernorate("");
+      setAddress("");
+      setNotes("");
       window.location.href = whatsappLink(msg);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed");
@@ -304,8 +372,8 @@ function Photo4x6Page() {
           </p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">4×6 Photo Printing</h1>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            Upload your personal photos, enhance them with AI, and receive
-            premium 4×6 prints at your door. Cash on delivery across Egypt.
+            Upload your personal photos, enhance them with AI, and receive premium 4×6 prints at
+            your door. Cash on delivery across Egypt.
           </p>
           {search.from === "checkout" && (
             <div className="mt-4 inline-block rounded-sm border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] uppercase tracking-widest">
@@ -335,9 +403,13 @@ function Photo4x6Page() {
                   <div className="text-display mt-3 text-3xl">{p.label}</div>
                   <div className="mt-4 flex items-end gap-2">
                     <span className="text-display text-5xl">{p.price}</span>
-                    <span className="pb-2 text-xs uppercase tracking-widest text-muted-foreground">EGP</span>
+                    <span className="pb-2 text-xs uppercase tracking-widest text-muted-foreground">
+                      EGP
+                    </span>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">{p.photos} photos · 4×6 size · premium print</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {p.photos} photos · 4×6 size · premium print
+                  </p>
                 </button>
               );
             })}
@@ -355,8 +427,8 @@ function Photo4x6Page() {
                 {remaining > 0
                   ? `Add ${remaining} more photo${remaining === 1 ? "" : "s"} to complete your package (${pkg.photos} total).`
                   : over
-                  ? `You've added ${pics.length}. Remove ${pics.length - pkg.photos} to fit this package.`
-                  : "All photos ready. Enhance any of them below."}
+                    ? `You've added ${pics.length}. Remove ${pics.length - pkg.photos} to fit this package.`
+                    : "All photos ready. Enhance any of them below."}
               </p>
 
               <label
@@ -381,13 +453,19 @@ function Photo4x6Page() {
                 <div className="mt-8 grid gap-6 sm:grid-cols-2">
                   {pics.map((p, idx) => {
                     const activeUrl =
-                      p.selected === "suit" && p.suitDataUrl ? p.suitDataUrl :
-                      p.selected === "enhanced" && p.enhancedDataUrl ? p.enhancedDataUrl :
-                      p.originalDataUrl;
+                      p.selected === "suit" && p.suitDataUrl
+                        ? p.suitDataUrl
+                        : p.selected === "enhanced" && p.enhancedDataUrl
+                          ? p.enhancedDataUrl
+                          : p.originalDataUrl;
                     return (
                       <div key={p.id} className="rounded-sm border border-border bg-card p-3">
                         <div className="relative aspect-[3/4] overflow-hidden rounded-sm bg-muted">
-                          <img src={activeUrl} alt={`Photo ${idx + 1}`} className="h-full w-full object-cover" />
+                          <img
+                            src={activeUrl}
+                            alt={`Photo ${idx + 1}`}
+                            className="h-full w-full object-cover"
+                          />
                           <button
                             type="button"
                             onClick={() => removePic(p.id)}
@@ -406,17 +484,49 @@ function Photo4x6Page() {
                           )}
                         </div>
                         {p.warnLowRes && (
-                          <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-500">
-                            Low resolution — quality may vary
+                          <p className="mt-2 text-[11px] leading-relaxed text-amber-600">
+                            الصورة قد تكون منخفضة الدقة للطباعة بحجم 4×6.
+                            <br />
+                            لا تقلق، سنراجعها قبل الطباعة ونتأكد من أفضل نتيجة ممكنة.
                           </p>
                         )}
 
                         {/* Version picker */}
                         {(p.enhancedDataUrl || p.suitDataUrl) && (
                           <div className="mt-3 grid grid-cols-3 gap-1 text-[10px] uppercase tracking-widest">
-                            <VersionPill label="Original" active={p.selected === "original"} onClick={() => setPics((prev) => prev.map((x) => x.id === p.id ? { ...x, selected: "original" } : x))} />
-                            <VersionPill label="Enhanced" active={p.selected === "enhanced"} disabled={!p.enhancedDataUrl} onClick={() => setPics((prev) => prev.map((x) => x.id === p.id ? { ...x, selected: "enhanced" } : x))} />
-                            <VersionPill label="Suit" active={p.selected === "suit"} disabled={!p.suitDataUrl} onClick={() => setPics((prev) => prev.map((x) => x.id === p.id ? { ...x, selected: "suit" } : x))} />
+                            <VersionPill
+                              label="Original"
+                              active={p.selected === "original"}
+                              onClick={() =>
+                                setPics((prev) =>
+                                  prev.map((x) =>
+                                    x.id === p.id ? { ...x, selected: "original" } : x,
+                                  ),
+                                )
+                              }
+                            />
+                            <VersionPill
+                              label="Enhanced"
+                              active={p.selected === "enhanced"}
+                              disabled={!p.enhancedDataUrl}
+                              onClick={() =>
+                                setPics((prev) =>
+                                  prev.map((x) =>
+                                    x.id === p.id ? { ...x, selected: "enhanced" } : x,
+                                  ),
+                                )
+                              }
+                            />
+                            <VersionPill
+                              label="Suit"
+                              active={p.selected === "suit"}
+                              disabled={!p.suitDataUrl}
+                              onClick={() =>
+                                setPics((prev) =>
+                                  prev.map((x) => (x.id === p.id ? { ...x, selected: "suit" } : x)),
+                                )
+                              }
+                            />
                           </div>
                         )}
 
@@ -424,11 +534,36 @@ function Photo4x6Page() {
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {config.aiEnhanceEnabled && (
                             <>
-                              <ActionBtn icon={<Sparkles className="h-3 w-3" />} label="Enhance" onClick={() => runAction(p.id, "enhance")} disabled={!!p.processing} />
-                              <ActionBtn icon={<Palette className="h-3 w-3" />} label="Colors" onClick={() => runAction(p.id, "colors")} disabled={!!p.processing} />
-                              <ActionBtn icon={<ScanFace className="h-3 w-3" />} label="Sharpen Face" onClick={() => runAction(p.id, "sharpen_face")} disabled={!!p.processing} />
-                              <ActionBtn icon={<Focus className="h-3 w-3" />} label="Remove Blur" onClick={() => runAction(p.id, "remove_blur")} disabled={!!p.processing} />
-                              <ActionBtn icon={<Printer className="h-3 w-3" />} label="Prepare for Print" onClick={() => runAction(p.id, "prepare_print")} disabled={!!p.processing} />
+                              <ActionBtn
+                                icon={<Sparkles className="h-3 w-3" />}
+                                label="Enhance"
+                                onClick={() => runAction(p.id, "enhance")}
+                                disabled={!!p.processing}
+                              />
+                              <ActionBtn
+                                icon={<Palette className="h-3 w-3" />}
+                                label="Colors"
+                                onClick={() => runAction(p.id, "colors")}
+                                disabled={!!p.processing}
+                              />
+                              <ActionBtn
+                                icon={<ScanFace className="h-3 w-3" />}
+                                label="Sharpen Face"
+                                onClick={() => runAction(p.id, "sharpen_face")}
+                                disabled={!!p.processing}
+                              />
+                              <ActionBtn
+                                icon={<Focus className="h-3 w-3" />}
+                                label="Remove Blur"
+                                onClick={() => runAction(p.id, "remove_blur")}
+                                disabled={!!p.processing}
+                              />
+                              <ActionBtn
+                                icon={<Printer className="h-3 w-3" />}
+                                label="Prepare for Print"
+                                onClick={() => runAction(p.id, "prepare_print")}
+                                disabled={!!p.processing}
+                              />
                             </>
                           )}
                           {config.aiSuitEnabled && (
@@ -456,6 +591,51 @@ function Photo4x6Page() {
                   })}
                 </div>
               )}
+
+              {/* PHOTO NOTES (per group) */}
+              <div className="mt-8 rounded-sm border border-border bg-card p-5">
+                <label className="block">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    ملاحظات على الصور (اختياري)
+                  </span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value.slice(0, MAX_NOTE_CHARS))}
+                    maxLength={MAX_NOTE_CHARS}
+                    rows={4}
+                    placeholder="مثال: قص الصورة من الأعلى، التركيز على الشخص، أو أي ملاحظة خاصة بالطباعة"
+                    className="mt-2 w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                  <span>سنراجع ملاحظتك ونراعيها أثناء تجهيز الصور للطباعة.</span>
+                  <span className="tabular-nums">
+                    {notes.length} / {MAX_NOTE_CHARS}
+                  </span>
+                </div>
+              </div>
+
+              {/* QUALITY REASSURANCE */}
+              <div className="mt-4 rounded-sm border border-border bg-card p-5">
+                <h3 className="text-display text-lg">اطمّن على جودة صورك ✨</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  نحرص على طباعة صورك بأعلى جودة ممكنة، مع الحفاظ على التفاصيل والألوان لتخرج
+                  النتيجة بشكل واضح وجميل.
+                </p>
+                <p className="mt-3 rounded-sm border border-border/60 bg-background p-3 text-sm text-muted-foreground">
+                  جودة الصورة الأصلية مهمة، لكن لا تقلق — سنراجع الصور قبل الطباعة ونتأكد من أنها
+                  مناسبة للطباعة بأفضل نتيجة ممكنة.
+                </p>
+                <div className="mt-4 flex items-start gap-2.5">
+                  <span className="text-xl leading-none">📸</span>
+                  <div>
+                    <div className="text-sm font-semibold">طباعة احترافية</div>
+                    <div className="mt-0.5 text-sm text-muted-foreground">
+                      ألوان واضحة وتفاصيل دقيقة لتستمتع بصورك بجودة ممتازة.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Checkout */}
@@ -484,14 +664,20 @@ function Photo4x6Page() {
                     )}
                   </label>
                   <label className="block">
-                    <span className="text-xs uppercase tracking-widest text-muted-foreground">Governorate</span>
+                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Governorate
+                    </span>
                     <select
                       value={governorate}
                       onChange={(e) => setGovernorate(e.target.value)}
                       className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                     >
                       <option value="">Select…</option>
-                      {GOVERNORATES.map((g) => <option key={g} value={g}>{g}</option>)}
+                      {GOVERNORATES.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <Input label="Address" value={address} onChange={setAddress} textarea />
@@ -501,7 +687,9 @@ function Photo4x6Page() {
                   <Row label={`Package (${pkg.label})`} value={`${pkg.price} EGP`} />
                   <Row label="Shipping" value={shipping === 0 ? "FREE" : `${shipping} EGP`} />
                   <div className="flex items-baseline justify-between pt-2 text-base">
-                    <span className="text-xs uppercase tracking-widest text-muted-foreground">Total</span>
+                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Total
+                    </span>
                     <span className="text-display text-2xl">{total} EGP</span>
                   </div>
                 </div>
@@ -509,7 +697,10 @@ function Photo4x6Page() {
                 {submitting && (
                   <div className="mt-4">
                     <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-                      <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
                     </div>
                     <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
                       Uploading photos… {progress}%
@@ -544,7 +735,11 @@ function Photo4x6Page() {
           <div className="w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <BeforeAfterSlider
               before={beforeAfterPic.originalDataUrl}
-              after={(beforeAfterPic.selected === "suit" && beforeAfterPic.suitDataUrl) ? beforeAfterPic.suitDataUrl : (beforeAfterPic.enhancedDataUrl ?? beforeAfterPic.originalDataUrl)}
+              after={
+                beforeAfterPic.selected === "suit" && beforeAfterPic.suitDataUrl
+                  ? beforeAfterPic.suitDataUrl
+                  : (beforeAfterPic.enhancedDataUrl ?? beforeAfterPic.originalDataUrl)
+              }
               title={beforeAfterPic.selected === "suit" ? "Suit version" : "Enhanced version"}
             />
             <div className="mt-3 flex justify-center">
@@ -562,14 +757,26 @@ function Photo4x6Page() {
   );
 }
 
-function VersionPill({ label, active, disabled, onClick }: { label: string; active: boolean; disabled?: boolean; onClick: () => void }) {
+function VersionPill({
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       className={`rounded-sm border px-2 py-1 transition ${
-        active ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border hover:bg-accent"
       } ${disabled ? "opacity-30" : ""}`}
     >
       {active && <Check className="mr-1 inline h-3 w-3" />}
@@ -578,14 +785,30 @@ function VersionPill({ label, active, disabled, onClick }: { label: string; acti
   );
 }
 
-function ActionBtn({ icon, label, subLabel, onClick, disabled, primary }: { icon: React.ReactNode; label: string; subLabel?: string; onClick: () => void; disabled?: boolean; primary?: boolean }) {
+function ActionBtn({
+  icon,
+  label,
+  subLabel,
+  onClick,
+  disabled,
+  primary,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  subLabel?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={`flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] uppercase tracking-widest transition disabled:opacity-40 ${
-        primary ? "border-primary bg-primary text-primary-foreground hover:opacity-90" : "border-border hover:bg-accent"
+        primary
+          ? "border-primary bg-primary text-primary-foreground hover:opacity-90"
+          : "border-border hover:bg-accent"
       }`}
       title={subLabel}
     >
@@ -595,11 +818,25 @@ function ActionBtn({ icon, label, subLabel, onClick, disabled, primary }: { icon
   );
 }
 
-function Input({ label, value, onChange, textarea, type = "text" }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean; type?: string }) {
+function Input({
+  label,
+  value,
+  onChange,
+  textarea,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  textarea?: boolean;
+  type?: string;
+}) {
   const props = {
     value,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: "mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary",
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      onChange(e.target.value),
+    className:
+      "mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary",
   };
   return (
     <label className="block">

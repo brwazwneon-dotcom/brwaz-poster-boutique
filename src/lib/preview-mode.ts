@@ -33,7 +33,11 @@ function readSearchFlag(): boolean {
 export function isPreviewMode(): boolean {
   if (typeof window === "undefined") return false;
   if (readSearchFlag()) {
-    try { window.sessionStorage.setItem(FLAG_KEY, "1"); } catch { /* noop */ }
+    try {
+      window.sessionStorage.setItem(FLAG_KEY, "1");
+    } catch {
+      /* noop */
+    }
     return true;
   }
   try {
@@ -45,14 +49,22 @@ export function isPreviewMode(): boolean {
 
 export function exitPreviewMode(): void {
   if (typeof window === "undefined") return;
-  try { window.sessionStorage.removeItem(FLAG_KEY); } catch { /* noop */ }
+  try {
+    window.sessionStorage.removeItem(FLAG_KEY);
+  } catch {
+    /* noop */
+  }
 }
 
 /** Remember the last customer-facing route the visitor was on (for "Preview Current Page"). */
 export function rememberPublicRoute(path: string): void {
   if (typeof window === "undefined") return;
   if (!path || path.startsWith("/admin")) return;
-  try { window.localStorage.setItem(LAST_PUBLIC_ROUTE_KEY, path); } catch { /* noop */ }
+  try {
+    window.localStorage.setItem(LAST_PUBLIC_ROUTE_KEY, path);
+  } catch {
+    /* noop */
+  }
 }
 
 export function getLastPublicRoute(): string {

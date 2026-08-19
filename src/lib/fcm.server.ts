@@ -101,8 +101,11 @@ export async function sendFcmToTokens(
       });
       if (!res.ok) {
         const text = await res.text();
-        const invalid = res.status === 404 || res.status === 400 ||
-          text.includes("UNREGISTERED") || text.includes("INVALID_ARGUMENT");
+        const invalid =
+          res.status === 404 ||
+          res.status === 400 ||
+          text.includes("UNREGISTERED") ||
+          text.includes("INVALID_ARGUMENT");
         throw { token, status: res.status, text, invalid };
       }
       return token;

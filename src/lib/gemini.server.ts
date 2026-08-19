@@ -192,8 +192,8 @@ export function getGeminiKeysStatus(): GeminiKeyStatus[] {
     const state: GeminiKeyStatus["state"] = k.disabled
       ? "disabled"
       : k.rateLimitedUntil && k.rateLimitedUntil > now
-      ? "rate_limited"
-      : k.state;
+        ? "rate_limited"
+        : k.state;
     return {
       label: k.label,
       masked: k.masked,
@@ -219,8 +219,8 @@ export function getGeminiKeysStatus(): GeminiKeyStatus[] {
       state: legacy.disabled
         ? "disabled"
         : legacy.rateLimitedUntil && legacy.rateLimitedUntil > now
-        ? "rate_limited"
-        : legacy.state,
+          ? "rate_limited"
+          : legacy.state,
       lastUsedAt: legacy.lastUsedAt,
       lastErrorAt: legacy.lastErrorAt,
       lastError: legacy.lastError,
@@ -234,9 +234,7 @@ export function getGeminiKeysStatus(): GeminiKeyStatus[] {
   return rows;
 }
 
-export type GeminiPart =
-  | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
+export type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
 
 export type GeminiContent = { role?: "user" | "model"; parts: GeminiPart[] };
 
@@ -267,11 +265,7 @@ function delay(ms: number) {
 function isQuotaError(status: number, bodyText: string): boolean {
   if (status === 429) return true;
   const t = bodyText.toLowerCase();
-  return (
-    t.includes("resource_exhausted") ||
-    t.includes("quota") ||
-    t.includes("rate limit")
-  );
+  return t.includes("resource_exhausted") || t.includes("quota") || t.includes("rate limit");
 }
 
 /**
@@ -471,9 +465,7 @@ export async function generateTextPriority(opts: {
   // 2) OpenRouter fallback (only when every Gemini key is rate-limited/disabled).
   const orKey = process.env.OPENROUTER_API_KEY;
   if (!orKey) {
-    throw new Error(
-      "All Gemini keys are unavailable and OpenRouter fallback is not configured.",
-    );
+    throw new Error("All Gemini keys are unavailable and OpenRouter fallback is not configured.");
   }
   let lastErr: unknown = null;
   for (const model of OPENROUTER_MODELS) {
@@ -483,7 +475,7 @@ export async function generateTextPriority(opts: {
         headers: {
           Authorization: `Bearer ${orKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://brwazwneon.lovable.app",
+          "HTTP-Referer": "https://brwazwneon.com",
           "X-Title": "BRWAZWNEON AI",
         },
         body: JSON.stringify({

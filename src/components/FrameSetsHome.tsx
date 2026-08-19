@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
+import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
 type SetRow = {
   id: string;
@@ -30,14 +31,15 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
   });
 
   const [index, setIndex] = useState(0);
+  const [sliderRef, autoplayActive] = useActiveAutoplay<HTMLAnchorElement>();
 
   useEffect(() => {
-    if (sets.length <= 1) return;
+    if (!autoplayActive || sets.length <= 1) return;
     const id = window.setInterval(() => {
       setIndex((i) => (i + 1) % sets.length);
     }, ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [sets.length]);
+  }, [autoplayActive, sets.length]);
 
   if (sets.length === 0) return null;
 
@@ -49,9 +51,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
               Curated bundles
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">
-              {title || "Frame Sets"}
-            </h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || "Frame Sets"}</h2>
             {subtitle ? (
               <p className="mt-3 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
             ) : null}
@@ -65,6 +65,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
         </div>
 
         <Link
+          ref={sliderRef}
           to="/sets"
           className="group relative block aspect-[16/9] w-full overflow-hidden rounded-sm border border-border bg-muted"
           aria-label="Browse frame sets"

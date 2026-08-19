@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactElement, type ReactNode } from "react";
 import { HelpCircle, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAdminI18n } from "@/lib/admin-i18n";
@@ -55,7 +55,10 @@ export function HelpTip({
     timer.current = window.setTimeout(open, 400);
   };
   const endPress = () => {
-    if (timer.current) { window.clearTimeout(timer.current); timer.current = null; }
+    if (timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
   };
 
   return (
@@ -67,9 +70,16 @@ export function HelpTip({
           onTouchEnd={endPress}
           onTouchCancel={endPress}
         >
-          {children as any}
+          {children as ReactElement}
         </TooltipTrigger>
-        <TooltipContent side={side} className={cn("max-w-xs text-xs flex items-start gap-1.5", severityClass(entry.severity), className)}>
+        <TooltipContent
+          side={side}
+          className={cn(
+            "max-w-xs text-xs flex items-start gap-1.5",
+            severityClass(entry.severity),
+            className,
+          )}
+        >
           <SeverityIcon sev={entry.severity} />
           <span className="leading-snug">{text}</span>
         </TooltipContent>
@@ -120,7 +130,11 @@ export function HelpBadge({
   id,
   label,
   className,
-}: { id: string; label: ReactNode; className?: string }) {
+}: {
+  id: string;
+  label: ReactNode;
+  className?: string;
+}) {
   return (
     <HelpTip id={id} asChild={false}>
       <span

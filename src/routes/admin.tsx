@@ -2,9 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [
-      { title: "Admin — BRWAZWNEON" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Admin — BRWAZWNEON" }, { name: "robots", content: "noindex" }],
   }),
 });

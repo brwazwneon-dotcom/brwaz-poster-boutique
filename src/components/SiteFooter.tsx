@@ -1,24 +1,47 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useFooterMenu } from "@/lib/footer-menu";
 import { BRANCH, SOCIAL } from "@/lib/site";
-import { useLogoSize } from "@/lib/branding";
 import { Instagram, Facebook, MessageCircle, MapPin } from "lucide-react";
 
+const LOGO_PNG_FALLBACK = "/assets/brwazwneon-logo.png";
+const LOGO_WEBP = "/assets/brwazwneon-logo.webp";
+
 export function SiteFooter() {
+  const { t } = useTranslation();
   const { links } = useFooterMenu();
   const shopLinks = links.filter((l) => l.enabled);
-  const logo = useLogoSize("footer");
+  const [logoSrc, setLogoSrc] = useState(LOGO_WEBP);
+  const [logoHidden, setLogoHidden] = useState(false);
+
+  const handleLogoError = () => {
+    if (logoSrc !== LOGO_PNG_FALLBACK) {
+      setLogoSrc(LOGO_PNG_FALLBACK);
+      return;
+    }
+    setLogoHidden(true);
+  };
+
   return (
     <footer className="mt-24 border-t border-border bg-background">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
         <div>
           <Link to="/" aria-label="BRWAZWNEON home" className="inline-flex">
-            <img src={logo.src} alt="BRWAZWNEON" style={logo.style} loading="lazy" />
+            {!logoHidden && (
+              <img
+                src={logoSrc}
+                alt="BRWAZWNEON"
+                width={180}
+                height={72}
+                className="h-auto w-[135px] object-contain sm:w-[170px]"
+                loading="lazy"
+                decoding="async"
+                onError={handleLogoError}
+              />
+            )}
           </Link>
-          <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            Premium framed posters. Cinema, sport, anime, motors — printed and
-            framed to gallery standard.
-          </p>
+          <p className="mt-3 max-w-xs text-sm text-muted-foreground">{t("footer.description")}</p>
           <p className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
             <MapPin className="h-3.5 w-3.5" /> {BRANCH}
           </p>
@@ -53,7 +76,9 @@ export function SiteFooter() {
           </div>
         </div>
         <div>
-          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Shop</h4>
+          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
+            {t("footer.shop")}
+          </h4>
           <ul className="space-y-2 text-sm">
             {shopLinks.map((l) => (
               <li key={l.id}>
@@ -65,20 +90,31 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Help</h4>
+          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
+            {t("footer.help")}
+          </h4>
           <ul className="space-y-2 text-sm">
-            <li><Link to="/offers" className="hover:underline">Special offers</Link></li>
-            <li><Link to="/cart" className="hover:underline">Cart</Link></li>
-            <li><Link to="/auth" className="hover:underline">Admin</Link></li>
+            <li>
+              <Link to="/offers" className="hover:underline">
+                {t("nav.specialOffers")}
+              </Link>
+            </li>
+            <li>
+              <Link to="/cart" className="hover:underline">
+                {t("nav.cart")}
+              </Link>
+            </li>
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Payment</h4>
-          <p className="text-sm text-muted-foreground">Cash on delivery across Egypt.</p>
+          <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
+            {t("footer.payment")}
+          </h4>
+          <p className="text-sm text-muted-foreground">{t("footer.paymentDescription")}</p>
         </div>
       </div>
       <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} BRWAZWNEON. All rights reserved.
+        © {new Date().getFullYear()} {t("common.brand")}. {t("footer.allRightsReserved")}
       </div>
     </footer>
   );

@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, PauseCircle, PlayCircle, RotateCcw, ShieldCheck, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  RotateCcw,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import {
   PERFORMANCE_DEFAULTS,
   saveFlags,
@@ -21,7 +29,9 @@ export function StabilityTab() {
   const [local, setLocal] = useState<PerformanceFlags>(server);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setLocal(server); }, [server]);
+  useEffect(() => {
+    setLocal(server);
+  }, [server]);
 
   const dirty = JSON.stringify(local) !== JSON.stringify(server);
 
@@ -48,7 +58,8 @@ export function StabilityTab() {
               <RotateCcw className="h-4 w-4" /> Restore Homepage Content
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              يرجع الوضع الافتراضي (Balanced Fast Mode): كل الأقسام والصور تظهر، ويوقف Emergency Fast Mode. لن يتم حذف أي بيانات.
+              يرجع الوضع الافتراضي (Balanced Fast Mode): كل الأقسام والصور تظهر، ويوقف Emergency
+              Fast Mode. لن يتم حذف أي بيانات.
             </p>
           </div>
           <button
@@ -56,7 +67,11 @@ export function StabilityTab() {
             disabled={saving}
             className="inline-flex shrink-0 items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-40"
           >
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+            {saving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3 w-3" />
+            )}
             Restore Now
           </button>
         </div>
@@ -72,7 +87,11 @@ export function StabilityTab() {
         )}
       >
         <div className="flex items-center gap-2 text-sm font-semibold">
-          {server.safe_mode ? <AlertTriangle className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+          {server.safe_mode ? (
+            <AlertTriangle className="h-4 w-4" />
+          ) : (
+            <ShieldCheck className="h-4 w-4" />
+          )}
           Website stability:{" "}
           {server.safe_mode ? "Safe Mode — عناصر مخفضة لتثبيت الأداء" : "Stable — كل الميزات مفعلة"}
         </div>
@@ -86,7 +105,14 @@ export function StabilityTab() {
       {/* Emergency actions */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <button
-          onClick={() => persist({ ...server, emergency_fast_mode: !server.emergency_fast_mode }, server.emergency_fast_mode ? "تم إيقاف Emergency Fast Mode" : "تم تفعيل Emergency Fast Mode")}
+          onClick={() =>
+            persist(
+              { ...server, emergency_fast_mode: !server.emergency_fast_mode },
+              server.emergency_fast_mode
+                ? "تم إيقاف Emergency Fast Mode"
+                : "تم تفعيل Emergency Fast Mode",
+            )
+          }
           disabled={saving}
           className={cn(
             "flex items-center justify-center gap-2 rounded-md border px-4 py-6 text-sm font-semibold transition md:col-span-2",
@@ -99,7 +125,14 @@ export function StabilityTab() {
           {server.emergency_fast_mode ? "Emergency Fast Mode is ON" : "Turn On Emergency Fast Mode"}
         </button>
         <button
-          onClick={() => persist({ ...server, safe_mode: !server.safe_mode }, server.safe_mode ? "تم إيقاف Performance Safe Mode" : "تم تفعيل Performance Safe Mode")}
+          onClick={() =>
+            persist(
+              { ...server, safe_mode: !server.safe_mode },
+              server.safe_mode
+                ? "تم إيقاف Performance Safe Mode"
+                : "تم تفعيل Performance Safe Mode",
+            )
+          }
           disabled={saving}
           className={cn(
             "flex items-center justify-center gap-2 rounded-md border px-4 py-6 text-sm font-semibold transition",
@@ -112,7 +145,12 @@ export function StabilityTab() {
           {server.safe_mode ? "Turn Off Performance Safe Mode" : "Turn On Performance Safe Mode"}
         </button>
         <button
-          onClick={() => persist({ ...server, pause_heavy_jobs: !server.pause_heavy_jobs }, server.pause_heavy_jobs ? "تم استئناف المهام الثقيلة" : "تم إيقاف المهام الثقيلة")}
+          onClick={() =>
+            persist(
+              { ...server, pause_heavy_jobs: !server.pause_heavy_jobs },
+              server.pause_heavy_jobs ? "تم استئناف المهام الثقيلة" : "تم إيقاف المهام الثقيلة",
+            )
+          }
           disabled={saving}
           className={cn(
             "flex items-center justify-center gap-2 rounded-md border px-4 py-6 text-sm font-semibold transition",
@@ -121,7 +159,11 @@ export function StabilityTab() {
               : "border-red-500/40 bg-red-500/10 hover:bg-red-500/20",
           )}
         >
-          {server.pause_heavy_jobs ? <PlayCircle className="h-5 w-5" /> : <PauseCircle className="h-5 w-5" />}
+          {server.pause_heavy_jobs ? (
+            <PlayCircle className="h-5 w-5" />
+          ) : (
+            <PauseCircle className="h-5 w-5" />
+          )}
           {server.pause_heavy_jobs ? "Resume Heavy Jobs" : "Pause Heavy Jobs"}
         </button>
       </div>
@@ -159,6 +201,30 @@ export function StabilityTab() {
             forced={server.safe_mode}
             onChange={(v) => setLocal({ ...local, disable_floating_offer: !v })}
           />
+          <Toggle
+            label="WhatsApp Floating Button"
+            hint="زر الواتساب العائم."
+            checked={local.whatsapp_enabled}
+            onChange={(v) => setLocal({ ...local, whatsapp_enabled: v })}
+          />
+          <Toggle
+            label="Photo Assistant Floating Button"
+            hint="زر مساعد اختيار الصور."
+            checked={local.assistant_enabled}
+            onChange={(v) => setLocal({ ...local, assistant_enabled: v })}
+          />
+          <Toggle
+            label="Today's Offers Bubble"
+            hint="فقاعة عروض اليوم."
+            checked={local.offers_enabled}
+            onChange={(v) => setLocal({ ...local, offers_enabled: v })}
+          />
+          <Toggle
+            label="Collapse Tools on Mobile <768px"
+            hint="دمج الأدوات الثانوية في زر واحد على الجوال."
+            checked={local.collapse_tools_mobile}
+            onChange={(v) => setLocal({ ...local, collapse_tools_mobile: v })}
+          />
           <div className="flex items-center justify-between gap-4 p-4">
             <div>
               <div className="text-sm font-medium">أقصى عدد أقسام في الصفحة الرئيسية</div>
@@ -169,14 +235,18 @@ export function StabilityTab() {
               min={1}
               max={30}
               value={local.max_home_sections}
-              onChange={(e) => setLocal({ ...local, max_home_sections: Number(e.target.value) || 1 })}
+              onChange={(e) =>
+                setLocal({ ...local, max_home_sections: Number(e.target.value) || 1 })
+              }
               className="w-20 rounded-sm border border-border bg-background px-2 py-1 text-right text-sm"
             />
           </div>
           <div className="flex items-center justify-between gap-4 p-4">
             <div>
               <div className="text-sm font-medium">تأخير تحميل Analytics (ms)</div>
-              <div className="text-[11px] text-muted-foreground">Meta Pixel / GA4 يتحمّلا بعد هذا الوقت من فتح الصفحة.</div>
+              <div className="text-[11px] text-muted-foreground">
+                Meta Pixel / GA4 يتحمّلا بعد هذا الوقت من فتح الصفحة.
+              </div>
             </div>
             <input
               type="number"
@@ -184,7 +254,9 @@ export function StabilityTab() {
               max={30000}
               step={500}
               value={local.analytics_defer_ms}
-              onChange={(e) => setLocal({ ...local, analytics_defer_ms: Number(e.target.value) || 0 })}
+              onChange={(e) =>
+                setLocal({ ...local, analytics_defer_ms: Number(e.target.value) || 0 })
+              }
               className="w-24 rounded-sm border border-border bg-background px-2 py-1 text-right text-sm"
             />
           </div>
@@ -208,7 +280,8 @@ export function StabilityTab() {
       </div>
 
       <div className="text-[11px] text-muted-foreground">
-        ملاحظة: تفعيل Safe Mode يفرض إعدادات مخفضة تلقائيًا (Preloader / Social Proof / Floating Offer / أقسام أقل / تأخير Analytics أعلى) بغض النظر عن قيم التوجلز الفردية.
+        ملاحظة: تفعيل Safe Mode يفرض إعدادات مخفضة تلقائيًا (Preloader / Social Proof / Floating
+        Offer / أقسام أقل / تأخير Analytics أعلى) بغض النظر عن قيم التوجلز الفردية.
       </div>
     </div>
   );
@@ -232,7 +305,9 @@ function Toggle({
       <div>
         <div className="text-sm font-medium">{label}</div>
         {hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
-        {forced ? <div className="text-[10px] text-amber-400">Safe Mode يتحكم في هذا الآن</div> : null}
+        {forced ? (
+          <div className="text-[10px] text-amber-400">Safe Mode يتحكم في هذا الآن</div>
+        ) : null}
       </div>
       <input
         type="checkbox"

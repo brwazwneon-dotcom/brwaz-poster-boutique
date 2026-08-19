@@ -73,7 +73,10 @@ export async function fetchUnreadCount(): Promise<number> {
 
 export async function markRead(ids: string[]) {
   if (ids.length === 0) return;
-  await supabase.from("admin_notifications").update({ read_at: new Date().toISOString() }).in("id", ids);
+  await supabase
+    .from("admin_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .in("id", ids);
 }
 
 export async function markAllRead() {

@@ -65,15 +65,47 @@ export const DEFAULT_SOCIAL_PROOF: SocialProofConfig = {
 };
 
 export const EG_NAMES = [
-  "Salma E.", "Omar A.", "Yasmine H.", "Ahmed M.", "Mariam S.", "Youssef K.",
-  "Nour I.", "Hana R.", "Karim T.", "Farida N.", "Mostafa G.", "Rana F.",
-  "Adam Z.", "Laila B.", "Hassan O.", "Malak D.", "Ziad W.", "Habiba Y.",
-  "Kareem H.", "Nada M.", "Seif A.", "Jana E.", "Tarek S.", "Dina K.",
+  "Salma E.",
+  "Omar A.",
+  "Yasmine H.",
+  "Ahmed M.",
+  "Mariam S.",
+  "Youssef K.",
+  "Nour I.",
+  "Hana R.",
+  "Karim T.",
+  "Farida N.",
+  "Mostafa G.",
+  "Rana F.",
+  "Adam Z.",
+  "Laila B.",
+  "Hassan O.",
+  "Malak D.",
+  "Ziad W.",
+  "Habiba Y.",
+  "Kareem H.",
+  "Nada M.",
+  "Seif A.",
+  "Jana E.",
+  "Tarek S.",
+  "Dina K.",
 ];
 
 export const EG_CITIES = [
-  "Cairo", "Alexandria", "Giza", "Mansoura", "Tanta", "Zagazig",
-  "Port Said", "Ismailia", "Suez", "Aswan", "Luxor", "Minya", "Assiut", "Sohag",
+  "Cairo",
+  "Alexandria",
+  "Giza",
+  "Mansoura",
+  "Tanta",
+  "Zagazig",
+  "Port Said",
+  "Ismailia",
+  "Suez",
+  "Aswan",
+  "Luxor",
+  "Minya",
+  "Assiut",
+  "Sohag",
 ];
 
 export const SALE_MESSAGES = [
@@ -143,17 +175,23 @@ export function useLiveVisitors(min: number, max: number, updateSec: number): nu
       setCount(next);
     };
     const jitter = () => (updateSec + randomInt(-10, 15)) * 1000;
-    let t = window.setTimeout(function loop() {
-      tick();
-      t = window.setTimeout(loop, Math.max(5000, jitter()));
-    }, Math.max(5000, jitter()));
+    let t = window.setTimeout(
+      function loop() {
+        tick();
+        t = window.setTimeout(loop, Math.max(5000, jitter()));
+      },
+      Math.max(5000, jitter()),
+    );
     return () => window.clearTimeout(t);
   }, [safeMin, safeMax, updateSec]);
   return count;
 }
 
 /** Recent orders count for a poster — real data with demo fallback. */
-export function useRecentOrdersCount(posterId: string | null, fallbackDemo: boolean): number | null {
+export function useRecentOrdersCount(
+  posterId: string | null,
+  fallbackDemo: boolean,
+): number | null {
   const q = useQuery({
     queryKey: ["recent-orders-count", posterId ?? "any"],
     staleTime: 5 * 60_000,
@@ -180,7 +218,9 @@ export function useIsAdminSession(): boolean {
   useEffect(() => {
     try {
       if (window.localStorage.getItem("brw-admin-seen") === "1") setIsAdmin(true);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
   return isAdmin;
 }

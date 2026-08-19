@@ -1,6 +1,9 @@
+import { useTranslation } from "react-i18next";
+
 type Variant = "pvc" | "wood" | "photo" | "all";
 
 export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) {
+  const { t } = useTranslation();
   const showPvc = variant === "all" || variant === "pvc";
   const showWood = variant === "all" || variant === "wood";
   const showPhoto = variant === "all" || variant === "photo";
@@ -10,82 +13,82 @@ export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) 
       <div className="container-page py-14 sm:py-20">
         <div className="mb-10">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Crafted for your walls
+            {t("productInfo.eyebrow")}
           </p>
-          <h2 className="text-display mt-3 text-4xl sm:text-5xl">Premium Materials</h2>
+          <h2 className="text-display mt-3 text-4xl sm:text-5xl">{t("productInfo.title")}</h2>
         </div>
 
         <div className="grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-3">
           {showPvc && (
             <MaterialCard
-              tag="Frames"
-              title="PVC Frame"
-              intro="Our Premium PVC Frames are manufactured using high-quality durable PVC and printed on original FujiFilm Chemical Photo Paper using professional photo lab technology."
+              tag={t("productInfo.pvcTag")}
+              title={t("productInfo.pvcTitle")}
+              intro={t("productInfo.pvcIntro")}
               features={[
-                "Premium High-Quality PVC Frame",
-                "Original FujiFilm Chemical Photo Paper",
-                "Sharp Ultra-HD Details",
-                "Rich & Accurate Colors",
-                "Fade Resistant",
-                "Long-Lasting Quality",
-                "Professional Laboratory Printing",
-                "Elegant Modern Finish",
-                "Built to Last for Years",
+                t("productInfo.pvcFeature1"),
+                t("productInfo.pvcFeature2"),
+                t("productInfo.pvcFeature3"),
+                t("productInfo.pvcFeature4"),
+                t("productInfo.pvcFeature5"),
+                t("productInfo.pvcFeature6"),
+                t("productInfo.pvcFeature7"),
+                t("productInfo.pvcFeature8"),
+                t("productInfo.pvcFeature9"),
               ]}
             />
           )}
           {showWood && (
             <MaterialCard
-              tag="Wood"
-              title="Wooden Portrait"
-              intro="Our Wooden Portraits are printed directly on premium high-density wood using professional printing technology."
+              tag={t("productInfo.woodTag")}
+              title={t("productInfo.woodTitle")}
+              intro={t("productInfo.woodIntro")}
               features={[
-                "Premium Wooden Board",
-                "High-Definition Printing",
-                "Rich & Vibrant Colors",
-                "Matte Elegant Finish",
-                "Scratch Resistant",
-                "Long-Lasting Quality",
-                "Premium Craftsmanship",
+                t("productInfo.woodFeature1"),
+                t("productInfo.woodFeature2"),
+                t("productInfo.woodFeature3"),
+                t("productInfo.woodFeature4"),
+                t("productInfo.woodFeature5"),
+                t("productInfo.woodFeature6"),
+                t("productInfo.woodFeature7"),
               ]}
             />
           )}
           {showPhoto && (
             <MaterialCard
-              tag="Prints"
-              title="Photo Printing"
-              intro="Our photo prints are produced on Original FujiFilm Chemical Photo Paper using professional laboratory printing to ensure outstanding image quality and color accuracy."
+              tag={t("productInfo.photoTag")}
+              title={t("productInfo.photoTitle")}
+              intro={t("productInfo.photoIntro")}
               features={[
-                "Original FujiFilm Chemical Photo Paper",
-                "Professional Laboratory Printing",
-                "Sharp True-to-Life Detail",
-                "Accurate Color Reproduction",
-                "Archival-Grade Quality",
+                t("productInfo.photoFeature1"),
+                t("productInfo.photoFeature2"),
+                t("productInfo.photoFeature3"),
+                t("productInfo.photoFeature4"),
+                t("productInfo.photoFeature5"),
               ]}
             />
           )}
         </div>
 
         <div className="mt-10 grid gap-px overflow-hidden rounded-sm border border-border bg-border md:grid-cols-2">
-          <InfoBlock title="Return & Exchange Policy">
-            <p>Every order is custom-made especially for you.</p>
-            <p className="mt-3">Returns or exchanges are accepted only if:</p>
+          <InfoBlock title={t("productInfo.returnTitle")}>
+            <p>{t("productInfo.returnCustomMade")}</p>
+            <p className="mt-3">{t("productInfo.returnAcceptedOnly")}</p>
             <ul className="mt-3 space-y-1.5">
-              <li className="flex gap-2"><span className="text-foreground">•</span> The wrong item was delivered.</li>
-              <li className="flex gap-2"><span className="text-foreground">•</span> The product arrived damaged or broken.</li>
-              <li className="flex gap-2"><span className="text-foreground">•</span> There is a manufacturing or printing defect.</li>
+              <li className="flex gap-2">
+                <span className="text-foreground">•</span> {t("productInfo.returnWrongItem")}
+              </li>
+              <li className="flex gap-2">
+                <span className="text-foreground">•</span> {t("productInfo.returnDamaged")}
+              </li>
+              <li className="flex gap-2">
+                <span className="text-foreground">•</span> {t("productInfo.returnDefect")}
+              </li>
             </ul>
-            <p className="mt-3">
-              Please contact us within 48 hours of receiving your order and send clear photos of the issue so our support team can assist you.
-            </p>
+            <p className="mt-3">{t("productInfo.returnContact")}</p>
           </InfoBlock>
-          <InfoBlock title="Copyright & Credits">
-            <p>
-              All movie, TV series, anime, football club, player names, logos, characters, trademarks, and artwork copyrights belong to their respective owners.
-            </p>
-            <p className="mt-3">
-              BRWAZWNEON creates premium custom wall frames and decorative posters for personal use and fan art appreciation only.
-            </p>
+          <InfoBlock title={t("productInfo.copyrightTitle")}>
+            <p>{t("productInfo.copyrightText1")}</p>
+            <p className="mt-3">{t("productInfo.copyrightText2")}</p>
           </InfoBlock>
         </div>
       </div>

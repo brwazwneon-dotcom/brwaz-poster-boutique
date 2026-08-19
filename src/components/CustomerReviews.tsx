@@ -39,7 +39,9 @@ export function CustomerReviews({
     queryFn: async () => {
       let q = supabase
         .from("reviews")
-        .select("id,customer_name,governorate,rating,review_text,photo_url,poster_id,featured,sort_order,created_at")
+        .select(
+          "id,customer_name,governorate,rating,review_text,photo_url,poster_id,featured,sort_order,created_at",
+        )
         .eq("approved", true)
         .order("featured", { ascending: false })
         .order("sort_order", { ascending: false })
@@ -124,7 +126,9 @@ export function CustomerReviews({
                 key={i}
                 className={cn(
                   "h-5 w-5",
-                  i < Math.round(stats.avg) ? "fill-primary text-primary" : "text-muted-foreground/40",
+                  i < Math.round(stats.avg)
+                    ? "fill-primary text-primary"
+                    : "text-muted-foreground/40",
                 )}
               />
             ))}
@@ -155,10 +159,7 @@ function MobileCarousel({ reviews }: { reviews: Review[] }) {
         className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {reviews.map((r, i) => (
-          <div
-            key={r.id}
-            className="w-[85%] shrink-0 snap-center first:pl-0 last:pr-2"
-          >
+          <div key={r.id} className="w-[85%] shrink-0 snap-center first:pl-0 last:pr-2">
             <ReviewCard review={r} index={i} parentInView compact />
           </div>
         ))}
@@ -202,15 +203,17 @@ function ReviewCard({
         parentInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
         compact && "h-full",
       )}
-      style={{ transitionDelay: parentInView ? `${delayMs}ms` : "0ms", willChange: "transform, opacity" }}
+      style={{
+        transitionDelay: parentInView ? `${delayMs}ms` : "0ms",
+        willChange: "transform, opacity",
+      }}
     >
       {/* Glossy top edge — subtle gold sheen */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
-          background:
-            "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.6), transparent)",
+          background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.6), transparent)",
         }}
       />
 

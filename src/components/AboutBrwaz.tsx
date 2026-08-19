@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useInView } from "@/hooks/use-in-view";
 
 const GOLD = "#c9a24a";
@@ -12,6 +13,7 @@ const CLIENTS = [
 ];
 
 export function AboutBrwaz() {
+  const { t } = useTranslation();
   const [ref, visible] = useInView<HTMLElement>({ rootMargin: "0px" });
 
   return (
@@ -62,21 +64,19 @@ export function AboutBrwaz() {
             </h2>
 
             <p className="mt-6 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-              For over <span className="font-semibold" style={{ color: GOLD }}>25 years</span>,
-              BRWAZWNEON has been shaping walls across Egypt — one frame at a time.
-              From private homes to universities and celebrated restaurants, our work
-              lives quietly in the spaces that matter.
+              BRWAZWNEON brings together thoughtful design, professional printing, and careful
+              framing for the spaces and memories that matter.
             </p>
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/50 sm:text-base">
-              We believe a great frame is never noticed first — it holds the moment,
-              the memory, the artwork. That obsession with restraint is what our
-              partners have trusted us with for a quarter of a century.
+              We believe a great frame is never noticed first — it holds the moment, the memory, the
+              artwork. That attention to detail guides every order from preparation to final
+              delivery.
             </p>
 
             {/* Timeline chips */}
             <div className="mt-10 flex flex-wrap gap-3">
-              <MilestoneChip label="Est. 2000" />
-              <MilestoneChip label="7M+ Prints" />
+              <MilestoneChip label="Made with care" />
+              <MilestoneChip label="Professional printing" />
               <MilestoneChip label="Made in Egypt" />
               <MilestoneChip label="Handcrafted" />
             </div>
@@ -108,11 +108,13 @@ export function AboutBrwaz() {
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-black/60"
                       style={{ boxShadow: "inset 0 0 15px rgba(201,162,74,0.08)" }}
                     >
-                      <span
-                        className="text-display text-sm"
-                        style={{ color: GOLD }}
-                      >
-                        {c.name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("")}
+                      <span className="text-display text-sm" style={{ color: GOLD }}>
+                        {c.name
+                          .split(" ")
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((w) => w[0])
+                          .join("")}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -144,9 +146,7 @@ export function AboutBrwaz() {
 
 function MilestoneChip({ label }: { label: string }) {
   return (
-    <span
-      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] font-medium uppercase tracking-[0.3em] text-white/70 backdrop-blur-md"
-    >
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] font-medium uppercase tracking-[0.3em] text-white/70 backdrop-blur-md">
       <span style={{ color: GOLD }}>◆</span>
       {label}
     </span>

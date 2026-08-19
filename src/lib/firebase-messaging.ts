@@ -1,12 +1,6 @@
 // Admin-only lazy Firebase Messaging client. Never imported by public routes.
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import {
-  getMessaging,
-  getToken,
-  onMessage,
-  isSupported,
-  type Messaging,
-} from "firebase/messaging";
+import { getMessaging, getToken, onMessage, isSupported, type Messaging } from "firebase/messaging";
 import { loadFirebaseConfig, isConfigComplete, type FirebasePublicConfig } from "./firebase-config";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -85,7 +79,9 @@ export async function requestAndRegisterAdminDevice(label?: string): Promise<{ t
     const body = payload.notification?.body ?? payload.data?.body ?? "";
     try {
       new Notification(title, { body, icon: "/favicon.ico", data: payload.data });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   });
 
   return { token };

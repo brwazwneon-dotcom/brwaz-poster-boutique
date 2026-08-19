@@ -9,21 +9,30 @@ function safeNum(n: number | null | undefined): number {
 }
 
 /** Conversion rate = sales / views, as a percentage. 0 when no views. */
-export function conversionRatePct(salesCount: number | null | undefined, viewsCount: number | null | undefined): number {
+export function conversionRatePct(
+  salesCount: number | null | undefined,
+  viewsCount: number | null | undefined,
+): number {
   const v = safeNum(viewsCount);
   if (v === 0) return 0;
   return (safeNum(salesCount) / v) * 100;
 }
 
 /** Click-through rate = cart_adds / views, as a percentage. 0 when no views. */
-export function ctrPct(cartAddsCount: number | null | undefined, viewsCount: number | null | undefined): number {
+export function ctrPct(
+  cartAddsCount: number | null | undefined,
+  viewsCount: number | null | undefined,
+): number {
   const v = safeNum(viewsCount);
   if (v === 0) return 0;
   return (safeNum(cartAddsCount) / v) * 100;
 }
 
 /** Average seconds viewed per view. 0 when no views. */
-export function avgViewSeconds(totalViewSeconds: number | null | undefined, viewsCount: number | null | undefined): number {
+export function avgViewSeconds(
+  totalViewSeconds: number | null | undefined,
+  viewsCount: number | null | undefined,
+): number {
   const v = safeNum(viewsCount);
   if (v === 0) return 0;
   return safeNum(totalViewSeconds) / v;

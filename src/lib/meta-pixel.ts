@@ -23,7 +23,13 @@ function withAudience(params: Record<string, unknown>): Record<string, unknown> 
 
 declare global {
   interface Window {
-    fbq?: ((...args: unknown[]) => void) & { callMethod?: unknown; queue?: unknown[]; loaded?: boolean; version?: string; push?: unknown };
+    fbq?: ((...args: unknown[]) => void) & {
+      callMethod?: unknown;
+      queue?: unknown[];
+      loaded?: boolean;
+      version?: string;
+      push?: unknown;
+    };
     _fbq?: unknown;
     __brwz_pixel_id?: string;
     __brwz_pixel_loaded?: boolean;
@@ -63,7 +69,11 @@ function loadPixel(pixelId: string) {
   if (window.__brwz_pixel_loaded && window.__brwz_pixel_id === pixelId) return;
   if (window.__brwz_pixel_loaded && window.__brwz_pixel_id !== pixelId) {
     // Different ID — initialise additional pixel.
-    try { window.fbq?.("init", pixelId); } catch { /* noop */ }
+    try {
+      window.fbq?.("init", pixelId);
+    } catch {
+      /* noop */
+    }
     window.__brwz_pixel_id = pixelId;
     return;
   }
@@ -86,7 +96,11 @@ function loadPixel(pixelId: string) {
     s.parentNode.insertBefore(t, s);
   })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
   /* eslint-enable */
-  try { window.fbq?.("init", pixelId); } catch { /* noop */ }
+  try {
+    window.fbq?.("init", pixelId);
+  } catch {
+    /* noop */
+  }
   window.__brwz_pixel_id = pixelId;
   window.__brwz_pixel_loaded = true;
 }
@@ -122,7 +136,9 @@ export function trackEvent(
   if (cfg.pixelEnabled && typeof window !== "undefined") {
     try {
       window.fbq?.("track", name, enriched, { eventID: event_id });
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }
 
   // 2) Conversion API (server-side). Best-effort; never blocks UI.
@@ -137,7 +153,9 @@ export function trackEvent(
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       },
-    }).catch(() => { /* CAPI is best-effort; pixel covers fallback */ });
+    }).catch(() => {
+      /* CAPI is best-effort; pixel covers fallback */
+    });
   }
 
   // 3) Mirror to GA4 (page_view handled separately by router).
@@ -194,15 +212,27 @@ function scheduleFlush() {
       else trackCustom(e.name, e.params, e.userData);
     }
   };
-  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+  const ric = (
+    window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    }
+  ).requestIdleCallback;
   if (typeof ric === "function") ric(run, { timeout: 1500 });
   else setTimeout(run, 200);
 }
 
 /** Fire-and-forget: enqueues an event to be flushed on the next idle tick. */
 const STANDARD_NAMES: readonly StandardEvent[] = [
-  "PageView", "ViewContent", "Search", "AddToWishlist", "AddToCart",
-  "InitiateCheckout", "Purchase", "Lead", "Contact", "CompleteRegistration",
+  "PageView",
+  "ViewContent",
+  "Search",
+  "AddToWishlist",
+  "AddToCart",
+  "InitiateCheckout",
+  "Purchase",
+  "Lead",
+  "Contact",
+  "CompleteRegistration",
 ];
 
 export function enqueueEvent(
@@ -229,7 +259,11 @@ export function trackCustom(
   const enriched = withAudience(params);
 
   if (cfg.pixelEnabled && typeof window !== "undefined") {
-    try { window.fbq?.("trackCustom", name, enriched, { eventID: event_id }); } catch { /* noop */ }
+    try {
+      window.fbq?.("trackCustom", name, enriched, { eventID: event_id });
+    } catch {
+      /* noop */
+    }
   }
   if (cfg.capiEnabled) {
     const event_source_url = typeof window !== "undefined" ? window.location.href : undefined;
@@ -242,6 +276,8 @@ export function trackCustom(
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       },
-    }).catch(() => { /* best-effort */ });
+    }).catch(() => {
+      /* best-effort */
+    });
   }
 }

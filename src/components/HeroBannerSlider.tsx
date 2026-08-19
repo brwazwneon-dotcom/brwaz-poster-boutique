@@ -1,7 +1,36 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SafeImage } from "@/components/SafeImage";
 import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero-banners";
+import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
+
+async function logHeroImageFailure(banner: HeroBanner, url: string) {
+  let status: number | "network_error" | "unknown" = "unknown";
+  try {
+    const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+    status = res.status;
+  } catch {
+    status = "network_error";
+  }
+
+  try {
+    const w = window as unknown as {
+      __heroBannerImageIssues?: Array<{
+        id: string;
+        url: string;
+        status: typeof status;
+        at: number;
+      }>;
+    };
+    w.__heroBannerImageIssues = (w.__heroBannerImageIssues ?? []).slice(-30);
+    w.__heroBannerImageIssues.push({ id: banner.id, url, status, at: Date.now() });
+  } catch {
+    /* noop */
+  }
+
+  if (import.meta.env.DEV) {
+    console.warn("[HeroBanner] image failed", { id: banner.id, url, status });
+  }
+}
 
 /**
  * Full-bleed advertising slider that sits BEHIND the hero content.
@@ -10,28 +39,70 @@ import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero
 export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
   const { data: banners = [] } = useHeroBanners();
   const { data: cfg } = useHeroBannerConfig();
-  const autoplay = cfg?.autoplay_ms ?? 4000;
+  const autoplay = cfg?.autoplay_ms ?? 5000;
   const overlay = cfg?.overlay_opacity ?? 0.55;
 
   const [idx, setIdx] = useState(0);
+  const [failedIds, setFailedIds] = useState<Record<string, true>>({});
   const touchX = useRef<number | null>(null);
+  const loggedFailures = useRef<Set<string>>(new Set());
+  const [sliderRef, autoplayActive] = useActiveAutoplay<HTMLDivElement>();
+
+  const validBanners = useMemo(
+    () => banners.filter((b) => !failedIds[b.id] && Boolean(b.src || b.image_url)),
+    [banners, failedIds],
+  );
 
   useEffect(() => {
-    if (banners.length < 2) return;
+    setIdx(0);
+    setFailedIds({});
+    loggedFailures.current.clear();
+  }, [banners]);
+
+  useEffect(() => {
+    if (idx >= validBanners.length) setIdx(0);
+  }, [idx, validBanners.length]);
+
+  useEffect(() => {
+    if (!autoplayActive || validBanners.length < 2) return;
     const id = window.setInterval(
-      () => setIdx((i) => (i + 1) % banners.length),
+      () => setIdx((i) => (i + 1) % validBanners.length),
       Math.max(1500, autoplay),
     );
     return () => window.clearInterval(id);
-  }, [banners.length, autoplay]);
+  }, [autoplay, autoplayActive, validBanners.length]);
 
-  if (banners.length === 0) return <>{fallback}</>;
+  useEffect(() => {
+    if (!autoplayActive || validBanners.length < 2) return;
+    const next = validBanners[(idx + 1) % validBanners.length];
+    const src =
+      next?.mobileSrc && window.matchMedia("(max-width: 640px)").matches
+        ? next.mobileSrc
+        : next?.src;
+    if (!src) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+  }, [autoplayActive, idx, validBanners]);
 
-  const go = (n: number) => setIdx((n + banners.length) % banners.length);
-  const current: HeroBanner | undefined = banners[idx];
+  if (validBanners.length === 0) return <>{fallback}</>;
+
+  const go = (n: number) => setIdx((n + validBanners.length) % validBanners.length);
+  const current: HeroBanner | undefined = validBanners[idx];
+
+  const markFailed = (banner: HeroBanner, url: string) => {
+    setFailedIds((prev) => ({ ...prev, [banner.id]: true }));
+    const key = `${banner.id}:${url}`;
+    if (loggedFailures.current.has(key)) return;
+    loggedFailures.current.add(key);
+    void logHeroImageFailure(banner, url);
+  };
 
   return (
     <div
+      ref={sliderRef}
+      data-slider-version="homepage-slider-v2"
+      data-enabled-slide-count={validBanners.length}
       className="absolute inset-0 -z-10"
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {
@@ -41,23 +112,44 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
         touchX.current = null;
       }}
     >
-      {banners.map((b, i) => (
-        <div
-          key={b.id}
-          className={`absolute inset-0 transition-opacity duration-700 ease-out ${
-            i === idx ? "opacity-100" : "opacity-0"
-          }`}
-          aria-hidden={i !== idx}
-        >
-          <SafeImage
-            src={b.image_url}
-            alt={b.title ?? ""}
-            className="h-full w-full object-cover"
-            loading={i === 0 ? "eager" : "lazy"}
-            decoding="async"
-          />
-        </div>
-      ))}
+      {validBanners.map((b, i) => {
+        const src = b.src || b.image_url;
+        const objectPosition =
+          typeof b.focal_x === "number" && typeof b.focal_y === "number"
+            ? `${b.focal_x}% ${b.focal_y}%`
+            : "center";
+        return (
+          <div
+            key={b.id}
+            data-slide-id={b.id}
+            className={`absolute inset-0 transition-opacity duration-700 ease-out ${
+              i === idx ? "opacity-100" : "opacity-0"
+            }`}
+            aria-hidden={i !== idx}
+          >
+            <picture className="contents">
+              {b.mobileSrc ? <source media="(max-width: 640px)" srcSet={b.mobileSrc} /> : null}
+              {b.avifSrcSet ? (
+                <source type="image/avif" srcSet={b.avifSrcSet} sizes={b.sizes ?? "100vw"} />
+              ) : null}
+              {b.webpSrcSet ? (
+                <source type="image/webp" srcSet={b.webpSrcSet} sizes={b.sizes ?? "100vw"} />
+              ) : null}
+              <img
+                src={src}
+                sizes={b.sizes ?? "100vw"}
+                alt={b.alt_text ?? b.title ?? ""}
+                className="h-full w-full object-cover"
+                style={{ objectPosition }}
+                loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "auto"}
+                decoding="async"
+                onError={(e) => markFailed(b, e.currentTarget.currentSrc || src)}
+              />
+            </picture>
+          </div>
+        );
+      })}
 
       {/* Dark overlay for readability */}
       <div
@@ -74,9 +166,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
               {current.title}
             </p>
           )}
-          {current.subtitle && (
-            <p className="mt-1 text-[11px] text-white/80">{current.subtitle}</p>
-          )}
+          {current.subtitle && <p className="mt-1 text-[11px] text-white/80">{current.subtitle}</p>}
           {current.button_text && current.button_link && (
             <a
               href={current.button_link}
@@ -88,7 +178,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
         </div>
       )}
 
-      {banners.length > 1 && (
+      {validBanners.length > 1 && (
         <>
           <button
             type="button"
@@ -107,7 +197,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
             <ChevronRight className="h-4 w-4" />
           </button>
           <div className="absolute inset-x-0 bottom-4 z-10 flex justify-center gap-1.5">
-            {banners.map((_, i) => (
+            {validBanners.map((_, i) => (
               <button
                 key={i}
                 type="button"

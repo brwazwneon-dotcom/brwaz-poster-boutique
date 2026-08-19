@@ -3,15 +3,7 @@
 // (used for searching posters) plus display labels.
 
 export type AssistantCategory =
-  | "football"
-  | "movies"
-  | "tv-series"
-  | "anime"
-  | "cars"
-  | "music"
-  | "custom"
-  | "family"
-  | "quotes";
+  "football" | "movies" | "tv-series" | "anime" | "cars" | "music" | "custom" | "family" | "quotes";
 
 export type Suggestion = {
   /** English query used to search the posters DB */
@@ -44,10 +36,28 @@ export const CATEGORY_CHIPS: {
 
 export const SUGGESTIONS: Suggestion[] = [
   // Football
-  { q: "Cristiano Ronaldo", label: "Cristiano Ronaldo", labelAr: "كريستيانو رونالدو", aliases: ["cr7", "كريستيانو", "رونالدو"], category: "football" },
+  {
+    q: "Cristiano Ronaldo",
+    label: "Cristiano Ronaldo",
+    labelAr: "كريستيانو رونالدو",
+    aliases: ["cr7", "كريستيانو", "رونالدو"],
+    category: "football",
+  },
   { q: "CR7", label: "CR7", aliases: ["cristiano"], category: "football" },
-  { q: "Messi", label: "Lionel Messi", labelAr: "ميسي", aliases: ["messi", "ميسي", "leo messi"], category: "football" },
-  { q: "Mohamed Salah", label: "Mohamed Salah", labelAr: "محمد صلاح", aliases: ["salah", "محمد صلاح", "صلاح"], category: "football" },
+  {
+    q: "Messi",
+    label: "Lionel Messi",
+    labelAr: "ميسي",
+    aliases: ["messi", "ميسي", "leo messi"],
+    category: "football",
+  },
+  {
+    q: "Mohamed Salah",
+    label: "Mohamed Salah",
+    labelAr: "محمد صلاح",
+    aliases: ["salah", "محمد صلاح", "صلاح"],
+    category: "football",
+  },
   { q: "Neymar", label: "Neymar", labelAr: "نيمار", category: "football" },
   { q: "Mbappe", label: "Mbappé", labelAr: "مبابي", category: "football" },
   { q: "Haaland", label: "Haaland", labelAr: "هالاند", category: "football" },
@@ -56,7 +66,12 @@ export const SUGGESTIONS: Suggestion[] = [
   { q: "Ramos", label: "Sergio Ramos", labelAr: "راموس", category: "football" },
   { q: "Real Madrid", label: "Real Madrid", labelAr: "ريال مدريد", category: "football" },
   { q: "Barcelona", label: "Barcelona", labelAr: "برشلونة", category: "football" },
-  { q: "Manchester United", label: "Manchester United", labelAr: "مانشستر يونايتد", category: "football" },
+  {
+    q: "Manchester United",
+    label: "Manchester United",
+    labelAr: "مانشستر يونايتد",
+    category: "football",
+  },
   { q: "Liverpool", label: "Liverpool", labelAr: "ليفربول", category: "football" },
 
   // Movies
@@ -126,9 +141,17 @@ export function matchSuggestions(input: string, limit = 8): Suggestion[] {
       .filter(Boolean);
     let score = 0;
     for (const h of haystacks) {
-      if (h === q) { score = Math.max(score, 100); continue; }
-      if (h.startsWith(q)) { score = Math.max(score, 80); continue; }
-      if (h.includes(q)) { score = Math.max(score, 50); }
+      if (h === q) {
+        score = Math.max(score, 100);
+        continue;
+      }
+      if (h.startsWith(q)) {
+        score = Math.max(score, 80);
+        continue;
+      }
+      if (h.includes(q)) {
+        score = Math.max(score, 50);
+      }
     }
     if (score > 0) scored.push({ s, score });
   }

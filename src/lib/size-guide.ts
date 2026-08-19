@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type SizeGuideItem = {
   id: string;
   label: string;
-  width: number;  // cm
+  width: number; // cm
   height: number; // cm
 };
 
@@ -25,13 +25,13 @@ export const DEFAULT_SIZE_GUIDE: SizeGuideConfig = {
   roomImageUrl: "",
   wallWidthCm: 300,
   sizes: [
-    { id: "20x30",  label: "20 × 30 cm",  width: 20,  height: 30 },
-    { id: "30x40",  label: "30 × 40 cm",  width: 30,  height: 40 },
-    { id: "40x50",  label: "40 × 50 cm",  width: 40,  height: 50 },
-    { id: "40x60",  label: "40 × 60 cm",  width: 40,  height: 60 },
-    { id: "50x60",  label: "50 × 60 cm",  width: 50,  height: 60 },
-    { id: "50x70",  label: "50 × 70 cm",  width: 50,  height: 70 },
-    { id: "60x90",  label: "60 × 90 cm",  width: 60,  height: 90 },
+    { id: "20x30", label: "20 × 30 cm", width: 20, height: 30 },
+    { id: "30x40", label: "30 × 40 cm", width: 30, height: 40 },
+    { id: "40x50", label: "40 × 50 cm", width: 40, height: 50 },
+    { id: "40x60", label: "40 × 60 cm", width: 40, height: 60 },
+    { id: "50x60", label: "50 × 60 cm", width: 50, height: 60 },
+    { id: "50x70", label: "50 × 70 cm", width: 50, height: 70 },
+    { id: "60x90", label: "60 × 90 cm", width: 60, height: 90 },
     { id: "100x60", label: "100 × 60 cm", width: 100, height: 60 },
   ],
 };
@@ -41,7 +41,10 @@ function normalize(raw: unknown): SizeGuideConfig {
   const v = raw as Partial<SizeGuideConfig>;
   const sizes = Array.isArray(v.sizes)
     ? v.sizes
-        .filter((s): s is SizeGuideItem => !!s && typeof s === "object" && typeof (s as SizeGuideItem).id === "string")
+        .filter(
+          (s): s is SizeGuideItem =>
+            !!s && typeof s === "object" && typeof (s as SizeGuideItem).id === "string",
+        )
         .map((s) => ({
           id: String(s.id),
           label: String(s.label ?? s.id),

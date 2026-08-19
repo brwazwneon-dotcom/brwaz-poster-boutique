@@ -39,8 +39,7 @@ function readLocal(): RecentPoster[] {
     if (!Array.isArray(arr)) return [];
     return arr
       .filter(
-        (x): x is RecentPoster =>
-          !!x && typeof x.id === "string" && typeof x.title === "string",
+        (x): x is RecentPoster => !!x && typeof x.id === "string" && typeof x.title === "string",
       )
       .slice(0, MAX);
   } catch {

@@ -1,9 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-const BASE_URL = "https://brwazwneon-com.lovable.app";
+const BASE_URL = "https://brwazwneon.com";
 
-interface Entry { path: string; changefreq?: string; priority?: string; lastmod?: string }
+interface Entry {
+  path: string;
+  changefreq?: string;
+  priority?: string;
+  lastmod?: string;
+}
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
@@ -40,7 +45,9 @@ export const Route = createFileRoute("/sitemap.xml")({
               lastmod: c.updated_at ? new Date(c.updated_at).toISOString() : undefined,
             });
           }
-        } catch { /* ignore — still ship static entries */ }
+        } catch {
+          /* ignore — still ship static entries */
+        }
 
         const urls = entries.map((e) =>
           [
@@ -50,7 +57,9 @@ export const Route = createFileRoute("/sitemap.xml")({
             e.changefreq ? `    <changefreq>${e.changefreq}</changefreq>` : null,
             e.priority ? `    <priority>${e.priority}</priority>` : null,
             `  </url>`,
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
         );
 
         const xml = [

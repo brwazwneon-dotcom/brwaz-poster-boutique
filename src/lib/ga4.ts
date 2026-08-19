@@ -62,7 +62,9 @@ export function gaEvent(name: GAEventName, params: Record<string, unknown> = {})
   if (isPreviewMode()) return;
   try {
     window.gtag?.("event", name, params);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 export function gaPageView(path: string, title?: string) {
@@ -74,5 +76,7 @@ export function gaPageView(path: string, title?: string) {
       page_path: path,
       page_title: title ?? document.title,
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }

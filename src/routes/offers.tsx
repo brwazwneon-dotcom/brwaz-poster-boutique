@@ -1,24 +1,36 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
-import { FramePreview } from "@/components/FramePreview";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { useCategories } from "@/lib/use-categories";
-import { FRAME_COLORS, FRAME_TYPES, type FrameColorId, type FrameTypeId, type SizeId } from "@/lib/poster-options";
+import {
+  FRAME_COLORS,
+  FRAME_TYPES,
+  type FrameColorId,
+  type FrameTypeId,
+  type SizeId,
+} from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
+import { usePosterResponsiveImages } from "@/lib/public-images";
+import { FramedArtwork } from "@/components/FramedArtwork";
+import { resolveProductArtwork } from "@/lib/public-images";
+import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
+import { InfiniteProductGrid } from "@/components/InfiniteProductGrid";
 
 export const Route = createFileRoute("/offers")({
   head: () => {
-    const title = "Special Offers — BRWAZWNEON";
-    const description = "Bundle deals on framed posters: 6 frames 20×30 for 790 EGP or 4 frames 30×40 for 890 EGP. Cash on delivery across Egypt.";
-    const url = "https://brwazwneon-com.lovable.app/offers";
+    const title = "Offers — BRWAZWNEON";
+    const description =
+      "Limited-time BRWAZWNEON framed poster bundles and offers with delivery across Egypt.";
+    const url = "https://brwazwneon.com/offers";
     return {
       meta: [
         { title },
@@ -49,19 +61,44 @@ type Bundle = {
   badge?: string | null;
 };
 
+type CustomOffer = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  size: string;
+  count: number;
+  price: number;
+  image_url: string | null;
+  badge: string | null;
+};
+
 function useBundles(): Bundle[] {
   const pricing = usePricing();
   const defaults: Bundle[] = [
-    { key: "bundle-6-20x30", title: "6 Frames Bundle", sizeLabel: "20 × 30 cm", size: "20x30", count: 6, price: pricing.offers.bundle6_20x30 },
-    { key: "bundle-4-30x40", title: "4 Frames Bundle", sizeLabel: "30 × 40 cm", size: "30x40", count: 4, price: pricing.offers.bundle4_30x40 },
+    {
+      key: "bundle-6-20x30",
+      title: "6 Frames Bundle",
+      sizeLabel: "20 × 30 cm",
+      size: "20x30",
+      count: 6,
+      price: pricing.offers.bundle6_20x30,
+    },
+    {
+      key: "bundle-4-30x40",
+      title: "4 Frames Bundle",
+      sizeLabel: "30 × 40 cm",
+      size: "30x40",
+      count: 4,
+      price: pricing.offers.bundle4_30x40,
+    },
   ];
-  const { data: custom = [] } = useQuery({
+  const { data: custom = [] } = useQuery<CustomOffer[]>({
     queryKey: ["custom-offers"],
     staleTime: 60_000,
-    queryFn: async () => {
+    queryFn: async (): Promise<CustomOffer[]> => {
       const { data, error } = await supabase
         .from("custom_offers")
-        .select("*")
+        .select("id,title,subtitle,size,count,price,image_url,badge,sort_order,created_at,enabled")
         .eq("enabled", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
@@ -69,7 +106,7 @@ function useBundles(): Bundle[] {
       return data ?? [];
     },
   });
-  const customBundles: Bundle[] = custom.map((o: any) => {
+  const customBundles: Bundle[] = custom.map((o) => {
     const sizeLabel = String(o.size).replace("x", " × ") + " cm";
     return {
       key: `custom-${o.id}`,
@@ -93,9 +130,10 @@ type Poster = {
   category_id: string | null;
 };
 
-const PAGE_SIZE = 48;
+type PosterSelectionMeta = Pick<Poster, "id" | "title" | "image_url">;
 
 function OffersPage() {
+  const { t } = useTranslation();
   const bundles = useBundles();
   const [bundleKey, setBundleKey] = useState<Bundle["key"] | null>(null);
   const bundle = bundles.find((b) => b.key === bundleKey) ?? null;
@@ -103,13 +141,10 @@ function OffersPage() {
   return (
     <div className="container-page py-16">
       <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-        Limited time
+        {t("offers.limitedTime")}
       </div>
-      <h1 className="text-display mt-2 text-5xl sm:text-7xl">Special offers</h1>
-      <p className="mt-4 max-w-xl text-muted-foreground">
-        Pick a bundle, then choose your exact set of posters. Mix any
-        categories — pay one flat price.
-      </p>
+      <h1 className="text-display mt-2 text-5xl sm:text-7xl">{t("offers.heading")}</h1>
+      <p className="mt-4 max-w-xl text-muted-foreground">{t("offers.description")}</p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <LiveVisitors variant="offer" />
         <RecentOrdersBadge surface="offer" />
@@ -138,25 +173,21 @@ function OffersPage() {
                 </div>
               )}
               <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                Bundle · {b.count} frames
+                {t("offers.bundle")} · {b.count} frames
               </div>
               <div className="text-display text-5xl">{b.title}</div>
               <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>
-              {b.subtitle && (
-                <div className="text-xs text-muted-foreground">{b.subtitle}</div>
-              )}
+              {b.subtitle && <div className="text-xs text-muted-foreground">{b.subtitle}</div>}
               <div className="text-display mt-4 text-4xl">
-                {b.price} <span className="text-lg text-muted-foreground">EGP</span>
+                {b.price} <span className="text-lg text-muted-foreground">{t("egp")}</span>
               </div>
               <span
                 className={cn(
                   "mt-4 inline-flex rounded-sm border px-4 py-2 text-[10px] font-semibold uppercase tracking-widest",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border",
+                  active ? "border-primary bg-primary text-primary-foreground" : "border-border",
                 )}
               >
-                {active ? "Selected · pick your posters below" : "Choose this bundle"}
+                {active ? t("offers.selected") : t("offers.chooseBundle")}
               </span>
             </button>
           );
@@ -168,11 +199,8 @@ function OffersPage() {
   );
 }
 
-function BundleBuilder({
-  bundle,
-}: {
-  bundle: Bundle;
-}) {
+function BundleBuilder({ bundle }: { bundle: Bundle }) {
+  const { t } = useTranslation();
   const { data: categories = [] } = useCategories();
   const [categoryId, setCategoryId] = useState<string | "all">("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -182,33 +210,30 @@ function BundleBuilder({
   const availableColors = FRAME_COLORS.filter((c) => enabledVariants.includes(c.id));
   const { add } = useCart();
 
-  const postersQ = useInfiniteQuery({
-    queryKey: ["offers-posters", categoryId],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const from = (pageParam as number) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      let q = supabase
-        .from("posters")
-        .select("id,title,image_url,category_id")
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      if (categoryId !== "all") q = q.eq("category_id", categoryId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as Poster[];
-    },
-    getNextPageParam: (last, pages) =>
-      last.length === PAGE_SIZE ? pages.length : undefined,
-  });
+  const categoryIds = useMemo(
+    () => (categoryId === "all" ? categories.map((c) => c.id) : [categoryId]),
+    [categoryId, categories],
+  );
 
-  const posters: Poster[] = postersQ.data?.pages.flat() ?? [];
+  const sortQuery = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (q: any) => q.order("created_at", { ascending: false }),
+    [],
+  );
+
+  const {
+    products,
+    state: paginationState,
+    error: paginationError,
+    loadMore,
+    retry,
+  } = useInfiniteProducts(categoryIds, { query: sortQuery }, `offers-${categoryId}`);
 
   // Keep a separate map so we can still show selections after switching filters.
-  const { data: selectionMeta = [] } = useQuery({
+  const { data: selectionMeta = [] } = useQuery<PosterSelectionMeta[]>({
     queryKey: ["offers-selected", selectedIds],
     enabled: selectedIds.length > 0,
-    queryFn: async () => {
+    queryFn: async (): Promise<PosterSelectionMeta[]> => {
       const { data, error } = await supabase
         .from("posters")
         .select("id,title,image_url")
@@ -219,20 +244,21 @@ function BundleBuilder({
   });
 
   const selectedMap = useMemo(() => {
-    const m = new Map<string, { id: string; title: string; image_url: string }>();
-    posters.forEach((p) => m.set(p.id, p));
-    selectionMeta.forEach((p: any) => m.set(p.id, p));
+    const m = new Map<string, PosterSelectionMeta>();
+    products.forEach((p) => m.set(p.id, { id: p.id, title: p.title, image_url: p.cardArtworkUrl }));
+    selectionMeta.forEach((p) => m.set(p.id, p));
     return m;
-  }, [posters, selectionMeta]);
+  }, [products, selectionMeta]);
+  const selectedImages = usePosterResponsiveImages(Array.from(selectedMap.keys()), "80px");
 
-  const toggle = (p: Poster) => {
+  const toggle = (id: string) => {
     setSelectedIds((prev) => {
-      if (prev.includes(p.id)) return prev.filter((x) => x !== p.id);
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= bundle.count) {
         toast.error(`This bundle is exactly ${bundle.count} posters`);
         return prev;
       }
-      return [...prev, p.id];
+      return [...prev, id];
     });
   };
 
@@ -243,9 +269,11 @@ function BundleBuilder({
       toast.error(`Select exactly ${bundle.count} posters`);
       return;
     }
-    const posters = selectedIds
-      .map((id) => selectedMap.get(id))
-      .filter(Boolean) as { id: string; title: string; image_url: string }[];
+    const posters = selectedIds.map((id) => selectedMap.get(id)).filter(Boolean) as {
+      id: string;
+      title: string;
+      image_url: string;
+    }[];
     const first = posters[0];
     add({
       posterId: bundle.key,
@@ -272,92 +300,35 @@ function BundleBuilder({
   };
 
   const waMsg =
-    `Hi BRWAZWNEON, I'd like the ${bundle.title} (${bundle.sizeLabel}) — ${bundle.price} EGP\n` +
+    `Hi BRWAZWNEON, I'd like the ${bundle.title} (${bundle.sizeLabel}) — ${bundle.price} ${t("egp")}\n` +
     `Frame: ${FRAME_TYPES.find((f) => f.id === frameType)?.label}\n` +
     `Color: ${FRAME_COLORS.find((c) => c.id === color)?.label}\n` +
     `Posters:\n` +
-    selectedIds
-      .map((id, i) => `${i + 1}. ${selectedMap.get(id)?.title ?? id}`)
-      .join("\n");
+    selectedIds.map((id, i) => `${i + 1}. ${selectedMap.get(id)?.title ?? id}`).join("\n");
 
   return (
     <div className="mt-12 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip active={categoryId === "all"} onClick={() => setCategoryId("all")}>
-            All
+            {t("offers.all")}
           </FilterChip>
           {categories.map((c) => (
-            <FilterChip
-              key={c.id}
-              active={categoryId === c.id}
-              onClick={() => setCategoryId(c.id)}
-            >
+            <FilterChip key={c.id} active={categoryId === c.id} onClick={() => setCategoryId(c.id)}>
               {c.name}
             </FilterChip>
           ))}
         </div>
 
-        {postersQ.isLoading ? (
-          <div className="py-20 text-center text-sm text-muted-foreground">
-            Loading posters…
-          </div>
-        ) : posters.length === 0 ? (
-          <div className="mt-6 rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            No posters available.
-          </div>
-        ) : (
-          <>
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {posters.map((p) => {
-                const active = selectedIds.includes(p.id);
-                const idx = selectedIds.indexOf(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => toggle(p)}
-                    className={cn(
-                      "group relative aspect-[3/4] overflow-hidden rounded-sm border-2 bg-card transition",
-                      active
-                        ? "border-primary ring-4 ring-primary/30"
-                        : "border-transparent hover:border-border",
-                    )}
-                  >
-                    <FramePreview
-                      posterUrl={p.image_url}
-                      title={p.title}
-                      frameType={frameType}
-                      color={color}
-                      aspectClassName="h-full w-full"
-                      className="transition-transform duration-300 group-hover:scale-[1.02]"
-                      loading="lazy"
-                    />
-                    {active && (
-                      <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                        {idx + 1}
-                      </span>
-                    )}
-                    <span className="absolute inset-x-0 bottom-0 truncate bg-background/80 px-2 py-1 text-left text-[10px] uppercase tracking-widest">
-                      {p.title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {postersQ.hasNextPage && (
-              <div className="mt-8 text-center">
-                <button
-                  onClick={() => postersQ.fetchNextPage()}
-                  disabled={postersQ.isFetchingNextPage}
-                  className="rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-50"
-                >
-                  {postersQ.isFetchingNextPage ? "Loading…" : "Load more"}
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        <InfiniteProductGrid
+          products={products}
+          state={paginationState}
+          error={paginationError}
+          selectedIds={selectedIds}
+          onToggle={toggle}
+          onLoadMore={loadMore}
+          onRetry={retry}
+        />
       </div>
 
       <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -366,7 +337,9 @@ function BundleBuilder({
             <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
               {bundle.title}
             </div>
-            <div className="text-display text-2xl">{bundle.price} EGP</div>
+            <div className="text-display text-2xl">
+              {bundle.price} {t("egp")}
+            </div>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{bundle.sizeLabel}</div>
 
@@ -391,6 +364,7 @@ function BundleBuilder({
             {Array.from({ length: bundle.count }).map((_, i) => {
               const id = selectedIds[i];
               const p = id ? selectedMap.get(id) : undefined;
+              const image = id ? selectedImages[id] : undefined;
               return (
                 <div
                   key={i}
@@ -401,19 +375,20 @@ function BundleBuilder({
                 >
                   {p && (
                     <>
-                      <FramePreview
-                        posterUrl={p.image_url}
+                      <FramedArtwork
+                        posterUrl={resolveProductArtwork(p, selectedImages)}
+                        avifSrcSet={image?.avifSrcSet}
+                        webpSrcSet={image?.webpSrcSet}
+                        sizes={image?.sizes}
                         title={p.title}
                         frameType={frameType}
                         color={color}
                         aspectClassName="h-full w-full"
-                        bare
                         loading="lazy"
+                        posterFallbackUrl={p.image_url || ""}
                       />
                       <button
-                        onClick={() =>
-                          setSelectedIds((prev) => prev.filter((x) => x !== id))
-                        }
+                        onClick={() => setSelectedIds((prev) => prev.filter((x) => x !== id))}
                         aria-label={`Remove ${p.title}`}
                         className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-background/90"
                       >
@@ -426,15 +401,19 @@ function BundleBuilder({
             })}
           </div>
 
-          <OptionGroup label="Frame Type">
+          <OptionGroup label={t("offers.frameType")}>
             {FRAME_TYPES.map((f) => (
-              <OptionButton key={f.id} active={frameType === f.id} onClick={() => setFrameType(f.id)}>
+              <OptionButton
+                key={f.id}
+                active={frameType === f.id}
+                onClick={() => setFrameType(f.id)}
+              >
                 {f.label}
               </OptionButton>
             ))}
           </OptionGroup>
 
-          <OptionGroup label="Frame Color">
+          <OptionGroup label={t("offers.frameColor")}>
             {(availableColors.length ? availableColors : FRAME_COLORS).map((c) => (
               <button
                 key={c.id}
@@ -442,7 +421,9 @@ function BundleBuilder({
                 onClick={() => setColor(c.id)}
                 className={cn(
                   "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
-                  color === c.id ? "border-primary bg-accent" : "border-border hover:border-muted-foreground",
+                  color === c.id
+                    ? "border-primary bg-accent"
+                    : "border-border hover:border-muted-foreground",
                 )}
               >
                 <span
@@ -465,7 +446,7 @@ function BundleBuilder({
                   : "cursor-not-allowed bg-muted text-muted-foreground",
               )}
             >
-              <Check className="h-4 w-4" /> Add bundle
+              <Check className="h-4 w-4" /> {t("offers.addBundle")}
             </button>
             <a
               href={whatsappLink(waMsg)}
@@ -476,12 +457,12 @@ function BundleBuilder({
                 !complete && "pointer-events-none opacity-50",
               )}
             >
-              WhatsApp
+              {t("whatsapp")}
             </a>
           </div>
           {!complete && (
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Select exactly {bundle.count} posters to continue.
+              {t("offers.selectExactly", { count: bundle.count })}
             </p>
           )}
         </div>
@@ -490,7 +471,15 @@ function BundleBuilder({
   );
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
@@ -515,7 +504,15 @@ function OptionGroup({ label, children }: { label: string; children: React.React
   );
 }
 
-function OptionButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function OptionButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"

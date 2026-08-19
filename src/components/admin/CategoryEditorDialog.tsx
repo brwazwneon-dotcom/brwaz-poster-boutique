@@ -66,8 +66,12 @@ export function CategoryEditorDialog({
   const [showInHomepage, setShowInHomepage] = useState(true);
   const [showInCollections, setShowInCollections] = useState(true);
   const [showInSearch, setShowInSearch] = useState(true);
-  const [defaultMockupStyle, setDefaultMockupStyle] = useState<"auto" | "black" | "white" | "wood" | "none">("auto");
-  const [posterDisplayMode, setPosterDisplayMode] = useState<"manual" | "random" | "newest" | "trending" | "bestsellers">("manual");
+  const [defaultMockupStyle, setDefaultMockupStyle] = useState<
+    "auto" | "black" | "white" | "wood" | "none"
+  >("auto");
+  const [posterDisplayMode, setPosterDisplayMode] = useState<
+    "manual" | "random" | "newest" | "trending" | "bestsellers"
+  >("manual");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -200,7 +204,9 @@ export function CategoryEditorDialog({
             {isEdit ? "Edit" : "New"} {isSub ? "Sub-Category" : "Main Category"}
           </DialogTitle>
           <DialogDescription>
-            {isSub ? "Create a sub-category under the selected parent." : "Add a top-level category customers can browse."}
+            {isSub
+              ? "Create a sub-category under the selected parent."
+              : "Add a top-level category customers can browse."}
           </DialogDescription>
         </DialogHeader>
 
@@ -214,12 +220,24 @@ export function CategoryEditorDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="cat-name">Name *</Label>
-            <Input id="cat-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Movies" autoFocus />
+            <Input
+              id="cat-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Movies"
+              autoFocus
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="cat-name-ar">Name (AR)</Label>
-            <Input id="cat-name-ar" dir="rtl" value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="أفلام" />
+            <Input
+              id="cat-name-ar"
+              dir="rtl"
+              value={nameAr}
+              onChange={(e) => setNameAr(e.target.value)}
+              placeholder="أفلام"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -233,12 +251,20 @@ export function CategoryEditorDialog({
               }}
               placeholder="movies"
             />
-            <p className="text-[10px] text-muted-foreground">URL-friendly; auto-generated from name.</p>
+            <p className="text-[10px] text-muted-foreground">
+              URL-friendly; auto-generated from name.
+            </p>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="cat-icon">Icon / Emoji</Label>
-            <Input id="cat-icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🎬" maxLength={4} />
+            <Input
+              id="cat-icon"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="🎬"
+              maxLength={4}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -246,7 +272,11 @@ export function CategoryEditorDialog({
             <div className="flex items-center gap-3">
               {image ? (
                 <div className="relative">
-                  <img src={image} alt="" className="h-16 w-16 rounded-sm border border-border object-cover" />
+                  <img
+                    src={image}
+                    alt=""
+                    className="h-16 w-16 rounded-sm border border-border object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => setImage(null)}
@@ -268,7 +298,11 @@ export function CategoryEditorDialog({
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
               >
-                {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                {uploading ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                )}
                 {image ? "Replace" : "Upload"}
               </Button>
               <input
@@ -300,18 +334,32 @@ export function CategoryEditorDialog({
               <Label htmlFor="cat-active">Status</Label>
               <div className="flex h-10 items-center gap-2 rounded-md border border-border px-3">
                 <Switch id="cat-active" checked={active} onCheckedChange={setActive} />
-                <span className="text-xs text-muted-foreground">{active ? "Active" : "Hidden"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {active ? "Active" : "Hidden"}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="space-y-2 rounded-sm border border-border p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Visibility</div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Visibility
+            </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <label className="flex items-center gap-2"><Switch checked={showInHeader} onCheckedChange={setShowInHeader} /> Show in Header</label>
-              <label className="flex items-center gap-2"><Switch checked={showInHomepage} onCheckedChange={setShowInHomepage} /> Show in Homepage</label>
-              <label className="flex items-center gap-2"><Switch checked={showInCollections} onCheckedChange={setShowInCollections} /> Show in Collections</label>
-              <label className="flex items-center gap-2"><Switch checked={showInSearch} onCheckedChange={setShowInSearch} /> Show in Search</label>
+              <label className="flex items-center gap-2">
+                <Switch checked={showInHeader} onCheckedChange={setShowInHeader} /> Show in Header
+              </label>
+              <label className="flex items-center gap-2">
+                <Switch checked={showInHomepage} onCheckedChange={setShowInHomepage} /> Show in
+                Homepage
+              </label>
+              <label className="flex items-center gap-2">
+                <Switch checked={showInCollections} onCheckedChange={setShowInCollections} /> Show
+                in Collections
+              </label>
+              <label className="flex items-center gap-2">
+                <Switch checked={showInSearch} onCheckedChange={setShowInSearch} /> Show in Search
+              </label>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { PosterPerformanceStats } from "./PosterPerformanceStats";
 
@@ -13,7 +13,7 @@ afterEach(cleanup);
  */
 describe("Admin dashboard — zero-view poster metrics", () => {
   it("shows — for CTR, conversion rate, and avg time on a zero-view poster", () => {
-    render(
+    const { getByTestId } = render(
       <PosterPerformanceStats
         viewsCount={0}
         salesCount={0}
@@ -22,17 +22,17 @@ describe("Admin dashboard — zero-view poster metrics", () => {
       />,
     );
 
-    const wrapper = screen.getByTestId("poster-performance-stats");
-    expect(within(screen.getByTestId("poster-ctr")).getByText("—")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-conversion")).getByText("—")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-avg-time")).getByText("—")).toBeTruthy();
+    const wrapper = getByTestId("poster-performance-stats");
+    expect(getByTestId("poster-ctr").textContent).toContain("—");
+    expect(getByTestId("poster-conversion").textContent).toContain("—");
+    expect(getByTestId("poster-avg-time").textContent).toContain("—");
 
     // Guard: no NaN / Infinity leaked into the rendered UI.
     expect(wrapper.textContent ?? "").not.toMatch(/NaN|Infinity/);
   });
 
   it("still shows — when tracking counters are null/undefined (fresh poster)", () => {
-    render(
+    const { getByTestId } = render(
       <PosterPerformanceStats
         viewsCount={null}
         salesCount={undefined}
@@ -41,13 +41,13 @@ describe("Admin dashboard — zero-view poster metrics", () => {
       />,
     );
 
-    expect(within(screen.getByTestId("poster-ctr")).getByText("—")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-conversion")).getByText("—")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-avg-time")).getByText("—")).toBeTruthy();
+    expect(getByTestId("poster-ctr").textContent).toContain("—");
+    expect(getByTestId("poster-conversion").textContent).toContain("—");
+    expect(getByTestId("poster-avg-time").textContent).toContain("—");
   });
 
   it("renders real percentages and avg time once the poster has views", () => {
-    render(
+    const { getByTestId } = render(
       <PosterPerformanceStats
         viewsCount={200}
         salesCount={10}
@@ -56,8 +56,8 @@ describe("Admin dashboard — zero-view poster metrics", () => {
       />,
     );
 
-    expect(within(screen.getByTestId("poster-conversion")).getByText("5.00%")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-ctr")).getByText("12.50%")).toBeTruthy();
-    expect(within(screen.getByTestId("poster-avg-time")).getByText("45s")).toBeTruthy();
+    expect(getByTestId("poster-conversion").textContent).toContain("5.00%");
+    expect(getByTestId("poster-ctr").textContent).toContain("12.50%");
+    expect(getByTestId("poster-avg-time").textContent).toContain("45s");
   });
 });

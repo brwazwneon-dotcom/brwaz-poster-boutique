@@ -131,7 +131,11 @@ export function PosterImagesManager({ posterId }: { posterId: string }) {
           {images.map((img, i) => (
             <div key={img.id} className="rounded-sm border border-border bg-card p-2">
               <div className="relative aspect-square overflow-hidden rounded-sm">
-                <SafeImage src={img.image_url} alt={img.label ?? ""} className="h-full w-full object-cover" />
+                <SafeImage
+                  src={img.image_url}
+                  alt={img.label ?? ""}
+                  className="h-full w-full object-cover"
+                />
                 {img.is_default && (
                   <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">
                     Default
@@ -145,7 +149,9 @@ export function PosterImagesManager({ posterId }: { posterId: string }) {
               >
                 <option value="">— Type —</option>
                 {KINDS.map((k) => (
-                  <option key={k} value={k}>{k}</option>
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
                 ))}
               </select>
               <input
@@ -155,10 +161,18 @@ export function PosterImagesManager({ posterId }: { posterId: string }) {
                 className="mt-1 w-full rounded-sm border border-border bg-background px-1 py-1 text-[10px]"
               />
               <div className="mt-2 flex items-center justify-between gap-1">
-                <button onClick={() => move(i, -1)} title="Move up" className="rounded-sm p-1 hover:bg-accent">
+                <button
+                  onClick={() => move(i, -1)}
+                  title="Move up"
+                  className="rounded-sm p-1 hover:bg-accent"
+                >
                   <ArrowUp className="h-3 w-3" />
                 </button>
-                <button onClick={() => move(i, 1)} title="Move down" className="rounded-sm p-1 hover:bg-accent">
+                <button
+                  onClick={() => move(i, 1)}
+                  title="Move down"
+                  className="rounded-sm p-1 hover:bg-accent"
+                >
                   <ArrowDown className="h-3 w-3" />
                 </button>
                 <button
@@ -168,7 +182,11 @@ export function PosterImagesManager({ posterId }: { posterId: string }) {
                 >
                   <Star className={"h-3 w-3 " + (img.is_default ? "fill-current" : "")} />
                 </button>
-                <button onClick={() => remove(img.id)} title="Delete" className="rounded-sm p-1 text-destructive hover:bg-accent">
+                <button
+                  onClick={() => remove(img.id)}
+                  title="Delete"
+                  className="rounded-sm p-1 text-destructive hover:bg-accent"
+                >
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -177,7 +195,8 @@ export function PosterImagesManager({ posterId }: { posterId: string }) {
         </div>
       )}
       <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">
-        Tip: default image shows first in product gallery. Black Frame preview is shown automatically from the framed mockup.
+        Tip: default image shows first in product gallery. Black Frame preview is shown
+        automatically from the framed mockup.
       </p>
     </div>
   );

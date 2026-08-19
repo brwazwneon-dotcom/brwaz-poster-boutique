@@ -14,7 +14,11 @@ export async function optimizeImage(
   const mime = opts.mime ?? "image/jpeg";
 
   // Skip optimization for non-raster types we can't safely re-encode.
-  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
+  if (
+    !file.type.startsWith("image/") ||
+    file.type === "image/svg+xml" ||
+    file.type === "image/gif"
+  ) {
     return file;
   }
 

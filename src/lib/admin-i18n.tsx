@@ -32,12 +32,14 @@ const EN: Dict = {
   "tab.orders": "Orders",
   "tab.custom": "Custom Designs",
   "tab.photo-4x6": "4×6 Photos",
+  "tab.post-order": "Post-Order Settings",
   "tab.slider": "Slider",
   "tab.hero-banners": "Hero Banners",
   "tab.highlights": "Highlights",
   "tab.best-sellers": "Best Sellers",
-  "tab.sections": "Home Sections",
+  "tab.sections": "Homepage Layout",
   "tab.home-categories": "Home Category Picks",
+  "tab.room-transformation": "Room Transformation",
   "tab.sets": "Sets",
   "tab.collections": "Collections",
   "tab.quickbar": "Quick Bar",
@@ -46,7 +48,10 @@ const EN: Dict = {
   "tab.wishlists": "Wishlists",
   "tab.reviews": "Reviews",
   "tab.before-after": "Before / After",
+  "tab.photo-enhancement": "Photo Enhancement Before & After",
+  "tab.storefront-content": "Trust & FAQ Content",
   "tab.marketing": "Marketing",
+  "tab.catalog": "Product Catalogs",
   "tab.social-proof": "Social Proof",
   "tab.announcement": "Announcement",
   "tab.size-guide": "Size Guide",
@@ -57,6 +62,7 @@ const EN: Dict = {
   "tab.maintenance": "Maintenance",
   "tab.exports": "Exports",
   "tab.branding": "Branding",
+  "tab.appearance": "Theme Manager",
   "tab.settings": "Settings",
   "tab.error-logs": "Error Logs",
   "tab.performance": "Performance",
@@ -66,6 +72,14 @@ const EN: Dict = {
   "tab.customers": "Customers",
   "tab.abandoned": "Abandoned Carts",
   "tab.reports": "Reports",
+  "appearance.title": "Website Appearance",
+  "appearance.theme": "Storefront Theme",
+  "appearance.preview": "Preview",
+  "appearance.publish": "Publish",
+  "theme.gallery-white.name": "Gallery White",
+  "theme.gallery-white.description":
+    "Clean premium white storefront with black typography and subtle BRWAZWNEON accents.",
+  "theme.lightTheme": "LIGHT THEME",
 };
 
 const AR: Dict = {
@@ -94,12 +108,14 @@ const AR: Dict = {
   "tab.orders": "الطلبات",
   "tab.custom": "التصاميم المخصصة",
   "tab.photo-4x6": "طباعة 4×6",
+  "tab.post-order": "إعدادات ما بعد إتمام الطلب",
   "tab.slider": "السلايدر",
   "tab.hero-banners": "بانرات الهيرو",
   "tab.highlights": "العروض المميزة",
   "tab.best-sellers": "الأكثر مبيعاً",
-  "tab.sections": "أقسام الصفحة الرئيسية",
+  "tab.sections": "تخطيط الصفحة الرئيسية",
   "tab.home-categories": "اختيار صور الأقسام",
+  "tab.room-transformation": "تحوّل الغرفة",
   "tab.sets": "المجموعات",
   "tab.collections": "الكولكشنات",
   "tab.quickbar": "شريط الوصول السريع",
@@ -108,7 +124,10 @@ const AR: Dict = {
   "tab.wishlists": "قوائم الأمنيات",
   "tab.reviews": "المراجعات",
   "tab.before-after": "قبل / بعد",
+  "tab.photo-enhancement": "قسم قبل وبعد لتحسين الصور",
+  "tab.storefront-content": "محتوى الثقة والأسئلة الشائعة",
   "tab.marketing": "التسويق",
+  "tab.catalog": "كتالوجات المنتجات",
   "tab.social-proof": "الدليل الاجتماعي",
   "tab.announcement": "الشريط الإعلاني",
   "tab.size-guide": "دليل المقاسات",
@@ -119,6 +138,7 @@ const AR: Dict = {
   "tab.maintenance": "وضع الصيانة",
   "tab.exports": "التصدير",
   "tab.branding": "الهوية",
+  "tab.appearance": "مدير الثيمات",
   "tab.settings": "الإعدادات",
   "tab.error-logs": "سجل الأخطاء",
   "tab.performance": "الأداء",
@@ -128,6 +148,14 @@ const AR: Dict = {
   "tab.customers": "العملاء",
   "tab.abandoned": "السلات المتروكة",
   "tab.reports": "التقارير",
+  "appearance.title": "مظهر الموقع",
+  "appearance.theme": "ثيم واجهة المتجر",
+  "appearance.preview": "معاينة",
+  "appearance.publish": "نشر",
+  "theme.gallery-white.name": "المعرض الأبيض",
+  "theme.gallery-white.description":
+    "واجهة بيضاء نظيفة وفاخرة، بخطوط سوداء واضحة ولمسات بسيطة من ألوان برواز ونيون.",
+  "theme.lightTheme": "ثيم فاتح",
 };
 
 const DICTS: Record<AdminLang, Dict> = { en: EN, ar: AR };
@@ -148,14 +176,18 @@ export function AdminI18nProvider({ children }: { children: ReactNode }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as AdminLang | null;
       if (saved === "en" || saved === "ar") setLangState(saved);
-    } catch {}
+    } catch {
+      // localStorage can be unavailable; keep the default language.
+    }
   }, []);
 
   const setLang = (l: AdminLang) => {
     setLangState(l);
     try {
       localStorage.setItem(STORAGE_KEY, l);
-    } catch {}
+    } catch {
+      // localStorage can be unavailable; state is already updated in memory.
+    }
   };
 
   const value = useMemo<Ctx>(() => {
@@ -170,7 +202,11 @@ export function AdminI18nProvider({ children }: { children: ReactNode }) {
 
   return (
     <AdminI18nContext.Provider value={value}>
-      <div dir={value.dir} lang={value.lang} className={value.dir === "rtl" ? "font-sans" : undefined}>
+      <div
+        dir={value.dir}
+        lang={value.lang}
+        className={value.dir === "rtl" ? "font-sans" : undefined}
+      >
         {children}
       </div>
     </AdminI18nContext.Provider>

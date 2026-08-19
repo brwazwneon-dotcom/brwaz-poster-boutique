@@ -26,18 +26,14 @@ export const IMAGE_FALLBACK =
 /** Extract the in-bucket object path from a Supabase storage URL. */
 export function extractStoragePath(url: string, bucket: string): string | null {
   if (!url) return null;
-  const re = new RegExp(
-    `/storage/v1/object/(?:public|sign|authenticated)/${bucket}/([^?]+)`,
-  );
+  const re = new RegExp(`/storage/v1/object/(?:public|sign|authenticated)/${bucket}/([^?]+)`);
   const m = url.match(re);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
 /** Create a long-lived signed URL for an object already in the bucket. */
 export async function signStoragePath(bucket: string, path: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(path, SIGNED_URL_TTL);
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL);
   if (error || !data?.signedUrl) {
     throw error ?? new Error("Failed to sign storage URL");
   }
@@ -83,10 +79,7 @@ export type { Variant };
  * Given an existing URL, return a fresh signed URL.
  * No-op if we can't parse a path (e.g. external CDN URL).
  */
-export async function ensureSignedUrl(
-  url: string,
-  bucket: string,
-): Promise<string> {
+export async function ensureSignedUrl(url: string, bucket: string): Promise<string> {
   const path = extractStoragePath(url, bucket);
   if (!path) return url;
   return signStoragePath(bucket, path);

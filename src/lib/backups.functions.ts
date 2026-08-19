@@ -4,10 +4,24 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const ALLOWED_TRIGGERS = ["manual", "daily", "weekly", "monthly", "safety", "emergency"] as const;
 type BackupType = (typeof ALLOWED_TRIGGERS)[number];
 
-const RESTORE_SCOPES = ["settings", "pricing", "homepage", "categories", "reviews", "orders", "posters", "all"] as const;
+const RESTORE_SCOPES = [
+  "settings",
+  "pricing",
+  "homepage",
+  "categories",
+  "reviews",
+  "orders",
+  "posters",
+  "all",
+] as const;
 type RestoreScope = (typeof RESTORE_SCOPES)[number];
 
-type MaybeRpc = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+type MaybeRpc = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
 async function assertAdmin(supabase: unknown, userId: string) {
   const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
     _user_id: userId,
@@ -19,7 +33,7 @@ async function assertAdmin(supabase: unknown, userId: string) {
 /** Create a new backup (records row, snapshots + encrypts + uploads). */
 export const createBackupServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { type?: BackupType; note?: string }) => data)
+  .validator((data: { type?: BackupType; note?: string }) => data)
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const type: BackupType = ALLOWED_TRIGGERS.includes(data.type as BackupType)
@@ -72,7 +86,11 @@ export const createBackupServer = createServerFn({ method: "POST" })
       const message = err instanceof Error ? err.message : String(err);
       await supabaseAdmin
         .from("backups")
-        .update({ status: "failed", error_message: message, completed_at: new Date().toISOString() })
+        .update({
+          status: "failed",
+          error_message: message,
+          completed_at: new Date().toISOString(),
+        })
         .eq("id", id);
       throw err;
     }
@@ -81,7 +99,7 @@ export const createBackupServer = createServerFn({ method: "POST" })
 /** Signed download URL for an encrypted backup. */
 export const getBackupDownloadUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -99,7 +117,7 @@ export const getBackupDownloadUrl = createServerFn({ method: "POST" })
 /** Delete a backup row + its blob. */
 export const deleteBackupServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -117,7 +135,14 @@ export const deleteBackupServer = createServerFn({ method: "POST" })
 const RESTORE_MAP: Record<Exclude<RestoreScope, "all">, string[]> = {
   settings: ["site_settings"],
   pricing: ["site_settings"],
-  homepage: ["site_settings", "hero_banners", "slider_images", "highlights", "best_sellers", "sets"],
+  homepage: [
+    "site_settings",
+    "hero_banners",
+    "slider_images",
+    "highlights",
+    "best_sellers",
+    "sets",
+  ],
   categories: ["categories"],
   reviews: ["reviews"],
   orders: ["orders", "photo_orders", "custom_design_orders"],
@@ -127,20 +152,15 @@ const RESTORE_MAP: Record<Exclude<RestoreScope, "all">, string[]> = {
 /** Restore selected scope from a backup. Creates a safety backup first. */
 export const restoreBackupServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string; scope: RestoreScope; confirm: string }) => data)
+  .validator((data: { id: string; scope: RestoreScope; confirm: string }) => data)
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     if (data.confirm !== "RESTORE") throw new Error("Confirmation phrase required");
     if (!RESTORE_SCOPES.includes(data.scope)) throw new Error("Invalid scope");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const {
-      buildSnapshot,
-      encryptJson,
-      uploadBackupBlob,
-      downloadBackupBlob,
-      decryptJson,
-    } = await import("./backups.server");
+    const { buildSnapshot, encryptJson, uploadBackupBlob, downloadBackupBlob, decryptJson } =
+      await import("./backups.server");
 
     // 1) Safety backup
     const email = (context.claims as { email?: string })?.email ?? null;
@@ -207,14 +227,16 @@ export const restoreBackupServer = createServerFn({ method: "POST" })
       const rows = snapshot.data[table] ?? [];
       try {
         // Upsert by id when present; falls back to insert.
-        const { error } = await (supabaseAdmin as unknown as {
-          from: (t: string) => {
-            upsert: (
-              rows: unknown,
-              opts: { onConflict: string },
-            ) => Promise<{ error: { message: string } | null }>;
-          };
-        })
+        const { error } = await (
+          supabaseAdmin as unknown as {
+            from: (t: string) => {
+              upsert: (
+                rows: unknown,
+                opts: { onConflict: string },
+              ) => Promise<{ error: { message: string } | null }>;
+            };
+          }
+        )
           .from(table)
           .upsert(rows as never, { onConflict: "id" });
         if (error) throw error;

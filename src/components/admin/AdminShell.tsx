@@ -1,6 +1,12 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { Globe, HelpCircle, X, ChevronDown } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAdminI18n, type AdminLang } from "@/lib/admin-i18n";
 import { cn } from "@/lib/utils";
@@ -53,7 +59,11 @@ export function LanguageSwitcher() {
   );
 }
 
-type GuideSection = { key: string; title: { en: string; ar: string }; body: { en: string[]; ar: string[] } };
+type GuideSection = {
+  key: string;
+  title: { en: string; ar: string };
+  body: { en: string[]; ar: string[] };
+};
 
 const GUIDE: GuideSection[] = [
   {
@@ -204,12 +214,8 @@ const GUIDE: GuideSection[] = [
     key: "settings",
     title: { en: "Settings", ar: "الإعدادات" },
     body: {
-      en: [
-        "Pricing, packaging fee, upsells, shipping thresholds and branding options.",
-      ],
-      ar: [
-        "الأسعار، رسوم التغليف، العروض الإضافية، حدود الشحن، وخيارات الهوية.",
-      ],
+      en: ["Pricing, packaging fee, upsells, shipping thresholds and branding options."],
+      ar: ["الأسعار، رسوم التغليف، العروض الإضافية، حدود الشحن، وخيارات الهوية."],
     },
   },
 ];
@@ -230,7 +236,10 @@ export function HelpButton() {
         <span className="hidden sm:inline">{t("shell.help")}</span>
       </button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side={lang === "ar" ? "left" : "right"} className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent
+          side={lang === "ar" ? "left" : "right"}
+          className="w-full sm:max-w-lg overflow-y-auto"
+        >
           <SheetHeader>
             <SheetTitle>{t("shell.guide_title")}</SheetTitle>
             <SheetDescription>{t("shell.guide_subtitle")}</SheetDescription>
@@ -259,7 +268,7 @@ export function AdminTip({ label, children }: { label: string; children: ReactNo
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
-        <TooltipTrigger asChild>{children as any}</TooltipTrigger>
+        <TooltipTrigger asChild>{children as ReactElement}</TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs text-xs">
           {label}
         </TooltipContent>

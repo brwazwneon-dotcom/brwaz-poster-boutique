@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "@/components/FramePreview";
+import { FramedArtwork } from "@/components/FramedArtwork";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, ZoomIn, X } from "lucide-react";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
@@ -17,8 +18,7 @@ type ExtraImage = {
 };
 
 type Slide =
-  | { kind: "frame"; url: string; label: string }
-  | { kind: "image"; url: string; label: string };
+  { kind: "frame"; url: string; label: string } | { kind: "image"; url: string; label: string };
 
 type Props = {
   posterId: string;
@@ -51,9 +51,7 @@ export function PosterGallery({
   });
 
   const slides: Slide[] = useMemo(() => {
-    const base: Slide[] = [
-      { kind: "frame", url: posterUrl, label: "Frame Preview" },
-    ];
+    const base: Slide[] = [{ kind: "frame", url: posterUrl, label: "Frame Preview" }];
     extras.forEach((e) => {
       base.push({ kind: "image", url: e.image_url, label: e.label || e.kind || "Image" });
     });
@@ -71,8 +69,7 @@ export function PosterGallery({
     setIndex(defaultIndex);
   }, [defaultIndex, posterId]);
 
-  const go = (delta: number) =>
-    setIndex((i) => (i + delta + slides.length) % slides.length);
+  const go = (delta: number) => setIndex((i) => (i + delta + slides.length) % slides.length);
 
   const current = slides[Math.min(index, slides.length - 1)];
 
@@ -132,13 +129,12 @@ export function PosterGallery({
               )}
               title={s.label}
             >
-              <FramePreview
+              <FramedArtwork
                 posterUrl={s.url}
                 frameType={frameType}
                 color={color}
                 editSettings={editSettings}
                 aspectClassName="aspect-square"
-                bare
                 loading="lazy"
                 className="h-full w-full"
               />
@@ -197,7 +193,11 @@ function ZoomViewer({
       }}
     >
       <div
-        style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform 0.15s" }}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+          transition: "transform 0.15s",
+        }}
         className="w-[min(70vh,95vw)] max-w-[560px] select-none"
       >
         <FramePreview

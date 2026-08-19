@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type MaybeRpc = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+type MaybeRpc = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
 async function assertAdmin(supabase: unknown, userId: string) {
   const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
     _user_id: userId,
@@ -13,7 +18,7 @@ async function assertAdmin(supabase: unknown, userId: string) {
 /** Send a push notification when maintenance is toggled. */
 export const notifyMaintenanceToggle = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { enabled: boolean }) => ({ enabled: !!data?.enabled }))
+  .validator((data: { enabled: boolean }) => ({ enabled: !!data?.enabled }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -23,9 +28,11 @@ export const notifyMaintenanceToggle = createServerFn({ method: "POST" })
       .select("firebase_service_account")
       .eq("id", 1)
       .maybeSingle();
-    const sa = sec?.firebase_service_account as
-      | { client_email?: string; private_key?: string; project_id?: string }
-      | null;
+    const sa = sec?.firebase_service_account as {
+      client_email?: string;
+      private_key?: string;
+      project_id?: string;
+    } | null;
     if (!sa?.client_email || !sa.private_key || !sa.project_id) {
       return { ok: false, reason: "not-configured" as const };
     }

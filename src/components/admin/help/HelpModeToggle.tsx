@@ -23,7 +23,10 @@ export function HelpModeToggle() {
         )}
       >
         <HelpCircle className="h-4 w-4" />
-        <span className="hidden sm:inline">{label}{helpMode ? " • ON" : ""}</span>
+        <span className="hidden sm:inline">
+          {label}
+          {helpMode ? " • ON" : ""}
+        </span>
       </button>
     </HelpTip>
   );

@@ -5,16 +5,22 @@ import { extractStoragePath, signStoragePath, SIGNED_URL_TTL } from "@/lib/stora
  * Auto Image Optimization Pipeline.
  *
  * Given a source image (File OR URL) belonging to `sourceTable`/`sourceId`,
- * generate WebP display variants: thumb (400px), medium (900px), large (1600px).
+ * generate display variants only for the storefront: thumb (240px), small
+ * (480px), medium (800px), large (1200px max). The ORIGINAL is private print
+ * material and must never be used by customer-facing pages.
  * The ORIGINAL is never modified or deleted.
  */
 
-export type Variant = "thumb" | "medium" | "large";
+export type Variant = "thumb" | "small" | "medium" | "large";
 
-const SPECS: Record<Variant, { maxDim: number; quality: number }> = {
-  thumb: { maxDim: 400, quality: 0.82 },
-  medium: { maxDim: 900, quality: 0.85 },
-  large: { maxDim: 1600, quality: 0.9 },
+const SPECS: Record<
+  Variant,
+  { maxDim: number; quality: number; minQuality: number; targetBytes: number }
+> = {
+  thumb: { maxDim: 240, quality: 0.78, minQuality: 0.62, targetBytes: 40 * 1024 },
+  small: { maxDim: 480, quality: 0.8, minQuality: 0.64, targetBytes: 80 * 1024 },
+  medium: { maxDim: 800, quality: 0.84, minQuality: 0.68, targetBytes: 150 * 1024 },
+  large: { maxDim: 1200, quality: 0.86, minQuality: 0.7, targetBytes: 250 * 1024 },
 };
 
 const DEFAULT_BUCKET = "posters";
@@ -53,8 +59,10 @@ function drawTo(
   bmp: HTMLImageElement | ImageBitmap,
   maxDim: number,
 ): { canvas: HTMLCanvasElement; w: number; h: number } {
-  const srcW = "naturalWidth" in bmp ? (bmp as HTMLImageElement).naturalWidth : (bmp as ImageBitmap).width;
-  const srcH = "naturalHeight" in bmp ? (bmp as HTMLImageElement).naturalHeight : (bmp as ImageBitmap).height;
+  const srcW =
+    "naturalWidth" in bmp ? (bmp as HTMLImageElement).naturalWidth : (bmp as ImageBitmap).width;
+  const srcH =
+    "naturalHeight" in bmp ? (bmp as HTMLImageElement).naturalHeight : (bmp as ImageBitmap).height;
   const longest = Math.max(srcW, srcH);
   const scale = longest > maxDim ? maxDim / longest : 1;
   const w = Math.max(1, Math.round(srcW * scale));
@@ -68,13 +76,13 @@ function drawTo(
   return { canvas, w, h };
 }
 
-async function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number): Promise<Blob> {
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mime: string,
+  quality: number,
+): Promise<Blob> {
   return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-      mime,
-      quality,
-    );
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), mime, quality);
   });
 }
 
@@ -82,24 +90,31 @@ async function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: nu
 async function makeVariant(
   bmp: HTMLImageElement | ImageBitmap,
   variant: Variant,
-): Promise<{ blob: Blob; width: number; height: number; format: string }> {
+  mime: "image/avif" | "image/webp",
+): Promise<{ blob: Blob; width: number; height: number; format: "avif" | "webp" }> {
   const spec = SPECS[variant];
   const { canvas, w, h } = drawTo(bmp, spec.maxDim);
-  // Try WebP; fall back to JPEG if unsupported.
-  try {
-    const blob = await canvasToBlob(canvas, "image/webp", spec.quality);
-    if (blob.type === "image/webp") return { blob, width: w, height: h, format: "webp" };
-  } catch {
-    /* fallthrough */
+  const format = mime === "image/avif" ? "avif" : "webp";
+  let blob = await canvasToBlob(canvas, mime, spec.quality);
+  if (blob.type !== mime) throw new Error(`${format} encoding unsupported`);
+
+  let quality = spec.quality;
+  while (blob.size > spec.targetBytes && quality > spec.minQuality) {
+    quality = Math.max(spec.minQuality, quality - 0.06);
+    blob = await canvasToBlob(canvas, mime, quality);
+    if (blob.type !== mime) throw new Error(`${format} encoding unsupported`);
   }
-  const jpeg = await canvasToBlob(canvas, "image/jpeg", spec.quality);
-  return { blob: jpeg, width: w, height: h, format: "jpeg" };
+  return { blob, width: w, height: h, format };
 }
 
 function variantPathFor(originalPath: string, variant: Variant, format: string): string {
   const dot = originalPath.lastIndexOf(".");
   const base = dot >= 0 ? originalPath.slice(0, dot) : originalPath;
-  return `variants/${variant}/${base}.${format}`;
+  return `variants/${variant}/${format}/${base}.${format}`;
+}
+
+function variantKeyFor(variant: Variant, format: "avif" | "webp") {
+  return `${variant}_${format}`;
 }
 
 /**
@@ -128,42 +143,65 @@ export async function generateVariantsFor(opts: {
   let done = 0;
   let failed = 0;
 
-  for (const variant of ["thumb", "medium", "large"] as Variant[]) {
-    try {
-      const { blob, width, height, format } = await makeVariant(bmp, variant);
-      const path = variantPathFor(originalPath, variant, format);
+  for (const variant of ["thumb", "small", "medium", "large"] as Variant[]) {
+    let lastError: unknown = null;
 
-      const { error: upErr } = await supabase.storage
-        .from(bucket)
-        .upload(path, blob, { contentType: blob.type, upsert: true });
-      if (upErr) throw upErr;
+    for (const mime of ["image/avif", "image/webp"] as const) {
+      try {
+        const { blob, width, height, format } = await makeVariant(bmp, variant, mime);
+        const path = variantPathFor(originalPath, variant, format);
 
-      const { data: signed, error: signErr } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, SIGNED_URL_TTL);
-      if (signErr || !signed?.signedUrl) throw signErr ?? new Error("sign failed");
+        const { error: upErr } = await supabase.storage
+          .from(bucket)
+          .upload(path, blob, { contentType: blob.type, upsert: true });
+        if (upErr) throw upErr;
 
-      const { error: dbErr } = await supabase.from("image_variants").upsert(
-        {
-          source_table: opts.sourceTable,
-          source_id: opts.sourceId,
-          original_path: originalPath,
-          bucket,
-          variant,
-          variant_path: path,
-          url: signed.signedUrl,
-          width,
-          height,
-          size_bytes: blob.size,
-          format,
-          status: "done",
-          error: null,
-        },
-        { onConflict: "source_table,source_id,original_path,variant" },
-      );
-      if (dbErr) throw dbErr;
-      done += 1;
-    } catch (err) {
+        const { data: signed, error: signErr } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(path, SIGNED_URL_TTL);
+        if (signErr || !signed?.signedUrl) throw signErr ?? new Error("sign failed");
+
+        const { error: dbErr } = await supabase.from("image_variants").upsert(
+          {
+            source_table: opts.sourceTable,
+            source_id: opts.sourceId,
+            original_path: originalPath,
+            bucket,
+            variant: variantKeyFor(variant, format),
+            variant_path: path,
+            url: signed.signedUrl,
+            width,
+            height,
+            size_bytes: blob.size,
+            format,
+            status: "done",
+            error: null,
+          },
+          { onConflict: "source_table,source_id,original_path,variant" },
+        );
+        if (dbErr) throw dbErr;
+        done += 1;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (lastError) {
+      const webpKey = variantKeyFor(variant, "webp");
+      const existingQuery = supabase
+        .from("image_variants")
+        .select("id")
+        .eq("source_table", opts.sourceTable)
+        .eq("original_path", originalPath)
+        .eq("variant", webpKey)
+        .eq("status", "done");
+      const { data: existing } = await (
+        opts.sourceId === null
+          ? existingQuery.is("source_id", null)
+          : existingQuery.eq("source_id", opts.sourceId)
+      ).maybeSingle();
+      if (existing) continue;
+
       failed += 1;
       await supabase.from("image_variants").upsert(
         {
@@ -171,9 +209,9 @@ export async function generateVariantsFor(opts: {
           source_id: opts.sourceId,
           original_path: originalPath,
           bucket,
-          variant,
+          variant: webpKey,
           status: "failed",
-          error: String((err as Error)?.message ?? err).slice(0, 500),
+          error: String((lastError as Error)?.message ?? lastError).slice(0, 500),
         },
         { onConflict: "source_table,source_id,original_path,variant" },
       );
@@ -185,7 +223,11 @@ export async function generateVariantsFor(opts: {
 }
 
 /** Refresh a signed variant URL if it expired. */
-export async function refreshVariantUrl(id: string, bucket: string, path: string): Promise<string | null> {
+export async function refreshVariantUrl(
+  id: string,
+  bucket: string,
+  path: string,
+): Promise<string | null> {
   try {
     const url = await signStoragePath(bucket, path);
     await supabase.from("image_variants").update({ url }).eq("id", id);

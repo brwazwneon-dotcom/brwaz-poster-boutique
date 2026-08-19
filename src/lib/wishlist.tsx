@@ -80,19 +80,14 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         if (!merged.current) {
           const local = readLocal();
           if (local.length) {
-            await supabase
-              .from("wishlists")
-              .upsert(
-                local.map((poster_id) => ({ user_id: userId, poster_id })),
-                { onConflict: "user_id,poster_id", ignoreDuplicates: true },
-              );
+            await supabase.from("wishlists").upsert(
+              local.map((poster_id) => ({ user_id: userId, poster_id })),
+              { onConflict: "user_id,poster_id", ignoreDuplicates: true },
+            );
           }
           merged.current = true;
         }
-        const { data } = await supabase
-          .from("wishlists")
-          .select("poster_id")
-          .eq("user_id", userId);
+        const { data } = await supabase.from("wishlists").select("poster_id").eq("user_id", userId);
         if (cancelled) return;
         const remote = new Set((data ?? []).map((r) => r.poster_id as string));
         setIds(remote);
@@ -106,13 +101,10 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     };
   }, [userId]);
 
-  const persist = useCallback(
-    (next: Set<string>) => {
-      setIds(next);
-      writeLocal([...next]);
-    },
-    [],
-  );
+  const persist = useCallback((next: Set<string>) => {
+    setIds(next);
+    writeLocal([...next]);
+  }, []);
 
   const toggle = useCallback(
     async (posterId: string) => {
@@ -122,8 +114,20 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       else next.delete(posterId);
       persist(next);
       if (adding) {
-        try { trackEvent("AddToWishlist", { content_ids: [posterId], content_type: "product", currency: "EGP" }); } catch { /* noop */ }
-        try { logPosterEvent(posterId, "wishlist_add"); } catch { /* noop */ }
+        try {
+          trackEvent("AddToWishlist", {
+            content_ids: [posterId],
+            content_type: "product",
+            currency: "EGP",
+          });
+        } catch {
+          /* noop */
+        }
+        try {
+          logPosterEvent(posterId, "wishlist_add");
+        } catch {
+          /* noop */
+        }
       }
       if (userId) {
         try {

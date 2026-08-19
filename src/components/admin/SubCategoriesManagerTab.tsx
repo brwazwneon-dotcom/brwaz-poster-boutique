@@ -5,11 +5,28 @@ import { useCategories, type Category } from "@/lib/use-categories";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  Eye, EyeOff, Pencil, Trash2, Star, Search, GripVertical,
-  Merge, ArrowUp, ArrowDown, Check, X, CheckCircle2, Loader2, Sparkles,
+  Eye,
+  EyeOff,
+  Pencil,
+  Trash2,
+  Star,
+  Search,
+  GripVertical,
+  Merge,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  X,
+  CheckCircle2,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { BulkSeoRunner } from "@/components/admin/BulkSeoRunner";
 import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
@@ -59,12 +76,15 @@ export function SubCategoriesManagerTab() {
   };
 
   const parentName = (id: string | null | undefined) =>
-    id ? categories.find((c) => c.id === id)?.name ?? "—" : "—";
+    id ? (categories.find((c) => c.id === id)?.name ?? "—") : "—";
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     let list = subs.slice();
-    if (term) list = list.filter((c) => c.name.toLowerCase().includes(term) || c.slug.toLowerCase().includes(term));
+    if (term)
+      list = list.filter(
+        (c) => c.name.toLowerCase().includes(term) || c.slug.toLowerCase().includes(term),
+      );
     if (filter === "visible") list = list.filter((c) => !c.hidden && c.status !== "draft");
     else if (filter === "hidden") list = list.filter((c) => !!c.hidden);
     else if (filter === "draft") list = list.filter((c) => c.status === "draft");
@@ -92,7 +112,11 @@ export function SubCategoriesManagerTab() {
   const toggleSel = (id: string) =>
     setSelected((s) => {
       const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
 
@@ -105,14 +129,20 @@ export function SubCategoriesManagerTab() {
   };
 
   const setFeatured = async (c: Category) => {
-    const { error } = await supabase.from("categories").update({ featured: !c.featured }).eq("id", c.id);
+    const { error } = await supabase
+      .from("categories")
+      .update({ featured: !c.featured })
+      .eq("id", c.id);
     if (error) return toast.error(error.message);
     invalidate();
   };
 
   const approve = async (ids: string[]) => {
     if (!ids.length) return;
-    const { error } = await supabase.from("categories").update({ status: "published" }).in("id", ids);
+    const { error } = await supabase
+      .from("categories")
+      .update({ status: "published" })
+      .in("id", ids);
     if (error) return toast.error(error.message);
     toast.success(`Approved ${ids.length}`);
     invalidate();
@@ -120,8 +150,16 @@ export function SubCategoriesManagerTab() {
 
   const reject = async (ids: string[]) => {
     if (!ids.length) return;
-    if (!confirm(`Reject ${ids.length} draft subcategor${ids.length === 1 ? "y" : "ies"}? Posters keep their assignment but the category becomes hidden.`)) return;
-    const { error } = await supabase.from("categories").update({ hidden: true, status: "published" }).in("id", ids);
+    if (
+      !confirm(
+        `Reject ${ids.length} draft subcategor${ids.length === 1 ? "y" : "ies"}? Posters keep their assignment but the category becomes hidden.`,
+      )
+    )
+      return;
+    const { error } = await supabase
+      .from("categories")
+      .update({ hidden: true, status: "published" })
+      .in("id", ids);
     if (error) return toast.error(error.message);
     toast.success(`Rejected ${ids.length}`);
     invalidate();
@@ -159,7 +197,10 @@ export function SubCategoriesManagerTab() {
     reordered.splice(targetIdx, 0, drag);
     await Promise.all(
       reordered.map((s, i) =>
-        supabase.from("categories").update({ sort_order: i + 1 }).eq("id", s.id),
+        supabase
+          .from("categories")
+          .update({ sort_order: i + 1 })
+          .eq("id", s.id),
       ),
     );
     toast.success("Reordered");
@@ -169,7 +210,12 @@ export function SubCategoriesManagerTab() {
   const bulkDelete = async () => {
     const ids = Array.from(selected);
     if (!ids.length) return;
-    if (!confirm(`Delete ${ids.length} subcategor${ids.length === 1 ? "y" : "ies"}? Posters will be moved to their parent category.`)) return;
+    if (
+      !confirm(
+        `Delete ${ids.length} subcategor${ids.length === 1 ? "y" : "ies"}? Posters will be moved to their parent category.`,
+      )
+    )
+      return;
     for (const id of ids) {
       const c = subs.find((x) => x.id === id);
       if (!c) continue;
@@ -186,14 +232,16 @@ export function SubCategoriesManagerTab() {
       <div className="mb-3">
         <h2 className="text-display text-2xl">Sub Categories Manager</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage every sub category under each main category. Hide, show, edit, merge, reorder, or delete with safe poster reassignment.
+          Manage every sub category under each main category. Hide, show, edit, merge, reorder, or
+          delete with safe poster reassignment.
         </p>
       </div>
 
       {draftCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <div>
-            <b>{draftCount}</b> AI-suggested draft{draftCount === 1 ? "" : "s"} waiting for approval.
+            <b>{draftCount}</b> AI-suggested draft{draftCount === 1 ? "" : "s"} waiting for
+            approval.
           </div>
           <div className="flex gap-2">
             <button
@@ -377,7 +425,15 @@ export function SubCategoriesManagerTab() {
                       )}
                       title={c.hidden ? "Show" : "Hide"}
                     >
-                      {c.hidden ? <><EyeOff className="h-3 w-3" /> Hidden</> : <><Eye className="h-3 w-3" /> Visible</>}
+                      {c.hidden ? (
+                        <>
+                          <EyeOff className="h-3 w-3" /> Hidden
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" /> Visible
+                        </>
+                      )}
                     </button>
                   </td>
                   <td className="px-2 py-2">
@@ -385,7 +441,9 @@ export function SubCategoriesManagerTab() {
                       onClick={() => setFeatured(c)}
                       className={cn(
                         "rounded-sm p-1.5 transition",
-                        c.featured ? "text-amber-500" : "text-muted-foreground hover:text-foreground",
+                        c.featured
+                          ? "text-amber-500"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                       title={c.featured ? "Unfeature" : "Feature"}
                     >
@@ -541,15 +599,24 @@ export function SubCategoriesManagerTab() {
 }
 
 function EditDialog({
-  c, roots, onClose, onSaved,
-}: { c: Category; roots: Category[]; onClose: () => void; onSaved: () => void }) {
+  c,
+  roots,
+  onClose,
+  onSaved,
+}: {
+  c: Category;
+  roots: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [name, setName] = useState(c.name);
   const [slug, setSlug] = useState(c.slug);
   const [parentId, setParentId] = useState<string>(c.parent_id ?? "");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!name.trim() || !slug.trim() || !parentId) return toast.error("Name, slug and parent are required");
+    if (!name.trim() || !slug.trim() || !parentId)
+      return toast.error("Name, slug and parent are required");
     setSaving(true);
     const { error } = await supabase
       .from("categories")
@@ -564,25 +631,60 @@ function EditDialog({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Edit subcategory</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Edit subcategory</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
-          <label className="block text-xs uppercase tracking-widest text-muted-foreground">Name
-            <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm" />
+          <label className="block text-xs uppercase tracking-widest text-muted-foreground">
+            Name
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
           </label>
-          <label className="block text-xs uppercase tracking-widest text-muted-foreground">Slug
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm" />
+          <label className="block text-xs uppercase tracking-widest text-muted-foreground">
+            Slug
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
           </label>
-          <label className="block text-xs uppercase tracking-widest text-muted-foreground">Parent category
-            <select value={parentId} onChange={(e) => setParentId(e.target.value)} className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm">
+          <label className="block text-xs uppercase tracking-widest text-muted-foreground">
+            Parent category
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
               <option value="">— Select —</option>
-              {roots.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {roots.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
             </select>
           </label>
         </div>
         <DialogFooter>
-          <button onClick={onClose} className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest">Cancel</button>
-          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}{" "}
+            Save
           </button>
         </DialogFooter>
       </DialogContent>
@@ -591,10 +693,19 @@ function EditDialog({
 }
 
 function DeleteDialog({
-  c, roots, subs, count, onClose, onDone,
+  c,
+  roots,
+  subs,
+  count,
+  onClose,
+  onDone,
 }: {
-  c: Category; roots: Category[]; subs: Category[]; count: number;
-  onClose: () => void; onDone: () => void;
+  c: Category;
+  roots: Category[];
+  subs: Category[];
+  count: number;
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const parent = roots.find((r) => r.id === c.parent_id);
   type Choice = "parent" | "other" | "uncategorized";
@@ -608,36 +719,70 @@ function DeleteDialog({
       let target: string | null = null;
       if (choice === "parent") target = c.parent_id ?? null;
       else if (choice === "other") {
-        if (!otherId) { setBusy(false); return toast.error("Pick a target subcategory"); }
+        if (!otherId) {
+          setBusy(false);
+          return toast.error("Pick a target subcategory");
+        }
         target = otherId;
       } else target = null;
       if (count > 0) {
-        const { error } = await supabase.from("posters").update({ category_id: target }).eq("category_id", c.id);
-        if (error) { setBusy(false); return toast.error(error.message); }
+        const { error } = await supabase
+          .from("posters")
+          .update({ category_id: target })
+          .eq("category_id", c.id);
+        if (error) {
+          setBusy(false);
+          return toast.error(error.message);
+        }
       }
       const { error } = await supabase.from("categories").delete().eq("id", c.id);
       setBusy(false);
       if (error) return toast.error(error.message);
-      toast.success(`Deleted "${c.name}"${count > 0 ? ` and moved ${count} poster${count === 1 ? "" : "s"}` : ""}`);
+      toast.success(
+        `Deleted "${c.name}"${count > 0 ? ` and moved ${count} poster${count === 1 ? "" : "s"}` : ""}`,
+      );
       onDone();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setBusy(false);
-      toast.error(e?.message ?? "Failed");
+      const message =
+        e instanceof Error
+          ? e.message
+          : e && typeof e === "object" && "message" in e && typeof e.message === "string"
+            ? e.message
+            : "Failed";
+      toast.error(message);
     }
   };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Delete "{c.name}"?</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Delete "{c.name}"?</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3 text-sm">
-          <p>What do you want to do with the {count} poster{count === 1 ? "" : "s"} assigned to this subcategory?</p>
+          <p>
+            What do you want to do with the {count} poster{count === 1 ? "" : "s"} assigned to this
+            subcategory?
+          </p>
           <label className="flex items-start gap-2">
-            <input type="radio" checked={choice === "parent"} onChange={() => setChoice("parent")} className="mt-0.5" />
-            <span>Move to <b>{parent?.name ?? "parent"}</b></span>
+            <input
+              type="radio"
+              checked={choice === "parent"}
+              onChange={() => setChoice("parent")}
+              className="mt-0.5"
+            />
+            <span>
+              Move to <b>{parent?.name ?? "parent"}</b>
+            </span>
           </label>
           <label className="flex items-start gap-2">
-            <input type="radio" checked={choice === "other"} onChange={() => setChoice("other")} className="mt-0.5" />
+            <input
+              type="radio"
+              checked={choice === "other"}
+              onChange={() => setChoice("other")}
+              className="mt-0.5"
+            />
             <span className="flex-1">
               Move to another sub category
               <select
@@ -647,22 +792,45 @@ function DeleteDialog({
                 className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Select —</option>
-                {subs.filter((s) => s.id !== c.id).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} · {roots.find((r) => r.id === s.parent_id)?.name ?? ""}</option>
-                ))}
+                {subs
+                  .filter((s) => s.id !== c.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} · {roots.find((r) => r.id === s.parent_id)?.name ?? ""}
+                    </option>
+                  ))}
               </select>
             </span>
           </label>
           <label className="flex items-start gap-2">
-            <input type="radio" checked={choice === "uncategorized"} onChange={() => setChoice("uncategorized")} className="mt-0.5" />
+            <input
+              type="radio"
+              checked={choice === "uncategorized"}
+              onChange={() => setChoice("uncategorized")}
+              className="mt-0.5"
+            />
             <span>Leave uncategorized</span>
           </label>
           <p className="text-xs text-muted-foreground">Posters and images are never deleted.</p>
         </div>
         <DialogFooter>
-          <button onClick={onClose} className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest">Cancel</button>
-          <button onClick={run} disabled={busy} className="inline-flex items-center gap-2 rounded-sm bg-destructive px-4 py-2 text-xs uppercase tracking-widest text-destructive-foreground">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={run}
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-sm bg-destructive px-4 py-2 text-xs uppercase tracking-widest text-destructive-foreground"
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}{" "}
+            Delete
           </button>
         </DialogFooter>
       </DialogContent>
@@ -671,10 +839,17 @@ function DeleteDialog({
 }
 
 function MergeDialog({
-  sources, subs, roots, onClose, onDone,
+  sources,
+  subs,
+  roots,
+  onClose,
+  onDone,
 }: {
-  sources: Category[]; subs: Category[]; roots: Category[];
-  onClose: () => void; onDone: () => void;
+  sources: Category[];
+  subs: Category[];
+  roots: Category[];
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const [targetId, setTargetId] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -684,8 +859,14 @@ function MergeDialog({
     if (!targetId) return toast.error("Pick a target");
     if (sourceIds.includes(targetId)) return toast.error("Target must be different from sources");
     setBusy(true);
-    const { error: mErr } = await supabase.from("posters").update({ category_id: targetId }).in("category_id", sourceIds);
-    if (mErr) { setBusy(false); return toast.error(mErr.message); }
+    const { error: mErr } = await supabase
+      .from("posters")
+      .update({ category_id: targetId })
+      .in("category_id", sourceIds);
+    if (mErr) {
+      setBusy(false);
+      return toast.error(mErr.message);
+    }
     const { error: dErr } = await supabase.from("categories").delete().in("id", sourceIds);
     setBusy(false);
     if (dErr) return toast.error(dErr.message);
@@ -696,24 +877,52 @@ function MergeDialog({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Merge {sources.length === 1 ? `"${sources[0].name}"` : `${sources.length} subcategories`} into…</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>
+            Merge{" "}
+            {sources.length === 1 ? `"${sources[0].name}"` : `${sources.length} subcategories`}{" "}
+            into…
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-3 text-sm">
-          <p className="text-muted-foreground">All posters from the source subcategor{sources.length === 1 ? "y" : "ies"} will be moved to the target, then the source{sources.length === 1 ? "" : "s"} will be deleted. Posters keep their images.</p>
+          <p className="text-muted-foreground">
+            All posters from the source subcategor{sources.length === 1 ? "y" : "ies"} will be moved
+            to the target, then the source{sources.length === 1 ? "" : "s"} will be deleted. Posters
+            keep their images.
+          </p>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="">— Select target subcategory —</option>
-            {subs.filter((s) => !sourceIds.includes(s.id)).map((s) => (
-              <option key={s.id} value={s.id}>{s.name} · {roots.find((r) => r.id === s.parent_id)?.name ?? ""}</option>
-            ))}
+            {subs
+              .filter((s) => !sourceIds.includes(s.id))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} · {roots.find((r) => r.id === s.parent_id)?.name ?? ""}
+                </option>
+              ))}
           </select>
         </div>
         <DialogFooter>
-          <button onClick={onClose} className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest">Cancel</button>
-          <button onClick={run} disabled={busy || !targetId} className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Merge className="h-3.5 w-3.5" />} Merge
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={run}
+            disabled={busy || !targetId}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground"
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Merge className="h-3.5 w-3.5" />
+            )}{" "}
+            Merge
           </button>
         </DialogFooter>
       </DialogContent>

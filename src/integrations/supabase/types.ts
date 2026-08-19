@@ -1,2188 +1,2176 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
+    PostgrestVersion: "14.5";
+  };
   public: {
     Tables: {
       admin_devices: {
         Row: {
-          created_at: string
-          fcm_token: string
-          id: string
-          label: string | null
-          last_seen_at: string
-          user_agent: string | null
-          user_id: string
-        }
+          created_at: string;
+          fcm_token: string;
+          id: string;
+          label: string | null;
+          last_seen_at: string;
+          user_agent: string | null;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          fcm_token: string
-          id?: string
-          label?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id: string
-        }
+          created_at?: string;
+          fcm_token: string;
+          id?: string;
+          label?: string | null;
+          last_seen_at?: string;
+          user_agent?: string | null;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          fcm_token?: string
-          id?: string
-          label?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          fcm_token?: string;
+          id?: string;
+          label?: string | null;
+          last_seen_at?: string;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       admin_notifications: {
         Row: {
-          body: string | null
-          created_at: string
-          entity_id: string | null
-          entity_type: string | null
-          id: string
-          link: string | null
-          metadata: Json
-          priority: string
-          read_at: string | null
-          resolved_at: string | null
-          status: string
-          title: string
-          type: string
-        }
+          body: string | null;
+          created_at: string;
+          entity_id: string | null;
+          entity_type: string | null;
+          id: string;
+          link: string | null;
+          metadata: Json;
+          priority: string;
+          read_at: string | null;
+          resolved_at: string | null;
+          status: string;
+          title: string;
+          type: string;
+        };
         Insert: {
-          body?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
-          id?: string
-          link?: string | null
-          metadata?: Json
-          priority?: string
-          read_at?: string | null
-          resolved_at?: string | null
-          status?: string
-          title: string
-          type: string
-        }
+          body?: string | null;
+          created_at?: string;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          link?: string | null;
+          metadata?: Json;
+          priority?: string;
+          read_at?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          title: string;
+          type: string;
+        };
         Update: {
-          body?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
-          id?: string
-          link?: string | null
-          metadata?: Json
-          priority?: string
-          read_at?: string | null
-          resolved_at?: string | null
-          status?: string
-          title?: string
-          type?: string
-        }
-        Relationships: []
-      }
+          body?: string | null;
+          created_at?: string;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          link?: string | null;
+          metadata?: Json;
+          priority?: string;
+          read_at?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          title?: string;
+          type?: string;
+        };
+        Relationships: [];
+      };
       ai_seo_logs: {
         Row: {
-          admin_user_id: string | null
-          category_id: string | null
-          created_at: string
-          error: string | null
-          fields_updated: string[] | null
-          id: string
-          poster_id: string | null
-          provider: string | null
-          status: string
-        }
+          admin_user_id: string | null;
+          category_id: string | null;
+          created_at: string;
+          error: string | null;
+          fields_updated: string[] | null;
+          id: string;
+          poster_id: string | null;
+          provider: string | null;
+          status: string;
+        };
         Insert: {
-          admin_user_id?: string | null
-          category_id?: string | null
-          created_at?: string
-          error?: string | null
-          fields_updated?: string[] | null
-          id?: string
-          poster_id?: string | null
-          provider?: string | null
-          status: string
-        }
+          admin_user_id?: string | null;
+          category_id?: string | null;
+          created_at?: string;
+          error?: string | null;
+          fields_updated?: string[] | null;
+          id?: string;
+          poster_id?: string | null;
+          provider?: string | null;
+          status: string;
+        };
         Update: {
-          admin_user_id?: string | null
-          category_id?: string | null
-          created_at?: string
-          error?: string | null
-          fields_updated?: string[] | null
-          id?: string
-          poster_id?: string | null
-          provider?: string | null
-          status?: string
-        }
+          admin_user_id?: string | null;
+          category_id?: string | null;
+          created_at?: string;
+          error?: string | null;
+          fields_updated?: string[] | null;
+          id?: string;
+          poster_id?: string | null;
+          provider?: string | null;
+          status?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "ai_seo_logs_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "ai_seo_logs_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "ai_seo_logs_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "ai_seo_logs_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       analytics_poster_events: {
         Row: {
-          created_at: string
-          duration_seconds: number | null
-          event_type: string
-          id: string
-          metadata: Json | null
-          poster_id: string | null
-          session_id: string | null
-          visitor_id: string | null
-        }
+          created_at: string;
+          duration_seconds: number | null;
+          event_type: string;
+          id: string;
+          metadata: Json | null;
+          poster_id: string | null;
+          session_id: string | null;
+          visitor_id: string | null;
+        };
         Insert: {
-          created_at?: string
-          duration_seconds?: number | null
-          event_type: string
-          id?: string
-          metadata?: Json | null
-          poster_id?: string | null
-          session_id?: string | null
-          visitor_id?: string | null
-        }
+          created_at?: string;
+          duration_seconds?: number | null;
+          event_type: string;
+          id?: string;
+          metadata?: Json | null;
+          poster_id?: string | null;
+          session_id?: string | null;
+          visitor_id?: string | null;
+        };
         Update: {
-          created_at?: string
-          duration_seconds?: number | null
-          event_type?: string
-          id?: string
-          metadata?: Json | null
-          poster_id?: string | null
-          session_id?: string | null
-          visitor_id?: string | null
-        }
+          created_at?: string;
+          duration_seconds?: number | null;
+          event_type?: string;
+          id?: string;
+          metadata?: Json | null;
+          poster_id?: string | null;
+          session_id?: string | null;
+          visitor_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "analytics_poster_events_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "analytics_poster_events_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       analytics_visits: {
         Row: {
-          browser: string | null
-          city: string | null
-          country: string | null
-          country_code: string | null
-          created_at: string
-          device: string | null
-          governorate: string | null
-          id: string
-          os: string | null
-          path: string | null
-          referrer: string | null
-          session_id: string
-          source: string | null
-          user_agent: string | null
-          visitor_id: string
-        }
+          browser: string | null;
+          city: string | null;
+          country: string | null;
+          country_code: string | null;
+          created_at: string;
+          device: string | null;
+          governorate: string | null;
+          id: string;
+          os: string | null;
+          path: string | null;
+          referrer: string | null;
+          session_id: string;
+          source: string | null;
+          user_agent: string | null;
+          visitor_id: string;
+        };
         Insert: {
-          browser?: string | null
-          city?: string | null
-          country?: string | null
-          country_code?: string | null
-          created_at?: string
-          device?: string | null
-          governorate?: string | null
-          id?: string
-          os?: string | null
-          path?: string | null
-          referrer?: string | null
-          session_id: string
-          source?: string | null
-          user_agent?: string | null
-          visitor_id: string
-        }
+          browser?: string | null;
+          city?: string | null;
+          country?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          device?: string | null;
+          governorate?: string | null;
+          id?: string;
+          os?: string | null;
+          path?: string | null;
+          referrer?: string | null;
+          session_id: string;
+          source?: string | null;
+          user_agent?: string | null;
+          visitor_id: string;
+        };
         Update: {
-          browser?: string | null
-          city?: string | null
-          country?: string | null
-          country_code?: string | null
-          created_at?: string
-          device?: string | null
-          governorate?: string | null
-          id?: string
-          os?: string | null
-          path?: string | null
-          referrer?: string | null
-          session_id?: string
-          source?: string | null
-          user_agent?: string | null
-          visitor_id?: string
-        }
-        Relationships: []
-      }
+          browser?: string | null;
+          city?: string | null;
+          country?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          device?: string | null;
+          governorate?: string | null;
+          id?: string;
+          os?: string | null;
+          path?: string | null;
+          referrer?: string | null;
+          session_id?: string;
+          source?: string | null;
+          user_agent?: string | null;
+          visitor_id?: string;
+        };
+        Relationships: [];
+      };
       assistant_requests: {
         Row: {
-          action: string
-          category: string | null
-          created_at: string
-          id: string
-          keyword: string
-          meta: Json | null
-          selected_poster_id: string | null
-          selected_title: string | null
-          session_id: string | null
-          size: string | null
-        }
+          action: string;
+          category: string | null;
+          created_at: string;
+          id: string;
+          keyword: string;
+          meta: Json | null;
+          selected_poster_id: string | null;
+          selected_title: string | null;
+          session_id: string | null;
+          size: string | null;
+        };
         Insert: {
-          action?: string
-          category?: string | null
-          created_at?: string
-          id?: string
-          keyword: string
-          meta?: Json | null
-          selected_poster_id?: string | null
-          selected_title?: string | null
-          session_id?: string | null
-          size?: string | null
-        }
+          action?: string;
+          category?: string | null;
+          created_at?: string;
+          id?: string;
+          keyword: string;
+          meta?: Json | null;
+          selected_poster_id?: string | null;
+          selected_title?: string | null;
+          session_id?: string | null;
+          size?: string | null;
+        };
         Update: {
-          action?: string
-          category?: string | null
-          created_at?: string
-          id?: string
-          keyword?: string
-          meta?: Json | null
-          selected_poster_id?: string | null
-          selected_title?: string | null
-          session_id?: string | null
-          size?: string | null
-        }
-        Relationships: []
-      }
+          action?: string;
+          category?: string | null;
+          created_at?: string;
+          id?: string;
+          keyword?: string;
+          meta?: Json | null;
+          selected_poster_id?: string | null;
+          selected_title?: string | null;
+          session_id?: string | null;
+          size?: string | null;
+        };
+        Relationships: [];
+      };
       backups: {
         Row: {
-          backup_type: string
-          checksum: string | null
-          completed_at: string | null
-          created_at: string
-          created_by: string | null
-          created_by_email: string | null
-          encryption: string | null
-          error_message: string | null
-          id: string
-          size_bytes: number | null
-          status: string
-          storage_manifest: Json | null
-          storage_path: string | null
-          table_counts: Json | null
-          triggered_by: string
-        }
+          backup_type: string;
+          checksum: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          created_by_email: string | null;
+          encryption: string | null;
+          error_message: string | null;
+          id: string;
+          size_bytes: number | null;
+          status: string;
+          storage_manifest: Json | null;
+          storage_path: string | null;
+          table_counts: Json | null;
+          triggered_by: string;
+        };
         Insert: {
-          backup_type: string
-          checksum?: string | null
-          completed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          created_by_email?: string | null
-          encryption?: string | null
-          error_message?: string | null
-          id?: string
-          size_bytes?: number | null
-          status?: string
-          storage_manifest?: Json | null
-          storage_path?: string | null
-          table_counts?: Json | null
-          triggered_by?: string
-        }
+          backup_type: string;
+          checksum?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          created_by_email?: string | null;
+          encryption?: string | null;
+          error_message?: string | null;
+          id?: string;
+          size_bytes?: number | null;
+          status?: string;
+          storage_manifest?: Json | null;
+          storage_path?: string | null;
+          table_counts?: Json | null;
+          triggered_by?: string;
+        };
         Update: {
-          backup_type?: string
-          checksum?: string | null
-          completed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          created_by_email?: string | null
-          encryption?: string | null
-          error_message?: string | null
-          id?: string
-          size_bytes?: number | null
-          status?: string
-          storage_manifest?: Json | null
-          storage_path?: string | null
-          table_counts?: Json | null
-          triggered_by?: string
-        }
-        Relationships: []
-      }
+          backup_type?: string;
+          checksum?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          created_by_email?: string | null;
+          encryption?: string | null;
+          error_message?: string | null;
+          id?: string;
+          size_bytes?: number | null;
+          status?: string;
+          storage_manifest?: Json | null;
+          storage_path?: string | null;
+          table_counts?: Json | null;
+          triggered_by?: string;
+        };
+        Relationships: [];
+      };
       before_after: {
         Row: {
-          active: boolean
-          after_url: string
-          before_url: string
-          created_at: string
-          description: string | null
-          id: string
-          location: string
-          sort_order: number
-          title: string | null
-          updated_at: string
-        }
+          active: boolean;
+          after_url: string;
+          before_url: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          location: string;
+          sort_order: number;
+          title: string | null;
+          updated_at: string;
+        };
         Insert: {
-          active?: boolean
-          after_url: string
-          before_url: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          location?: string
-          sort_order?: number
-          title?: string | null
-          updated_at?: string
-        }
+          active?: boolean;
+          after_url: string;
+          before_url: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          location?: string;
+          sort_order?: number;
+          title?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          active?: boolean
-          after_url?: string
-          before_url?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          location?: string
-          sort_order?: number
-          title?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          active?: boolean;
+          after_url?: string;
+          before_url?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          location?: string;
+          sort_order?: number;
+          title?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       best_sellers: {
         Row: {
-          badge_disabled: boolean
-          created_at: string
-          end_date: string | null
-          featured: boolean
-          hidden: boolean
-          id: string
-          pinned: boolean
-          position: number
-          poster_id: string
-          start_date: string | null
-          updated_at: string
-        }
+          badge_disabled: boolean;
+          created_at: string;
+          end_date: string | null;
+          featured: boolean;
+          hidden: boolean;
+          id: string;
+          pinned: boolean;
+          position: number;
+          poster_id: string;
+          start_date: string | null;
+          updated_at: string;
+        };
         Insert: {
-          badge_disabled?: boolean
-          created_at?: string
-          end_date?: string | null
-          featured?: boolean
-          hidden?: boolean
-          id?: string
-          pinned?: boolean
-          position?: number
-          poster_id: string
-          start_date?: string | null
-          updated_at?: string
-        }
+          badge_disabled?: boolean;
+          created_at?: string;
+          end_date?: string | null;
+          featured?: boolean;
+          hidden?: boolean;
+          id?: string;
+          pinned?: boolean;
+          position?: number;
+          poster_id: string;
+          start_date?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          badge_disabled?: boolean
-          created_at?: string
-          end_date?: string | null
-          featured?: boolean
-          hidden?: boolean
-          id?: string
-          pinned?: boolean
-          position?: number
-          poster_id?: string
-          start_date?: string | null
-          updated_at?: string
-        }
+          badge_disabled?: boolean;
+          created_at?: string;
+          end_date?: string | null;
+          featured?: boolean;
+          hidden?: boolean;
+          id?: string;
+          pinned?: boolean;
+          position?: number;
+          poster_id?: string;
+          start_date?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "best_sellers_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: true
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "best_sellers_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: true;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       categories: {
         Row: {
-          created_at: string
-          default_mockup_style: string
-          description: string | null
-          featured: boolean
-          hidden: boolean
-          icon: string | null
-          id: string
-          image: string | null
-          name: string
-          name_ar: string | null
-          parent_id: string | null
-          poster_display_mode: string
-          show_in_collections: boolean
-          show_in_header: boolean
-          show_in_homepage: boolean
-          show_in_search: boolean
-          slug: string
-          sort_mode: string
-          sort_order: number
-          status: string
-          updated_at: string
-        }
+          created_at: string;
+          default_mockup_style: string;
+          description: string | null;
+          featured: boolean;
+          hidden: boolean;
+          icon: string | null;
+          id: string;
+          image: string | null;
+          name: string;
+          name_ar: string | null;
+          parent_id: string | null;
+          poster_display_mode: string;
+          show_in_collections: boolean;
+          show_in_header: boolean;
+          show_in_homepage: boolean;
+          show_in_search: boolean;
+          slug: string;
+          sort_mode: string;
+          sort_order: number;
+          status: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          default_mockup_style?: string
-          description?: string | null
-          featured?: boolean
-          hidden?: boolean
-          icon?: string | null
-          id?: string
-          image?: string | null
-          name: string
-          name_ar?: string | null
-          parent_id?: string | null
-          poster_display_mode?: string
-          show_in_collections?: boolean
-          show_in_header?: boolean
-          show_in_homepage?: boolean
-          show_in_search?: boolean
-          slug: string
-          sort_mode?: string
-          sort_order?: number
-          status?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          default_mockup_style?: string;
+          description?: string | null;
+          featured?: boolean;
+          hidden?: boolean;
+          icon?: string | null;
+          id?: string;
+          image?: string | null;
+          name: string;
+          name_ar?: string | null;
+          parent_id?: string | null;
+          poster_display_mode?: string;
+          show_in_collections?: boolean;
+          show_in_header?: boolean;
+          show_in_homepage?: boolean;
+          show_in_search?: boolean;
+          slug: string;
+          sort_mode?: string;
+          sort_order?: number;
+          status?: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          default_mockup_style?: string
-          description?: string | null
-          featured?: boolean
-          hidden?: boolean
-          icon?: string | null
-          id?: string
-          image?: string | null
-          name?: string
-          name_ar?: string | null
-          parent_id?: string | null
-          poster_display_mode?: string
-          show_in_collections?: boolean
-          show_in_header?: boolean
-          show_in_homepage?: boolean
-          show_in_search?: boolean
-          slug?: string
-          sort_mode?: string
-          sort_order?: number
-          status?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          default_mockup_style?: string;
+          description?: string | null;
+          featured?: boolean;
+          hidden?: boolean;
+          icon?: string | null;
+          id?: string;
+          image?: string | null;
+          name?: string;
+          name_ar?: string | null;
+          parent_id?: string | null;
+          poster_display_mode?: string;
+          show_in_collections?: boolean;
+          show_in_header?: boolean;
+          show_in_homepage?: boolean;
+          show_in_search?: boolean;
+          slug?: string;
+          sort_mode?: string;
+          sort_order?: number;
+          status?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "categories_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "categories_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       custom_design_orders: {
         Row: {
-          address: string
-          created_at: string
-          customer_name: string
-          frame_color: string
-          frame_type: string
-          governorate: string
-          id: string
-          image_paths: string[]
-          image_urls: string[]
-          notes: string | null
-          order_number: string | null
-          phone: string
-          quantity: number
-          shipping_cost: number
-          size: string
-          status: string
-          subtotal: number
-          total_price: number
-          unit_price: number
-        }
+          address: string;
+          created_at: string;
+          customer_name: string;
+          frame_color: string;
+          frame_type: string;
+          governorate: string;
+          id: string;
+          image_paths: string[];
+          image_urls: string[];
+          notes: string | null;
+          order_number: string | null;
+          phone: string;
+          quantity: number;
+          shipping_cost: number;
+          size: string;
+          status: string;
+          subtotal: number;
+          total_price: number;
+          unit_price: number;
+        };
         Insert: {
-          address: string
-          created_at?: string
-          customer_name: string
-          frame_color: string
-          frame_type: string
-          governorate: string
-          id?: string
-          image_paths?: string[]
-          image_urls?: string[]
-          notes?: string | null
-          order_number?: string | null
-          phone: string
-          quantity?: number
-          shipping_cost?: number
-          size: string
-          status?: string
-          subtotal: number
-          total_price: number
-          unit_price: number
-        }
+          address: string;
+          created_at?: string;
+          customer_name: string;
+          frame_color: string;
+          frame_type: string;
+          governorate: string;
+          id?: string;
+          image_paths?: string[];
+          image_urls?: string[];
+          notes?: string | null;
+          order_number?: string | null;
+          phone: string;
+          quantity?: number;
+          shipping_cost?: number;
+          size: string;
+          status?: string;
+          subtotal: number;
+          total_price: number;
+          unit_price: number;
+        };
         Update: {
-          address?: string
-          created_at?: string
-          customer_name?: string
-          frame_color?: string
-          frame_type?: string
-          governorate?: string
-          id?: string
-          image_paths?: string[]
-          image_urls?: string[]
-          notes?: string | null
-          order_number?: string | null
-          phone?: string
-          quantity?: number
-          shipping_cost?: number
-          size?: string
-          status?: string
-          subtotal?: number
-          total_price?: number
-          unit_price?: number
-        }
-        Relationships: []
-      }
+          address?: string;
+          created_at?: string;
+          customer_name?: string;
+          frame_color?: string;
+          frame_type?: string;
+          governorate?: string;
+          id?: string;
+          image_paths?: string[];
+          image_urls?: string[];
+          notes?: string | null;
+          order_number?: string | null;
+          phone?: string;
+          quantity?: number;
+          shipping_cost?: number;
+          size?: string;
+          status?: string;
+          subtotal?: number;
+          total_price?: number;
+          unit_price?: number;
+        };
+        Relationships: [];
+      };
       custom_offers: {
         Row: {
-          badge: string | null
-          count: number
-          created_at: string
-          enabled: boolean
-          id: string
-          image_url: string | null
-          price: number
-          size: string
-          sort_order: number
-          subtitle: string | null
-          subtitle_ar: string | null
-          title: string
-          title_ar: string | null
-          updated_at: string
-        }
+          badge: string | null;
+          count: number;
+          created_at: string;
+          enabled: boolean;
+          id: string;
+          image_url: string | null;
+          price: number;
+          size: string;
+          sort_order: number;
+          subtitle: string | null;
+          subtitle_ar: string | null;
+          title: string;
+          title_ar: string | null;
+          updated_at: string;
+        };
         Insert: {
-          badge?: string | null
-          count: number
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string | null
-          price: number
-          size: string
-          sort_order?: number
-          subtitle?: string | null
-          subtitle_ar?: string | null
-          title: string
-          title_ar?: string | null
-          updated_at?: string
-        }
+          badge?: string | null;
+          count: number;
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string | null;
+          price: number;
+          size: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          subtitle_ar?: string | null;
+          title: string;
+          title_ar?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          badge?: string | null
-          count?: number
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string | null
-          price?: number
-          size?: string
-          sort_order?: number
-          subtitle?: string | null
-          subtitle_ar?: string | null
-          title?: string
-          title_ar?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          badge?: string | null;
+          count?: number;
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string | null;
+          price?: number;
+          size?: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          subtitle_ar?: string | null;
+          title?: string;
+          title_ar?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       customer_notes: {
         Row: {
-          author: string | null
-          created_at: string
-          id: string
-          phone: string
-          pinned: boolean
-          text: string
-          updated_at: string
-        }
+          author: string | null;
+          created_at: string;
+          id: string;
+          phone: string;
+          pinned: boolean;
+          text: string;
+          updated_at: string;
+        };
         Insert: {
-          author?: string | null
-          created_at?: string
-          id?: string
-          phone: string
-          pinned?: boolean
-          text: string
-          updated_at?: string
-        }
+          author?: string | null;
+          created_at?: string;
+          id?: string;
+          phone: string;
+          pinned?: boolean;
+          text: string;
+          updated_at?: string;
+        };
         Update: {
-          author?: string | null
-          created_at?: string
-          id?: string
-          phone?: string
-          pinned?: boolean
-          text?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          author?: string | null;
+          created_at?: string;
+          id?: string;
+          phone?: string;
+          pinned?: boolean;
+          text?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       hero_banners: {
         Row: {
-          button_link: string | null
-          button_text: string | null
-          created_at: string
-          enabled: boolean
-          id: string
-          image_url: string
-          sort_order: number
-          subtitle: string | null
-          title: string | null
-        }
+          button_link: string | null;
+          button_text: string | null;
+          created_at: string;
+          enabled: boolean;
+          id: string;
+          image_url: string;
+          sort_order: number;
+          subtitle: string | null;
+          title: string | null;
+        };
         Insert: {
-          button_link?: string | null
-          button_text?: string | null
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url: string
-          sort_order?: number
-          subtitle?: string | null
-          title?: string | null
-        }
+          button_link?: string | null;
+          button_text?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          title?: string | null;
+        };
         Update: {
-          button_link?: string | null
-          button_text?: string | null
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string
-          sort_order?: number
-          subtitle?: string | null
-          title?: string | null
-        }
-        Relationships: []
-      }
+          button_link?: string | null;
+          button_text?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          title?: string | null;
+        };
+        Relationships: [];
+      };
       highlights: {
         Row: {
-          created_at: string
-          enabled: boolean
-          id: string
-          image_url: string | null
-          key: string
-          link: string
-          sort_order: number
-          title: string
-          updated_at: string
-        }
+          created_at: string;
+          enabled: boolean;
+          id: string;
+          image_url: string | null;
+          key: string;
+          link: string;
+          sort_order: number;
+          title: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string | null
-          key: string
-          link?: string
-          sort_order?: number
-          title: string
-          updated_at?: string
-        }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string | null;
+          key: string;
+          link?: string;
+          sort_order?: number;
+          title: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string | null
-          key?: string
-          link?: string
-          sort_order?: number
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string | null;
+          key?: string;
+          link?: string;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       image_variants: {
         Row: {
-          bucket: string
-          created_at: string
-          error: string | null
-          format: string | null
-          height: number | null
-          id: string
-          original_path: string
-          size_bytes: number | null
-          source_id: string | null
-          source_table: string
-          status: string
-          updated_at: string
-          url: string | null
-          variant: string
-          variant_path: string | null
-          width: number | null
-        }
+          bucket: string;
+          created_at: string;
+          error: string | null;
+          format: string | null;
+          height: number | null;
+          id: string;
+          original_path: string;
+          size_bytes: number | null;
+          source_id: string | null;
+          source_table: string;
+          status: string;
+          updated_at: string;
+          url: string | null;
+          variant: string;
+          variant_path: string | null;
+          width: number | null;
+        };
         Insert: {
-          bucket?: string
-          created_at?: string
-          error?: string | null
-          format?: string | null
-          height?: number | null
-          id?: string
-          original_path: string
-          size_bytes?: number | null
-          source_id?: string | null
-          source_table: string
-          status?: string
-          updated_at?: string
-          url?: string | null
-          variant: string
-          variant_path?: string | null
-          width?: number | null
-        }
+          bucket?: string;
+          created_at?: string;
+          error?: string | null;
+          format?: string | null;
+          height?: number | null;
+          id?: string;
+          original_path: string;
+          size_bytes?: number | null;
+          source_id?: string | null;
+          source_table: string;
+          status?: string;
+          updated_at?: string;
+          url?: string | null;
+          variant: string;
+          variant_path?: string | null;
+          width?: number | null;
+        };
         Update: {
-          bucket?: string
-          created_at?: string
-          error?: string | null
-          format?: string | null
-          height?: number | null
-          id?: string
-          original_path?: string
-          size_bytes?: number | null
-          source_id?: string | null
-          source_table?: string
-          status?: string
-          updated_at?: string
-          url?: string | null
-          variant?: string
-          variant_path?: string | null
-          width?: number | null
-        }
-        Relationships: []
-      }
+          bucket?: string;
+          created_at?: string;
+          error?: string | null;
+          format?: string | null;
+          height?: number | null;
+          id?: string;
+          original_path?: string;
+          size_bytes?: number | null;
+          source_id?: string | null;
+          source_table?: string;
+          status?: string;
+          updated_at?: string;
+          url?: string | null;
+          variant?: string;
+          variant_path?: string | null;
+          width?: number | null;
+        };
+        Relationships: [];
+      };
       landing_page_posters: {
         Row: {
-          created_at: string
-          id: string
-          landing_page_id: string
-          pinned: boolean
-          poster_id: string
-          sort_order: number
-        }
+          created_at: string;
+          id: string;
+          landing_page_id: string;
+          pinned: boolean;
+          poster_id: string;
+          sort_order: number;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          landing_page_id: string
-          pinned?: boolean
-          poster_id: string
-          sort_order?: number
-        }
+          created_at?: string;
+          id?: string;
+          landing_page_id: string;
+          pinned?: boolean;
+          poster_id: string;
+          sort_order?: number;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          landing_page_id?: string
-          pinned?: boolean
-          poster_id?: string
-          sort_order?: number
-        }
+          created_at?: string;
+          id?: string;
+          landing_page_id?: string;
+          pinned?: boolean;
+          poster_id?: string;
+          sort_order?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "landing_page_posters_landing_page_id_fkey"
-            columns: ["landing_page_id"]
-            isOneToOne: false
-            referencedRelation: "landing_pages"
-            referencedColumns: ["id"]
+            foreignKeyName: "landing_page_posters_landing_page_id_fkey";
+            columns: ["landing_page_id"];
+            isOneToOne: false;
+            referencedRelation: "landing_pages";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "landing_page_posters_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "landing_page_posters_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       landing_pages: {
         Row: {
-          audience_key: string
-          created_at: string
-          cta_text: string | null
-          display_mode: string
-          hero_image: string | null
-          id: string
-          meta_description: string | null
-          poster_limit: number
-          seo_title: string | null
-          source_category_id: string | null
-          subtitle_ar: string | null
-          subtitle_en: string | null
-          title_ar: string | null
-          title_en: string | null
-          updated_at: string
-          visible: boolean
-          whatsapp_message: string | null
-        }
+          audience_key: string;
+          created_at: string;
+          cta_text: string | null;
+          display_mode: string;
+          hero_image: string | null;
+          id: string;
+          meta_description: string | null;
+          poster_limit: number;
+          seo_title: string | null;
+          source_category_id: string | null;
+          subtitle_ar: string | null;
+          subtitle_en: string | null;
+          title_ar: string | null;
+          title_en: string | null;
+          updated_at: string;
+          visible: boolean;
+          whatsapp_message: string | null;
+        };
         Insert: {
-          audience_key: string
-          created_at?: string
-          cta_text?: string | null
-          display_mode?: string
-          hero_image?: string | null
-          id?: string
-          meta_description?: string | null
-          poster_limit?: number
-          seo_title?: string | null
-          source_category_id?: string | null
-          subtitle_ar?: string | null
-          subtitle_en?: string | null
-          title_ar?: string | null
-          title_en?: string | null
-          updated_at?: string
-          visible?: boolean
-          whatsapp_message?: string | null
-        }
+          audience_key: string;
+          created_at?: string;
+          cta_text?: string | null;
+          display_mode?: string;
+          hero_image?: string | null;
+          id?: string;
+          meta_description?: string | null;
+          poster_limit?: number;
+          seo_title?: string | null;
+          source_category_id?: string | null;
+          subtitle_ar?: string | null;
+          subtitle_en?: string | null;
+          title_ar?: string | null;
+          title_en?: string | null;
+          updated_at?: string;
+          visible?: boolean;
+          whatsapp_message?: string | null;
+        };
         Update: {
-          audience_key?: string
-          created_at?: string
-          cta_text?: string | null
-          display_mode?: string
-          hero_image?: string | null
-          id?: string
-          meta_description?: string | null
-          poster_limit?: number
-          seo_title?: string | null
-          source_category_id?: string | null
-          subtitle_ar?: string | null
-          subtitle_en?: string | null
-          title_ar?: string | null
-          title_en?: string | null
-          updated_at?: string
-          visible?: boolean
-          whatsapp_message?: string | null
-        }
+          audience_key?: string;
+          created_at?: string;
+          cta_text?: string | null;
+          display_mode?: string;
+          hero_image?: string | null;
+          id?: string;
+          meta_description?: string | null;
+          poster_limit?: number;
+          seo_title?: string | null;
+          source_category_id?: string | null;
+          subtitle_ar?: string | null;
+          subtitle_en?: string | null;
+          title_ar?: string | null;
+          title_en?: string | null;
+          updated_at?: string;
+          visible?: boolean;
+          whatsapp_message?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "landing_pages_source_category_id_fkey"
-            columns: ["source_category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "landing_pages_source_category_id_fkey";
+            columns: ["source_category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       marketing_secrets: {
         Row: {
-          firebase_service_account: Json | null
-          id: number
-          meta_capi_access_token: string | null
-          updated_at: string
-        }
+          firebase_service_account: Json | null;
+          id: number;
+          meta_capi_access_token: string | null;
+          updated_at: string;
+        };
         Insert: {
-          firebase_service_account?: Json | null
-          id?: number
-          meta_capi_access_token?: string | null
-          updated_at?: string
-        }
+          firebase_service_account?: Json | null;
+          id?: number;
+          meta_capi_access_token?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          firebase_service_account?: Json | null
-          id?: number
-          meta_capi_access_token?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          firebase_service_account?: Json | null;
+          id?: number;
+          meta_capi_access_token?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notification_logs: {
         Row: {
-          body: string | null
-          created_at: string
-          error: string | null
-          failed_count: number
-          id: string
-          payload: Json | null
-          sent_count: number
-          status: string | null
-          title: string | null
-        }
+          body: string | null;
+          created_at: string;
+          error: string | null;
+          failed_count: number;
+          id: string;
+          payload: Json | null;
+          sent_count: number;
+          status: string | null;
+          title: string | null;
+        };
         Insert: {
-          body?: string | null
-          created_at?: string
-          error?: string | null
-          failed_count?: number
-          id?: string
-          payload?: Json | null
-          sent_count?: number
-          status?: string | null
-          title?: string | null
-        }
+          body?: string | null;
+          created_at?: string;
+          error?: string | null;
+          failed_count?: number;
+          id?: string;
+          payload?: Json | null;
+          sent_count?: number;
+          status?: string | null;
+          title?: string | null;
+        };
         Update: {
-          body?: string | null
-          created_at?: string
-          error?: string | null
-          failed_count?: number
-          id?: string
-          payload?: Json | null
-          sent_count?: number
-          status?: string | null
-          title?: string | null
-        }
-        Relationships: []
-      }
+          body?: string | null;
+          created_at?: string;
+          error?: string | null;
+          failed_count?: number;
+          id?: string;
+          payload?: Json | null;
+          sent_count?: number;
+          status?: string | null;
+          title?: string | null;
+        };
+        Relationships: [];
+      };
       order_notes: {
         Row: {
-          author: string | null
-          created_at: string
-          id: string
-          order_id: string
-          pinned: boolean
-          text: string
-          updated_at: string
-        }
+          author: string | null;
+          created_at: string;
+          id: string;
+          order_id: string;
+          pinned: boolean;
+          text: string;
+          updated_at: string;
+        };
         Insert: {
-          author?: string | null
-          created_at?: string
-          id?: string
-          order_id: string
-          pinned?: boolean
-          text: string
-          updated_at?: string
-        }
+          author?: string | null;
+          created_at?: string;
+          id?: string;
+          order_id: string;
+          pinned?: boolean;
+          text: string;
+          updated_at?: string;
+        };
         Update: {
-          author?: string | null
-          created_at?: string
-          id?: string
-          order_id?: string
-          pinned?: boolean
-          text?: string
-          updated_at?: string
-        }
+          author?: string | null;
+          created_at?: string;
+          id?: string;
+          order_id?: string;
+          pinned?: boolean;
+          text?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "order_notes_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
+            foreignKeyName: "order_notes_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "order_notes_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "real_orders"
-            referencedColumns: ["id"]
+            foreignKeyName: "order_notes_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "real_orders";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       order_timeline: {
         Row: {
-          actor: string | null
-          created_at: string
-          id: string
-          meta: Json | null
-          note: string | null
-          order_id: string
-          stage: string
-          status: string
-        }
+          actor: string | null;
+          created_at: string;
+          id: string;
+          meta: Json | null;
+          note: string | null;
+          order_id: string;
+          stage: string;
+          status: string;
+        };
         Insert: {
-          actor?: string | null
-          created_at?: string
-          id?: string
-          meta?: Json | null
-          note?: string | null
-          order_id: string
-          stage: string
-          status?: string
-        }
+          actor?: string | null;
+          created_at?: string;
+          id?: string;
+          meta?: Json | null;
+          note?: string | null;
+          order_id: string;
+          stage: string;
+          status?: string;
+        };
         Update: {
-          actor?: string | null
-          created_at?: string
-          id?: string
-          meta?: Json | null
-          note?: string | null
-          order_id?: string
-          stage?: string
-          status?: string
-        }
+          actor?: string | null;
+          created_at?: string;
+          id?: string;
+          meta?: Json | null;
+          note?: string | null;
+          order_id?: string;
+          stage?: string;
+          status?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "order_timeline_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
+            foreignKeyName: "order_timeline_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "order_timeline_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "real_orders"
-            referencedColumns: ["id"]
+            foreignKeyName: "order_timeline_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "real_orders";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       orders: {
         Row: {
-          address: string
-          created_at: string
-          customer_name: string
-          frame_color: string
-          frame_type: string
-          governorate: string
-          guest_session_id: string | null
-          id: string
-          is_test: boolean
-          notes: string | null
-          order_number: string | null
-          packaging_fee: number
-          payment_method: string
-          payment_notes: string | null
-          payment_reference: string | null
-          payment_screenshot: string | null
-          payment_status: string
-          payment_verified_at: string | null
-          phone: string
-          poster_image: string | null
-          poster_title: string | null
-          quantity: number
-          selected_poster: string | null
-          shipping_cost: number
-          size: string
-          status: string
-          subtotal: number | null
-          total_price: number
-          user_id: string | null
-        }
+          address: string;
+          created_at: string;
+          customer_name: string;
+          frame_color: string;
+          frame_type: string;
+          governorate: string;
+          guest_session_id: string | null;
+          id: string;
+          is_test: boolean;
+          notes: string | null;
+          order_number: string | null;
+          packaging_fee: number;
+          payment_method: string;
+          payment_notes: string | null;
+          payment_reference: string | null;
+          payment_screenshot: string | null;
+          payment_status: string;
+          payment_verified_at: string | null;
+          phone: string;
+          poster_image: string | null;
+          poster_title: string | null;
+          quantity: number;
+          selected_poster: string | null;
+          shipping_cost: number;
+          size: string;
+          status: string;
+          subtotal: number | null;
+          total_price: number;
+          user_id: string | null;
+        };
         Insert: {
-          address: string
-          created_at?: string
-          customer_name: string
-          frame_color: string
-          frame_type: string
-          governorate: string
-          guest_session_id?: string | null
-          id?: string
-          is_test?: boolean
-          notes?: string | null
-          order_number?: string | null
-          packaging_fee?: number
-          payment_method?: string
-          payment_notes?: string | null
-          payment_reference?: string | null
-          payment_screenshot?: string | null
-          payment_status?: string
-          payment_verified_at?: string | null
-          phone: string
-          poster_image?: string | null
-          poster_title?: string | null
-          quantity?: number
-          selected_poster?: string | null
-          shipping_cost?: number
-          size: string
-          status?: string
-          subtotal?: number | null
-          total_price: number
-          user_id?: string | null
-        }
+          address: string;
+          created_at?: string;
+          customer_name: string;
+          frame_color: string;
+          frame_type: string;
+          governorate: string;
+          guest_session_id?: string | null;
+          id?: string;
+          is_test?: boolean;
+          notes?: string | null;
+          order_number?: string | null;
+          packaging_fee?: number;
+          payment_method?: string;
+          payment_notes?: string | null;
+          payment_reference?: string | null;
+          payment_screenshot?: string | null;
+          payment_status?: string;
+          payment_verified_at?: string | null;
+          phone: string;
+          poster_image?: string | null;
+          poster_title?: string | null;
+          quantity?: number;
+          selected_poster?: string | null;
+          shipping_cost?: number;
+          size: string;
+          status?: string;
+          subtotal?: number | null;
+          total_price: number;
+          user_id?: string | null;
+        };
         Update: {
-          address?: string
-          created_at?: string
-          customer_name?: string
-          frame_color?: string
-          frame_type?: string
-          governorate?: string
-          guest_session_id?: string | null
-          id?: string
-          is_test?: boolean
-          notes?: string | null
-          order_number?: string | null
-          packaging_fee?: number
-          payment_method?: string
-          payment_notes?: string | null
-          payment_reference?: string | null
-          payment_screenshot?: string | null
-          payment_status?: string
-          payment_verified_at?: string | null
-          phone?: string
-          poster_image?: string | null
-          poster_title?: string | null
-          quantity?: number
-          selected_poster?: string | null
-          shipping_cost?: number
-          size?: string
-          status?: string
-          subtotal?: number | null
-          total_price?: number
-          user_id?: string | null
-        }
+          address?: string;
+          created_at?: string;
+          customer_name?: string;
+          frame_color?: string;
+          frame_type?: string;
+          governorate?: string;
+          guest_session_id?: string | null;
+          id?: string;
+          is_test?: boolean;
+          notes?: string | null;
+          order_number?: string | null;
+          packaging_fee?: number;
+          payment_method?: string;
+          payment_notes?: string | null;
+          payment_reference?: string | null;
+          payment_screenshot?: string | null;
+          payment_status?: string;
+          payment_verified_at?: string | null;
+          phone?: string;
+          poster_image?: string | null;
+          poster_title?: string | null;
+          quantity?: number;
+          selected_poster?: string | null;
+          shipping_cost?: number;
+          size?: string;
+          status?: string;
+          subtotal?: number | null;
+          total_price?: number;
+          user_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "orders_selected_poster_fkey"
-            columns: ["selected_poster"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "orders_selected_poster_fkey";
+            columns: ["selected_poster"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       perf_metrics: {
         Row: {
-          created_at: string
-          id: string
-          metadata: Json
-          metric: string
-          page_path: string
-          session_id: string | null
-          user_agent: string | null
-          value_ms: number
-        }
+          created_at: string;
+          id: string;
+          metadata: Json;
+          metric: string;
+          page_path: string;
+          session_id: string | null;
+          user_agent: string | null;
+          value_ms: number;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          metadata?: Json
-          metric: string
-          page_path: string
-          session_id?: string | null
-          user_agent?: string | null
-          value_ms: number
-        }
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          metric: string;
+          page_path: string;
+          session_id?: string | null;
+          user_agent?: string | null;
+          value_ms: number;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          metadata?: Json
-          metric?: string
-          page_path?: string
-          session_id?: string | null
-          user_agent?: string | null
-          value_ms?: number
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          metric?: string;
+          page_path?: string;
+          session_id?: string | null;
+          user_agent?: string | null;
+          value_ms?: number;
+        };
+        Relationships: [];
+      };
       photo_4x6_orders: {
         Row: {
-          address: string | null
-          created_at: string
-          customer_name: string
-          enhanced_paths: string[]
-          governorate: string | null
-          id: string
-          notes: string | null
-          order_number: string | null
-          original_paths: string[]
-          package_key: string
-          phone: string
-          photo_count: number
-          selected_versions: Json
-          status: string
-          suit_paths: string[]
-          total_price: number
-          updated_at: string
-        }
+          address: string | null;
+          created_at: string;
+          customer_name: string;
+          enhanced_paths: string[];
+          governorate: string | null;
+          id: string;
+          notes: string | null;
+          order_number: string | null;
+          original_paths: string[];
+          package_key: string;
+          phone: string;
+          photo_count: number;
+          selected_versions: Json;
+          status: string;
+          suit_paths: string[];
+          total_price: number;
+          updated_at: string;
+        };
         Insert: {
-          address?: string | null
-          created_at?: string
-          customer_name: string
-          enhanced_paths?: string[]
-          governorate?: string | null
-          id?: string
-          notes?: string | null
-          order_number?: string | null
-          original_paths?: string[]
-          package_key: string
-          phone: string
-          photo_count?: number
-          selected_versions?: Json
-          status?: string
-          suit_paths?: string[]
-          total_price?: number
-          updated_at?: string
-        }
+          address?: string | null;
+          created_at?: string;
+          customer_name: string;
+          enhanced_paths?: string[];
+          governorate?: string | null;
+          id?: string;
+          notes?: string | null;
+          order_number?: string | null;
+          original_paths?: string[];
+          package_key: string;
+          phone: string;
+          photo_count?: number;
+          selected_versions?: Json;
+          status?: string;
+          suit_paths?: string[];
+          total_price?: number;
+          updated_at?: string;
+        };
         Update: {
-          address?: string | null
-          created_at?: string
-          customer_name?: string
-          enhanced_paths?: string[]
-          governorate?: string | null
-          id?: string
-          notes?: string | null
-          order_number?: string | null
-          original_paths?: string[]
-          package_key?: string
-          phone?: string
-          photo_count?: number
-          selected_versions?: Json
-          status?: string
-          suit_paths?: string[]
-          total_price?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          address?: string | null;
+          created_at?: string;
+          customer_name?: string;
+          enhanced_paths?: string[];
+          governorate?: string | null;
+          id?: string;
+          notes?: string | null;
+          order_number?: string | null;
+          original_paths?: string[];
+          package_key?: string;
+          phone?: string;
+          photo_count?: number;
+          selected_versions?: Json;
+          status?: string;
+          suit_paths?: string[];
+          total_price?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       photo_orders: {
         Row: {
-          address: string
-          created_at: string
-          customer_name: string
-          governorate: string
-          id: string
-          order_number: string | null
-          phone: string
-          photo_urls: Json
-          quantity: number
-          shipping_cost: number
-          size: string
-          status: string
-          total_price: number
-          unit_price: number
-          updated_at: string
-        }
+          address: string;
+          created_at: string;
+          customer_name: string;
+          governorate: string;
+          id: string;
+          order_number: string | null;
+          phone: string;
+          photo_urls: Json;
+          quantity: number;
+          shipping_cost: number;
+          size: string;
+          status: string;
+          total_price: number;
+          unit_price: number;
+          updated_at: string;
+        };
         Insert: {
-          address: string
-          created_at?: string
-          customer_name: string
-          governorate: string
-          id?: string
-          order_number?: string | null
-          phone: string
-          photo_urls?: Json
-          quantity: number
-          shipping_cost?: number
-          size: string
-          status?: string
-          total_price: number
-          unit_price: number
-          updated_at?: string
-        }
+          address: string;
+          created_at?: string;
+          customer_name: string;
+          governorate: string;
+          id?: string;
+          order_number?: string | null;
+          phone: string;
+          photo_urls?: Json;
+          quantity: number;
+          shipping_cost?: number;
+          size: string;
+          status?: string;
+          total_price: number;
+          unit_price: number;
+          updated_at?: string;
+        };
         Update: {
-          address?: string
-          created_at?: string
-          customer_name?: string
-          governorate?: string
-          id?: string
-          order_number?: string | null
-          phone?: string
-          photo_urls?: Json
-          quantity?: number
-          shipping_cost?: number
-          size?: string
-          status?: string
-          total_price?: number
-          unit_price?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          address?: string;
+          created_at?: string;
+          customer_name?: string;
+          governorate?: string;
+          id?: string;
+          order_number?: string | null;
+          phone?: string;
+          photo_urls?: Json;
+          quantity?: number;
+          shipping_cost?: number;
+          size?: string;
+          status?: string;
+          total_price?: number;
+          unit_price?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       poster_images: {
         Row: {
-          created_at: string
-          id: string
-          image_url: string
-          is_default: boolean
-          kind: string | null
-          label: string | null
-          poster_id: string
-          sort_order: number
-        }
+          created_at: string;
+          id: string;
+          image_url: string;
+          is_default: boolean;
+          kind: string | null;
+          label: string | null;
+          poster_id: string;
+          sort_order: number;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          image_url: string
-          is_default?: boolean
-          kind?: string | null
-          label?: string | null
-          poster_id: string
-          sort_order?: number
-        }
+          created_at?: string;
+          id?: string;
+          image_url: string;
+          is_default?: boolean;
+          kind?: string | null;
+          label?: string | null;
+          poster_id: string;
+          sort_order?: number;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          image_url?: string
-          is_default?: boolean
-          kind?: string | null
-          label?: string | null
-          poster_id?: string
-          sort_order?: number
-        }
+          created_at?: string;
+          id?: string;
+          image_url?: string;
+          is_default?: boolean;
+          kind?: string | null;
+          label?: string | null;
+          poster_id?: string;
+          sort_order?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "poster_images_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "poster_images_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       posters: {
         Row: {
-          ai_confidence: number | null
-          alt_text: string | null
-          badge: string | null
-          cart_adds_count: number
-          category_id: string | null
-          colors: string[] | null
-          created_at: string
-          description: string | null
-          edit_settings: Json
-          featured: boolean
-          hashtags: string[] | null
-          hidden: boolean
-          id: string
-          image_url: string
-          is_best_seller: boolean
-          last_viewed_at: string | null
-          orientation: string | null
-          original_url: string | null
-          pinned: boolean
-          price: number | null
-          review_status: string
-          sales_count: number
-          seo_description: string | null
-          seo_title: string | null
-          slug: string | null
-          sort_order: number
-          tags: string[]
-          title: string
-          total_view_seconds: number
-          trending: boolean
-          trending_order: number | null
-          unique_views_count: number
-          updated_at: string
-          views_count: number
-        }
+          ai_confidence: number | null;
+          alt_text: string | null;
+          badge: string | null;
+          cart_adds_count: number;
+          category_id: string | null;
+          colors: string[] | null;
+          created_at: string;
+          description: string | null;
+          edit_settings: Json;
+          featured: boolean;
+          hashtags: string[] | null;
+          hidden: boolean;
+          id: string;
+          image_url: string;
+          is_best_seller: boolean;
+          last_viewed_at: string | null;
+          orientation: string | null;
+          original_url: string | null;
+          pinned: boolean;
+          price: number | null;
+          review_status: string;
+          sales_count: number;
+          seo_description: string | null;
+          seo_title: string | null;
+          slug: string | null;
+          sort_order: number;
+          tags: string[];
+          title: string;
+          total_view_seconds: number;
+          trending: boolean;
+          trending_order: number | null;
+          unique_views_count: number;
+          updated_at: string;
+          views_count: number;
+        };
         Insert: {
-          ai_confidence?: number | null
-          alt_text?: string | null
-          badge?: string | null
-          cart_adds_count?: number
-          category_id?: string | null
-          colors?: string[] | null
-          created_at?: string
-          description?: string | null
-          edit_settings?: Json
-          featured?: boolean
-          hashtags?: string[] | null
-          hidden?: boolean
-          id?: string
-          image_url: string
-          is_best_seller?: boolean
-          last_viewed_at?: string | null
-          orientation?: string | null
-          original_url?: string | null
-          pinned?: boolean
-          price?: number | null
-          review_status?: string
-          sales_count?: number
-          seo_description?: string | null
-          seo_title?: string | null
-          slug?: string | null
-          sort_order?: number
-          tags?: string[]
-          title?: string
-          total_view_seconds?: number
-          trending?: boolean
-          trending_order?: number | null
-          unique_views_count?: number
-          updated_at?: string
-          views_count?: number
-        }
+          ai_confidence?: number | null;
+          alt_text?: string | null;
+          badge?: string | null;
+          cart_adds_count?: number;
+          category_id?: string | null;
+          colors?: string[] | null;
+          created_at?: string;
+          description?: string | null;
+          edit_settings?: Json;
+          featured?: boolean;
+          hashtags?: string[] | null;
+          hidden?: boolean;
+          id?: string;
+          image_url: string;
+          is_best_seller?: boolean;
+          last_viewed_at?: string | null;
+          orientation?: string | null;
+          original_url?: string | null;
+          pinned?: boolean;
+          price?: number | null;
+          review_status?: string;
+          sales_count?: number;
+          seo_description?: string | null;
+          seo_title?: string | null;
+          slug?: string | null;
+          sort_order?: number;
+          tags?: string[];
+          title?: string;
+          total_view_seconds?: number;
+          trending?: boolean;
+          trending_order?: number | null;
+          unique_views_count?: number;
+          updated_at?: string;
+          views_count?: number;
+        };
         Update: {
-          ai_confidence?: number | null
-          alt_text?: string | null
-          badge?: string | null
-          cart_adds_count?: number
-          category_id?: string | null
-          colors?: string[] | null
-          created_at?: string
-          description?: string | null
-          edit_settings?: Json
-          featured?: boolean
-          hashtags?: string[] | null
-          hidden?: boolean
-          id?: string
-          image_url?: string
-          is_best_seller?: boolean
-          last_viewed_at?: string | null
-          orientation?: string | null
-          original_url?: string | null
-          pinned?: boolean
-          price?: number | null
-          review_status?: string
-          sales_count?: number
-          seo_description?: string | null
-          seo_title?: string | null
-          slug?: string | null
-          sort_order?: number
-          tags?: string[]
-          title?: string
-          total_view_seconds?: number
-          trending?: boolean
-          trending_order?: number | null
-          unique_views_count?: number
-          updated_at?: string
-          views_count?: number
-        }
+          ai_confidence?: number | null;
+          alt_text?: string | null;
+          badge?: string | null;
+          cart_adds_count?: number;
+          category_id?: string | null;
+          colors?: string[] | null;
+          created_at?: string;
+          description?: string | null;
+          edit_settings?: Json;
+          featured?: boolean;
+          hashtags?: string[] | null;
+          hidden?: boolean;
+          id?: string;
+          image_url?: string;
+          is_best_seller?: boolean;
+          last_viewed_at?: string | null;
+          orientation?: string | null;
+          original_url?: string | null;
+          pinned?: boolean;
+          price?: number | null;
+          review_status?: string;
+          sales_count?: number;
+          seo_description?: string | null;
+          seo_title?: string | null;
+          slug?: string | null;
+          sort_order?: number;
+          tags?: string[];
+          title?: string;
+          total_view_seconds?: number;
+          trending?: boolean;
+          trending_order?: number | null;
+          unique_views_count?: number;
+          updated_at?: string;
+          views_count?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "posters_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "posters_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       recently_viewed: {
         Row: {
-          poster_id: string
-          user_id: string
-          viewed_at: string
-        }
+          poster_id: string;
+          user_id: string;
+          viewed_at: string;
+        };
         Insert: {
-          poster_id: string
-          user_id: string
-          viewed_at?: string
-        }
+          poster_id: string;
+          user_id: string;
+          viewed_at?: string;
+        };
         Update: {
-          poster_id?: string
-          user_id?: string
-          viewed_at?: string
-        }
+          poster_id?: string;
+          user_id?: string;
+          viewed_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "recently_viewed_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "recently_viewed_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       reviews: {
         Row: {
-          approved: boolean
-          created_at: string
-          customer_name: string
-          featured: boolean
-          governorate: string | null
-          id: string
-          photo_url: string | null
-          poster_id: string | null
-          rating: number
-          review_text: string | null
-          sort_order: number
-          updated_at: string
-        }
+          approved: boolean;
+          created_at: string;
+          customer_name: string;
+          featured: boolean;
+          governorate: string | null;
+          id: string;
+          photo_url: string | null;
+          poster_id: string | null;
+          rating: number;
+          review_text: string | null;
+          sort_order: number;
+          updated_at: string;
+        };
         Insert: {
-          approved?: boolean
-          created_at?: string
-          customer_name: string
-          featured?: boolean
-          governorate?: string | null
-          id?: string
-          photo_url?: string | null
-          poster_id?: string | null
-          rating: number
-          review_text?: string | null
-          sort_order?: number
-          updated_at?: string
-        }
+          approved?: boolean;
+          created_at?: string;
+          customer_name: string;
+          featured?: boolean;
+          governorate?: string | null;
+          id?: string;
+          photo_url?: string | null;
+          poster_id?: string | null;
+          rating: number;
+          review_text?: string | null;
+          sort_order?: number;
+          updated_at?: string;
+        };
         Update: {
-          approved?: boolean
-          created_at?: string
-          customer_name?: string
-          featured?: boolean
-          governorate?: string | null
-          id?: string
-          photo_url?: string | null
-          poster_id?: string | null
-          rating?: number
-          review_text?: string | null
-          sort_order?: number
-          updated_at?: string
-        }
+          approved?: boolean;
+          created_at?: string;
+          customer_name?: string;
+          featured?: boolean;
+          governorate?: string | null;
+          id?: string;
+          photo_url?: string | null;
+          poster_id?: string | null;
+          rating?: number;
+          review_text?: string | null;
+          sort_order?: number;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "reviews_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "reviews_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       search_queries: {
         Row: {
-          created_at: string
-          id: string
-          query: string
-          results_count: number
-          visitor_id: string | null
-        }
+          created_at: string;
+          id: string;
+          query: string;
+          results_count: number;
+          visitor_id: string | null;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          query: string
-          results_count?: number
-          visitor_id?: string | null
-        }
+          created_at?: string;
+          id?: string;
+          query: string;
+          results_count?: number;
+          visitor_id?: string | null;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          query?: string
-          results_count?: number
-          visitor_id?: string | null
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          id?: string;
+          query?: string;
+          results_count?: number;
+          visitor_id?: string | null;
+        };
+        Relationships: [];
+      };
       sets: {
         Row: {
-          created_at: string
-          description: string | null
-          enabled: boolean
-          featured: boolean
-          frames_count: number
-          id: string
-          image_url: string | null
-          name: string
-          old_price: number | null
-          price: number
-          sort_order: number
-          updated_at: string
-        }
+          created_at: string;
+          description: string | null;
+          enabled: boolean;
+          featured: boolean;
+          frames_count: number;
+          id: string;
+          image_url: string | null;
+          name: string;
+          old_price: number | null;
+          price: number;
+          sort_order: number;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          description?: string | null
-          enabled?: boolean
-          featured?: boolean
-          frames_count?: number
-          id?: string
-          image_url?: string | null
-          name: string
-          old_price?: number | null
-          price?: number
-          sort_order?: number
-          updated_at?: string
-        }
+          created_at?: string;
+          description?: string | null;
+          enabled?: boolean;
+          featured?: boolean;
+          frames_count?: number;
+          id?: string;
+          image_url?: string | null;
+          name: string;
+          old_price?: number | null;
+          price?: number;
+          sort_order?: number;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          description?: string | null
-          enabled?: boolean
-          featured?: boolean
-          frames_count?: number
-          id?: string
-          image_url?: string | null
-          name?: string
-          old_price?: number | null
-          price?: number
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          description?: string | null;
+          enabled?: boolean;
+          featured?: boolean;
+          frames_count?: number;
+          id?: string;
+          image_url?: string | null;
+          name?: string;
+          old_price?: number | null;
+          price?: number;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       site_settings: {
         Row: {
-          key: string
-          updated_at: string
-          value: Json
-        }
+          key: string;
+          updated_at: string;
+          value: Json;
+        };
         Insert: {
-          key: string
-          updated_at?: string
-          value: Json
-        }
+          key: string;
+          updated_at?: string;
+          value: Json;
+        };
         Update: {
-          key?: string
-          updated_at?: string
-          value?: Json
-        }
-        Relationships: []
-      }
+          key?: string;
+          updated_at?: string;
+          value?: Json;
+        };
+        Relationships: [];
+      };
       slider_images: {
         Row: {
-          created_at: string
-          enabled: boolean
-          id: string
-          image_url: string
-          link_url: string | null
-          sort_order: number
-          title: string | null
-        }
+          created_at: string;
+          enabled: boolean;
+          id: string;
+          image_url: string;
+          link_url: string | null;
+          sort_order: number;
+          title: string | null;
+        };
         Insert: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url: string
-          link_url?: string | null
-          sort_order?: number
-          title?: string | null
-        }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url: string;
+          link_url?: string | null;
+          sort_order?: number;
+          title?: string | null;
+        };
         Update: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          image_url?: string
-          link_url?: string | null
-          sort_order?: number
-          title?: string | null
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          image_url?: string;
+          link_url?: string | null;
+          sort_order?: number;
+          title?: string | null;
+        };
+        Relationships: [];
+      };
       system_logs: {
         Row: {
-          category: string | null
-          created_at: string
-          id: string
-          level: string
-          message: string
-          metadata: Json
-          source: string
-          stack: string | null
-          status: string
-          url: string | null
-          user_agent: string | null
-          visitor_id: string | null
-        }
+          category: string | null;
+          created_at: string;
+          id: string;
+          level: string;
+          message: string;
+          metadata: Json;
+          source: string;
+          stack: string | null;
+          status: string;
+          url: string | null;
+          user_agent: string | null;
+          visitor_id: string | null;
+        };
         Insert: {
-          category?: string | null
-          created_at?: string
-          id?: string
-          level?: string
-          message: string
-          metadata?: Json
-          source?: string
-          stack?: string | null
-          status?: string
-          url?: string | null
-          user_agent?: string | null
-          visitor_id?: string | null
-        }
+          category?: string | null;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          message: string;
+          metadata?: Json;
+          source?: string;
+          stack?: string | null;
+          status?: string;
+          url?: string | null;
+          user_agent?: string | null;
+          visitor_id?: string | null;
+        };
         Update: {
-          category?: string | null
-          created_at?: string
-          id?: string
-          level?: string
-          message?: string
-          metadata?: Json
-          source?: string
-          stack?: string | null
-          status?: string
-          url?: string | null
-          user_agent?: string | null
-          visitor_id?: string | null
-        }
-        Relationships: []
-      }
+          category?: string | null;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          message?: string;
+          metadata?: Json;
+          source?: string;
+          stack?: string | null;
+          status?: string;
+          url?: string | null;
+          user_agent?: string | null;
+          visitor_id?: string | null;
+        };
+        Relationships: [];
+      };
       user_roles: {
         Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          id?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       visitor_cart_events: {
         Row: {
-          created_at: string
-          event: string
-          frame_type: string | null
-          id: string
-          poster_id: string | null
-          qty: number | null
-          size: string | null
-          visitor_id: string
-        }
+          created_at: string;
+          event: string;
+          frame_type: string | null;
+          id: string;
+          poster_id: string | null;
+          qty: number | null;
+          size: string | null;
+          visitor_id: string;
+        };
         Insert: {
-          created_at?: string
-          event: string
-          frame_type?: string | null
-          id?: string
-          poster_id?: string | null
-          qty?: number | null
-          size?: string | null
-          visitor_id: string
-        }
+          created_at?: string;
+          event: string;
+          frame_type?: string | null;
+          id?: string;
+          poster_id?: string | null;
+          qty?: number | null;
+          size?: string | null;
+          visitor_id: string;
+        };
         Update: {
-          created_at?: string
-          event?: string
-          frame_type?: string | null
-          id?: string
-          poster_id?: string | null
-          qty?: number | null
-          size?: string | null
-          visitor_id?: string
-        }
+          created_at?: string;
+          event?: string;
+          frame_type?: string | null;
+          id?: string;
+          poster_id?: string | null;
+          qty?: number | null;
+          size?: string | null;
+          visitor_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "visitor_cart_events_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "visitor_cart_events_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       visitor_profiles: {
         Row: {
-          city: string | null
-          country: string | null
-          device: string | null
-          first_seen: string
-          governorate: string | null
-          interests: Json
-          last_seen: string
-          phone: string | null
-          updated_at: string
-          visitor_id: string
-          visits_count: number
-        }
+          city: string | null;
+          country: string | null;
+          device: string | null;
+          first_seen: string;
+          governorate: string | null;
+          interests: Json;
+          last_seen: string;
+          phone: string | null;
+          updated_at: string;
+          visitor_id: string;
+          visits_count: number;
+        };
         Insert: {
-          city?: string | null
-          country?: string | null
-          device?: string | null
-          first_seen?: string
-          governorate?: string | null
-          interests?: Json
-          last_seen?: string
-          phone?: string | null
-          updated_at?: string
-          visitor_id: string
-          visits_count?: number
-        }
+          city?: string | null;
+          country?: string | null;
+          device?: string | null;
+          first_seen?: string;
+          governorate?: string | null;
+          interests?: Json;
+          last_seen?: string;
+          phone?: string | null;
+          updated_at?: string;
+          visitor_id: string;
+          visits_count?: number;
+        };
         Update: {
-          city?: string | null
-          country?: string | null
-          device?: string | null
-          first_seen?: string
-          governorate?: string | null
-          interests?: Json
-          last_seen?: string
-          phone?: string | null
-          updated_at?: string
-          visitor_id?: string
-          visits_count?: number
-        }
-        Relationships: []
-      }
+          city?: string | null;
+          country?: string | null;
+          device?: string | null;
+          first_seen?: string;
+          governorate?: string | null;
+          interests?: Json;
+          last_seen?: string;
+          phone?: string | null;
+          updated_at?: string;
+          visitor_id?: string;
+          visits_count?: number;
+        };
+        Relationships: [];
+      };
       wishlists: {
         Row: {
-          created_at: string
-          id: string
-          poster_id: string
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          poster_id: string;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          poster_id: string
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          poster_id: string;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          poster_id?: string
-          user_id?: string
-        }
+          created_at?: string;
+          id?: string;
+          poster_id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "wishlists_poster_id_fkey"
-            columns: ["poster_id"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "wishlists_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
-    }
+        ];
+      };
+    };
     Views: {
       real_orders: {
         Row: {
-          address: string | null
-          created_at: string | null
-          customer_name: string | null
-          frame_color: string | null
-          frame_type: string | null
-          governorate: string | null
-          id: string | null
-          is_test: boolean | null
-          notes: string | null
-          order_number: string | null
-          packaging_fee: number | null
-          payment_method: string | null
-          payment_notes: string | null
-          payment_reference: string | null
-          payment_screenshot: string | null
-          payment_status: string | null
-          payment_verified_at: string | null
-          phone: string | null
-          poster_image: string | null
-          poster_title: string | null
-          quantity: number | null
-          selected_poster: string | null
-          shipping_cost: number | null
-          size: string | null
-          status: string | null
-          subtotal: number | null
-          total_price: number | null
-        }
+          address: string | null;
+          created_at: string | null;
+          customer_name: string | null;
+          frame_color: string | null;
+          frame_type: string | null;
+          governorate: string | null;
+          id: string | null;
+          is_test: boolean | null;
+          notes: string | null;
+          order_number: string | null;
+          packaging_fee: number | null;
+          payment_method: string | null;
+          payment_notes: string | null;
+          payment_reference: string | null;
+          payment_screenshot: string | null;
+          payment_status: string | null;
+          payment_verified_at: string | null;
+          phone: string | null;
+          poster_image: string | null;
+          poster_title: string | null;
+          quantity: number | null;
+          selected_poster: string | null;
+          shipping_cost: number | null;
+          size: string | null;
+          status: string | null;
+          subtotal: number | null;
+          total_price: number | null;
+        };
         Insert: {
-          address?: string | null
-          created_at?: string | null
-          customer_name?: string | null
-          frame_color?: string | null
-          frame_type?: string | null
-          governorate?: string | null
-          id?: string | null
-          is_test?: boolean | null
-          notes?: string | null
-          order_number?: string | null
-          packaging_fee?: number | null
-          payment_method?: string | null
-          payment_notes?: string | null
-          payment_reference?: string | null
-          payment_screenshot?: string | null
-          payment_status?: string | null
-          payment_verified_at?: string | null
-          phone?: string | null
-          poster_image?: string | null
-          poster_title?: string | null
-          quantity?: number | null
-          selected_poster?: string | null
-          shipping_cost?: number | null
-          size?: string | null
-          status?: string | null
-          subtotal?: number | null
-          total_price?: number | null
-        }
+          address?: string | null;
+          created_at?: string | null;
+          customer_name?: string | null;
+          frame_color?: string | null;
+          frame_type?: string | null;
+          governorate?: string | null;
+          id?: string | null;
+          is_test?: boolean | null;
+          notes?: string | null;
+          order_number?: string | null;
+          packaging_fee?: number | null;
+          payment_method?: string | null;
+          payment_notes?: string | null;
+          payment_reference?: string | null;
+          payment_screenshot?: string | null;
+          payment_status?: string | null;
+          payment_verified_at?: string | null;
+          phone?: string | null;
+          poster_image?: string | null;
+          poster_title?: string | null;
+          quantity?: number | null;
+          selected_poster?: string | null;
+          shipping_cost?: number | null;
+          size?: string | null;
+          status?: string | null;
+          subtotal?: number | null;
+          total_price?: number | null;
+        };
         Update: {
-          address?: string | null
-          created_at?: string | null
-          customer_name?: string | null
-          frame_color?: string | null
-          frame_type?: string | null
-          governorate?: string | null
-          id?: string | null
-          is_test?: boolean | null
-          notes?: string | null
-          order_number?: string | null
-          packaging_fee?: number | null
-          payment_method?: string | null
-          payment_notes?: string | null
-          payment_reference?: string | null
-          payment_screenshot?: string | null
-          payment_status?: string | null
-          payment_verified_at?: string | null
-          phone?: string | null
-          poster_image?: string | null
-          poster_title?: string | null
-          quantity?: number | null
-          selected_poster?: string | null
-          shipping_cost?: number | null
-          size?: string | null
-          status?: string | null
-          subtotal?: number | null
-          total_price?: number | null
-        }
+          address?: string | null;
+          created_at?: string | null;
+          customer_name?: string | null;
+          frame_color?: string | null;
+          frame_type?: string | null;
+          governorate?: string | null;
+          id?: string | null;
+          is_test?: boolean | null;
+          notes?: string | null;
+          order_number?: string | null;
+          packaging_fee?: number | null;
+          payment_method?: string | null;
+          payment_notes?: string | null;
+          payment_reference?: string | null;
+          payment_screenshot?: string | null;
+          payment_status?: string | null;
+          payment_verified_at?: string | null;
+          phone?: string | null;
+          poster_image?: string | null;
+          poster_title?: string | null;
+          quantity?: number | null;
+          selected_poster?: string | null;
+          shipping_cost?: number | null;
+          size?: string | null;
+          status?: string | null;
+          subtotal?: number | null;
+          total_price?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "orders_selected_poster_fkey"
-            columns: ["selected_poster"]
-            isOneToOne: false
-            referencedRelation: "posters"
-            referencedColumns: ["id"]
+            foreignKeyName: "orders_selected_poster_fkey";
+            columns: ["selected_poster"];
+            isOneToOne: false;
+            referencedRelation: "posters";
+            referencedColumns: ["id"];
           },
-        ]
-      }
-    }
+        ];
+      };
+    };
     Functions: {
       add_poster_view_seconds: {
-        Args: { p_id: string; p_seconds: number }
-        Returns: undefined
-      }
-      admin_abandoned_orders: { Args: { p_limit?: number }; Returns: Json }
-      admin_behavior_dashboard: { Args: never; Returns: Json }
-      admin_campaign_report: { Args: never; Returns: Json }
+        Args: { p_id: string; p_seconds: number };
+        Returns: undefined;
+      };
+      admin_abandoned_orders: { Args: { p_limit?: number }; Returns: Json };
+      admin_behavior_dashboard: { Args: never; Returns: Json };
+      admin_campaign_report: { Args: never; Returns: Json };
       admin_clear_anonymous_behavior: {
-        Args: { _older_than_days?: number }
-        Returns: number
-      }
-      admin_customer_profile: { Args: { _phone: string }; Returns: Json }
+        Args: { _older_than_days?: number };
+        Returns: number;
+      };
+      admin_customer_profile: { Args: { _phone: string }; Returns: Json };
       admin_customers_list: {
         Args: {
-          p_limit?: number
-          p_offset?: number
-          p_search?: string
-          p_segment?: string
-        }
-        Returns: Json
-      }
+          p_limit?: number;
+          p_offset?: number;
+          p_search?: string;
+          p_segment?: string;
+        };
+        Returns: Json;
+      };
       admin_dashboard: {
-        Args: { p_from?: string; p_to?: string }
-        Returns: Json
-      }
-      admin_image_stats: { Args: never; Returns: Json }
-      admin_live_visitors: { Args: never; Returns: number }
-      admin_move_poster_to_bottom: { Args: { _id: string }; Returns: undefined }
-      admin_move_poster_to_top: { Args: { _id: string }; Returns: undefined }
-      admin_notifications_summary: { Args: never; Returns: Json }
+        Args: { p_from?: string; p_to?: string };
+        Returns: Json;
+      };
+      admin_image_stats: { Args: never; Returns: Json };
+      admin_live_visitors: { Args: never; Returns: number };
+      admin_move_poster_to_bottom: { Args: { _id: string }; Returns: undefined };
+      admin_move_poster_to_top: { Args: { _id: string }; Returns: undefined };
+      admin_notifications_summary: { Args: never; Returns: Json };
       admin_pin_poster: {
-        Args: { _id: string; _pinned: boolean }
-        Returns: undefined
-      }
+        Args: { _id: string; _pinned: boolean };
+        Returns: undefined;
+      };
       admin_posters_needing_variants: {
-        Args: { _limit?: number }
+        Args: { _limit?: number };
         Returns: {
-          id: string
-          image_url: string
-          title: string
-        }[]
-      }
-      admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json }
+          id: string;
+          image_url: string;
+          title: string;
+        }[];
+      };
+      admin_realtime_analytics: { Args: { p_period?: string }; Returns: Json };
       admin_reorder_posters: {
-        Args: { _category_id: string; _ids: string[] }
-        Returns: undefined
-      }
+        Args: { _category_id: string; _ids: string[] };
+        Returns: undefined;
+      };
       admin_reorder_subcategories: {
-        Args: { _ids: string[]; _parent_id: string }
-        Returns: undefined
-      }
-      admin_reset_recommendation_engine: { Args: never; Returns: undefined }
+        Args: { _ids: string[]; _parent_id: string };
+        Returns: undefined;
+      };
+      admin_reset_recommendation_engine: { Args: never; Returns: undefined };
       admin_set_category_sort_mode: {
-        Args: { _id: string; _mode: string }
-        Returns: undefined
-      }
-      admin_storage_manifest: { Args: never; Returns: Json }
-      best_sellers_analytics: { Args: never; Returns: Json }
-      detect_bugs: { Args: never; Returns: Json }
+        Args: { _id: string; _mode: string };
+        Returns: undefined;
+      };
+      admin_storage_manifest: { Args: never; Returns: Json };
+      best_sellers_analytics: { Args: never; Returns: Json };
+      detect_bugs: { Args: never; Returns: Json };
       get_recommendations: {
-        Args: { _limit?: number; _visitor_id: string }
-        Returns: Json
-      }
+        Args: { _limit?: number; _visitor_id: string };
+        Returns: Json;
+      };
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: boolean;
+      };
       increment_poster_cart_adds: {
-        Args: { p_ids: string[]; p_qty: number }
-        Returns: undefined
-      }
+        Args: { p_ids: string[]; p_qty: number };
+        Returns: undefined;
+      };
       increment_poster_sales: {
-        Args: { p_ids: string[]; p_qty: number }
-        Returns: undefined
-      }
+        Args: { p_ids: string[]; p_qty: number };
+        Returns: undefined;
+      };
       increment_poster_unique_views: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
-      increment_poster_views: { Args: { p_id: string }; Returns: undefined }
-      landing_page_bundle: { Args: { _audience: string }; Returns: Json }
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      increment_poster_views: { Args: { p_id: string }; Returns: undefined };
+      landing_page_bundle: { Args: { _audience: string }; Returns: Json };
       merge_visitor_to_phone: {
-        Args: { _phone: string; _visitor_id: string }
-        Returns: undefined
-      }
-      posters_tags_text: { Args: { p_tags: string[] }; Returns: string }
-      refresh_auto_best_sellers: { Args: { _top_n?: number }; Returns: Json }
+        Args: { _phone: string; _visitor_id: string };
+        Returns: undefined;
+      };
+      posters_tags_text: { Args: { p_tags: string[] }; Returns: string };
+      refresh_auto_best_sellers: { Args: { _top_n?: number }; Returns: Json };
       score_visitor_interest: {
         Args: {
-          _delta?: number
-          _key: string
-          _kind: string
-          _visitor_id: string
-        }
-        Returns: undefined
-      }
+          _delta?: number;
+          _key: string;
+          _kind: string;
+          _visitor_id: string;
+        };
+        Returns: undefined;
+      };
       search_posters: {
-        Args: { lim?: number; q: string }
+        Args: { lim?: number; q: string };
         Returns: {
-          badge: string
-          category_id: string
-          category_name: string
-          category_slug: string
-          id: string
-          image_url: string
-          score: number
-          tags: string[]
-          title: string
-        }[]
-      }
+          badge: string;
+          category_id: string;
+          category_name: string;
+          category_slug: string;
+          id: string;
+          image_url: string;
+          score: number;
+          tags: string[];
+          title: string;
+        }[];
+      };
       set_error_log_status: {
-        Args: { _id: string; _status: string }
-        Returns: undefined
-      }
+        Args: { _id: string; _status: string };
+        Returns: undefined;
+      };
       trending_searches: {
-        Args: { lim?: number }
+        Args: { lim?: number };
         Returns: {
-          count: number
-          query: string
-        }[]
-      }
+          count: number;
+          query: string;
+        }[];
+      };
       upsert_visitor_profile: {
         Args: {
-          _city?: string
-          _country?: string
-          _device?: string
-          _governorate?: string
-          _visitor_id: string
-        }
-        Returns: undefined
-      }
-    }
+          _city?: string;
+          _country?: string;
+          _device?: string;
+          _governorate?: string;
+          _visitor_id: string;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
-      app_role: "admin" | "user"
-    }
+      app_role: "admin" | "user";
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
@@ -2190,4 +2178,4 @@ export const Constants = {
       app_role: ["admin", "user"],
     },
   },
-} as const
+} as const;

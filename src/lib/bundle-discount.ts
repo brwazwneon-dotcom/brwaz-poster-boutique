@@ -27,7 +27,10 @@ export function nextTier(posterCount: number): BundleTier | null {
   return null;
 }
 
-export function computeBundleDiscount(subtotal: number, posterCount: number): {
+export function computeBundleDiscount(
+  subtotal: number,
+  posterCount: number,
+): {
   tier: BundleTier | null;
   amount: number; // absolute EGP saved
 } {

@@ -101,14 +101,18 @@ export function useMaintenanceBypass(cfg: MaintenanceConfig | undefined) {
         if (provided) {
           try {
             localStorage.setItem(MAINTENANCE_BYPASS_STORAGE, provided);
-          } catch { /* noop */ }
+          } catch {
+            /* noop */
+          }
         }
       }
       // 2) Local password matches
       let stored: string | null = null;
       try {
         stored = localStorage.getItem(MAINTENANCE_BYPASS_STORAGE);
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
       if (cfg.bypassPassword && stored && stored === cfg.bypassPassword) {
         if (!cancelled) setBypass({ ready: true, allowed: true });
         return;

@@ -2,10 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/offline")({
   head: () => ({
-    meta: [
-      { title: "You are offline — BRWAZWNEON" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "You are offline — BRWAZWNEON" }, { name: "robots", content: "noindex" }],
   }),
   component: OfflinePage,
 });
@@ -19,7 +16,8 @@ function OfflinePage() {
         </div>
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground">You are offline</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          It looks like you've lost your internet connection. Some pages you've already visited may still work.
+          It looks like you've lost your internet connection. Some pages you've already visited may
+          still work.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button

@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, Save, ShieldCheck, Trash2, Upload, Wrench, Zap, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Save,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  Wrench,
+  Zap,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DEFAULT_MAINTENANCE,
@@ -81,7 +90,9 @@ export function MaintenanceTab() {
       setCfg(next);
       try {
         await notify({ data: { enabled } });
-      } catch { /* notification failure is non-blocking */ }
+      } catch {
+        /* notification failure is non-blocking */
+      }
       toast.success(enabled ? "Maintenance mode ENABLED" : "Website is LIVE");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Toggle failed");
@@ -135,9 +146,7 @@ export function MaintenanceTab() {
       <div
         className={
           "rounded-sm border p-6 " +
-          (isLive
-            ? "border-emerald-500/40 bg-emerald-500/5"
-            : "border-red-500/40 bg-red-500/5")
+          (isLive ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5")
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -166,7 +175,11 @@ export function MaintenanceTab() {
                 disabled={toggling}
                 className="inline-flex items-center gap-2 rounded-sm bg-red-600 px-5 py-3 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-500 disabled:opacity-50"
               >
-                {toggling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
+                {toggling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wrench className="h-4 w-4" />
+                )}
                 Enable Maintenance
               </button>
             ) : (
@@ -176,7 +189,11 @@ export function MaintenanceTab() {
                   disabled={toggling}
                   className="inline-flex items-center gap-2 rounded-sm bg-emerald-600 px-5 py-3 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-emerald-500 disabled:opacity-50"
                 >
-                  {toggling ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {toggling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
                   Go Live
                 </button>
                 <button
@@ -194,7 +211,8 @@ export function MaintenanceTab() {
         {!isLive && (
           <p className="mt-4 flex items-center gap-2 text-xs text-red-300">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Public visitors see the maintenance page. Admins & whitelisted users bypass automatically.
+            Public visitors see the maintenance page. Admins & whitelisted users bypass
+            automatically.
           </p>
         )}
       </div>
@@ -224,9 +242,7 @@ export function MaintenanceTab() {
       {/* Countdown */}
       <section className="rounded-sm border border-border bg-card p-6 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-widest">Countdown</h3>
-        <p className="text-xs text-muted-foreground">
-          Leave empty to hide the countdown.
-        </p>
+        <p className="text-xs text-muted-foreground">Leave empty to hide the countdown.</p>
         <div className="flex flex-wrap gap-2">
           <input
             type="datetime-local"
@@ -282,7 +298,9 @@ export function MaintenanceTab() {
             min={0}
             max={100}
             value={Math.round(cfg.overlayOpacity * 100)}
-            onChange={(e) => setCfg((c) => ({ ...c, overlayOpacity: Number(e.target.value) / 100 }))}
+            onChange={(e) =>
+              setCfg((c) => ({ ...c, overlayOpacity: Number(e.target.value) / 100 }))
+            }
             className="w-full"
           />
         </label>
@@ -301,7 +319,9 @@ export function MaintenanceTab() {
             ] as const
           ).map(([lk, hk, name]) => (
             <div key={name} className="rounded-sm border border-border bg-background p-3 space-y-2">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{name}</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                {name}
+              </div>
               <input
                 value={cfg.buttons[lk]}
                 onChange={(e) =>
@@ -436,7 +456,11 @@ function UploadField({
       </div>
       <div className="flex flex-wrap gap-2">
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Upload className="h-3.5 w-3.5" />
+          )}
           {busy ? "Uploading…" : "Upload"}
           <input
             type="file"

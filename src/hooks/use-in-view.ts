@@ -13,9 +13,11 @@ type Options = {
  * - State flip batched inside requestAnimationFrame to avoid layout thrash
  * - Marks itself `true` synchronously when IO is unavailable (SSR / older UAs)
  */
-export function useInView<T extends Element = HTMLElement>(
-  { threshold = 0.15, rootMargin = "0px 0px -60px 0px", once = true }: Options = {},
-) {
+export function useInView<T extends Element = HTMLElement>({
+  threshold = 0.15,
+  rootMargin = "0px 0px -60px 0px",
+  once = true,
+}: Options = {}) {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 

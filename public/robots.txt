@@ -5,4 +5,4 @@ Disallow: /auth
 Disallow: /cart
 Disallow: /api/
 
-Sitemap: https://brwazwneon-com.lovable.app/sitemap.xml
+Sitemap: https://brwazwneon.com/sitemap.xml

@@ -37,14 +37,13 @@ export const Route = createFileRoute("/api/public/hooks/backup")({
         } catch {
           body = {};
         }
-        const type = (["daily", "weekly", "monthly"].includes(body.type ?? "")
-          ? body.type
-          : "daily") as "daily" | "weekly" | "monthly";
+        const type = (
+          ["daily", "weekly", "monthly"].includes(body.type ?? "") ? body.type : "daily"
+        ) as "daily" | "weekly" | "monthly";
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { buildSnapshot, encryptJson, uploadBackupBlob } = await import(
-          "@/lib/backups.server"
-        );
+        const { buildSnapshot, encryptJson, uploadBackupBlob } =
+          await import("@/lib/backups.server");
         const { pruneBackupsCore } = await import("@/lib/backups.functions");
 
         const { data: row, error: insertErr } = await supabaseAdmin
@@ -73,8 +72,7 @@ export const Route = createFileRoute("/api/public/hooks/backup")({
           await uploadBackupBlob(path, blob);
 
           const counts: Record<string, number> = {};
-          for (const [k, v] of Object.entries(snapshot.data))
-            counts[k] = (v as unknown[]).length;
+          for (const [k, v] of Object.entries(snapshot.data)) counts[k] = (v as unknown[]).length;
 
           await supabaseAdmin
             .from("backups")

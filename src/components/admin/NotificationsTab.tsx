@@ -43,27 +43,40 @@ export function NotificationsTab() {
     queryKey: ["admin-firebase-config"],
     queryFn: async (): Promise<FirebasePublicConfig> => {
       const { data } = await supabase
-        .from("site_settings").select("value").eq("key", FIREBASE_CONFIG_KEY).maybeSingle();
+        .from("site_settings")
+        .select("value")
+        .eq("key", FIREBASE_CONFIG_KEY)
+        .maybeSingle();
       return { ...DEFAULT_FIREBASE_CONFIG, ...((data?.value as object) ?? {}) };
     },
   });
-  useEffect(() => { if (loadedCfg) setCfg(loadedCfg); }, [loadedCfg]);
+  useEffect(() => {
+    if (loadedCfg) setCfg(loadedCfg);
+  }, [loadedCfg]);
 
   const { data: saStatus } = useQuery({
     queryKey: ["admin-firebase-sa"],
     queryFn: async () => {
-      const { data } = await supabase.from("marketing_secrets")
-        .select("firebase_service_account").eq("id", 1).maybeSingle();
-      const sa = (data?.firebase_service_account ?? null) as
-        | { client_email?: string; project_id?: string } | null;
-      return sa ? { present: true, email: sa.client_email ?? "", project: sa.project_id ?? "" } : { present: false };
+      const { data } = await supabase
+        .from("marketing_secrets")
+        .select("firebase_service_account")
+        .eq("id", 1)
+        .maybeSingle();
+      const sa = (data?.firebase_service_account ?? null) as {
+        client_email?: string;
+        project_id?: string;
+      } | null;
+      return sa
+        ? { present: true, email: sa.client_email ?? "", project: sa.project_id ?? "" }
+        : { present: false };
     },
   });
 
   const { data: devices = [] } = useQuery({
     queryKey: ["admin-devices"],
     queryFn: async (): Promise<AdminDevice[]> => {
-      const { data } = await supabase.from("admin_devices")
+      const { data } = await supabase
+        .from("admin_devices")
         .select("id, label, user_agent, fcm_token, last_seen_at, created_at")
         .order("created_at", { ascending: false });
       return (data ?? []) as AdminDevice[];
@@ -73,9 +86,11 @@ export function NotificationsTab() {
   const { data: logs = [] } = useQuery({
     queryKey: ["admin-notification-logs"],
     queryFn: async (): Promise<NotificationLog[]> => {
-      const { data } = await supabase.from("notification_logs")
+      const { data } = await supabase
+        .from("notification_logs")
         .select("id, title, body, sent_count, failed_count, status, error, created_at")
-        .order("created_at", { ascending: false }).limit(20);
+        .order("created_at", { ascending: false })
+        .limit(20);
       return (data ?? []) as NotificationLog[];
     },
   });
@@ -91,16 +106,22 @@ export function NotificationsTab() {
       if (error) throw error;
       toast.success("Firebase settings saved");
       qc.invalidateQueries({ queryKey: ["admin-firebase-config"] });
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Save failed"); }
-    finally { setSavingCfg(false); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingCfg(false);
+    }
   };
 
   const saveServiceAccount = async () => {
     setSavingSA(true);
     try {
       let parsed: object;
-      try { parsed = JSON.parse(serviceAccount); }
-      catch { throw new Error("Service account must be valid JSON"); }
+      try {
+        parsed = JSON.parse(serviceAccount);
+      } catch {
+        throw new Error("Service account must be valid JSON");
+      }
       const p = parsed as { client_email?: string; private_key?: string; project_id?: string };
       if (!p.client_email || !p.private_key || !p.project_id) {
         throw new Error("JSON must include client_email, private_key, project_id");
@@ -114,8 +135,11 @@ export function NotificationsTab() {
       setServiceAccount("");
       toast.success("Service account saved");
       qc.invalidateQueries({ queryKey: ["admin-firebase-sa"] });
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Save failed"); }
-    finally { setSavingSA(false); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingSA(false);
+    }
   };
 
   const enableOnThisDevice = async () => {
@@ -127,7 +151,9 @@ export function NotificationsTab() {
       qc.invalidateQueries({ queryKey: ["admin-devices"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to enable notifications");
-    } finally { setRegistering(false); }
+    } finally {
+      setRegistering(false);
+    }
   };
 
   const removeDevice = useMutation({
@@ -148,7 +174,9 @@ export function NotificationsTab() {
       if (res.ok) toast.success(`Test sent — ${res.sent} delivered, ${res.failed} failed`);
       else toast.error(`Not sent: ${res.reason}`);
       qc.invalidateQueries({ queryKey: ["admin-notification-logs"] });
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const field = (label: string, key: keyof FirebasePublicConfig, placeholder?: string) => (
@@ -171,8 +199,11 @@ export function NotificationsTab() {
         <div className="flex items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold">Notifications Settings</h2>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={cfg.enabled}
-              onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))} />
+            <input
+              type="checkbox"
+              checked={cfg.enabled}
+              onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))}
+            />
             Enable Push Notifications
           </label>
         </div>
@@ -183,11 +214,16 @@ export function NotificationsTab() {
           {field("Firebase Storage Bucket", "storageBucket", "your-project.appspot.com")}
           {field("Firebase Messaging Sender ID", "messagingSenderId")}
           {field("Firebase App ID", "appId")}
-          <div className="md:col-span-2">{field("Firebase VAPID Key (Web Push certificate)", "vapidKey")}</div>
+          <div className="md:col-span-2">
+            {field("Firebase VAPID Key (Web Push certificate)", "vapidKey")}
+          </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <button onClick={saveCfg} disabled={savingCfg}
-            className="rounded bg-white text-black text-sm font-semibold px-4 py-2 disabled:opacity-50">
+          <button
+            onClick={saveCfg}
+            disabled={savingCfg}
+            className="rounded bg-white text-black text-sm font-semibold px-4 py-2 disabled:opacity-50"
+          >
             {savingCfg ? "Saving…" : "Save Settings"}
           </button>
         </div>
@@ -196,23 +232,29 @@ export function NotificationsTab() {
       <div className="rounded border border-white/10 bg-black/30 p-5">
         <h2 className="text-lg font-semibold mb-2">Firebase Service Account (server-side)</h2>
         <p className="text-xs text-white/60 mb-3">
-          Paste the full <code>service-account.json</code> from Firebase Console → Project Settings → Service Accounts.
-          Stored privately — only used server-side to send notifications.
+          Paste the full <code>service-account.json</code> from Firebase Console → Project Settings
+          → Service Accounts. Stored privately — only used server-side to send notifications.
           {saStatus?.present ? (
             <span className="ml-1 text-emerald-400">
               Configured: {saStatus.email} ({saStatus.project})
             </span>
-          ) : <span className="ml-1 text-amber-400">Not configured</span>}
+          ) : (
+            <span className="ml-1 text-amber-400">Not configured</span>
+          )}
         </p>
-        <textarea rows={5}
+        <textarea
+          rows={5}
           className="w-full rounded border border-white/10 bg-black/40 px-3 py-2 text-white text-xs font-mono"
           value={serviceAccount}
           onChange={(e) => setServiceAccount(e.target.value)}
           placeholder='{"type":"service_account","project_id":"…","client_email":"…","private_key":"-----BEGIN PRIVATE KEY-----\n…"}'
         />
         <div className="mt-3 flex justify-end">
-          <button onClick={saveServiceAccount} disabled={savingSA || !serviceAccount.trim()}
-            className="rounded bg-white text-black text-sm font-semibold px-4 py-2 disabled:opacity-50">
+          <button
+            onClick={saveServiceAccount}
+            disabled={savingSA || !serviceAccount.trim()}
+            className="rounded bg-white text-black text-sm font-semibold px-4 py-2 disabled:opacity-50"
+          >
             {savingSA ? "Saving…" : "Save Service Account"}
           </button>
         </div>
@@ -222,12 +264,17 @@ export function NotificationsTab() {
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h2 className="text-lg font-semibold">This Device</h2>
           <div className="flex gap-2">
-            <button onClick={enableOnThisDevice} disabled={registering}
-              className="rounded bg-emerald-500 text-black text-sm font-semibold px-4 py-2 disabled:opacity-50">
+            <button
+              onClick={enableOnThisDevice}
+              disabled={registering}
+              className="rounded bg-emerald-500 text-black text-sm font-semibold px-4 py-2 disabled:opacity-50"
+            >
               {registering ? "Enabling…" : "Enable Mobile Notifications"}
             </button>
-            <button onClick={sendTest}
-              className="rounded border border-white/30 text-white text-sm font-semibold px-4 py-2">
+            <button
+              onClick={sendTest}
+              className="rounded border border-white/30 text-white text-sm font-semibold px-4 py-2"
+            >
               Send Test Notification
             </button>
           </div>
@@ -253,8 +300,12 @@ export function NotificationsTab() {
                     Last seen: {new Date(d.last_seen_at).toLocaleString()}
                   </div>
                 </div>
-                <button onClick={() => removeDevice.mutate(d.id)}
-                  className="text-xs text-red-400 hover:underline">Remove</button>
+                <button
+                  onClick={() => removeDevice.mutate(d.id)}
+                  className="text-xs text-red-400 hover:underline"
+                >
+                  Remove
+                </button>
               </li>
             ))}
           </ul>
@@ -271,13 +322,19 @@ export function NotificationsTab() {
               <li key={l.id} className="py-3 text-sm">
                 <div className="flex justify-between gap-3">
                   <div className="font-medium">{l.title ?? "(no title)"}</div>
-                  <div className={`text-xs ${l.status === "sent" ? "text-emerald-400" : "text-red-400"}`}>
+                  <div
+                    className={`text-xs ${l.status === "sent" ? "text-emerald-400" : "text-red-400"}`}
+                  >
                     {l.status ?? ""} · {l.sent_count} sent / {l.failed_count} failed
                   </div>
                 </div>
-                {l.body && <div className="text-xs text-white/60 whitespace-pre-line mt-1">{l.body}</div>}
+                {l.body && (
+                  <div className="text-xs text-white/60 whitespace-pre-line mt-1">{l.body}</div>
+                )}
                 {l.error && <div className="text-xs text-red-300 mt-1 truncate">{l.error}</div>}
-                <div className="text-xs text-white/40 mt-1">{new Date(l.created_at).toLocaleString()}</div>
+                <div className="text-xs text-white/40 mt-1">
+                  {new Date(l.created_at).toLocaleString()}
+                </div>
               </li>
             ))}
           </ul>

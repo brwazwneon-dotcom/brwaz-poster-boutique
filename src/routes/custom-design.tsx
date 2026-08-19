@@ -1,7 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, X, Loader2, Plus, Pencil, RefreshCw, Eye, RotateCw, ShoppingBag, ShieldCheck } from "lucide-react";
+import {
+  Upload,
+  X,
+  Loader2,
+  Plus,
+  Pencil,
+  RefreshCw,
+  Eye,
+  RotateCw,
+  ShoppingBag,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
@@ -9,19 +20,18 @@ import { SizeGuide } from "@/components/SizeGuide";
 import { FramePreview } from "@/components/FramePreview";
 import { useCart } from "@/lib/cart";
 import { useNavigate } from "@tanstack/react-router";
+import i18n from "@/lib/i18n";
+import { useTranslation } from "react-i18next";
+import { visitorId } from "@/lib/analytics";
 // Custom-design uses its own size-gated offers, not the generic bundle tiers.
 
 const PACKAGING_FEE = 20;
 
 // Only these exact combos get a discount — no random bundle discounts.
 const CUSTOM_OFFERS = [
-  { size: "30x40" as SizeId, minQty: 4, percent: 15, label: "4 posters at 30×40" },
-  { size: "20x30" as SizeId, minQty: 6, percent: 15, label: "6 posters at 20×30" },
+  { size: "30x40" as SizeId, minQty: 4, percent: 15, labelKey: "offer30x40" },
+  { size: "20x30" as SizeId, minQty: 6, percent: 15, labelKey: "offer20x30" },
 ];
-
-function customOfferFor(size: SizeId, qty: number) {
-  return CUSTOM_OFFERS.find((o) => o.size === size && qty >= o.minQty) ?? null;
-}
 
 function nextCustomOffer(size: SizeId, qty: number) {
   const match = CUSTOM_OFFERS.find((o) => o.size === size && qty < o.minQty);
@@ -42,29 +52,26 @@ import {
   type FrameTypeId,
   type SizeId,
   type FrameColorId,
-  labelForSize,
 } from "@/lib/poster-options";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/custom-design")({
   head: () => ({
     meta: [
-      { title: "Custom Design — BRWAZWNEON" },
+      { title: i18n.t("customDesign.metaTitle") },
       {
         name: "description",
-        content:
-          "Upload your own photos and we'll professionally enhance them, then print and frame them with premium quality.",
+        content: i18n.t("customDesign.metaDescription"),
       },
-      { property: "og:title", content: "Custom Design — BRWAZWNEON" },
+      { property: "og:title", content: i18n.t("customDesign.metaTitle") },
       {
         property: "og:description",
-        content:
-          "Upload your photos, choose a frame, and we deliver. Cash on delivery across Egypt.",
+        content: i18n.t("customDesign.ogDescription"),
       },
-      { property: "og:url", content: "https://brwazwneon-com.lovable.app/custom-design" },
+      { property: "og:url", content: "https://brwazwneon.com/custom-design" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/custom-design" }],
+    links: [{ rel: "canonical", href: "https://brwazwneon.com/custom-design" }],
   }),
   component: CustomDesignPage,
 });
@@ -72,8 +79,7 @@ export const Route = createFileRoute("/custom-design")({
 const MAX_FILES_PER_BATCH = 20;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ACCEPTED_EXT = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
-const ACCEPT_ATTR =
-  "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
+const ACCEPT_ATTR = "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 
 type Pic = {
   id: string;
@@ -96,6 +102,8 @@ function isAcceptedFile(f: File): boolean {
 }
 
 function CustomDesignPage() {
+  const { t, i18n: activeI18n } = useTranslation();
+  const isArabic = activeI18n.language.startsWith("ar");
   const pricing = usePricing();
   const settings = useSiteSettings();
   const cart = useCart();
@@ -223,10 +231,7 @@ function CustomDesignPage() {
 
   const unitPriceFor = (ft: FrameTypeId, sz: SizeId) =>
     priceForFrame(pricing, ft, sz) + pricing.customDesignFee;
-  const unit = useMemo(
-    () => unitPriceFor(frameType, size),
-    [pricing, frameType, size],
-  );
+  const unit = useMemo(() => unitPriceFor(frameType, size), [pricing, frameType, size]);
   const subtotal = useMemo(
     () => pics.reduce((sum, p) => sum + unitPriceFor(p.frameType, p.size), 0),
     [pics, pricing],
@@ -236,20 +241,26 @@ function CustomDesignPage() {
   // Apply size-gated offers per-size across all pics.
   const { discountAmount, appliedOffers } = useMemo(() => {
     let total = 0;
-    const applied: { label: string; percent: number; amount: number }[] = [];
+    const applied: { labelKey: string; percent: number; amount: number }[] = [];
     for (const o of CUSTOM_OFFERS) {
       const matching = pics.filter((p) => p.size === o.size);
       if (matching.length >= o.minQty) {
         const sub = matching.reduce((s, p) => s + unitPriceFor(p.frameType, p.size), 0);
         const amt = Math.round((sub * o.percent) / 100);
         total += amt;
-        applied.push({ label: o.label, percent: o.percent, amount: amt });
+        applied.push({ labelKey: o.labelKey, percent: o.percent, amount: amt });
       }
     }
     return { discountAmount: total, appliedOffers: applied };
   }, [pics, pricing]);
-  const nextOffer = useMemo(() => nextCustomOffer(size, pics.filter((p) => p.size === size).length), [size, pics]);
+  const nextOffer = useMemo(
+    () => nextCustomOffer(size, pics.filter((p) => p.size === size).length),
+    [size, pics],
+  );
   const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
+  const formatSize = (id: SizeId) => t(`product.size_${id}`);
+  const formatFrame = (id: FrameTypeId) => t(`product.frame_${id}`);
+  const formatColor = (id: FrameColorId) => t(`product.color_${id}`);
 
   const openPicker = () => addInputRef.current?.click();
 
@@ -261,8 +272,14 @@ function CustomDesignPage() {
     let rejectedSize = 0;
     for (const f of incoming) {
       if (accepted.length >= MAX_FILES_PER_BATCH) break;
-      if (!isAcceptedFile(f)) { rejectedType++; continue; }
-      if (f.size > MAX_FILE_BYTES) { rejectedSize++; continue; }
+      if (!isAcceptedFile(f)) {
+        rejectedType++;
+        continue;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        rejectedSize++;
+        continue;
+      }
       accepted.push({
         id: crypto.randomUUID(),
         file: f,
@@ -274,10 +291,12 @@ function CustomDesignPage() {
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
-      toast.message(`You can add up to ${MAX_FILES_PER_BATCH} images per upload — extra files skipped.`);
+      toast.message(
+        t("customDesign.maxFilesPerBatch", { max: MAX_FILES_PER_BATCH }),
+      );
     }
-    if (rejectedType) toast.error(`${rejectedType} file(s) skipped — unsupported format.`);
-    if (rejectedSize) toast.error(`${rejectedSize} file(s) skipped — over 25 MB.`);
+    if (rejectedType) toast.error(t("customDesign.skippedFormat", { count: rejectedType }));
+    if (rejectedSize) toast.error(t("customDesign.skippedSize", { count: rejectedSize }));
     if (accepted.length) setPics((prev) => [...prev, ...accepted]);
   };
 
@@ -305,8 +324,8 @@ function CustomDesignPage() {
     const targetId = replaceTargetId.current;
     replaceTargetId.current = null;
     if (!f || !targetId) return;
-    if (!isAcceptedFile(f)) return toast.error("Unsupported format.");
-    if (f.size > MAX_FILE_BYTES) return toast.error("File too large (max 25 MB).");
+    if (!isAcceptedFile(f)) return toast.error(t("customDesign.unsupportedFormat"));
+    if (f.size > MAX_FILE_BYTES) return toast.error(t("customDesign.fileTooLarge"));
     setPics((prev) =>
       prev.map((p) => {
         if (p.id !== targetId) return p;
@@ -317,68 +336,88 @@ function CustomDesignPage() {
   };
 
   const rotatePic = (id: string) => {
-    setPics((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, rotate: (p.rotate + 90) % 360 } : p)),
-    );
-    setEditing((cur) =>
-      cur && cur.id === id ? { ...cur, rotate: (cur.rotate + 90) % 360 } : cur,
-    );
+    setPics((prev) => prev.map((p) => (p.id === id ? { ...p, rotate: (p.rotate + 90) % 360 } : p)));
+    setEditing((cur) => (cur && cur.id === id ? { ...cur, rotate: (cur.rotate + 90) % 360 } : cur));
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pics.length === 0) return toast.error("Please add at least one image");
+    if (pics.length === 0) return toast.error(t("customDesign.addAtLeastOne"));
 
     setSubmitting(true);
     setProgress(0);
     try {
-      const orderId = crypto.randomUUID();
-      const uploaded: { path: string; index: number; url: string }[] = [];
+      const sessionId = visitorId();
+      const orderUUID = crypto.randomUUID();
+      const total = pics.length;
+      const uploaded: {
+        path: string;
+        index: number;
+        url: string;
+        width: number;
+        height: number;
+      }[] = [];
       const CONCURRENCY = 4;
       let cursor = 0;
       let done = 0;
-      const total = pics.length;
 
       const worker = async () => {
         while (cursor < total) {
           const i = cursor++;
-          const p = pics[i];
-          const ext = (p.file.name.split(".").pop() ?? "jpg").toLowerCase();
-          const path = `${orderId}/${String(i).padStart(3, "0")}-${crypto.randomUUID()}.${ext}`;
-          const { error } = await supabase.storage
-            .from("custom-designs")
-            .upload(path, p.file, {
-              contentType: p.file.type || "application/octet-stream",
-              upsert: false,
-            });
-          if (error) throw error;
-          // Long-lived signed URL so cart + admin can render the image.
+          const pic = pics[i];
+          const sanitizedName = pic.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const fileUUID = crypto.randomUUID();
+          const path = `${fileUUID}/${sanitizedName}`;
+
+          const dims = await new Promise<{ width: number; height: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              URL.revokeObjectURL(img.src);
+              resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            };
+            img.src = URL.createObjectURL(pic.file);
+          });
+
+          // Upload original file unchanged
+          const { error: upErr } = await supabase.storage.from("custom-designs").upload(path, pic.file, {
+            contentType: pic.file.type || "application/octet-stream",
+            upsert: false,
+          });
+          if (upErr) throw upErr;
+
+          // Create a long-lived signed URL for cart display
           const { data: signed } = await supabase.storage
             .from("custom-designs")
-            .createSignedUrl(path, 60 * 60 * 24 * 365);
-          uploaded.push({ path, index: i, url: signed?.signedUrl ?? p.preview });
+            .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+          const signedUrl = signed?.signedUrl ?? URL.createObjectURL(pic.file);
+
+          uploaded.push({ path, index: i, url: signedUrl, width: dims.width, height: dims.height });
           done++;
           setProgress(Math.round((done / total) * 100));
         }
       };
-      await Promise.all(
-        Array.from({ length: Math.min(CONCURRENCY, total) }, worker),
-      );
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, total) }, worker));
 
       uploaded.sort((a, b) => a.index - b.index);
 
-      // Add each uploaded image as its own cart line so the customer can review,
-      // combine with ready-made posters, and check out from the cart page.
+      // Add each uploaded image as its own cart line with metadata
       uploaded.forEach((u, idx) => {
         const pic = pics[u.index];
         const unitPrice = unitPriceFor(pic.frameType, pic.size);
         cart.add({
-          posterId: `custom-${orderId}-${idx}`,
-          title: `Custom Design #${idx + 1}`,
+          posterId: `custom-${orderUUID}-${idx}`,
+          title: t("customDesign.cartItemTitle", { number: idx + 1 }),
           image: u.url,
           customImagePath: u.path,
+          customImageMeta: {
+            originalFilename: pic.file.name,
+            originalMimeType: pic.file.type || "application/octet-stream",
+            originalWidth: u.width,
+            originalHeight: u.height,
+            originalFileSize: pic.file.size,
+          },
           categoryId: null,
-          categoryName: "Custom Design",
+          categoryName: t("customDesign.categoryName"),
           frameType: pic.frameType,
           size: pic.size,
           color: pic.color,
@@ -386,34 +425,41 @@ function CustomDesignPage() {
         });
       });
 
-      toast.success(`${pics.length} custom image${pics.length === 1 ? "" : "s"} added to cart`);
+      toast.success(t("customDesign.addedToCart", { count: pics.length }));
       pics.forEach((p) => URL.revokeObjectURL(p.preview));
       setPics([]);
       navigate({ to: "/cart" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Submission failed");
+      console.error("[custom-design] submit failed", err);
+      toast.error(err instanceof Error ? err.message : t("customDesign.submitFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const enabledVariants = useEnabledFrameVariants();
-  const colorChoices = frameType === "wood"
-    ? FRAME_COLORS.filter((c) => c.id === "wood" && enabledVariants.includes(c.id))
-    : FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id));
+  const colorChoices =
+    frameType === "wood"
+      ? FRAME_COLORS.filter((c) => c.id === "wood" && enabledVariants.includes(c.id))
+      : FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id));
 
   return (
-    <div className="bg-background text-foreground">
+    <div
+      dir={isArabic ? "rtl" : "ltr"}
+      className={cn("bg-background text-foreground", isArabic ? "text-right" : "text-left")}
+    >
       {/* HERO */}
       <section className="border-b border-border bg-card">
         <div className="container-page py-14 sm:py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Your Photos · Our Craft
+            {t("customDesign.eyebrow")}
           </p>
-          <h1 className="text-display mt-3 text-5xl sm:text-7xl">Custom Design</h1>
+          <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("customDesign.title")}</h1>
+          <h2 className="mt-3 text-2xl font-semibold text-foreground sm:text-3xl">
+            {t("customDesign.subtitle")}
+          </h2>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            Upload your own photos. We professionally enhance every image before
-            printing on premium frames and delivering to your door.
+            {t("customDesign.description")}
           </p>
 
           {/* Primary ADD IMAGES button */}
@@ -425,24 +471,23 @@ function CustomDesignPage() {
                 className="inline-flex items-center justify-center gap-3 rounded-sm bg-primary px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground transition hover:opacity-90"
               >
                 <Plus className="h-5 w-5" />
-                Add Images
+                {t("customDesign.addImages")}
               </button>
               <Link
                 to="/best-sellers"
                 className="inline-flex items-center justify-center gap-3 rounded-sm border border-border px-8 py-5 text-sm font-semibold uppercase tracking-[0.25em] text-foreground transition hover:bg-accent"
               >
-                Browse Posters
+                {t("customDesign.browsePosters")}
               </Link>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              Our designer will professionally enhance your photos before printing
-              to ensure the highest possible quality.
+              {t("customDesign.qualityNote")}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Want ready-made designs too? Browse our shop and add posters to your cart alongside this order.
+              {t("customDesign.wantReadyDesigns")}
             </p>
             <p className="mt-1 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-              Up to {MAX_FILES_PER_BATCH} images per upload · Max 25 MB each · JPG, PNG, WEBP, HEIC
+              {t("customDesign.uploadLimit", { max: MAX_FILES_PER_BATCH })}
             </p>
           </div>
 
@@ -452,7 +497,10 @@ function CustomDesignPage() {
             accept={ACCEPT_ATTR}
             multiple
             className="hidden"
-            onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.target.value = "";
+            }}
           />
           <input
             ref={replaceInputRef}
@@ -469,11 +517,13 @@ function CustomDesignPage() {
         <div className="container-page py-12">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-display text-3xl sm:text-4xl">Your Gallery</h2>
+              <h2 className="text-display text-3xl sm:text-4xl">{t("customDesign.yourGallery")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {pics.length === 0
-                  ? "No images yet — tap Add Images to get started."
-                  : `${pics.length} Image${pics.length === 1 ? "" : "s"} Selected`}
+                  ? t("customDesign.noImagesYet")
+                  : pics.length === 1
+                    ? t("customDesign.imageSelected")
+                    : t("customDesign.imagesSelected", { count: pics.length })}
               </p>
             </div>
             <button
@@ -481,7 +531,7 @@ function CustomDesignPage() {
               onClick={openPicker}
               className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
             >
-              <Plus className="h-4 w-4" /> Add More
+              <Plus className="h-4 w-4" /> {t("customDesign.addMore")}
             </button>
           </div>
 
@@ -498,10 +548,11 @@ function CustomDesignPage() {
               >
                 <Upload className="h-6 w-6 text-muted-foreground" />
                 <div className="text-sm">
-                  <span className="font-semibold">Click to add photos</span> or drop them here
+                  <span className="font-semibold">{t("customDesign.clickToAdd")}</span>{" "}
+                  {t("customDesign.orDropHere")}
                 </div>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  JPG · PNG · WEBP · HEIC
+                  {t("customDesign.formats")}
                 </div>
               </button>
             ) : (
@@ -526,20 +577,22 @@ function CustomDesignPage() {
                         #{i + 1}
                       </span>
                       <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        {labelForSize(p.size)}
+                        {formatSize(p.size)}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => removePic(p.id)}
                       className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-foreground opacity-0 transition group-hover:opacity-100"
-                      aria-label="Remove image"
+                      aria-label={t("customDesign.removeImage")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                     {p.frameType !== "wood" && (
                       <div className="absolute inset-x-0 top-8 flex justify-center gap-1">
-                        {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
+                        {FRAME_COLORS.filter(
+                          (c) => c.id !== "wood" && enabledVariants.includes(c.id),
+                        ).map((c) => (
                           <button
                             key={c.id}
                             type="button"
@@ -551,20 +604,20 @@ function CustomDesignPage() {
                                 : "border-background/70 opacity-80 hover:opacity-100",
                             )}
                             style={{ background: c.swatch }}
-                            aria-label={`Set frame color to ${c.label}`}
-                            title={c.label}
+                            aria-label={t("customDesign.setFrameColor", { label: formatColor(c.id) })}
+                            title={formatColor(c.id)}
                           />
                         ))}
                       </div>
                     )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-background/85 px-1 py-1 opacity-0 transition group-hover:opacity-100">
-                      <IconAction onClick={() => setLightbox(p)} label="Preview">
+                      <IconAction onClick={() => setLightbox(p)} label={t("common.preview") }>
                         <Eye className="h-3.5 w-3.5" />
                       </IconAction>
-                      <IconAction onClick={() => startReplace(p.id)} label="Replace">
+                      <IconAction onClick={() => startReplace(p.id)} label={t("common.replace") }>
                         <RefreshCw className="h-3.5 w-3.5" />
                       </IconAction>
-                      <IconAction onClick={() => setEditing(p)} label="Edit">
+                      <IconAction onClick={() => setEditing(p)} label={t("common.edit") }>
                         <Pencil className="h-3.5 w-3.5" />
                       </IconAction>
                     </div>
@@ -575,7 +628,7 @@ function CustomDesignPage() {
           </div>
           {pics.length > 0 && (
             <p className="mt-3 text-center text-xs text-muted-foreground sm:text-sm">
-              Don't worry if the preview isn't perfectly aligned — our designer fine-tunes every image by hand before printing.
+              {t("customDesign.dontWorryPreview")}
             </p>
           )}
 
@@ -583,13 +636,10 @@ function CustomDesignPage() {
           <div className="mx-auto mt-6 max-w-2xl rounded-sm border border-border bg-card p-5 text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-foreground">
               <ShieldCheck className="h-4 w-4" />
-              Your Privacy Is Our Red Line
+              {t("customDesign.privacyTitle")}
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Your photos are strictly confidential. They are stored securely, accessed only
-              by our design team for the sole purpose of preparing your order, and are never
-              shared, published, or used for any other purpose. Protecting your images is a
-              non-negotiable standard — and one of the core reasons our customers trust us.
+              {t("customDesign.privacyText")}
             </p>
           </div>
         </div>
@@ -600,26 +650,30 @@ function CustomDesignPage() {
         <div className="container-page py-12">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
             <div>
-              <h2 className="text-display text-3xl sm:text-4xl">Frame Options</h2>
+              <h2 className="text-display text-3xl sm:text-4xl">{t("customDesign.frameOptions")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Default settings for new uploads — tap the pencil icon on any image to change its own size, frame type or color.
+                {t("customDesign.defaultsDescription")}
               </p>
 
-              <OptionBlock label="Frame Type">
+              <OptionBlock label={t("product.frameType")}>
                 <div className="grid grid-cols-2 gap-2">
                   {FRAME_TYPES.map((f) => (
-                    <Chip key={f.id} active={frameType === f.id} onClick={() => handleFrameType(f.id)}>
-                      {f.label}
+                    <Chip
+                      key={f.id}
+                      active={frameType === f.id}
+                      onClick={() => handleFrameType(f.id)}
+                    >
+                      {formatFrame(f.id)}
                     </Chip>
                   ))}
                 </div>
               </OptionBlock>
 
-              <OptionBlock label="Size">
+              <OptionBlock label={t("product.size")}>
                 <div className="grid grid-cols-3 gap-2">
                   {availableSizes.map((s) => (
                     <Chip key={s.id} active={size === s.id} onClick={() => setSize(s.id)}>
-                      {s.label}
+                      {formatSize(s.id)}
                     </Chip>
                   ))}
                 </div>
@@ -627,7 +681,7 @@ function CustomDesignPage() {
               <SizeGuide availableIds={availableSizes.map((s) => s.id)} />
 
               {frameType !== "wood" && (
-                <OptionBlock label="Frame Color">
+                <OptionBlock label={t("product.frameColor")}>
                   <div className="flex flex-wrap gap-2">
                     {colorChoices.map((c) => (
                       <button
@@ -641,64 +695,94 @@ function CustomDesignPage() {
                             : "border-border text-muted-foreground hover:bg-accent",
                         )}
                       >
-                        <span className="inline-block h-4 w-4 rounded-sm border border-border" style={{ background: c.swatch }} />
-                        {c.label}
+                        <span
+                          className="inline-block h-4 w-4 rounded-sm border border-border"
+                          style={{ background: c.swatch }}
+                        />
+                        {formatColor(c.id)}
                       </button>
                     ))}
                   </div>
                   <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Tip: tap the color dots on each image to pick a different frame per photo.
+                    {t("customDesign.tipColorDots")}
                   </p>
                 </OptionBlock>
               )}
             </div>
 
             {/* Order summary + form */}
-            <form
-              onSubmit={submit}
-              className="rounded-sm border border-border bg-card p-6 sm:p-8"
-            >
-              <div className="border-b border-border pb-5">
-                <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">Live total</div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-display text-5xl">{total}</span>
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">EGP</span>
-                </div>
-                <div className="mt-4 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Subtotal ({pics.length} image{pics.length === 1 ? "" : "s"})</span>
-                    <span className="text-foreground">{subtotal} EGP</span>
+            <form onSubmit={submit} className="rounded-sm border border-border bg-card p-6 sm:p-8">
+              {pics.length > 0 ? (
+                <div className="border-b border-border pb-5">
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
+                    {t("customDesign.liveTotal")}
                   </div>
-                  {appliedOffers.map((o) => (
-                    <div key={o.label} className="flex items-center justify-between font-semibold text-primary">
-                      <span>Offer: {o.label} ({o.percent}% off)</span>
-                      <span>-{o.amount} EGP</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
-                      {shipping === 0 ? "Free" : `${shipping} EGP`}
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-display text-5xl">{total}</span>
+                    <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                      {t("egp")}
                     </span>
                   </div>
-                  {packaging > 0 && (
+                  <div className="mt-4 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Packaging</span>
-                      <span className="text-foreground">{packaging} EGP</span>
+                      <span>
+                        {t("customDesign.subtotalImages", { count: pics.length })}
+                      </span>
+                      <span className="text-foreground">{subtotal} {t("egp")}</span>
+                    </div>
+                    {appliedOffers.map((o) => (
+                      <div
+                        key={o.labelKey}
+                        className="flex items-center justify-between font-semibold text-primary"
+                      >
+                        <span>
+                          {t("customDesign.offerDiscount", {
+                            label: t(`customDesign.${o.labelKey}`),
+                            percent: o.percent,
+                          })}
+                        </span>
+                        <span>-{o.amount} {t("egp")}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>{t("cart.shipping")}</span>
+                      <span
+                        className={
+                          shipping === 0 ? "font-semibold text-primary" : "text-foreground"
+                        }
+                      >
+                        {shipping === 0 ? t("cart.freeShipping") : `${shipping} ${t("egp")}`}
+                      </span>
+                    </div>
+                    {packaging > 0 && (
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>{t("cart.packaging")}</span>
+                        <span className="text-foreground">{packaging} {t("egp")}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
+                      <span>{t("cart.total")}</span>
+                      <span>{total} {t("egp")}</span>
+                    </div>
+                  </div>
+                  {appliedOffers.length === 0 && nextOffer && pics.length > 0 && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {t("customDesign.nextOfferNudge", {
+                        count: nextOffer.missing,
+                        missing: nextOffer.missing,
+                        size: formatSize(nextOffer.size),
+                        percent: nextOffer.percent,
+                      })}
                     </div>
                   )}
-                  <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
-                    <span>Total</span>
-                    <span>{total} EGP</span>
-                  </div>
                 </div>
-                {appliedOffers.length === 0 && nextOffer && pics.length > 0 && (
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    Add {nextOffer.missing} more {labelForSize(nextOffer.size)} image
-                    {nextOffer.missing === 1 ? "" : "s"} for {nextOffer.percent}% off
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div className="border-b border-border pb-5">
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("customDesign.uploadToSeePricing")}
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -706,23 +790,30 @@ function CustomDesignPage() {
                 className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-6 py-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
               >
                 {submitting ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading {progress}%</>
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t("customDesign.uploading", { progress })}
+                  </>
                 ) : (
-                  <><ShoppingBag className="h-4 w-4" /> Add to cart</>
+                  <>
+                    <ShoppingBag className="h-4 w-4" /> {t("customDesign.addToCart")}
+                  </>
                 )}
               </button>
               <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-                Review your items in the cart, then place the order
+                {t("customDesign.reviewCart")}
               </p>
               <Link
                 to="/best-sellers"
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:bg-accent"
               >
-                <Plus className="h-4 w-4" /> Add ready-made posters
+                <Plus className="h-4 w-4" /> {t("customDesign.addReadyPosters")}
               </Link>
               <div className="mt-4 text-center">
-                <Link to="/" className="text-xs text-muted-foreground underline-offset-4 hover:underline">
-                  ← Back to home
+                <Link
+                  to="/"
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  {isArabic ? "→" : "←"} {t("nav.home")}
                 </Link>
               </div>
             </form>
@@ -746,7 +837,7 @@ function CustomDesignPage() {
             type="button"
             onClick={() => setLightbox(null)}
             className="absolute right-4 top-4 rounded-full bg-background/90 p-2"
-            aria-label="Close preview"
+            aria-label={t("customDesign.closePreview")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -755,14 +846,21 @@ function CustomDesignPage() {
 
       {/* Edit modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setEditing(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setEditing(null)}
+        >
           <div
             className="w-full max-w-md rounded-sm border border-border bg-background p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-display text-2xl">Edit image</h3>
-              <button onClick={() => setEditing(null)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="Close">
+              <h3 className="text-display text-2xl">{t("customDesign.editImage")}</h3>
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground"
+                aria-label={t("common.close")}
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -776,7 +874,7 @@ function CustomDesignPage() {
             </div>
             <div className="mt-4">
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                Frame type for this image
+                  {t("customDesign.frameTypeForImage")}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {FRAME_TYPES.map((f) => (
@@ -785,7 +883,7 @@ function CustomDesignPage() {
                     active={editing.frameType === f.id}
                     onClick={() => setPicFrameType(editing.id, f.id)}
                   >
-                    {f.label}
+                    {formatFrame(f.id)}
                   </Chip>
                 ))}
               </div>
@@ -793,10 +891,10 @@ function CustomDesignPage() {
             <div className="mt-4">
               <div className="flex items-center justify-between">
                 <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  Size for this image
+                  {t("customDesign.sizeForImage")}
                 </div>
                 <div className="text-[11px] font-semibold text-primary">
-                  {unitPriceFor(editing.frameType, editing.size)} EGP
+                  {unitPriceFor(editing.frameType, editing.size)} {t("egp")}
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
@@ -806,7 +904,7 @@ function CustomDesignPage() {
                     active={editing.size === s.id}
                     onClick={() => setPicSize(editing.id, s.id)}
                   >
-                    {s.label}
+                    {formatSize(s.id)}
                   </Chip>
                 ))}
               </div>
@@ -814,10 +912,12 @@ function CustomDesignPage() {
             {editing.frameType !== "wood" && (
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  Frame color for this image
+                  {t("customDesign.colorForImage")}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map((c) => (
+                  {FRAME_COLORS.filter(
+                    (c) => c.id !== "wood" && enabledVariants.includes(c.id),
+                  ).map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -829,8 +929,11 @@ function CustomDesignPage() {
                           : "border-border text-muted-foreground hover:bg-accent",
                       )}
                     >
-                      <span className="inline-block h-4 w-4 rounded-sm border border-border" style={{ background: c.swatch }} />
-                      {c.label}
+                      <span
+                        className="inline-block h-4 w-4 rounded-sm border border-border"
+                        style={{ background: c.swatch }}
+                      />
+                      {formatColor(c.id)}
                     </button>
                   ))}
                 </div>
@@ -842,28 +945,36 @@ function CustomDesignPage() {
                 onClick={() => rotatePic(editing.id)}
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
               >
-                <RotateCw className="h-4 w-4" /> Rotate 90°
+                <RotateCw className="h-4 w-4" /> {t("customDesign.rotate90")}
               </button>
               <button
                 type="button"
-                onClick={() => { const id = editing.id; setEditing(null); startReplace(id); }}
+                onClick={() => {
+                  const id = editing.id;
+                  setEditing(null);
+                  startReplace(id);
+                }}
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
               >
-                <RefreshCw className="h-4 w-4" /> Replace
+                <RefreshCw className="h-4 w-4" /> {t("common.replace")}
               </button>
               <button
                 type="button"
-                onClick={() => { const id = editing.id; setEditing(null); removePic(id); }}
+                onClick={() => {
+                  const id = editing.id;
+                  setEditing(null);
+                  removePic(id);
+                }}
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10"
               >
-                <X className="h-4 w-4" /> Remove
+                <X className="h-4 w-4" /> {t("common.remove")}
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
                 className="ml-auto inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
               >
-                Done
+                {t("common.done")}
               </button>
             </div>
           </div>

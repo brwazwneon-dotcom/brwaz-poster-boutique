@@ -17,17 +17,24 @@ function initFromConfig(config) {
     });
     const messaging = firebase.messaging();
     messaging.onBackgroundMessage((payload) => {
-      const title = (payload.notification && payload.notification.title) ||
-        (payload.data && payload.data.title) || "New Order";
-      const body = (payload.notification && payload.notification.body) ||
-        (payload.data && payload.data.body) || "";
+      const title =
+        (payload.notification && payload.notification.title) ||
+        (payload.data && payload.data.title) ||
+        "New Order";
+      const body =
+        (payload.notification && payload.notification.body) ||
+        (payload.data && payload.data.body) ||
+        "";
       const orderId = payload.data && payload.data.order_id;
       self.registration.showNotification(title, {
         body,
         icon: "/favicon.ico",
         badge: "/favicon.ico",
         tag: orderId ? `order-${orderId}` : "brw-order",
-        data: { url: "/admin?tab=orders" + (orderId ? "&order=" + orderId : ""), ...(payload.data || {}) },
+        data: {
+          url: "/admin?tab=orders" + (orderId ? "&order=" + orderId : ""),
+          ...(payload.data || {}),
+        },
       });
     });
     initialized = true;
@@ -55,7 +62,7 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       return clients.openWindow(url);
-    })
+    }),
   );
 });
 

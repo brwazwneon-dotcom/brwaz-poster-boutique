@@ -84,7 +84,10 @@ export function AdminTour() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" dir={dir}>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+      dir={dir}
+    >
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-2xl">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
           {T.stepOf(step + 1, STEPS.length)}

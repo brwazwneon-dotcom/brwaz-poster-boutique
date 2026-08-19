@@ -219,9 +219,13 @@ function Lightbox({
           <div className="mt-4 w-full max-w-3xl rounded-md border border-white/10 bg-black/70 p-3 text-xs text-white/80 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {meta?.filename && <span className="font-semibold text-white">{meta.filename}</span>}
+                {meta?.filename && (
+                  <span className="font-semibold text-white">{meta.filename}</span>
+                )}
                 {meta?.width && meta?.height && (
-                  <span>{meta.width}×{meta.height}px</span>
+                  <span>
+                    {meta.width}×{meta.height}px
+                  </span>
                 )}
                 {meta?.sizeBytes != null && <span>{formatSize(meta.sizeBytes)}</span>}
                 {meta?.mime && <span className="uppercase">{meta.mime.split("/")[1]}</span>}

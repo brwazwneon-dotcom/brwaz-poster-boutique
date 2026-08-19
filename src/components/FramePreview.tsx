@@ -1,20 +1,12 @@
-import { useEffect, useState } from "react";
+import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
-import { normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import { cn } from "@/lib/utils";
 import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
+import { registerGridNode, unregisterGridNode } from "@/hooks/use-grid-observer";
 
-/**
- * Picks which mockup variant applies for a given frame type + color.
- * - Wooden Portrait always uses the wood mockup.
- * - PVC uses black or white mockup based on color (with a wood fallback).
- */
-export function pickMockupKey(
-  frameType: FrameTypeId,
-  color: FrameColorId,
-): keyof FrameMockups {
+export function pickMockupKey(frameType: FrameTypeId, color: FrameColorId): keyof FrameMockups {
   if (frameType === "wood" || color === "wood") return "wood";
   if (color === "white") return "white";
   return "black";
@@ -22,27 +14,27 @@ export function pickMockupKey(
 
 type Props = {
   posterUrl: string;
+  avifSrcSet?: string;
+  webpSrcSet?: string;
+  sizes?: string;
   title?: string;
   frameType?: FrameTypeId;
   color?: FrameColorId;
   className?: string;
-  /** Tailwind aspect class for the outer wrapper. Defaults to 2/3. */
   aspectClassName?: string;
-  /** When true, no glass reflection / shadow (used for tiny thumbs). */
   bare?: boolean;
   loading?: "lazy" | "eager";
-  /** Persisted edit settings (drag/zoom/rotate/stretch). Applied via CSS only. */
+  fetchPriority?: "high" | "low" | "auto";
   editSettings?: unknown;
+  artwork?: ReactNode;
+  posterFallbackUrl?: string;
 };
 
-/**
- * Composites a stored poster artwork inside a fixed frame mockup using
- * admin-configured inner printable-area coordinates. The poster is rendered
- * with object-fit: cover at a 2:3 aspect ratio. No extra images are stored;
- * the mockup is purely a visual overlay.
- */
-export function FramePreview({
+export const FramePreview = memo(function FramePreview({
   posterUrl,
+  avifSrcSet,
+  webpSrcSet,
+  sizes,
   title,
   frameType = "pvc",
   color = "black",
@@ -50,7 +42,10 @@ export function FramePreview({
   aspectClassName = "aspect-[2/3]",
   bare,
   loading = "lazy",
+  fetchPriority,
   editSettings,
+  artwork,
+  posterFallbackUrl,
 }: Props) {
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
@@ -58,46 +53,48 @@ export function FramePreview({
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [mockupLoaded, setMockupLoaded] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
+  const hasPoster = !!posterUrl;
   const useMockup = !bare && !!m.image;
-  const allLoaded = posterLoaded && (!useMockup || mockupLoaded);
-  useEffect(() => {
-    setPosterLoaded(false);
-    setMockupLoaded(false);
-    setShowLoading(true);
-    const id = window.setTimeout(() => setShowLoading(false), 1500);
-    return () => window.clearTimeout(id);
-  }, [posterUrl, useMockup, m.image]);
+  const allLoaded = (artwork ? true : posterLoaded) && (!useMockup || mockupLoaded);
 
-  const s: EditSettings = normalizeEditSettings(editSettings);
-  // Translate as % so it scales with the printable area size.
-  const tx = (s.offsetX ?? 0) * 100;
-  const ty = (s.offsetY ?? 0) * 100;
-  const scale = Math.max(0.1, s.zoom || 1);
-  // Combine per-poster edit settings with admin calibration for this frame template.
-  const adminScale = Math.max(0.1, m.scale ?? 1);
-  const flipX = m.flipX ? -1 : 1;
-  const flipY = m.flipY ? -1 : 1;
-  const sx = scale * adminScale * flipX;
-  const sy = scale * adminScale * flipY;
-  const rotate = (s.rotate || 0) + (m.rotate ?? 0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    registerGridNode(el, () => {});
+    return () => {
+      unregisterGridNode(el);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (artwork || !hasPoster) {
+      setPosterLoaded(true);
+      setShowLoading(false);
+      return;
+    }
+    setPosterLoaded(false);
+    setShowLoading(true);
+    const id = window.setTimeout(() => setShowLoading(false), 2000);
+    return () => window.clearTimeout(id);
+  }, [artwork, hasPoster]);
+
+  useEffect(() => {
+    setMockupLoaded(false);
+  }, [m.image]);
+
+  void editSettings;
   const skewX = m.skewX ?? 0;
   const skewY = m.skewY ?? 0;
   const rotateX = m.rotateX ?? 0;
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
-  // Respect the poster's stored edit settings:
-  //  - fit: "fit"    → contain (show the whole image, no cropping)
-  //  - fit: "fill"   → cover   (fill printable area, may crop)
-  //  - fit: "custom" → cover   (user is manually panning/zooming on top)
-  // When containing, we render a blurred copy of the artwork behind it so
-  // the letterboxed area never reads as an empty black band inside the frame.
-  const objectFit: "cover" | "contain" = s.fit === "fit" ? "contain" : "cover";
-  const showExtendedBackground = objectFit === "contain" && s.extendMode !== "none";
-  const posterTransform = `translate3d(${tx}%, ${ty}%, 0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotate}deg) skew(${skewX}deg, ${skewY}deg) scale(${sx}, ${sy})`;
   const borderRadius = `${m.borderRadius ?? 0}%`;
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "relative isolate w-full overflow-hidden",
         aspectClassName,
@@ -111,9 +108,8 @@ export function FramePreview({
       }}
       title={title}
     >
-      {/* Poster artwork — clipped to the printable area, *behind* the frame PNG */}
       <div
-        className="absolute z-0 overflow-hidden"
+        className="frame-opening absolute z-0 overflow-hidden"
         style={{
           top: `${m.top}%`,
           left: `${m.left}%`,
@@ -123,39 +119,39 @@ export function FramePreview({
           perspective: `${perspective}px`,
           transformStyle: "preserve-3d",
           background: "transparent",
+          lineHeight: 0,
         }}
       >
-        <SafeImage
-          src={posterUrl}
-          alt=""
-          aria-hidden="true"
-          loading={loading}
-          className={cn(
-            "pointer-events-none absolute inset-0 z-0 h-full w-full select-none object-cover opacity-70 blur-xl scale-110",
-            showExtendedBackground ? "block" : "hidden",
-          )}
-          draggable={false}
-          style={{ objectPosition: "center center" }}
-        />
-        <SafeImage
-          src={posterUrl}
-          alt={title ?? ""}
-          loading={loading}
-          className="relative z-[1] h-full w-full select-none"
-          draggable={false}
-          style={{
-            objectFit,
-            objectPosition: "center center",
-            transform: posterTransform,
-            transformOrigin: "center center",
-            willChange: "transform",
-            backfaceVisibility: "hidden",
-          }}
-          onLoad={() => setPosterLoaded(true)}
-        />
-        {/* Skeleton shimmer while the poster image is loading — prevents
-            the black matte from reading as a broken/empty card. */}
-        {!posterLoaded && (
+        {artwork ? (
+          <div className="absolute inset-0 overflow-hidden leading-none [&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
+            {artwork}
+          </div>
+        ) : (
+          <SafeImage
+            src={posterUrl}
+            avifSrcSet={avifSrcSet}
+            webpSrcSet={webpSrcSet}
+            sizes={sizes}
+            alt={title ?? ""}
+            loading={loading}
+            fetchPriority={fetchPriority}
+            className="frame-artwork relative z-[1] block h-full w-full select-none object-cover object-center"
+            draggable={false}
+            fallbackSrc={posterFallbackUrl}
+            style={{
+              display: "block",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              transform: "none",
+              scale: "1",
+              backfaceVisibility: "hidden",
+            }}
+            onLoad={() => { if (posterUrl) setPosterLoaded(true); }}
+          />
+        )}
+        {!artwork && !posterLoaded && (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
@@ -166,7 +162,6 @@ export function FramePreview({
             }}
           />
         )}
-        {/* Glass reflection across the print area */}
         {!bare && (
           <div
             aria-hidden="true"
@@ -180,7 +175,6 @@ export function FramePreview({
         )}
       </div>
 
-      {/* Transparent PNG frame overlay — sits on top of the artwork like a clipping mask */}
       {useMockup && (
         <img
           src={m.image}
@@ -195,8 +189,7 @@ export function FramePreview({
         />
       )}
 
-      {/* Loading indicator — clear feedback until both the artwork and the frame mockup are ready */}
-      {!bare && showLoading && !allLoaded && (
+      {!bare && !artwork && showLoading && !allLoaded && (
         <div className="pointer-events-none absolute inset-0 z-[30] flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
           <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -208,4 +201,4 @@ export function FramePreview({
       )}
     </div>
   );
-}
+});

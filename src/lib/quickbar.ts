@@ -36,7 +36,10 @@ function normalize(raw: unknown): QuickBarConfig {
   const v = raw as Partial<QuickBarConfig>;
   const chips = Array.isArray(v.chips)
     ? v.chips
-        .filter((c): c is QuickBarChip => !!c && typeof c === "object" && typeof (c as QuickBarChip).id === "string")
+        .filter(
+          (c): c is QuickBarChip =>
+            !!c && typeof c === "object" && typeof (c as QuickBarChip).id === "string",
+        )
         .map((c) => ({
           id: String(c.id),
           label: String(c.label ?? c.id),

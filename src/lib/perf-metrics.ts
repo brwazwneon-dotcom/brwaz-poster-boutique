@@ -35,7 +35,11 @@ function sessionId() {
   }
 }
 
-export function recordPerfMetric(metric: PerfMetric, valueMs: number, meta?: Record<string, unknown>) {
+export function recordPerfMetric(
+  metric: PerfMetric,
+  valueMs: number,
+  meta?: Record<string, unknown>,
+) {
   try {
     if (typeof window === "undefined") return;
     if (!Number.isFinite(valueMs) || valueMs < 0) return;
@@ -60,7 +64,10 @@ export function recordPerfMetric(metric: PerfMetric, valueMs: number, meta?: Rec
         user_agent: navigator.userAgent,
         metadata: (meta ?? {}) as never,
       })
-      .then(() => {}, () => {});
+      .then(
+        () => {},
+        () => {},
+      );
   } catch {
     /* ignore */
   }
@@ -74,7 +81,8 @@ export function installPerfMonitor() {
   // Page load timing via Navigation Timing API
   const emitNav = () => {
     try {
-      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      const nav = performance.getEntriesByType("navigation")[0] as
+        PerformanceNavigationTiming | undefined;
       if (!nav) return;
       if (nav.responseStart > 0) recordPerfMetric("TTFB", nav.responseStart);
       if (nav.loadEventEnd > 0) recordPerfMetric("page_load_ms", nav.loadEventEnd);

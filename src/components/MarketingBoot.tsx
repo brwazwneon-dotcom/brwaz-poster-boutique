@@ -12,7 +12,9 @@ import { usePerformanceFlags } from "@/lib/performance-flags";
  * (admin dashboard and its APIs).
  */
 function isAdminPath(pathname: string): boolean {
-  return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/api/admin");
+  return (
+    pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/api/admin")
+  );
 }
 
 /**
@@ -47,10 +49,20 @@ export function MarketingBoot() {
       toId = window.setTimeout(run, Math.max(500, perf.analytics_defer_ms));
     }
     return () => {
-      if (idleId != null && typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(idleId);
+      if (idleId != null && typeof w.cancelIdleCallback === "function")
+        w.cancelIdleCallback(idleId);
       if (toId != null) window.clearTimeout(toId);
     };
-  }, [pathname, perf.analytics_defer_ms, cfg.pixelId, cfg.pixelEnabled, cfg.capiEnabled, cfg.advancedMatchingEnabled, cfg.ga4MeasurementId, cfg.ga4Enabled]);
+  }, [
+    pathname,
+    perf.analytics_defer_ms,
+    cfg.pixelId,
+    cfg.pixelEnabled,
+    cfg.capiEnabled,
+    cfg.advancedMatchingEnabled,
+    cfg.ga4MeasurementId,
+    cfg.ga4Enabled,
+  ]);
 
   useEffect(() => {
     // Always update lastPath so we don't spam internal analytics.
@@ -63,7 +75,11 @@ export function MarketingBoot() {
     if (routeChanged) {
       rememberPublicRoute(pathname);
       // Always record internal analytics regardless of Pixel/GA toggles.
-      try { trackVisit(pathname); } catch { /* noop */ }
+      try {
+        trackVisit(pathname);
+      } catch {
+        /* noop */
+      }
     }
 
     // Fire PageView whenever we haven't fired it yet for this path AND
@@ -71,16 +87,32 @@ export function MarketingBoot() {
     // where the effect first ran with pixelEnabled=false.
     if ((cfg.pixelEnabled || cfg.capiEnabled || cfg.ga4Enabled) && lastFired.current !== pathname) {
       lastFired.current = pathname;
-      try { trackEvent("PageView"); } catch { /* noop */ }
-      try { gaPageView(pathname); } catch { /* noop */ }
+      try {
+        trackEvent("PageView");
+      } catch {
+        /* noop */
+      }
+      try {
+        gaPageView(pathname);
+      } catch {
+        /* noop */
+      }
 
       // Route-specific auto events for cart / checkout so Meta Pixel Helper
       // and audiences pick them up without requiring in-page code.
       if (pathname === "/cart" || pathname.startsWith("/cart")) {
-        try { trackCustom("ViewCart"); } catch { /* noop */ }
+        try {
+          trackCustom("ViewCart");
+        } catch {
+          /* noop */
+        }
       }
       if (pathname === "/checkout" || pathname.startsWith("/checkout")) {
-        try { trackEvent("InitiateCheckout"); } catch { /* noop */ }
+        try {
+          trackEvent("InitiateCheckout");
+        } catch {
+          /* noop */
+        }
       }
     }
   }, [pathname, cfg.pixelEnabled, cfg.capiEnabled, cfg.ga4Enabled]);

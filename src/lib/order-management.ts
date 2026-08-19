@@ -106,14 +106,24 @@ export async function addNote(orderId: string, text: string, author?: string) {
   await logTimeline(orderId, "note_added", { note: text.slice(0, 120) });
 }
 
-export async function updateNote(id: string, patch: Partial<Pick<InternalNote, "text" | "pinned">>, orderId: string) {
-  const { error } = await supabase.from("order_notes" as never).update(patch as never).eq("id", id);
+export async function updateNote(
+  id: string,
+  patch: Partial<Pick<InternalNote, "text" | "pinned">>,
+  orderId: string,
+) {
+  const { error } = await supabase
+    .from("order_notes" as never)
+    .update(patch as never)
+    .eq("id", id);
   if (error) throw error;
   await logTimeline(orderId, "note_updated");
 }
 
 export async function deleteNote(id: string, orderId: string) {
-  const { error } = await supabase.from("order_notes" as never).delete().eq("id", id);
+  const { error } = await supabase
+    .from("order_notes" as never)
+    .delete()
+    .eq("id", id);
   if (error) throw error;
   await logTimeline(orderId, "note_deleted");
 }
@@ -203,28 +213,40 @@ export function validateOrder(g: LiteGroup): OrderCheck {
   } else {
     g.items.forEach((it, idx) => {
       const n = idx + 1;
-      if (!it.size) { groups.products = "failed"; issues.push(`Item ${n}: size is missing`); }
-      if (!it.quantity || it.quantity <= 0) { groups.products = "failed"; issues.push(`Item ${n}: quantity is invalid`); }
-      if (!it.poster_image) { groups.images = groups.images === "failed" ? "failed" : "warning"; issues.push(`Item ${n}: image is missing`); }
+      if (!it.size) {
+        groups.products = "failed";
+        issues.push(`Item ${n}: size is missing`);
+      }
+      if (!it.quantity || it.quantity <= 0) {
+        groups.products = "failed";
+        issues.push(`Item ${n}: quantity is invalid`);
+      }
+      if (!it.poster_image) {
+        groups.images = groups.images === "failed" ? "failed" : "warning";
+        issues.push(`Item ${n}: image is missing`);
+      }
     });
   }
 
-  if (!g.total || g.total <= 0) { groups.pricing = "failed"; issues.push("Total price is not calculated"); }
-  if (g.shipping < 0) { groups.pricing = "failed"; issues.push("Shipping cost is invalid"); }
+  if (!g.total || g.total <= 0) {
+    groups.pricing = "failed";
+    issues.push("Total price is not calculated");
+  }
+  if (g.shipping < 0) {
+    groups.pricing = "failed";
+    issues.push("Shipping cost is invalid");
+  }
 
-  const overall: OrderCheck["overall"] =
-    Object.values(groups).some((v) => v === "failed") ? "needs_review" : "ready";
+  const overall: OrderCheck["overall"] = Object.values(groups).some((v) => v === "failed")
+    ? "needs_review"
+    : "ready";
 
   return { overall, groups, issues };
 }
 
 // ------------------ WHATSAPP TEMPLATES ------------------
 export type WhatsAppTemplateKey =
-  | "confirmation"
-  | "better_image"
-  | "printing"
-  | "shipped"
-  | "review";
+  "confirmation" | "better_image" | "printing" | "shipped" | "review";
 
 export const WHATSAPP_TEMPLATES: { key: WhatsAppTemplateKey; title: string; icon: string }[] = [
   { key: "confirmation", title: "Order Confirmation", icon: "✅" },
@@ -246,7 +268,10 @@ export function buildWhatsAppTemplate(
   },
 ): string {
   const items = g.items
-    .map((i, idx) => `${idx + 1}) ${i.poster_title || "منتج"} — ${i.size ?? ""} · الكمية: ${i.quantity ?? 1}`)
+    .map(
+      (i, idx) =>
+        `${idx + 1}) ${i.poster_title || "منتج"} — ${i.size ?? ""} · الكمية: ${i.quantity ?? 1}`,
+    )
     .join("\n");
   switch (key) {
     case "confirmation":

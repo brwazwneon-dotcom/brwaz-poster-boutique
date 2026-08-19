@@ -54,7 +54,13 @@ export function logSystemEvent(input: LogInput): void {
     };
 
     // Fire and forget; ignore rejection.
-    void supabase.from("system_logs").insert(payload).then(() => {}, () => {});
+    void supabase
+      .from("system_logs")
+      .insert(payload)
+      .then(
+        () => {},
+        () => {},
+      );
   } catch {
     /* noop */
   }
@@ -81,7 +87,11 @@ export function installGlobalErrorLogging() {
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     const message =
-      reason instanceof Error ? reason.message : typeof reason === "string" ? reason : "Unhandled rejection";
+      reason instanceof Error
+        ? reason.message
+        : typeof reason === "string"
+          ? reason
+          : "Unhandled rejection";
     logSystemEvent({
       level: "error",
       source: "unhandledrejection",

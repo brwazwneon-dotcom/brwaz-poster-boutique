@@ -87,7 +87,9 @@ export async function initBehavior(): Promise<void> {
   if (!(await guard())) return;
   try {
     const geoRaw = window.localStorage.getItem("brw-geo-v1");
-    const geo = geoRaw ? JSON.parse(geoRaw) as { city?: string; governorate?: string; country?: string } : null;
+    const geo = geoRaw
+      ? (JSON.parse(geoRaw) as { city?: string; governorate?: string; country?: string })
+      : null;
     await supabase.rpc("upsert_visitor_profile", {
       _visitor_id: visitorId(),
       _device: detectDevice(),
@@ -95,10 +97,16 @@ export async function initBehavior(): Promise<void> {
       _governorate: geo?.governorate ?? undefined,
       _country: geo?.country ?? undefined,
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
-async function score(kind: "category" | "tag" | "size" | "frame", key: string | null | undefined, delta = 1) {
+async function score(
+  kind: "category" | "tag" | "size" | "frame",
+  key: string | null | undefined,
+  delta = 1,
+) {
   if (!key) return;
   if (!(await guard())) return;
   try {
@@ -108,7 +116,9 @@ async function score(kind: "category" | "tag" | "size" | "frame", key: string | 
       _key: key,
       _delta: delta,
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 export const track = {
@@ -129,12 +139,21 @@ export const track = {
       (meta.tags ?? []).slice(0, 5).forEach((t) => void score("tag", t.toLowerCase(), 0.5));
     })();
   },
-  wishlist(posterId: string, meta: { categoryId?: string | null; tags?: string[] | null }, added: boolean) {
+  wishlist(
+    posterId: string,
+    meta: { categoryId?: string | null; tags?: string[] | null },
+    added: boolean,
+  ) {
     if (!added) return;
     void score("category", meta.categoryId ?? "", 2);
     (meta.tags ?? []).slice(0, 5).forEach((t) => void score("tag", t.toLowerCase(), 1));
   },
-  cart(posterId: string, meta: { categoryId?: string | null; size?: string; frameType?: string }, added: boolean, qty = 1) {
+  cart(
+    posterId: string,
+    meta: { categoryId?: string | null; size?: string; frameType?: string },
+    added: boolean,
+    qty = 1,
+  ) {
     void (async () => {
       if (!(await guard())) return;
       if (added) {
@@ -151,7 +170,9 @@ export const track = {
           size: meta.size ?? null,
           frame_type: meta.frameType ?? null,
         });
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     })();
   },
   checkoutStart() {
@@ -162,7 +183,9 @@ export const track = {
           visitor_id: visitorId(),
           event: "checkout_start",
         });
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     })();
   },
   purchase(phone: string, posterIds: string[]) {
@@ -171,16 +194,24 @@ export const track = {
       const vid = visitorId();
       try {
         await supabase.rpc("merge_visitor_to_phone", { _visitor_id: vid, _phone: phone });
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
       try {
         if (posterIds.length) {
           await supabase.from("visitor_cart_events").insert(
-            posterIds.map((pid) => ({ visitor_id: vid, poster_id: asUuid(pid), event: "purchase" })),
+            posterIds.map((pid) => ({
+              visitor_id: vid,
+              poster_id: asUuid(pid),
+              event: "purchase",
+            })),
           );
         } else {
           await supabase.from("visitor_cart_events").insert({ visitor_id: vid, event: "purchase" });
         }
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     })();
   },
 };

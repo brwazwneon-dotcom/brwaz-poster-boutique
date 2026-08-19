@@ -23,7 +23,9 @@ function readGeo(): GeoInfo | null {
     const g = JSON.parse(raw) as GeoInfo;
     if (!g?.ts || Date.now() - g.ts > GEO_TTL_MS) return null;
     return g;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function fetchGeo(): Promise<GeoInfo | null> {
@@ -41,9 +43,15 @@ async function fetchGeo(): Promise<GeoInfo | null> {
       governorate: (j.region as string) || null,
       ts: Date.now(),
     };
-    try { window.localStorage.setItem(GEO_KEY, JSON.stringify(g)); } catch { /* ignore */ }
+    try {
+      window.localStorage.setItem(GEO_KEY, JSON.stringify(g));
+    } catch {
+      /* ignore */
+    }
     return g;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function detectBrowser(): string {
@@ -182,7 +190,9 @@ function saveUniqueViewedSet(s: Set<string>) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(UNIQUE_VIEW_KEY, JSON.stringify(Array.from(s)));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Returns true if this is the visitor's first view of poster (and persists it). */
@@ -196,7 +206,8 @@ export function markUniqueView(posterId: string): boolean {
 
 export function logPosterEvent(
   posterId: string,
-  eventType: "view" | "unique_view" | "cart_add" | "wishlist_add" | "checkout_start" | "checkout_complete",
+  eventType:
+    "view" | "unique_view" | "cart_add" | "wishlist_add" | "checkout_start" | "checkout_complete",
   durationSeconds?: number,
 ): void {
   if (!posterId) return;

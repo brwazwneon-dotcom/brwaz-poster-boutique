@@ -7,6 +7,12 @@ import { cn } from "@/lib/utils";
 
 type LastEvent = { name: string; route: string; at: number } | null;
 
+type PixelDebugWindow = Window & {
+  __brwz_pixel_loaded?: boolean;
+  __brwz_pixel_id?: string;
+  fbq?: unknown;
+};
+
 function isAdminPath(p: string) {
   return p === "/admin" || p.startsWith("/admin/");
 }
@@ -30,11 +36,12 @@ export function MetaPixelDebugCard() {
   void now;
 
   const state = useMemo(() => {
-    const w: any = typeof window !== "undefined" ? window : null;
+    const w: PixelDebugWindow | null = typeof window !== "undefined" ? window : null;
     const route = typeof window !== "undefined" ? window.location.pathname : "";
-    const scriptTag = typeof document !== "undefined"
-      ? !!document.querySelector('script[src*="connect.facebook.net/en_US/fbevents.js"]')
-      : false;
+    const scriptTag =
+      typeof document !== "undefined"
+        ? !!document.querySelector('script[src*="connect.facebook.net/en_US/fbevents.js"]')
+        : false;
     return {
       route,
       isAdmin: isAdminPath(route),
@@ -69,10 +76,14 @@ export function MetaPixelDebugCard() {
         <div>{label}</div>
         {help && <div className="text-[10px] text-muted-foreground">{help}</div>}
       </div>
-      <span className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest",
-        ok ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600" : "border-amber-500/40 bg-amber-500/10 text-amber-600",
-      )}>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest",
+          ok
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+            : "border-amber-500/40 bg-amber-500/10 text-amber-600",
+        )}
+      >
         {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
         {ok ? "OK" : "Not detected"}
       </span>
@@ -95,7 +106,9 @@ export function MetaPixelDebugCard() {
       </div>
 
       <div className="space-y-1.5 border-t border-border pt-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Current context</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Current context
+        </div>
         <div className="flex items-center justify-between text-xs">
           <span>Route</span>
           <span className="font-mono">{state.route || "—"}</span>
@@ -107,10 +120,24 @@ export function MetaPixelDebugCard() {
       </div>
 
       <div className="space-y-1.5 border-t border-border pt-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Pixel status</div>
-        {statusRow("Pixel ID configured", state.pixelIdConfigured, state.pixelId ? `ID: ${state.pixelId}` : "Add your Pixel ID in Marketing settings")}
-        {statusRow("Pixel enabled by admin", state.pixelEnabled, state.pixelEnabled ? "Toggle is ON" : "Toggle is OFF — no tracking will run")}
-        {statusRow("Pixel script injected", state.scriptInjected, "connect.facebook.net/en_US/fbevents.js")}
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Pixel status
+        </div>
+        {statusRow(
+          "Pixel ID configured",
+          state.pixelIdConfigured,
+          state.pixelId ? `ID: ${state.pixelId}` : "Add your Pixel ID in Marketing settings",
+        )}
+        {statusRow(
+          "Pixel enabled by admin",
+          state.pixelEnabled,
+          state.pixelEnabled ? "Toggle is ON" : "Toggle is OFF — no tracking will run",
+        )}
+        {statusRow(
+          "Pixel script injected",
+          state.scriptInjected,
+          "connect.facebook.net/en_US/fbevents.js",
+        )}
         {statusRow("fbq() loaded in browser", state.fbqLoaded, "The global fbq function is ready")}
         {statusRow(
           "Current page tracking active",
@@ -130,20 +157,35 @@ export function MetaPixelDebugCard() {
       </div>
 
       <div className="space-y-1.5 border-t border-border pt-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Last event</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Last event
+        </div>
         {lastEvent ? (
           <div className="text-xs">
-            <div><span className="text-muted-foreground">Name:</span> <span className="font-mono">{lastEvent.name}</span></div>
-            <div><span className="text-muted-foreground">Route:</span> <span className="font-mono">{lastEvent.route}</span></div>
-            <div><span className="text-muted-foreground">Time:</span> {new Date(lastEvent.at).toLocaleTimeString()}</div>
+            <div>
+              <span className="text-muted-foreground">Name:</span>{" "}
+              <span className="font-mono">{lastEvent.name}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Route:</span>{" "}
+              <span className="font-mono">{lastEvent.route}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Time:</span>{" "}
+              {new Date(lastEvent.at).toLocaleTimeString()}
+            </div>
           </div>
         ) : (
-          <div className="text-[11px] text-muted-foreground">No event fired yet in this session.</div>
+          <div className="text-[11px] text-muted-foreground">
+            No event fired yet in this session.
+          </div>
         )}
       </div>
 
       <div className="space-y-1.5 border-t border-border pt-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Test buttons</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Test buttons
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <TestBtn label="Open Home + fire PageView" onClick={() => openIn("/?_pixeltest=1")} />
           <TestBtn label="Open Cart + fire ViewCart" onClick={() => openIn("/cart?_pixeltest=1")} />
@@ -153,35 +195,47 @@ export function MetaPixelDebugCard() {
           />
           <TestBtn
             label="Fire AddToCart (test)"
-            onClick={() => fire("AddToCart", () => trackEvent("AddToCart", {
-              content_ids: ["test-poster"],
-              content_name: "Test Poster",
-              content_type: "product",
-              content_category: "Test",
-              value: 100,
-              currency: "EGP",
-              quantity: 1,
-            }))}
+            onClick={() =>
+              fire("AddToCart", () =>
+                trackEvent("AddToCart", {
+                  content_ids: ["test-poster"],
+                  content_name: "Test Poster",
+                  content_type: "product",
+                  content_category: "Test",
+                  value: 100,
+                  currency: "EGP",
+                  quantity: 1,
+                }),
+              )
+            }
           />
           <TestBtn
             label="Fire InitiateCheckout"
-            onClick={() => fire("InitiateCheckout", () => trackEvent("InitiateCheckout", {
-              value: 100,
-              currency: "EGP",
-              num_items: 1,
-            }))}
+            onClick={() =>
+              fire("InitiateCheckout", () =>
+                trackEvent("InitiateCheckout", {
+                  value: 100,
+                  currency: "EGP",
+                  num_items: 1,
+                }),
+              )
+            }
           />
           <TestBtn
             label="Fire ViewCart"
-            onClick={() => fire("ViewCart", () => trackCustom("ViewCart", {
-              value: 100,
-              currency: "EGP",
-            }))}
+            onClick={() =>
+              fire("ViewCart", () =>
+                trackCustom("ViewCart", {
+                  value: 100,
+                  currency: "EGP",
+                }),
+              )
+            }
           />
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground">
-          Test results appear in Meta Events Manager under "Test Events" and in the
-          Meta Pixel Helper browser extension.
+          Test results appear in Meta Events Manager under "Test Events" and in the Meta Pixel
+          Helper browser extension.
         </p>
       </div>
     </div>

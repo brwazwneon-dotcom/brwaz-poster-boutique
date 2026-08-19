@@ -21,9 +21,7 @@ export function useSiteSettings() {
     queryKey: ["site-settings"],
     staleTime: 60_000,
     queryFn: async (): Promise<SiteSettings> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("key,value");
+      const { data, error } = await supabase.from("site_settings").select("key,value");
       if (error) throw error;
       const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
       const num = (k: string, fallback: number) => {
@@ -60,7 +58,7 @@ export type Pricing = {
 
 export const PRICING_DEFAULTS: Pricing = {
   frame: {
-    pvc:  { "20x30": 190, "30x40": 250, "40x50": 350 },
+    pvc: { "20x30": 190, "30x40": 250, "40x50": 350 },
     wood: {
       "20x30": 190,
       "30x40": 270,
@@ -156,18 +154,15 @@ export function usePricing(): Pricing {
         shippingFee: num("shipping_fee", d.shippingFee),
         freeShippingThreshold: num("free_shipping_threshold", d.freeShippingThreshold),
         doubleFaceTapePrice: num("double_face_tape_price", d.doubleFaceTapePrice),
-        doubleFaceTapeEnabled: num("double_face_tape_enabled", d.doubleFaceTapeEnabled ? 1 : 0) !== 0,
+        doubleFaceTapeEnabled:
+          num("double_face_tape_enabled", d.doubleFaceTapeEnabled ? 1 : 0) !== 0,
       };
     },
   });
   return q.data ?? PRICING_DEFAULTS;
 }
 
-export function priceForFrame(
-  pricing: Pricing,
-  frameType: FrameTypeId,
-  size: SizeId,
-): number {
+export function priceForFrame(pricing: Pricing, frameType: FrameTypeId, size: SizeId): number {
   return pricing.frame[frameType]?.[size] ?? 0;
 }
 
@@ -208,21 +203,72 @@ export type FrameMockups = {
 };
 
 const LOCAL_MOCKUP_IMAGES: Record<keyof FrameMockups, string> = {
-  black: "/mockups/frame-black.png",
-  white: "/mockups/frame-white.png",
-  wood: "/mockups/frame-wood.png",
+  black: "/assets/mockups/frame-black.webp",
+  white: "/assets/mockups/frame-white.webp",
+  wood: "/assets/mockups/frame-wood.webp",
 };
 
 const MOCKUP_DEFAULTS: FrameMockups = {
-  black: { image: LOCAL_MOCKUP_IMAGES.black, top: 13.59, left: 14.19, width: 71.63, height: 70.78, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
-  white: { image: LOCAL_MOCKUP_IMAGES.white, top: 13.83, left: 14.07, width: 71.4, height: 70.47, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
-  wood:  { image: LOCAL_MOCKUP_IMAGES.wood, top: 14.06, left: 17.72, width: 69.72, height: 74.06, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false, enabled: true },
+  black: {
+    image: LOCAL_MOCKUP_IMAGES.black,
+    top: 13.59,
+    left: 14.19,
+    width: 71.63,
+    height: 70.78,
+    rotate: 0,
+    skewX: 0,
+    skewY: 0,
+    borderRadius: 0,
+    scale: 1,
+    perspective: 1000,
+    rotateX: 0,
+    rotateY: 0,
+    flipX: false,
+    flipY: false,
+    enabled: true,
+  },
+  white: {
+    image: LOCAL_MOCKUP_IMAGES.white,
+    top: 13.83,
+    left: 14.07,
+    width: 71.4,
+    height: 70.47,
+    rotate: 0,
+    skewX: 0,
+    skewY: 0,
+    borderRadius: 0,
+    scale: 1,
+    perspective: 1000,
+    rotateX: 0,
+    rotateY: 0,
+    flipX: false,
+    flipY: false,
+    enabled: true,
+  },
+  wood: {
+    image: LOCAL_MOCKUP_IMAGES.wood,
+    top: 14.06,
+    left: 17.72,
+    width: 69.72,
+    height: 74.06,
+    rotate: 0,
+    skewX: 0,
+    skewY: 0,
+    borderRadius: 0,
+    scale: 1,
+    perspective: 1000,
+    rotateX: 0,
+    rotateY: 0,
+    flipX: false,
+    flipY: false,
+    enabled: true,
+  },
 };
 
 const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
   black: "frame_mockup_black",
   white: "frame_mockup_white",
-  wood:  "frame_mockup_wood",
+  wood: "frame_mockup_wood",
 };
 
 function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
@@ -233,13 +279,12 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     return Number.isFinite(n) ? n : fb;
   };
   const imgRaw = typeof v.image === "string" ? v.image.trim() : "";
-  // Ignore host-specific URLs that only work on Lovable's preview/CDN
-  // (they 404 on custom-domain / Vercel deploys). Fall back to the
-  // locally-served /mockups/*.png file so every host renders correctly.
+  // Ignore host-specific URLs that only work on preview/CDN hosts
+  // (they 404 on custom-domain deploys). Fall back to the
+  // locally-served optimized mockup so every host renders correctly.
   const isLegacy =
     imgRaw.startsWith("/assets/mockups/") ||
     imgRaw.startsWith("/__l5e/") ||
-    imgRaw.includes(".lovable.app/__l5e/") ||
     imgRaw.includes(".lovableproject.com/__l5e/");
   return {
     image: imgRaw && !isLegacy ? imgRaw : fallback.image,
@@ -255,9 +300,9 @@ function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
     perspective: numOr(v.perspective, fallback.perspective ?? 1000),
     rotateX: numOr(v.rotateX, fallback.rotateX ?? 0),
     rotateY: numOr(v.rotateY, fallback.rotateY ?? 0),
-    flipX: typeof v.flipX === "boolean" ? v.flipX : fallback.flipX ?? false,
-    flipY: typeof v.flipY === "boolean" ? v.flipY : fallback.flipY ?? false,
-    enabled: typeof v.enabled === "boolean" ? v.enabled : fallback.enabled ?? true,
+    flipX: typeof v.flipX === "boolean" ? v.flipX : (fallback.flipX ?? false),
+    flipY: typeof v.flipY === "boolean" ? v.flipY : (fallback.flipY ?? false),
+    enabled: typeof v.enabled === "boolean" ? v.enabled : (fallback.enabled ?? true),
   };
 }
 
@@ -275,7 +320,7 @@ export function useFrameMockups(): FrameMockups {
       return {
         black: parseMockup(map.get(MOCKUP_KEYS.black), MOCKUP_DEFAULTS.black),
         white: parseMockup(map.get(MOCKUP_KEYS.white), MOCKUP_DEFAULTS.white),
-        wood:  parseMockup(map.get(MOCKUP_KEYS.wood),  MOCKUP_DEFAULTS.wood),
+        wood: parseMockup(map.get(MOCKUP_KEYS.wood), MOCKUP_DEFAULTS.wood),
       };
     },
   });
@@ -311,9 +356,7 @@ export function useGridDisplayMode(): GridDisplayMode {
       if (error) throw error;
       const v = data?.value as unknown;
       const s = typeof v === "string" ? v : "";
-      return (["black", "white", "wood"] as GridDisplayMode[]).includes(
-        s as GridDisplayMode,
-      )
+      return (["black", "white", "wood"] as GridDisplayMode[]).includes(s as GridDisplayMode)
         ? (s as GridDisplayMode)
         : GRID_DISPLAY_MODE_DEFAULT;
     },
@@ -352,8 +395,7 @@ export const PHOTO_4X6_DEFAULTS: Photo4x6Config = {
   upsellEnabled: true,
   upsellExampleImage: "",
   upsellTitle: "Print Your Personal Photos 4×6",
-  upsellSubtitle:
-    "Upload your favorite photos and we'll enhance the quality before printing.",
+  upsellSubtitle: "Upload your favorite photos and we'll enhance the quality before printing.",
 };
 
 export const PHOTO_4X6_KEY = "photo_4x6_config";
@@ -361,21 +403,22 @@ export const PHOTO_4X6_KEY = "photo_4x6_config";
 function parsePhoto4x6(raw: unknown): Photo4x6Config {
   if (!raw || typeof raw !== "object") return PHOTO_4X6_DEFAULTS;
   const v = raw as Partial<Photo4x6Config>;
-  const packages = Array.isArray(v.packages) && v.packages.length
-    ? v.packages
-        .map((p) => {
-          const photos = Number(p?.photos);
-          const price = Number(p?.price);
-          if (!Number.isFinite(photos) || !Number.isFinite(price)) return null;
-          return {
-            key: String(p?.key ?? `p${photos}`),
-            photos,
-            price,
-            label: String(p?.label ?? `${photos} Photos 4×6`),
-          } as Photo4x6Package;
-        })
-        .filter((p): p is Photo4x6Package => !!p)
-    : PHOTO_4X6_DEFAULTS.packages;
+  const packages =
+    Array.isArray(v.packages) && v.packages.length
+      ? v.packages
+          .map((p) => {
+            const photos = Number(p?.photos);
+            const price = Number(p?.price);
+            if (!Number.isFinite(photos) || !Number.isFinite(price)) return null;
+            return {
+              key: String(p?.key ?? `p${photos}`),
+              photos,
+              price,
+              label: String(p?.label ?? `${photos} Photos 4×6`),
+            } as Photo4x6Package;
+          })
+          .filter((p): p is Photo4x6Package => !!p)
+      : PHOTO_4X6_DEFAULTS.packages;
   return {
     enabled: typeof v.enabled === "boolean" ? v.enabled : true,
     packages: packages.length ? packages : PHOTO_4X6_DEFAULTS.packages,
@@ -383,8 +426,14 @@ function parsePhoto4x6(raw: unknown): Photo4x6Config {
     aiSuitEnabled: typeof v.aiSuitEnabled === "boolean" ? v.aiSuitEnabled : true,
     upsellEnabled: typeof v.upsellEnabled === "boolean" ? v.upsellEnabled : true,
     upsellExampleImage: typeof v.upsellExampleImage === "string" ? v.upsellExampleImage : "",
-    upsellTitle: typeof v.upsellTitle === "string" && v.upsellTitle ? v.upsellTitle : PHOTO_4X6_DEFAULTS.upsellTitle,
-    upsellSubtitle: typeof v.upsellSubtitle === "string" && v.upsellSubtitle ? v.upsellSubtitle : PHOTO_4X6_DEFAULTS.upsellSubtitle,
+    upsellTitle:
+      typeof v.upsellTitle === "string" && v.upsellTitle
+        ? v.upsellTitle
+        : PHOTO_4X6_DEFAULTS.upsellTitle,
+    upsellSubtitle:
+      typeof v.upsellSubtitle === "string" && v.upsellSubtitle
+        ? v.upsellSubtitle
+        : PHOTO_4X6_DEFAULTS.upsellSubtitle,
   };
 }
 
@@ -403,4 +452,53 @@ export function usePhoto4x6Config(): Photo4x6Config {
     },
   });
   return q.data ?? PHOTO_4X6_DEFAULTS;
+}
+
+/* -------------------- Post-order success message -------------------- */
+
+export const POST_ORDER_MESSAGE_ENABLED_KEY = "post_order_success_message_enabled";
+
+/** Params the stored site_settings value of the post-order message toggle. */
+export function parsePostOrderMessageEnabled(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") return v !== "false" && v !== "0";
+  return true;
+}
+
+/**
+ * Read the CURRENT value of the post-order message toggle straight from
+ * Supabase. Called at the moment of order success so the toast always reflects
+ * the setting stored in the database — never a cached value. Defaults to ON.
+ */
+export async function readPostOrderMessageEnabled(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", POST_ORDER_MESSAGE_ENABLED_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  return parsePostOrderMessageEnabled(data?.value);
+}
+
+/**
+ * Whether the storefront shows the post-order success message to the customer.
+ * Defaults to ON. When OFF, order completion keeps working exactly as before —
+ * only the success toast is suppressed.
+ */
+export function usePostOrderMessageEnabled(): boolean {
+  const q = useQuery({
+    queryKey: ["post-order-message-enabled"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", POST_ORDER_MESSAGE_ENABLED_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return parsePostOrderMessageEnabled(data?.value);
+    },
+  });
+  return q.data ?? true;
 }

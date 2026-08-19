@@ -21,6 +21,8 @@ export type CustomOffer = {
   sort_order: number;
 };
 
+type OfferFormValue = Omit<CustomOffer, "id"> & { id?: string };
+
 const empty = (): Omit<CustomOffer, "id"> => ({
   title: "",
   title_ar: "",
@@ -65,7 +67,7 @@ export function OffersTab() {
       if (error) throw error;
       const { data } = supabase.storage.from("posters").getPublicUrl(path);
       return data.publicUrl;
-    } catch (e) {
+    } catch {
       toast.error("Image upload failed");
       return null;
     }
@@ -106,8 +108,8 @@ export function OffersTab() {
         <div>
           <h2 className="text-2xl font-semibold">Offers Manager</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Create, edit, hide, or delete bundle offers shown on the /offers page. Each bundle
-            adds a 20 EGP packaging fee at checkout automatically.
+            Create, edit, hide, or delete bundle offers shown on the /offers page. Each bundle adds
+            a 20 EGP packaging fee at checkout automatically.
           </p>
         </div>
         <button
@@ -121,7 +123,7 @@ export function OffersTab() {
       {draft && (
         <OfferForm
           value={draft}
-          onChange={setDraft as any}
+          onChange={(value) => setDraft(value)}
           onCancel={() => setDraft(null)}
           onSave={createOffer}
           uploadImage={uploadImage}
@@ -164,13 +166,13 @@ function OfferRow({
   uploadImage: (file: File) => Promise<string | null>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<CustomOffer>(offer);
+  const [draft, setDraft] = useState<OfferFormValue>(offer);
 
   if (editing) {
     return (
       <OfferForm
         value={draft}
-        onChange={setDraft as any}
+        onChange={(value) => setDraft(value)}
         onCancel={() => {
           setDraft(offer);
           setEditing(false);
@@ -198,10 +200,12 @@ function OfferRow({
   }
 
   return (
-    <div className={cn(
-      "flex items-center gap-4 rounded-sm border border-border bg-card p-4",
-      !offer.enabled && "opacity-60",
-    )}>
+    <div
+      className={cn(
+        "flex items-center gap-4 rounded-sm border border-border bg-card p-4",
+        !offer.enabled && "opacity-60",
+      )}
+    >
       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-sm bg-muted">
         {offer.image_url ? (
           <img src={offer.image_url} alt="" className="h-full w-full object-cover" />
@@ -226,10 +230,13 @@ function OfferRow({
           )}
         </div>
         {offer.title_ar && (
-          <div className="text-xs text-muted-foreground truncate" dir="rtl">{offer.title_ar}</div>
+          <div className="text-xs text-muted-foreground truncate" dir="rtl">
+            {offer.title_ar}
+          </div>
         )}
         <div className="mt-1 text-xs text-muted-foreground">
-          {offer.count} × {offer.size} · <b className="text-foreground">{offer.price} EGP</b> · sort {offer.sort_order}
+          {offer.count} × {offer.size} · <b className="text-foreground">{offer.price} EGP</b> · sort{" "}
+          {offer.sort_order}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -266,15 +273,15 @@ function OfferForm({
   uploadImage,
   submitLabel,
 }: {
-  value: Omit<CustomOffer, "id"> & { id?: string };
-  onChange: (v: Omit<CustomOffer, "id"> & { id?: string }) => void;
+  value: OfferFormValue;
+  onChange: (v: OfferFormValue) => void;
   onCancel: () => void;
   onSave: () => unknown | Promise<unknown>;
   uploadImage: (file: File) => Promise<string | null>;
   submitLabel: string;
 }) {
   const [uploading, setUploading] = useState(false);
-  const set = <K extends keyof typeof value>(k: K, v: (typeof value)[K]) =>
+  const set = <K extends keyof OfferFormValue>(k: K, v: OfferFormValue[K]) =>
     onChange({ ...value, [k]: v });
 
   const onFile = async (file: File | null) => {
@@ -327,7 +334,9 @@ function OfferForm({
             onChange={(e) => set("size", e.target.value)}
           >
             {SIZES.map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
             ))}
           </select>
         </Field>
@@ -378,13 +387,17 @@ function OfferForm({
       </div>
 
       <div>
-        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Cover image</div>
+        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">
+          Cover image
+        </div>
         <div className="flex items-center gap-4">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
             {value.image_url ? (
               <img src={value.image_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">No image</div>
+              <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                No image
+              </div>
             )}
           </div>
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent">

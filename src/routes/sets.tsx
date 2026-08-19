@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
 import { useCart } from "@/lib/cart";
@@ -12,13 +13,19 @@ export const Route = createFileRoute("/sets")({
   head: () => ({
     meta: [
       { title: "Frame Sets — BRWAZWNEON" },
-      { name: "description", content: "Curated frame bundles — 3, 4, and 6 frame sets for your wall." },
+      {
+        name: "description",
+        content: "Shop curated BRWAZWNEON frame sets and wall bundles delivered across Egypt.",
+      },
       { property: "og:title", content: "Frame Sets — BRWAZWNEON" },
-      { property: "og:description", content: "Curated frame bundles — 3, 4, and 6 frame sets for your wall." },
-      { property: "og:url", content: "https://brwazwneon-com.lovable.app/sets" },
+      {
+        property: "og:description",
+        content: "Shop curated BRWAZWNEON frame sets and wall bundles delivered across Egypt.",
+      },
+      { property: "og:url", content: "https://brwazwneon.com/sets" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/sets" }],
+    links: [{ rel: "canonical", href: "https://brwazwneon.com/sets" }],
   }),
   component: SetsPage,
 });
@@ -37,12 +44,13 @@ type FrameSet = {
 };
 
 function SetsPage() {
+  const { t } = useTranslation();
   const { data: sets = [], isLoading } = useQuery({
     queryKey: ["sets", "public"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sets")
-        .select("*")
+        .select("id,name,image_url,price,description,frames_count,sort_order")
         .eq("enabled", true)
         .order("featured", { ascending: false })
         .order("sort_order", { ascending: true });
@@ -55,11 +63,11 @@ function SetsPage() {
     <div className="bg-background text-foreground">
       <section className="border-b border-border">
         <div className="container-page py-16">
-          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">Curated bundles</p>
-          <h1 className="text-display mt-3 text-5xl sm:text-7xl">Frame Sets</h1>
-          <p className="mt-4 max-w-xl text-muted-foreground">
-            Ready-made gallery walls. Each set is designed to look great together — pick one, we handle the rest.
+          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+            {t("sets.curatedBundles")}
           </p>
+          <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("sets.heading")}</h1>
+          <p className="mt-4 max-w-xl text-muted-foreground">{t("sets.description")}</p>
         </div>
       </section>
 
@@ -72,7 +80,7 @@ function SetsPage() {
           </div>
         ) : sets.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border p-14 text-center text-sm text-muted-foreground">
-            New sets dropping soon.
+            {t("sets.droppingSoon")}
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,6 +96,7 @@ function SetsPage() {
 }
 
 function SetCard({ set }: { set: FrameSet }) {
+  const { t } = useTranslation();
   const { add } = useCart();
   const [open, setOpen] = useState(false);
 
@@ -107,14 +116,18 @@ function SetCard({ set }: { set: FrameSet }) {
   };
 
   const wa = whatsappLink(
-    `Hello BRWAZWNEON, I want to order the "${set.name}" set (${set.frames_count} frames) — ${set.price} EGP.`,
+    `Hello BRWAZWNEON, I want to order the "${set.name}" set (${set.frames_count} frames) — ${set.price} ${t("egp")}.`,
   );
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-sm border border-border bg-card">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {set.image_url ? (
-          <SafeImage src={set.image_url} alt={set.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+          <SafeImage
+            src={set.image_url}
+            alt={set.name}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-widest text-muted-foreground">
             {set.frames_count} frames
@@ -122,7 +135,7 @@ function SetCard({ set }: { set: FrameSet }) {
         )}
         {set.featured ? (
           <span className="absolute left-3 top-3 rounded-sm bg-primary px-2 py-1 text-[10px] uppercase tracking-widest text-primary-foreground">
-            Featured
+            {t("sets.featured")}
           </span>
         ) : null}
       </div>
@@ -136,17 +149,29 @@ function SetCard({ set }: { set: FrameSet }) {
           </div>
           <div className="text-right">
             {set.old_price && Number(set.old_price) > Number(set.price) ? (
-              <div className="text-xs text-muted-foreground line-through">{set.old_price} EGP</div>
+              <div className="text-xs text-muted-foreground line-through">
+                {set.old_price} {t("egp")}
+              </div>
             ) : null}
-            <div className="text-display text-2xl">{set.price}<span className="ml-1 text-xs uppercase tracking-widest text-muted-foreground">EGP</span></div>
+            <div className="text-display text-2xl">
+              {set.price}
+              <span className="ml-1 text-xs uppercase tracking-widest text-muted-foreground">
+                {t("egp")}
+              </span>
+            </div>
           </div>
         </div>
         {set.description ? (
-          <p className={`text-sm text-muted-foreground ${open ? "" : "line-clamp-2"}`}>{set.description}</p>
+          <p className={`text-sm text-muted-foreground ${open ? "" : "line-clamp-2"}`}>
+            {set.description}
+          </p>
         ) : null}
         {set.description && set.description.length > 90 ? (
-          <button onClick={() => setOpen((v) => !v)} className="self-start text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
-            {open ? "Hide details" : "View details"}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="self-start text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+          >
+            {open ? t("sets.hideDetails") : t("sets.viewDetails")}
           </button>
         ) : null}
         <div className="mt-auto flex gap-2 pt-2">
@@ -154,7 +179,7 @@ function SetCard({ set }: { set: FrameSet }) {
             onClick={addToCart}
             className="flex-1 rounded-sm bg-primary px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
           >
-            Add to Cart
+            {t("sets.addToCart")}
           </button>
           <a
             href={wa}
@@ -162,7 +187,7 @@ function SetCard({ set }: { set: FrameSet }) {
             rel="noreferrer"
             className="rounded-sm border border-border px-4 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
           >
-            WhatsApp
+            {t("whatsapp")}
           </a>
         </div>
       </div>

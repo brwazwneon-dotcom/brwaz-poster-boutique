@@ -54,9 +54,7 @@ export function sizesForFrame(frameType: FrameTypeId): readonly SizeId[] {
   return SIZES_BY_FRAME[frameType] ?? PVC_SIZE_IDS;
 }
 
-export const labelForFrame = (id: FrameTypeId) =>
-  FRAME_TYPES.find((f) => f.id === id)?.label ?? id;
-export const labelForSize = (id: SizeId) =>
-  SIZES.find((s) => s.id === id)?.label ?? id;
+export const labelForFrame = (id: FrameTypeId) => FRAME_TYPES.find((f) => f.id === id)?.label ?? id;
+export const labelForSize = (id: SizeId) => SIZES.find((s) => s.id === id)?.label ?? id;
 export const labelForColor = (id: FrameColorId) =>
   FRAME_COLORS.find((c) => c.id === id)?.label ?? id;

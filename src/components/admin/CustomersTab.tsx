@@ -4,8 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  Search, User as UserIcon, Phone as PhoneIcon, MapPin, MessageCircle, Copy,
-  X, ShoppingBag, Pin, PinOff, Trash2, Plus, Loader2,
+  Search,
+  User as UserIcon,
+  Phone as PhoneIcon,
+  MapPin,
+  MessageCircle,
+  Copy,
+  X,
+  ShoppingBag,
+  Pin,
+  PinOff,
+  Trash2,
+  Plus,
+  Loader2,
 } from "lucide-react";
 
 type Customer = {
@@ -34,7 +45,10 @@ const SEGMENT_TONE: Record<string, string> = {
   problem: "border-red-500/40 bg-red-500/10 text-red-300",
 };
 const SEGMENT_LABEL: Record<string, string> = {
-  new: "New", returning: "Returning", vip: "VIP", problem: "Problem",
+  new: "New",
+  returning: "Returning",
+  vip: "VIP",
+  problem: "Problem",
 };
 
 function waLink(phone: string | null, message = "") {
@@ -55,10 +69,15 @@ export function CustomersTab() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-customers", search, segment, page],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_customers_list" as never, {
-        p_search: search || null, p_segment: segment,
-        p_limit: pageSize, p_offset: page * pageSize,
-      } as never);
+      const { data, error } = await supabase.rpc(
+        "admin_customers_list" as never,
+        {
+          p_search: search || null,
+          p_segment: segment,
+          p_limit: pageSize,
+          p_offset: page * pageSize,
+        } as never,
+      );
       if (error) throw error;
       return data as unknown as ListResp;
     },
@@ -74,13 +93,18 @@ export function CustomersTab() {
         {(["new", "returning", "vip", "problem"] as const).map((s) => (
           <button
             key={s}
-            onClick={() => { setSegment(s === segment ? "all" : s); setPage(0); }}
+            onClick={() => {
+              setSegment(s === segment ? "all" : s);
+              setPage(0);
+            }}
             className={cn(
               "rounded-sm border p-3 text-left transition",
               segment === s ? SEGMENT_TONE[s] : "border-border bg-background hover:bg-accent",
             )}
           >
-            <div className="text-[10px] uppercase tracking-widest opacity-80">{SEGMENT_LABEL[s]}</div>
+            <div className="text-[10px] uppercase tracking-widest opacity-80">
+              {SEGMENT_LABEL[s]}
+            </div>
             <div className="mt-1 text-2xl font-semibold">{segs[s]}</div>
           </button>
         ))}
@@ -91,14 +115,20 @@ export function CustomersTab() {
           <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
             placeholder="Search by name or phone…"
             className="w-full rounded-sm border border-border bg-background py-2 pl-8 pr-3 text-sm outline-none focus:border-primary"
           />
         </div>
         <select
           value={segment}
-          onChange={(e) => { setSegment(e.target.value); setPage(0); }}
+          onChange={(e) => {
+            setSegment(e.target.value);
+            setPage(0);
+          }}
           className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All segments</option>
@@ -135,7 +165,9 @@ export function CustomersTab() {
                 {rows.map((c) => (
                   <tr key={c.key} className="border-t border-border">
                     <td className="p-2">{c.name ?? "—"}</td>
-                    <td className="p-2" dir="ltr">{c.phone ?? "—"}</td>
+                    <td className="p-2" dir="ltr">
+                      {c.phone ?? "—"}
+                    </td>
                     <td className="p-2">{c.governorate ?? "—"}</td>
                     <td className="p-2 text-right">{c.orders_count}</td>
                     <td className="p-2 text-right">{Math.round(Number(c.total_spent))} EGP</td>
@@ -143,7 +175,12 @@ export function CustomersTab() {
                       {c.last_order ? new Date(c.last_order).toLocaleDateString() : "—"}
                     </td>
                     <td className="p-2">
-                      <span className={cn("rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest", SEGMENT_TONE[c.segment])}>
+                      <span
+                        className={cn(
+                          "rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest",
+                          SEGMENT_TONE[c.segment],
+                        )}
+                      >
                         {SEGMENT_LABEL[c.segment]}
                       </span>
                     </td>
@@ -152,7 +189,9 @@ export function CustomersTab() {
                         onClick={() => setOpenPhone(c.phone)}
                         disabled={!c.phone}
                         className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent disabled:opacity-50"
-                      >Open</button>
+                      >
+                        Open
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -163,18 +202,24 @@ export function CustomersTab() {
       </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div>Showing {rows.length} of {total}</div>
+        <div>
+          Showing {rows.length} of {total}
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
             className="rounded-sm border border-border px-2 py-1 disabled:opacity-50 hover:bg-accent"
-          >Prev</button>
+          >
+            Prev
+          </button>
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={(page + 1) * pageSize >= total}
             className="rounded-sm border border-border px-2 py-1 disabled:opacity-50 hover:bg-accent"
-          >Next</button>
+          >
+            Next
+          </button>
         </div>
       </div>
 
@@ -194,11 +239,21 @@ function CustomerProfileModal({ phone, onClose }: { phone: string; onClose: () =
       return data as {
         profile: Record<string, unknown> | null;
         orders: Array<{
-          id: string; order_number: string | null; customer_name: string;
-          governorate: string; total_price: number; status: string;
-          created_at: string; poster_title: string | null;
+          id: string;
+          order_number: string | null;
+          customer_name: string;
+          governorate: string;
+          total_price: number;
+          status: string;
+          created_at: string;
+          poster_title: string | null;
         }>;
-        wishlist: Array<{ id: string; title: string; image_url: string | null; created_at: string }>;
+        wishlist: Array<{
+          id: string;
+          title: string;
+          image_url: string | null;
+          created_at: string;
+        }>;
         viewed: Array<{ id: string; title: string; image_url: string | null }>;
       };
     },
@@ -227,46 +282,85 @@ function CustomerProfileModal({ phone, onClose }: { phone: string; onClose: () =
   const wa = waLink(phone);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="my-8 w-full max-w-4xl rounded-sm border border-border bg-card">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="my-8 w-full max-w-4xl rounded-sm border border-border bg-card"
+      >
         <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/95 p-5 backdrop-blur">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-display text-2xl">{profile?.customer_name ?? "Customer"}</h3>
-              <span className={cn("rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest", SEGMENT_TONE[stats.segment])}>
+              <span
+                className={cn(
+                  "rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest",
+                  SEGMENT_TONE[stats.segment],
+                )}
+              >
                 {SEGMENT_LABEL[stats.segment]}
               </span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><PhoneIcon className="h-3 w-3" /><span dir="ltr">{phone}</span></span>
-              {profile?.governorate && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{profile.governorate}</span>}
+              <span className="flex items-center gap-1">
+                <PhoneIcon className="h-3 w-3" />
+                <span dir="ltr">{phone}</span>
+              </span>
+              {profile?.governorate && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {profile.governorate}
+                </span>
+              )}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-sm p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+          <button
+            onClick={onClose}
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="space-y-5 p-5">
           {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Metric label="Orders" value={stats.count} />
                 <Metric label="Total Spent" value={`${Math.round(stats.total)} EGP`} />
                 <Metric label="Avg Order" value={`${Math.round(stats.avg)} EGP`} />
-                <Metric label="First Order" value={stats.first ? new Date(stats.first).toLocaleDateString() : "—"} />
+                <Metric
+                  label="First Order"
+                  value={stats.first ? new Date(stats.first).toLocaleDateString() : "—"}
+                />
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button onClick={copySummary} className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent">
+                <button
+                  onClick={copySummary}
+                  className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
+                >
                   <Copy className="h-3.5 w-3.5" /> Copy Customer Summary
                 </button>
                 {wa ? (
-                  <a href={wa} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20">
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20"
+                  >
                     <MessageCircle className="h-3.5 w-3.5" /> Open WhatsApp
                   </a>
                 ) : (
-                  <span className="text-xs text-muted-foreground">Phone not WhatsApp-compatible</span>
+                  <span className="text-xs text-muted-foreground">
+                    Phone not WhatsApp-compatible
+                  </span>
                 )}
               </div>
 
@@ -289,14 +383,22 @@ function CustomerProfileModal({ phone, onClose }: { phone: string; onClose: () =
                       {orders.map((o) => (
                         <tr key={o.id} className="border-t border-border">
                           <td className="p-2">{o.order_number ?? o.id.slice(0, 8)}</td>
-                          <td className="p-2 text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</td>
+                          <td className="p-2 text-xs text-muted-foreground">
+                            {new Date(o.created_at).toLocaleString()}
+                          </td>
                           <td className="p-2 text-xs uppercase">{o.status}</td>
                           <td className="p-2 text-xs">{o.poster_title ?? "—"}</td>
-                          <td className="p-2 text-right">{Math.round(Number(o.total_price ?? 0))} EGP</td>
+                          <td className="p-2 text-right">
+                            {Math.round(Number(o.total_price ?? 0))} EGP
+                          </td>
                         </tr>
                       ))}
                       {orders.length === 0 && (
-                        <tr><td colSpan={5} className="p-4 text-center text-xs text-muted-foreground">No orders yet.</td></tr>
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-xs text-muted-foreground">
+                            No orders yet.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -309,8 +411,17 @@ function CustomerProfileModal({ phone, onClose }: { phone: string; onClose: () =
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                     {data.wishlist.slice(0, 12).map((w) => (
                       <div key={w.id} className="rounded-sm border border-border p-1">
-                        {w.image_url && <img src={w.image_url} alt={w.title} className="aspect-square w-full object-cover" loading="lazy" />}
-                        <div className="truncate p-1 text-[10px] text-muted-foreground">{w.title}</div>
+                        {w.image_url && (
+                          <img
+                            src={w.image_url}
+                            alt={w.title}
+                            className="aspect-square w-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+                        <div className="truncate p-1 text-[10px] text-muted-foreground">
+                          {w.title}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -334,15 +445,32 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 /* ---------- Customer notes ---------- */
-type CNote = { id: string; phone: string; text: string; pinned: boolean; author: string | null; created_at: string };
+type CNote = {
+  id: string;
+  phone: string;
+  text: string;
+  pinned: boolean;
+  author: string | null;
+  created_at: string;
+};
 
-function CustomerNotesBlock({ phone, qc }: { phone: string; qc: ReturnType<typeof useQueryClient> }) {
+function CustomerNotesBlock({
+  phone,
+  qc,
+}: {
+  phone: string;
+  qc: ReturnType<typeof useQueryClient>;
+}) {
   const [text, setText] = useState("");
   const { data: notes = [] } = useQuery({
     queryKey: ["customer-notes", phone],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customer_notes" as never).select("*").eq("phone", phone)
-        .order("pinned", { ascending: false }).order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("customer_notes" as never)
+        .select("*")
+        .eq("phone", phone)
+        .order("pinned", { ascending: false })
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as CNote[];
     },
@@ -352,22 +480,34 @@ function CustomerNotesBlock({ phone, qc }: { phone: string; qc: ReturnType<typeo
 
   const add = useMutation({
     mutationFn: async (t: string) => {
-      const { error } = await supabase.from("customer_notes" as never).insert({ phone, text: t, author: "admin" } as never);
+      const { error } = await supabase
+        .from("customer_notes" as never)
+        .insert({ phone, text: t, author: "admin" } as never);
       if (error) throw error;
     },
-    onSuccess: () => { setText(""); invalidate(); toast.success("Note added"); },
+    onSuccess: () => {
+      setText("");
+      invalidate();
+      toast.success("Note added");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const togglePin = useMutation({
     mutationFn: async (n: CNote) => {
-      const { error } = await supabase.from("customer_notes" as never).update({ pinned: !n.pinned } as never).eq("id", n.id);
+      const { error } = await supabase
+        .from("customer_notes" as never)
+        .update({ pinned: !n.pinned } as never)
+        .eq("id", n.id);
       if (error) throw error;
     },
     onSuccess: invalidate,
   });
   const del = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("customer_notes" as never).delete().eq("id", id);
+      const { error } = await supabase
+        .from("customer_notes" as never)
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: invalidate,
@@ -377,21 +517,37 @@ function CustomerNotesBlock({ phone, qc }: { phone: string; qc: ReturnType<typeo
     <div className="rounded-sm border border-border bg-background p-4">
       <div className="mb-2 text-display text-lg">Customer Notes</div>
       <div className="mb-3 flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) add.mutate(text.trim()); }}
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text.trim()) add.mutate(text.trim());
+          }}
           placeholder="Add a note about this customer…"
-          className="flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
-        <button onClick={() => text.trim() && add.mutate(text.trim())} disabled={!text.trim() || add.isPending}
-          className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent disabled:opacity-50">
+          className="flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={() => text.trim() && add.mutate(text.trim())}
+          disabled={!text.trim() || add.isPending}
+          className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent disabled:opacity-50"
+        >
           <Plus className="h-3.5 w-3.5" /> Add
         </button>
       </div>
       {notes.length === 0 ? (
-        <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">No notes yet.</div>
+        <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
+          No notes yet.
+        </div>
       ) : (
         <ul className="space-y-2">
           {notes.map((n) => (
-            <li key={n.id} className={cn("rounded-sm border p-3", n.pinned ? "border-amber-500/40 bg-amber-500/5" : "border-border")}>
+            <li
+              key={n.id}
+              className={cn(
+                "rounded-sm border p-3",
+                n.pinned ? "border-amber-500/40 bg-amber-500/5" : "border-border",
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="whitespace-pre-wrap text-sm">{n.text}</div>
@@ -400,10 +556,20 @@ function CustomerNotesBlock({ phone, qc }: { phone: string; qc: ReturnType<typeo
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => togglePin.mutate(n)} className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-                    {n.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                  <button
+                    onClick={() => togglePin.mutate(n)}
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    {n.pinned ? (
+                      <PinOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Pin className="h-3.5 w-3.5" />
+                    )}
                   </button>
-                  <button onClick={() => confirm("Delete note?") && del.mutate(n.id)} className="rounded-sm p-1 text-red-400 hover:bg-red-500/10">
+                  <button
+                    onClick={() => confirm("Delete note?") && del.mutate(n.id)}
+                    className="rounded-sm p-1 text-red-400 hover:bg-red-500/10"
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>

@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  Crop,
-  ZoomIn,
-  ZoomOut,
-  Move,
-  Maximize,
-  Minimize,
-  RotateCcw,
-  Wand2,
-  X,
-} from "lucide-react";
+import { Crop, ZoomIn, ZoomOut, Move, Maximize, Minimize, RotateCcw, Wand2, X } from "lucide-react";
 import {
   DEFAULT_EDIT_SETTINGS,
   type EditSettings,
@@ -91,8 +81,7 @@ export function PosterImageEditor({
     renderEditTo(c, img, settings, previewW, PREVIEW_H);
   }, [img, settings, previewW]);
 
-  const update = (patch: Partial<EditSettings>) =>
-    setSettings((prev) => ({ ...prev, ...patch }));
+  const update = (patch: Partial<EditSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
 
   const reset = () =>
     setSettings({ ...DEFAULT_EDIT_SETTINGS, ratio, extendMode: settings.extendMode });
@@ -193,14 +182,18 @@ export function PosterImageEditor({
           <Section title="Fit" icon={<Crop className="h-3.5 w-3.5" />}>
             <ToolButton
               active={settings.fit === "fit"}
-              onClick={() => update({ fit: "fit", zoom: 1, offsetX: 0, offsetY: 0, stretchX: 1, stretchY: 1 })}
+              onClick={() =>
+                update({ fit: "fit", zoom: 1, offsetX: 0, offsetY: 0, stretchX: 1, stretchY: 1 })
+              }
               icon={<Minimize className="h-3.5 w-3.5" />}
             >
               Fit to frame
             </ToolButton>
             <ToolButton
               active={settings.fit === "fill"}
-              onClick={() => update({ fit: "fill", zoom: 1, offsetX: 0, offsetY: 0, stretchX: 1, stretchY: 1 })}
+              onClick={() =>
+                update({ fit: "fill", zoom: 1, offsetX: 0, offsetY: 0, stretchX: 1, stretchY: 1 })
+              }
               icon={<Maximize className="h-3.5 w-3.5" />}
             >
               Fill frame
@@ -212,7 +205,10 @@ export function PosterImageEditor({
 
           <Section title="Zoom" icon={<ZoomIn className="h-3.5 w-3.5" />}>
             <div className="flex items-center gap-2">
-              <IconBtn onClick={() => update({ zoom: Math.max(0.2, settings.zoom / 1.1), fit: "custom" })} aria="Zoom out">
+              <IconBtn
+                onClick={() => update({ zoom: Math.max(0.2, settings.zoom / 1.1), fit: "custom" })}
+                aria="Zoom out"
+              >
                 <ZoomOut className="h-4 w-4" />
               </IconBtn>
               <input
@@ -224,7 +220,10 @@ export function PosterImageEditor({
                 onChange={(e) => update({ zoom: Number(e.target.value), fit: "custom" })}
                 className="flex-1 accent-primary"
               />
-              <IconBtn onClick={() => update({ zoom: Math.min(5, settings.zoom * 1.1), fit: "custom" })} aria="Zoom in">
+              <IconBtn
+                onClick={() => update({ zoom: Math.min(5, settings.zoom * 1.1), fit: "custom" })}
+                aria="Zoom in"
+              >
                 <ZoomIn className="h-4 w-4" />
               </IconBtn>
               <span className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">
@@ -288,14 +287,22 @@ export function PosterImageEditor({
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Fills the empty area when the artwork doesn't cover the full frame.
-              AI generative fill coming soon — these fallbacks run instantly in your browser.
+              Fills the empty area when the artwork doesn't cover the full frame. AI generative fill
+              coming soon — these fallbacks run instantly in your browser.
             </p>
             <div className="grid grid-cols-4 gap-1.5">
-              <SideBtn onClick={() => update({ offsetY: settings.offsetY + 0.05, fit: "custom" })}>↑ Top</SideBtn>
-              <SideBtn onClick={() => update({ offsetY: settings.offsetY - 0.05, fit: "custom" })}>↓ Bottom</SideBtn>
-              <SideBtn onClick={() => update({ offsetX: settings.offsetX + 0.05, fit: "custom" })}>← Left</SideBtn>
-              <SideBtn onClick={() => update({ offsetX: settings.offsetX - 0.05, fit: "custom" })}>→ Right</SideBtn>
+              <SideBtn onClick={() => update({ offsetY: settings.offsetY + 0.05, fit: "custom" })}>
+                ↑ Top
+              </SideBtn>
+              <SideBtn onClick={() => update({ offsetY: settings.offsetY - 0.05, fit: "custom" })}>
+                ↓ Bottom
+              </SideBtn>
+              <SideBtn onClick={() => update({ offsetX: settings.offsetX + 0.05, fit: "custom" })}>
+                ← Left
+              </SideBtn>
+              <SideBtn onClick={() => update({ offsetX: settings.offsetX - 0.05, fit: "custom" })}>
+                → Right
+              </SideBtn>
             </div>
           </Section>
 
@@ -321,8 +328,14 @@ export function PosterImageEditor({
 }
 
 function Section({
-  title, icon, children,
-}: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -335,8 +348,16 @@ function Section({
 }
 
 function ToolButton({
-  active, onClick, icon, children,
-}: { active?: boolean; onClick: () => void; icon?: React.ReactNode; children: React.ReactNode }) {
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -355,8 +376,14 @@ function ToolButton({
 }
 
 function IconBtn({
-  onClick, aria, children,
-}: { onClick: () => void; aria: string; children: React.ReactNode }) {
+  onClick,
+  aria,
+  children,
+}: {
+  onClick: () => void;
+  aria: string;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -382,14 +409,27 @@ function SideBtn({ onClick, children }: { onClick: () => void; children: React.R
 }
 
 function RangeRow({
-  label, min, max, step, value, onChange, format,
+  label,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+  format,
 }: {
-  label: string; min: number; max: number; step: number;
-  value: number; onChange: (v: number) => void; format: (v: number) => string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+  format: (v: number) => string;
 }) {
   return (
     <div className="flex w-full items-center gap-2">
-      <span className="w-20 shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="w-20 shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
       <input
         type="range"
         min={min}
@@ -399,7 +439,9 @@ function RangeRow({
         onChange={(e) => onChange(Number(e.target.value))}
         className="flex-1 accent-primary"
       />
-      <span className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">{format(value)}</span>
+      <span className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">
+        {format(value)}
+      </span>
     </div>
   );
 }

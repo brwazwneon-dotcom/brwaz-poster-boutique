@@ -2,7 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { supabase } from "@/integrations/supabase/client";
-import { Bot, Send, RotateCcw, Loader2, Wrench, User, AlertTriangle, Zap, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Bot,
+  Send,
+  RotateCcw,
+  Loader2,
+  Wrench,
+  User,
+  AlertTriangle,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -86,7 +97,12 @@ export function AdminAssistantChat({ compact }: Props) {
   );
 
   return (
-    <div className={cn("flex flex-col bg-background", compact ? "h-full" : "h-[70vh] rounded-sm border border-border")}>
+    <div
+      className={cn(
+        "flex flex-col bg-background",
+        compact ? "h-full" : "h-[70vh] rounded-sm border border-border",
+      )}
+    >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-primary">
@@ -174,7 +190,9 @@ export function AdminAssistantChat({ compact }: Props) {
               }
             }}
             rows={1}
-            placeholder={safeMode ? "Safe Mode: أسئلة قراءة فقط..." : "اكتب سؤالك أو الأمر اللي تحبه..."}
+            placeholder={
+              safeMode ? "Safe Mode: أسئلة قراءة فقط..." : "اكتب سؤالك أو الأمر اللي تحبه..."
+            }
             className="flex-1 resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary max-h-40"
             disabled={isLoading}
           />
@@ -183,7 +201,11 @@ export function AdminAssistantChat({ compact }: Props) {
             disabled={isLoading || !input.trim()}
             className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-primary text-primary-foreground disabled:opacity-40"
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </button>
         </div>
       </form>
@@ -247,9 +269,7 @@ function MessageRow({ message }: { message: UIMessage }) {
                 key={i}
                 className={cn(
                   "whitespace-pre-wrap rounded-sm px-3 py-2 text-sm leading-relaxed",
-                  isUser
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground",
+                  isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                 )}
               >
                 {part.text}
@@ -266,26 +286,43 @@ function MessageRow({ message }: { message: UIMessage }) {
             };
             const toolName = anyPart.type.replace(/^tool-/, "");
             const done = anyPart.state === "output-available" || anyPart.state === "output-error";
-            const out = anyPart.output as { ok?: boolean; friendly?: string; needsConfirmation?: boolean; prompt?: string } | undefined;
+            const out = anyPart.output as
+              | { ok?: boolean; friendly?: string; needsConfirmation?: boolean; prompt?: string }
+              | undefined;
             const failed = out?.ok === false;
             const needsConfirm = out?.needsConfirmation === true;
             return (
-              <div key={i} className={cn(
-                "rounded-sm border px-2 py-1.5 text-xs",
-                failed ? "border-amber-500/40 bg-amber-500/5" :
-                needsConfirm ? "border-blue-500/40 bg-blue-500/5" :
-                "border-border bg-card/50",
-              )}>
+              <div
+                key={i}
+                className={cn(
+                  "rounded-sm border px-2 py-1.5 text-xs",
+                  failed
+                    ? "border-amber-500/40 bg-amber-500/5"
+                    : needsConfirm
+                      ? "border-blue-500/40 bg-blue-500/5"
+                      : "border-border bg-card/50",
+                )}
+              >
                 <details>
                   <summary className="flex cursor-pointer items-center gap-1.5 text-muted-foreground">
                     {done ? (
-                      failed ? <AlertTriangle className="h-3 w-3 text-amber-600" /> : <Wrench className="h-3 w-3 text-primary" />
+                      failed ? (
+                        <AlertTriangle className="h-3 w-3 text-amber-600" />
+                      ) : (
+                        <Wrench className="h-3 w-3 text-primary" />
+                      )
                     ) : (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     )}
                     <span className="font-mono">{toolName}</span>
                     <span className="text-[10px]">
-                      {done ? (failed ? "تعذر التنفيذ" : needsConfirm ? "بانتظار تأكيد" : "تم") : "جاري..."}
+                      {done
+                        ? failed
+                          ? "تعذر التنفيذ"
+                          : needsConfirm
+                            ? "بانتظار تأكيد"
+                            : "تم"
+                        : "جاري..."}
                     </span>
                   </summary>
                   {failed && out?.friendly && (

@@ -39,5 +39,11 @@ export function useTestMode(): [boolean, (on: boolean) => void] {
       window.removeEventListener("storage", sync);
     };
   }, []);
-  return [on, (v: boolean) => { setTestMode(v); setOn(v); }];
+  return [
+    on,
+    (v: boolean) => {
+      setTestMode(v);
+      setOn(v);
+    },
+  ];
 }

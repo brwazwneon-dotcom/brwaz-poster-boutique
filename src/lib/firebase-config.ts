@@ -39,11 +39,11 @@ export async function loadFirebaseConfig(): Promise<FirebasePublicConfig> {
 export function isConfigComplete(c: FirebasePublicConfig): boolean {
   return Boolean(
     c.enabled &&
-      c.apiKey &&
-      c.authDomain &&
-      c.projectId &&
-      c.messagingSenderId &&
-      c.appId &&
-      c.vapidKey,
+    c.apiKey &&
+    c.authDomain &&
+    c.projectId &&
+    c.messagingSenderId &&
+    c.appId &&
+    c.vapidKey,
   );
 }

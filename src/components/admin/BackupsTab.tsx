@@ -197,7 +197,11 @@ export function BackupsTab() {
   }
 
   async function handleEmergency() {
-    if (!confirm("Emergency restore uses the most recent healthy backup and reverts homepage + settings. Continue?"))
+    if (
+      !confirm(
+        "Emergency restore uses the most recent healthy backup and reverts homepage + settings. Continue?",
+      )
+    )
       return;
     setEmergency(true);
     try {
@@ -255,7 +259,11 @@ export function BackupsTab() {
             disabled={emergency}
             className="inline-flex items-center gap-2 rounded-sm border border-red-600/50 bg-red-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-300 hover:bg-red-500/20 disabled:opacity-60"
           >
-            {emergency ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+            {emergency ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldAlert className="h-4 w-4" />
+            )}
             Emergency Restore
           </button>
           <button
@@ -263,7 +271,11 @@ export function BackupsTab() {
             disabled={pruning}
             className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs font-semibold uppercase tracking-widest hover:bg-accent disabled:opacity-60"
           >
-            {pruning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {pruning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
             Prune Old
           </button>
           <button
@@ -338,7 +350,10 @@ export function BackupsTab() {
                 <td className="px-3 py-2">
                   {statusPill(r.status)}
                   {r.error_message && (
-                    <div className="mt-1 max-w-xs truncate text-[10px] text-red-400" title={r.error_message}>
+                    <div
+                      className="mt-1 max-w-xs truncate text-[10px] text-red-400"
+                      title={r.error_message}
+                    >
                       {r.error_message}
                     </div>
                   )}

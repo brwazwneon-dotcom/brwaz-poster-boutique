@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
@@ -11,7 +11,8 @@ import { useBestSellersConfig } from "@/lib/homepage-sections";
 import { ChevronLeft, ChevronRight, ShoppingCart, Eye, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { usePosterThumbs } from "@/lib/public-images";
+import { usePosterResponsiveImages } from "@/lib/public-images";
+import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
 type BSRow = {
   id: string;
@@ -26,6 +27,7 @@ type BSRow = {
   posters: {
     id: string;
     title: string;
+    image_url?: string;
     badge: string | null;
     category_id: string | null;
     hidden: boolean;
@@ -37,7 +39,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
   const cfg = useBestSellersConfig();
   const pricing = usePricing();
   const { add } = useCart();
-  const scroller = useRef<HTMLDivElement>(null);
+  const [scroller, autoplayActive] = useActiveAutoplay<HTMLDivElement>();
   const perf = usePerformanceFlags();
   const count = perf.emergency_fast_mode ? 8 : Math.min(cfg.homepage_count, 12);
 
@@ -48,7 +50,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       const { data, error } = await supabase
         .from("best_sellers")
         .select(
-          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,badge,category_id,hidden,categories(name,slug))",
+          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,categories(name,slug))",
         )
         .eq("hidden", false)
         .order("pinned", { ascending: false })
@@ -64,11 +66,14 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       });
     },
   });
-  const thumbs = usePosterThumbs(data.map((r) => r.posters?.id).filter(Boolean) as string[]);
+  const images = usePosterResponsiveImages(
+    data.map((r) => r.posters?.id).filter(Boolean) as string[],
+    "(max-width: 640px) 70vw, (max-width: 1024px) 45vw, 19vw",
+  );
 
   // autoplay
   useEffect(() => {
-    if (!cfg.autoplay) return;
+    if (!cfg.autoplay || !autoplayActive) return;
     const el = scroller.current;
     if (!el) return;
     const id = setInterval(() => {
@@ -82,7 +87,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       }
     }, 5000);
     return () => clearInterval(id);
-  }, [cfg.autoplay, cfg.loop, data.length]);
+  }, [autoplayActive, cfg.autoplay, cfg.loop, data.length, scroller]);
 
   if (!cfg.enabled) return null;
   if (data.length === 0) return null;
@@ -109,7 +114,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
     add({
       posterId: p.id,
       title: p.title,
-      image: thumbs[p.id] ?? "",
+      image: images[p.id]?.src ?? "",
       categoryId: p.category_id,
       categoryName: p.categories?.name ?? "",
       frameType,
@@ -132,7 +137,9 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
               {title || cfg.title || "Best Sellers"}
             </h2>
             {(subtitle ?? cfg.subtitle) ? (
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground">{subtitle ?? cfg.subtitle}</p>
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                {subtitle ?? cfg.subtitle}
+              </p>
             ) : null}
           </div>
           <div className="hidden gap-2 sm:flex">
@@ -160,8 +167,11 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
           {data.map((r) => {
             const p = r.posters!;
             const price = priceForFrame(pricing, "pvc", "30x40");
-            const badgeText =
-              !r.badge_disabled ? (p.badge && p.badge.length > 0 ? p.badge : "best-seller") : null;
+            const badgeText = !r.badge_disabled
+              ? p.badge && p.badge.length > 0
+                ? p.badge
+                : "best-seller"
+              : null;
             return (
               <article
                 key={r.id}
@@ -176,7 +186,10 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                   ) : null}
                   {cfg.show_wishlist ? <WishlistHeart posterId={p.id} /> : null}
                   <FramePreview
-                    posterUrl={thumbs[p.id] ?? ""}
+                    posterUrl={images[p.id]?.src || p.image_url || ""}
+                    avifSrcSet={images[p.id]?.avifSrcSet}
+                    webpSrcSet={images[p.id]?.webpSrcSet}
+                    sizes={images[p.id]?.sizes}
                     title={p.title}
                     aspectClassName="aspect-[3/4]"
                     color="black"

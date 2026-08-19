@@ -23,7 +23,9 @@ export function AppPreloader() {
     let alreadyShown = false;
     try {
       alreadyShown = sessionStorage.getItem(SESSION_KEY) === "1";
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     if (alreadyShown) {
       setVisible(false);
       return;
@@ -31,7 +33,6 @@ export function AppPreloader() {
 
     const start = performance.now();
     let done = false;
-    let maxTimer: number | undefined;
 
     const finish = () => {
       if (done) return;
@@ -41,10 +42,17 @@ export function AppPreloader() {
       window.setTimeout(() => {
         setFading(true);
         window.setTimeout(() => setVisible(false), FADE_MS);
-        try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* noop */ }
+        try {
+          sessionStorage.setItem(SESSION_KEY, "1");
+        } catch {
+          /* noop */
+        }
       }, wait);
       if (maxTimer) window.clearTimeout(maxTimer);
     };
+
+    // Hard cap.
+    const maxTimer = window.setTimeout(finish, MAX_MS);
 
     // Trigger finish once the page paints its first meaningful frame.
     const raf1 = requestAnimationFrame(() => {
@@ -53,9 +61,6 @@ export function AppPreloader() {
         finish();
       });
     });
-
-    // Hard cap.
-    maxTimer = window.setTimeout(finish, MAX_MS);
 
     return () => {
       cancelAnimationFrame(raf1);

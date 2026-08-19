@@ -17,11 +17,21 @@ type TrendingPoster = {
   trending_order: number | null;
 };
 
+type CategoryOption = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+};
+
 export function TrendingNowManager({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const { data: posters = [], isLoading, refetch } = useQuery({
+  const {
+    data: posters = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-trending-posters"],
     staleTime: 5_000,
     queryFn: async () => {
@@ -57,8 +67,12 @@ export function TrendingNowManager({ onClose }: { onClose: () => void }) {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Remove this poster from Trending Now? The poster itself will not be deleted.")) return;
-    const { error } = await supabase.from("posters").update({ trending: false, trending_order: null }).eq("id", id);
+    if (!confirm("Remove this poster from Trending Now? The poster itself will not be deleted."))
+      return;
+    const { error } = await supabase
+      .from("posters")
+      .update({ trending: false, trending_order: null })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Removed from Trending");
     invalidate();
@@ -87,7 +101,9 @@ export function TrendingNowManager({ onClose }: { onClose: () => void }) {
             >
               Refresh
             </button>
-            <span className="ml-auto self-center text-xs text-muted-foreground">{posters.length} posters</span>
+            <span className="ml-auto self-center text-xs text-muted-foreground">
+              {posters.length} posters
+            </span>
           </div>
         </DialogHeader>
 
@@ -197,9 +213,12 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
   const { data: categories = [] } = useQuery({
     queryKey: ["all-categories-for-trending-upload"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id,name,parent_id").order("name");
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id,name,parent_id")
+        .order("name");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as CategoryOption[];
     },
   });
 
@@ -208,7 +227,7 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
     try {
       const guess = picked.name
         .replace(/\.[a-z0-9]+$/i, "")
-        .replace(/[_\-]+/g, " ")
+        .replace(/[_-]+/g, " ")
         .trim();
       const { data, error } = await supabase.functions.invoke("seo-generator", {
         body: { subject: guess, include_hashtags: false, include_alt_text: true },
@@ -230,9 +249,7 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
       });
       // Try to match a category from the AI tags / title.
       const hay = `${seo?.title ?? ""} ${(seo?.tags ?? []).join(" ")}`.toLowerCase();
-      const match = (categories as Array<{ id: string; name: string }>).find((c) =>
-        hay.includes((c.name ?? "").toLowerCase()),
-      );
+      const match = categories.find((c) => hay.includes((c.name ?? "").toLowerCase()));
       if (match) {
         setCategoryId(match.id);
         toast.success(`AI matched category: ${match.name}`);
@@ -309,7 +326,9 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
             ) : null}
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Poster name</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Poster name
+            </span>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -317,14 +336,16 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
             />
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Category (optional)</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Category (optional)
+            </span>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
             >
               <option value="">— None —</option>
-              {categories.map((c: any) => (
+              {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -332,7 +353,9 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
             </select>
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Price (EGP)</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Price (EGP)
+            </span>
             <input
               type="number"
               value={price}
@@ -366,7 +389,10 @@ function UploadTrendingModal({ onClose, onDone }: { onClose: () => void; onDone:
 }
 
 /** Add or remove a single poster from trending. Used by 🔥 buttons across the admin. */
-export async function toggleTrending(posterId: string, currentlyTrending: boolean): Promise<boolean> {
+export async function toggleTrending(
+  posterId: string,
+  currentlyTrending: boolean,
+): Promise<boolean> {
   if (currentlyTrending) {
     const { error } = await supabase
       .from("posters")

@@ -62,7 +62,9 @@ export function NotificationBell({ onOpenCenter }: { onOpenCenter?: () => void }
               );
               audio.volume = 0.3;
               void audio.play().catch(() => {});
-            } catch { /* noop */ }
+            } catch {
+              /* noop */
+            }
           }
         },
       )

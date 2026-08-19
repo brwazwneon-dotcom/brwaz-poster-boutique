@@ -26,12 +26,29 @@ export function levelToSeverity(level: string): ErrorSeverity {
   return "low";
 }
 
-export const SEVERITY_STYLES: Record<ErrorSeverity, { badge: string; label: string; dot: string }> = {
-  low: { badge: "bg-gray-500/15 text-gray-300 border-gray-500/30", label: "Low", dot: "bg-gray-400" },
-  medium: { badge: "bg-blue-500/15 text-blue-300 border-blue-500/30", label: "Medium", dot: "bg-blue-400" },
-  high: { badge: "bg-orange-500/15 text-orange-300 border-orange-500/30", label: "High", dot: "bg-orange-400" },
-  critical: { badge: "bg-red-500/20 text-red-300 border-red-500/40", label: "Critical", dot: "bg-red-500" },
-};
+export const SEVERITY_STYLES: Record<ErrorSeverity, { badge: string; label: string; dot: string }> =
+  {
+    low: {
+      badge: "bg-gray-500/15 text-gray-300 border-gray-500/30",
+      label: "Low",
+      dot: "bg-gray-400",
+    },
+    medium: {
+      badge: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+      label: "Medium",
+      dot: "bg-blue-400",
+    },
+    high: {
+      badge: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+      label: "High",
+      dot: "bg-orange-400",
+    },
+    critical: {
+      badge: "bg-red-500/20 text-red-300 border-red-500/40",
+      label: "Critical",
+      dot: "bg-red-500",
+    },
+  };
 
 export const STATUS_STYLES: Record<ErrorStatus, { badge: string; label: string }> = {
   open: { badge: "bg-red-500/15 text-red-300 border-red-500/30", label: "Open" },
@@ -47,7 +64,8 @@ export function humanizeError(log: ErrorLog): { title: string; description: stri
   if (cat === "upload_failed" || msg.includes("upload")) {
     return {
       title: "فشل في رفع صورة",
-      description: "لم يتم رفع الصورة. قد يكون السبب اتصال إنترنت ضعيف أو حجم الصورة كبير. حاول تاني.",
+      description:
+        "لم يتم رفع الصورة. قد يكون السبب اتصال إنترنت ضعيف أو حجم الصورة كبير. حاول تاني.",
     };
   }
   if (cat === "low_quality_image") {
@@ -59,29 +77,48 @@ export function humanizeError(log: ErrorLog): { title: string; description: stri
   if (msg.includes("edge function")) {
     return {
       title: "مشكلة أثناء تنفيذ العملية",
-      description: "حدثت مشكلة أثناء تنفيذ العملية. قد يكون السبب اتصال قاعدة البيانات. راجع التفاصيل أو جرّب مرة أخرى.",
+      description:
+        "حدثت مشكلة أثناء تنفيذ العملية. قد يكون السبب اتصال قاعدة البيانات. راجع التفاصيل أو جرّب مرة أخرى.",
     };
   }
   if (msg.includes("network") || msg.includes("failed to fetch")) {
-    return { title: "خطأ في الاتصال", description: "الاتصال بالخادم فشل. تأكد من الإنترنت وحاول تاني." };
+    return {
+      title: "خطأ في الاتصال",
+      description: "الاتصال بالخادم فشل. تأكد من الإنترنت وحاول تاني.",
+    };
   }
   if (msg.includes("permission") || msg.includes("rls") || msg.includes("policy")) {
-    return { title: "مشكلة صلاحيات", description: "الطلب اترفض بسبب صلاحيات. تحقق من إعدادات الأمان." };
+    return {
+      title: "مشكلة صلاحيات",
+      description: "الطلب اترفض بسبب صلاحيات. تحقق من إعدادات الأمان.",
+    };
   }
   if (msg.includes("payment")) {
-    return { title: "مشكلة في الدفع", description: "حدثت مشكلة أثناء معالجة الدفع. راجع التفاصيل." };
+    return {
+      title: "مشكلة في الدفع",
+      description: "حدثت مشكلة أثناء معالجة الدفع. راجع التفاصيل.",
+    };
   }
   if (cat === "website_error") {
-    return { title: "خطأ في الموقع", description: "حصل خطأ غير متوقع في الموقع. راجع التفاصيل التقنية." };
+    return {
+      title: "خطأ في الموقع",
+      description: "حصل خطأ غير متوقع في الموقع. راجع التفاصيل التقنية.",
+    };
   }
   if (cat === "database") {
-    return { title: "مشكلة في قاعدة البيانات", description: "حصل خطأ أثناء حفظ أو قراءة البيانات." };
+    return {
+      title: "مشكلة في قاعدة البيانات",
+      description: "حصل خطأ أثناء حفظ أو قراءة البيانات.",
+    };
   }
   if (cat === "storage") {
     return { title: "مشكلة في التخزين", description: "حصل خطأ أثناء التعامل مع ملفات التخزين." };
   }
   if (cat === "performance") {
-    return { title: "أداء بطيء", description: "تم رصد بطء في التحميل. راجع صفحة Performance Monitor." };
+    return {
+      title: "أداء بطيء",
+      description: "تم رصد بطء في التحميل. راجع صفحة Performance Monitor.",
+    };
   }
   return {
     title: log.message.length > 80 ? log.message.slice(0, 77) + "…" : log.message,
@@ -126,7 +163,10 @@ export async function fetchErrorLogs(opts?: {
 }
 
 export async function setErrorLogStatus(id: string, status: ErrorStatus) {
-  const { error } = await supabase.rpc("set_error_log_status" as never, { _id: id, _status: status } as never);
+  const { error } = await supabase.rpc(
+    "set_error_log_status" as never,
+    { _id: id, _status: status } as never,
+  );
   if (error) throw error;
 }
 
@@ -153,15 +193,23 @@ export function copyErrorDetails(log: ErrorLog) {
 }
 
 /** Try to extract related order id from metadata. */
-export function relatedEntity(log: ErrorLog): { type: "order" | "customer"; id: string; link: string } | null {
+export function relatedEntity(
+  log: ErrorLog,
+): { type: "order" | "customer"; id: string; link: string } | null {
   const md = log.metadata ?? {};
-  const orderId = (md as Record<string, unknown>).order_id ?? (md as Record<string, unknown>).orderId;
+  const orderId =
+    (md as Record<string, unknown>).order_id ?? (md as Record<string, unknown>).orderId;
   if (typeof orderId === "string" && orderId) {
     return { type: "order", id: orderId, link: `/admin?tab=orders&order=${orderId}` };
   }
-  const phone = (md as Record<string, unknown>).phone ?? (md as Record<string, unknown>).customer_phone;
+  const phone =
+    (md as Record<string, unknown>).phone ?? (md as Record<string, unknown>).customer_phone;
   if (typeof phone === "string" && phone) {
-    return { type: "customer", id: phone, link: `/admin?tab=behavior&phone=${encodeURIComponent(phone)}` };
+    return {
+      type: "customer",
+      id: phone,
+      link: `/admin?tab=behavior&phone=${encodeURIComponent(phone)}`,
+    };
   }
   return null;
 }

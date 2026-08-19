@@ -33,10 +33,9 @@ export type EditSettings = {
 };
 
 export const DEFAULT_EDIT_SETTINGS: EditSettings = {
-  // Default to "fit" (contain) so a freshly uploaded image is fully visible
-  // inside the frame. Any empty area is filled with a blurred copy of the
-  // artwork via `extendMode` so it never reads as a black band.
-  fit: "fit",
+  // Fill the printable opening by default so newly uploaded artwork never
+  // leaves visible strips inside a frame.
+  fit: "fill",
   zoom: 1,
   offsetX: 0,
   offsetY: 0,
@@ -57,7 +56,8 @@ export function normalizeEditSettings(raw: unknown): EditSettings {
     return Number.isFinite(n) ? n : d;
   };
   return {
-    fit: v.fit === "fit" || v.fit === "fill" || v.fit === "custom" ? v.fit : DEFAULT_EDIT_SETTINGS.fit,
+    fit:
+      v.fit === "fit" || v.fit === "fill" || v.fit === "custom" ? v.fit : DEFAULT_EDIT_SETTINGS.fit,
     zoom: num(v.zoom, DEFAULT_EDIT_SETTINGS.zoom),
     offsetX: num(v.offsetX, 0),
     offsetY: num(v.offsetY, 0),
@@ -65,7 +65,10 @@ export function normalizeEditSettings(raw: unknown): EditSettings {
     stretchY: num(v.stretchY, 1),
     rotate: num(v.rotate, 0),
     extendMode:
-      v.extendMode === "none" || v.extendMode === "blur" || v.extendMode === "edge" || v.extendMode === "mirror"
+      v.extendMode === "none" ||
+      v.extendMode === "blur" ||
+      v.extendMode === "edge" ||
+      v.extendMode === "mirror"
         ? v.extendMode
         : DEFAULT_EDIT_SETTINGS.extendMode,
     ratio: num(v.ratio, DEFAULT_EDIT_SETTINGS.ratio),
@@ -109,7 +112,7 @@ function computeImageBox(
 ): Box {
   const fitScale = Math.min(outW / img.width, outH / img.height);
   const fillScale = Math.max(outW / img.width, outH / img.height);
-  const base = s.fit === "fill" ? fillScale : fitScale;
+  const base = s.fit === "fit" ? fitScale : fillScale;
   const scale = base * Math.max(0.1, s.zoom);
   const w = img.width * scale * Math.max(0.1, s.stretchX);
   const h = img.height * scale * Math.max(0.1, s.stretchY);
@@ -129,13 +132,22 @@ function getEdgeColor(img: HTMLImageElement): string {
     if (!ctx) return "#111111";
     ctx.drawImage(img, 0, 0, SZ, SZ);
     const data = ctx.getImageData(0, 0, SZ, SZ).data;
-    let r = 0, g = 0, b = 0, n = 0;
+    let r = 0,
+      g = 0,
+      b = 0,
+      n = 0;
     const sample = (x: number, y: number) => {
       const i = (y * SZ + x) * 4;
-      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      n++;
     };
     for (let i = 0; i < SZ; i++) {
-      sample(i, 0); sample(i, SZ - 1); sample(0, i); sample(SZ - 1, i);
+      sample(i, 0);
+      sample(i, SZ - 1);
+      sample(0, i);
+      sample(SZ - 1, i);
     }
     return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
   } catch {

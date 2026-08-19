@@ -8,7 +8,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Sparkles, X, Pause, Play, StopCircle, RefreshCw, Loader2, Check, AlertTriangle, SkipForward } from "lucide-react";
+import {
+  Sparkles,
+  X,
+  Pause,
+  Play,
+  StopCircle,
+  RefreshCw,
+  Loader2,
+  Check,
+  AlertTriangle,
+  SkipForward,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { readPerfFlagsSync } from "@/lib/performance-flags";
 
@@ -24,7 +35,8 @@ type PosterRow = {
   image_url: string | null;
 };
 
-type Field = "title" | "description" | "seo_title" | "seo_description" | "tags" | "hashtags" | "alt_text";
+type Field =
+  "title" | "description" | "seo_title" | "seo_description" | "tags" | "hashtags" | "alt_text";
 
 type Options = {
   mode: "missing" | "regenerate";
@@ -39,7 +51,15 @@ type RunItem = {
   provider?: string;
 };
 
-const ALL_FIELDS: Field[] = ["title", "description", "seo_title", "seo_description", "tags", "hashtags", "alt_text"];
+const ALL_FIELDS: Field[] = [
+  "title",
+  "description",
+  "seo_title",
+  "seo_description",
+  "tags",
+  "hashtags",
+  "alt_text",
+];
 const FIELD_LABEL: Record<Field, string> = {
   title: "Title",
   description: "Description",
@@ -66,8 +86,13 @@ export function BulkSeoRunner({
   const [options, setOptions] = useState<Options>({
     mode: "missing",
     fields: {
-      title: true, description: true, seo_title: true, seo_description: true,
-      tags: true, hashtags: true, alt_text: true,
+      title: true,
+      description: true,
+      seo_title: true,
+      seo_description: true,
+      tags: true,
+      hashtags: true,
+      alt_text: true,
     },
   });
   const [phase, setPhase] = useState<"configure" | "running" | "done">("configure");
@@ -89,10 +114,15 @@ export function BulkSeoRunner({
         .order("sort_order", { ascending: true });
       if (cancelled) return;
       setLoading(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
       setPosters((data ?? []) as PosterRow[]);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [open, subcategoryId]);
 
   const enabledFields = useMemo(
@@ -105,8 +135,14 @@ export function BulkSeoRunner({
       toast.error("Heavy jobs موقوفة من Stability tab. فعّل 'Resume Heavy Jobs' أولًا.");
       return;
     }
-    if (!posters.length) { toast.error("No posters in this subcategory"); return; }
-    if (!enabledFields.length) { toast.error("Pick at least one field"); return; }
+    if (!posters.length) {
+      toast.error("No posters in this subcategory");
+      return;
+    }
+    if (!enabledFields.length) {
+      toast.error("Pick at least one field");
+      return;
+    }
     stopRef.current = false;
     pauseRef.current = false;
     setPaused(false);
@@ -165,7 +201,8 @@ export function BulkSeoRunner({
   const totals = useMemo(() => {
     return {
       total: items.length,
-      done: items.filter((i) => ["ok", "failed", "skipped", "needs_review"].includes(i.status)).length,
+      done: items.filter((i) => ["ok", "failed", "skipped", "needs_review"].includes(i.status))
+        .length,
       ok: items.filter((i) => i.status === "ok").length,
       failed: items.filter((i) => i.status === "failed").length,
       skipped: items.filter((i) => i.status === "skipped").length,
@@ -202,8 +239,12 @@ export function BulkSeoRunner({
         {phase === "configure" && (
           <div className="space-y-4 text-sm">
             <div className="rounded-sm border border-border bg-muted/30 p-3">
-              <div>Posters in this sub category: <b>{loading ? "…" : posters.length}</b></div>
-              <div>Estimated AI requests: <b>{loading ? "…" : posters.length}</b></div>
+              <div>
+                Posters in this sub category: <b>{loading ? "…" : posters.length}</b>
+              </div>
+              <div>
+                Estimated AI requests: <b>{loading ? "…" : posters.length}</b>
+              </div>
               <div className="mt-1 text-xs text-amber-500/90">
                 {options.mode === "missing"
                   ? "Existing values will NOT be overwritten. Only empty fields are filled."
@@ -212,7 +253,9 @@ export function BulkSeoRunner({
             </div>
 
             <div>
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Mode</div>
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Mode
+              </div>
               <div className="flex gap-2">
                 {(["missing", "regenerate"] as const).map((m) => (
                   <button
@@ -232,15 +275,23 @@ export function BulkSeoRunner({
             </div>
 
             <div>
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Fields</div>
+              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                Fields
+              </div>
               <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
                 {ALL_FIELDS.map((f) => (
-                  <label key={f} className="flex items-center gap-2 rounded-sm border border-border px-2 py-1.5 text-xs">
+                  <label
+                    key={f}
+                    className="flex items-center gap-2 rounded-sm border border-border px-2 py-1.5 text-xs"
+                  >
                     <input
                       type="checkbox"
                       checked={options.fields[f]}
                       onChange={(e) =>
-                        setOptions((o) => ({ ...o, fields: { ...o.fields, [f]: e.target.checked } }))
+                        setOptions((o) => ({
+                          ...o,
+                          fields: { ...o.fields, [f]: e.target.checked },
+                        }))
                       }
                     />
                     {FIELD_LABEL[f]}
@@ -294,11 +345,19 @@ export function BulkSeoRunner({
 
             <div className="max-h-72 overflow-y-auto rounded-sm border border-border">
               {items.map((it, i) => (
-                <div key={it.poster.id} className={cn("flex items-center gap-2 border-b border-border p-2 text-xs last:border-b-0", i % 2 && "bg-muted/20")}>
+                <div
+                  key={it.poster.id}
+                  className={cn(
+                    "flex items-center gap-2 border-b border-border p-2 text-xs last:border-b-0",
+                    i % 2 && "bg-muted/20",
+                  )}
+                >
                   <StatusIcon status={it.status} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate">{it.poster.title || it.poster.id}</div>
-                    {it.error && <div className="truncate text-[10px] text-destructive">{it.error}</div>}
+                    {it.error && (
+                      <div className="truncate text-[10px] text-destructive">{it.error}</div>
+                    )}
                     {it.updated && it.updated.length > 0 && (
                       <div className="truncate text-[10px] text-muted-foreground">
                         Updated: {it.updated.join(", ")}
@@ -322,7 +381,10 @@ export function BulkSeoRunner({
         <DialogFooter className="gap-2">
           {phase === "configure" && (
             <>
-              <button onClick={close} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+              <button
+                onClick={close}
+                className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+              >
                 Cancel
               </button>
               <button
@@ -337,13 +399,26 @@ export function BulkSeoRunner({
           {phase === "running" && (
             <>
               <button
-                onClick={() => { pauseRef.current = !pauseRef.current; setPaused(pauseRef.current); }}
+                onClick={() => {
+                  pauseRef.current = !pauseRef.current;
+                  setPaused(pauseRef.current);
+                }}
                 className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest"
               >
-                {paused ? <><Play className="h-3.5 w-3.5" /> Resume</> : <><Pause className="h-3.5 w-3.5" /> Pause</>}
+                {paused ? (
+                  <>
+                    <Play className="h-3.5 w-3.5" /> Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="h-3.5 w-3.5" /> Pause
+                  </>
+                )}
               </button>
               <button
-                onClick={() => { stopRef.current = true; }}
+                onClick={() => {
+                  stopRef.current = true;
+                }}
                 className="inline-flex items-center gap-1 rounded-sm border border-destructive px-3 py-2 text-xs uppercase tracking-widest text-destructive"
               >
                 <StopCircle className="h-3.5 w-3.5" /> Stop
@@ -359,7 +434,10 @@ export function BulkSeoRunner({
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Retry failed
               </button>
-              <button onClick={close} className="rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground">
+              <button
+                onClick={close}
+                className="rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground"
+              >
                 Close
               </button>
             </>
@@ -421,11 +499,7 @@ async function processPoster(
       alt_text?: string;
     };
     // Prefer explicit provider/key labels from the edge function; fall back to model.
-    const provider = gen.key
-      ? gen.key
-      : gen.provider
-      ? gen.provider
-      : gen.model ?? "unknown";
+    const provider = gen.key ? gen.key : gen.provider ? gen.provider : (gen.model ?? "unknown");
 
     const patch: Record<string, unknown> = {};
     const updated: string[] = [];
@@ -439,7 +513,10 @@ async function processPoster(
       await logAttempt(poster.id, "needs_review", [], provider, "AI returned no usable fields");
       return { status: "needs_review", provider, error: "AI returned no usable fields" };
     }
-    const { error: upErr } = await supabase.from("posters").update(patch as never).eq("id", poster.id);
+    const { error: upErr } = await supabase
+      .from("posters")
+      .update(patch as never)
+      .eq("id", poster.id);
     if (upErr) throw upErr;
     await logAttempt(poster.id, "ok", updated, provider, null);
     return { status: "ok", updated, provider };
@@ -465,5 +542,7 @@ async function logAttempt(
       provider,
       error,
     } as never);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }

@@ -3,19 +3,9 @@ import { FramePreview } from "@/components/FramePreview";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  DEFAULT_EDIT_SETTINGS,
-  normalizeEditSettings,
-  type EditSettings,
-} from "@/lib/poster-edit";
+import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings, type EditSettings } from "@/lib/poster-edit";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
-import {
-  Maximize2,
-  Minimize2,
-  RotateCcw,
-  RotateCw,
-  Move,
-} from "lucide-react";
+import { Maximize2, Minimize2, RotateCcw, RotateCw, Move } from "lucide-react";
 
 type Props = {
   posterUrl: string;
@@ -63,7 +53,14 @@ export function FrameEditor({
   );
 
   // Drag to pan (mouse + touch). Offsets stored as fraction of frame box.
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number; w: number; h: number } | null>(null);
+  const drag = useRef<{
+    x: number;
+    y: number;
+    ox: number;
+    oy: number;
+    w: number;
+    h: number;
+  } | null>(null);
   const onDown = (e: React.PointerEvent) => {
     const el = boxRef.current;
     if (!el) return;
@@ -152,7 +149,7 @@ export function FrameEditor({
         leading={
           <button
             type="button"
-            onClick={() => update({ rotate: ((s.rotate - 90) % 360 + 540) % 360 - 180 })}
+            onClick={() => update({ rotate: ((((s.rotate - 90) % 360) + 540) % 360) - 180 })}
             className="rounded-sm border border-border p-1 hover:bg-accent"
             aria-label="Rotate left"
           >
@@ -162,7 +159,7 @@ export function FrameEditor({
         trailing={
           <button
             type="button"
-            onClick={() => update({ rotate: ((s.rotate + 90) % 360 + 540) % 360 - 180 })}
+            onClick={() => update({ rotate: ((((s.rotate + 90) % 360) + 540) % 360) - 180 })}
             className="rounded-sm border border-border p-1 hover:bg-accent"
             aria-label="Rotate right"
           >

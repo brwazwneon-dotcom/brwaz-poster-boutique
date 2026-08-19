@@ -9,16 +9,26 @@ import {
   RefreshCw,
   Download,
 } from "lucide-react";
-import { getEnvSecurityReport, type EnvReport, type CheckSeverity } from "@/lib/env-check.functions";
+import {
+  getEnvSecurityReport,
+  type EnvReport,
+  type CheckSeverity,
+} from "@/lib/env-check.functions";
 import { cn } from "@/lib/utils";
 
 function collectClientEnvKeys(): string[] {
   try {
-    const e: any = (import.meta as any).env ?? {};
+    const e =
+      (import.meta as ImportMeta & { env?: Record<string, unknown> }).env ??
+      ({} as Record<string, unknown>);
     return Object.keys(e).filter((k) => k.startsWith("VITE_"));
   } catch {
     return [];
   }
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function sevIcon(s: CheckSeverity) {
@@ -66,8 +76,8 @@ export function EnvCheckTab() {
       if (r.counts.crit > 0) toast.error(`${r.counts.crit} critical issue(s) found`);
       else if (r.counts.warn > 0) toast.warning(`${r.counts.warn} warning(s)`);
       else toast.success("All checks passed");
-    } catch (e: any) {
-      toast.error(e?.message || "Scan failed");
+    } catch (e) {
+      toast.error(errorMessage(e, "Scan failed"));
     } finally {
       setLoading(false);
     }
@@ -108,7 +118,8 @@ export function EnvCheckTab() {
             <ShieldCheck className="h-6 w-6" /> Production Environment Checker
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Verifies server secrets are configured, and that no private keys are exposed to the browser.
+            Verifies server secrets are configured, and that no private keys are exposed to the
+            browser.
           </p>
         </div>
         <div className="flex gap-2">
@@ -164,7 +175,9 @@ export function EnvCheckTab() {
               </div>
               <ul className="mt-2 text-sm list-disc pl-5">
                 {report.serverEnv.leakedToClient.map((k) => (
-                  <li key={k}><code>{k}</code></li>
+                  <li key={k}>
+                    <code>{k}</code>
+                  </li>
                 ))}
               </ul>
             </div>

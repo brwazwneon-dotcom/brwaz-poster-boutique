@@ -2,8 +2,8 @@
   "name": "BRWAZWNEON — Premium Framed Posters",
   "short_name": "BRWAZWNEON",
   "description": "Premium framed posters — movie, football, anime, cars, TV. Delivered across Egypt.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "https://brwazwneon.com/",
+  "scope": "https://brwazwneon.com/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
@@ -12,8 +12,23 @@
   "dir": "ltr",
   "categories": ["shopping", "lifestyle"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "https://brwazwneon.com/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://brwazwneon.com/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://brwazwneon.com/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

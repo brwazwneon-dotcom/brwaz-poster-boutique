@@ -93,9 +93,7 @@ export function MaintenancePage({ cfg }: { cfg: MaintenanceConfig }) {
         <h1 className="text-display mt-8 text-4xl leading-tight text-white sm:text-6xl">
           {cfg.title}
         </h1>
-        <p className="mx-auto mt-4 max-w-lg text-sm text-white/70 sm:text-base">
-          {cfg.subtitle}
-        </p>
+        <p className="mx-auto mt-4 max-w-lg text-sm text-white/70 sm:text-base">{cfg.subtitle}</p>
 
         {cd && !cd.done && (
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2">

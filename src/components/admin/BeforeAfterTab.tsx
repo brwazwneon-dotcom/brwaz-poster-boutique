@@ -188,7 +188,9 @@ function EditModal({
         )}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Title</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Title
+            </span>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -196,19 +198,25 @@ function EditModal({
             />
           </label>
           <label className="block">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Location</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Location
+            </span>
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
               {LOCATIONS.map((l) => (
-                <option key={l.id} value={l.id}>{l.label}</option>
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
               ))}
             </select>
           </label>
           <label className="block sm:col-span-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Description</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Description
+            </span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -217,7 +225,9 @@ function EditModal({
             />
           </label>
           <label className="block">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sort order</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Sort order
+            </span>
             <input
               type="number"
               value={sortOrder}
@@ -226,14 +236,24 @@ function EditModal({
             />
           </label>
           <label className="block">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Status</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Status
+            </span>
             <div className="mt-2 inline-flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+              />{" "}
+              Active
             </div>
           </label>
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+          >
             Cancel
           </button>
           <button
@@ -263,12 +283,16 @@ function ImageSlot({
     <div className="rounded-sm border border-border bg-background p-3">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="mt-2 aspect-[4/3] overflow-hidden rounded-sm bg-card">
-        {url ? <SafeImage src={url} alt={label} className="h-full w-full object-cover" /> : (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No image</div>
+        {url ? (
+          <SafeImage src={url} alt={label} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            No image
+          </div>
         )}
       </div>
       <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-border px-2 py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent">
-        <Upload className="h-3 w-3" /> {busy ? "Uploading…" : (url ? "Replace" : "Upload")}
+        <Upload className="h-3 w-3" /> {busy ? "Uploading…" : url ? "Replace" : "Upload"}
         <input
           type="file"
           accept="image/*"

@@ -24,15 +24,16 @@ export function WishlistHeart({ posterId, className, alwaysVisible }: Props) {
       }}
       className={cn(
         "absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur transition",
-        alwaysVisible
-          ? "opacity-100"
-          : "opacity-100 md:opacity-0 md:group-hover:opacity-100",
+        alwaysVisible ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100",
         active && "opacity-100",
         className,
       )}
     >
       <Heart
-        className={cn("h-4 w-4 transition", active ? "fill-red-500 text-red-500" : "text-foreground")}
+        className={cn(
+          "h-4 w-4 transition",
+          active ? "fill-red-500 text-red-500" : "text-foreground",
+        )}
       />
     </button>
   );

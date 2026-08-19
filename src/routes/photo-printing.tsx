@@ -4,7 +4,12 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappLink } from "@/lib/whatsapp";
-import { useSiteSettings, computeShipping, usePricing } from "@/lib/use-settings";
+import {
+  useSiteSettings,
+  computeShipping,
+  usePricing,
+  readPostOrderMessageEnabled,
+} from "@/lib/use-settings";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 
@@ -15,17 +20,17 @@ export const Route = createFileRoute("/photo-printing")({
       {
         name: "description",
         content:
-          "Print your photos in premium Fuji quality. 10x15, 13x18, 15x20 cm. Minimum 20 photos. Cash on delivery across Egypt.",
+          "Print your photos on premium FUJIFILM paper. 10x15, 13x18, 15x20 cm. Minimum 20 photos. Cash on delivery across Egypt.",
       },
       { property: "og:title", content: "Photo Printing — BRWAZWNEON" },
       {
         property: "og:description",
-        content: "Premium Fuji photo printing. Upload, calculate, order. Cash on delivery.",
+        content: "Premium FUJIFILM photo printing. Upload, calculate, order. Cash on delivery.",
       },
-      { property: "og:url", content: "https://brwazwneon-com.lovable.app/photo-printing" },
+      { property: "og:url", content: "https://brwazwneon.com/photo-printing" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://brwazwneon-com.lovable.app/photo-printing" }],
+    links: [{ rel: "canonical", href: "https://brwazwneon.com/photo-printing" }],
   }),
   component: PhotoPrintingPage,
 });
@@ -40,11 +45,33 @@ const SIZE_LABELS: Record<PhotoSizeId, string> = {
 const MIN_QTY = 20;
 
 const GOVERNORATES = [
-  "Cairo", "Giza", "Alexandria", "Qalyubia", "Sharqia", "Dakahlia",
-  "Beheira", "Gharbia", "Monufia", "Kafr El Sheikh", "Damietta",
-  "Port Said", "Ismailia", "Suez", "Faiyum", "Beni Suef", "Minya",
-  "Asyut", "Sohag", "Qena", "Luxor", "Aswan", "Red Sea", "New Valley",
-  "Matrouh", "North Sinai", "South Sinai",
+  "Cairo",
+  "Giza",
+  "Alexandria",
+  "Qalyubia",
+  "Sharqia",
+  "Dakahlia",
+  "Beheira",
+  "Gharbia",
+  "Monufia",
+  "Kafr El Sheikh",
+  "Damietta",
+  "Port Said",
+  "Ismailia",
+  "Suez",
+  "Faiyum",
+  "Beni Suef",
+  "Minya",
+  "Asyut",
+  "Sohag",
+  "Qena",
+  "Luxor",
+  "Aswan",
+  "Red Sea",
+  "New Valley",
+  "Matrouh",
+  "North Sinai",
+  "South Sinai",
 ];
 
 type Pic = { id: string; file: File; preview: string };
@@ -150,14 +177,20 @@ function PhotoPrintingPage() {
           unit_price: size.price,
         });
         const { enqueueEvent } = await import("@/lib/meta-pixel");
-        enqueueEvent("PhotoPrintingCustomer", {
-          currency: "EGP",
-          value: total,
-          quantity: qty,
-          size: size.label,
-          order_id: orderId,
-        }, { phone: phone.trim(), city: governorate, country: "EG" });
-      } catch { /* noop */ }
+        enqueueEvent(
+          "PhotoPrintingCustomer",
+          {
+            currency: "EGP",
+            value: total,
+            quantity: qty,
+            size: size.label,
+            order_id: orderId,
+          },
+          { phone: phone.trim(), city: governorate, country: "EG" },
+        );
+      } catch {
+        /* noop */
+      }
 
       const msg = [
         "New Photo Printing order",
@@ -172,9 +205,14 @@ function PhotoPrintingPage() {
       ].join("\n");
       window.location.href = whatsappLink(msg);
 
-      toast.success("Order submitted! Opening WhatsApp…");
+      if (await readPostOrderMessageEnabled().catch(() => true)) {
+        toast.success("Order submitted! Opening WhatsApp…");
+      }
       setPics([]);
-      setName(""); setPhone(""); setGovernorate(""); setAddress("");
+      setName("");
+      setPhone("");
+      setGovernorate("");
+      setAddress("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed");
     } finally {
@@ -188,19 +226,20 @@ function PhotoPrintingPage() {
       <section className="border-b border-border bg-card">
         <div className="container-page py-16 sm:py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Premium Fuji Quality
+            Premium FUJIFILM Quality
           </p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">Photo Printing</h1>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            Upload your photos, pick a size, and we deliver high-resolution Fuji
-            prints to your door. Cash on delivery across Egypt.
+            Upload your photos, pick a size, and we deliver high-resolution FUJIFILM prints to your
+            door. Cash on delivery across Egypt.
           </p>
           <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-            🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over {settings.freeShippingThreshold} EGP
+            🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over{" "}
+            {settings.freeShippingThreshold} EGP
           </p>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
-              "Premium Fuji Quality",
+              "Premium FUJIFILM Quality",
               "Multiple Photo Upload",
               "High Resolution",
               "Live Price Calculation",
@@ -218,9 +257,7 @@ function PhotoPrintingPage() {
       <section className="border-b border-border">
         <div className="container-page py-14">
           <h2 className="text-display text-3xl sm:text-4xl">Pricing</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Minimum order: {MIN_QTY} photos.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">Minimum order: {MIN_QTY} photos.</p>
           <div className="mt-8 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-3">
             {SIZES.map((s) => {
               const active = s.id === sizeId;
@@ -290,7 +327,10 @@ function PhotoPrintingPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => { pics.forEach((p) => URL.revokeObjectURL(p.preview)); setPics([]); }}
+                      onClick={() => {
+                        pics.forEach((p) => URL.revokeObjectURL(p.preview));
+                        setPics([]);
+                      }}
                       className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
                     >
                       Clear all
@@ -298,8 +338,16 @@ function PhotoPrintingPage() {
                   </div>
                   <div className="grid max-h-[480px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 md:grid-cols-5">
                     {pics.map((p) => (
-                      <div key={p.id} className="group relative aspect-square overflow-hidden rounded-sm border border-border bg-muted">
-                        <img src={p.preview} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <div
+                        key={p.id}
+                        className="group relative aspect-square overflow-hidden rounded-sm border border-border bg-muted"
+                      >
+                        <img
+                          src={p.preview}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
                         <button
                           type="button"
                           onClick={() => removePic(p.id)}
@@ -323,14 +371,17 @@ function PhotoPrintingPage() {
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-display text-5xl">{total}</span>
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">EGP</span>
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    EGP
+                  </span>
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">
                   {qty} × {size.label} @ {size.price} EGP
                 </div>
                 {remaining > 0 && (
                   <div className="mt-3 rounded-sm bg-background px-3 py-2 text-[11px] text-muted-foreground">
-                    Add {remaining} more photo{remaining === 1 ? "" : "s"} to reach the {MIN_QTY}-photo minimum.
+                    Add {remaining} more photo{remaining === 1 ? "" : "s"} to reach the {MIN_QTY}
+                    -photo minimum.
                   </div>
                 )}
               </div>
@@ -369,7 +420,9 @@ function PhotoPrintingPage() {
                   >
                     <option value="">Select…</option>
                     {GOVERNORATES.map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
                     ))}
                   </select>
                 </Field>
@@ -402,7 +455,10 @@ function PhotoPrintingPage() {
                 We'll confirm your order on WhatsApp
               </p>
               <div className="mt-4 text-center">
-                <Link to="/" className="text-xs text-muted-foreground underline-offset-4 hover:underline">
+                <Link
+                  to="/"
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
                   ← Back to home
                 </Link>
               </div>

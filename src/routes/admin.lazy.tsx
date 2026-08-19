@@ -1,63 +1,71 @@
 import { createLazyFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { TestModeControls } from "@/components/admin/TestModeControls";
 import { OrderDetailsExtras } from "@/components/admin/OrderDetailsExtras";
-import { CustomersTab } from "@/components/admin/CustomersTab";
-import { AbandonedOrdersTab } from "@/components/admin/AbandonedOrdersTab";
-import { ReportsTab } from "@/components/admin/ReportsTab";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureBrandAdminRole } from "@/lib/admin-auth.functions";
+import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { POSTER_BADGES } from "@/lib/poster-badges";
 import { cn } from "@/lib/utils";
-import { Trash2, Upload, LogOut, Pencil, Plus, X, Save, Download, Search, Eye, ArrowUp, ArrowDown, Heart, Star, Sparkles, Loader2, FlipHorizontal, FlipVertical, RotateCcw, RotateCw, ZoomIn, ZoomOut, Crosshair, ShoppingBag, Copy, MessageCircle, Calendar, Package, MapPin, Phone as PhoneIcon, User as UserIcon, StickyNote, AlertCircle, RefreshCw, Crop } from "lucide-react";
+import {
+  Trash2,
+  Upload,
+  LogOut,
+  Pencil,
+  Plus,
+  X,
+  Save,
+  Download,
+  Search,
+  Eye,
+  ArrowUp,
+  ArrowDown,
+  Heart,
+  Star,
+  Sparkles,
+  Loader2,
+  FlipHorizontal,
+  FlipVertical,
+  RotateCcw,
+  RotateCw,
+  ZoomIn,
+  ZoomOut,
+  Crosshair,
+  ShoppingBag,
+  Copy,
+  MessageCircle,
+  Calendar,
+  Package,
+  MapPin,
+  Phone as PhoneIcon,
+  User as UserIcon,
+  StickyNote,
+  AlertCircle,
+  RefreshCw,
+  Crop,
+  Check,
+} from "lucide-react";
 import { Slider } from "@/components/ui/slider";
-import * as XLSX from "xlsx";
 import {
   IMAGE_FALLBACK,
   uploadAndSign,
   extractStoragePath,
-  signStoragePath,
+  signStoragePath as signStoragePathFromUrl,
 } from "@/lib/storage-url";
+
 import { SafeImage } from "@/components/SafeImage";
 import { FramePreview } from "@/components/FramePreview";
 import { BulkPosterUploader } from "@/components/admin/BulkPosterUploader";
-import { AiPosterUpload } from "@/components/admin/AiPosterUpload";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import { PosterImagesManager } from "@/components/admin/PosterImagesManager";
 import { SubCategoryReviewManager } from "@/components/admin/SubCategoryReviewManager";
-import { BeforeAfterTab } from "@/components/admin/BeforeAfterTab";
-import { LandingManagerTab } from "@/components/admin/LandingManagerTab";
-import { CampaignReportTab } from "@/components/admin/CampaignReportTab";
 import { AddToCampaignButton, CampaignBadges } from "@/components/admin/AddToCampaignButton";
-import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
-import { RealtimeAnalyticsTab } from "@/components/admin/RealtimeAnalyticsTab";
-import { NotificationsTab } from "@/components/admin/NotificationsTab";
 import { NotificationBell } from "@/components/admin/NotificationBell";
-import { NotificationsCenterTab } from "@/components/admin/NotificationsCenterTab";
-import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
-import { PerformanceMonitorTab } from "@/components/admin/PerformanceMonitorTab";
-import { StabilityTab } from "@/components/admin/StabilityTab";
-import { ImageControlCenter } from "@/components/admin/ImageControlCenter";
-import { DisplayOrderTab } from "@/components/admin/DisplayOrderTab";
-import { BackupsTab } from "@/components/admin/BackupsTab";
-import { Photo4x6Tab } from "@/components/admin/Photo4x6Tab";
-import { SystemHealthTab } from "@/components/admin/SystemHealthTab";
-import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
-import { EnvCheckTab } from "@/components/admin/EnvCheckTab";
-import { SubCategoriesManagerTab } from "@/components/admin/SubCategoriesManagerTab";
-import { TrendingNowManager } from "@/components/admin/TrendingNowManager";
-import { BrandingTab } from "@/components/admin/BrandingTab";
-import { AiSettingsTab } from "@/components/admin/AiSettingsTab";
-import { SocialProofTab } from "@/components/admin/SocialProofTab";
-import { BehaviorTab } from "@/components/admin/BehaviorTab";
-import { AssistantRequestsTab } from "@/components/admin/AssistantRequestsTab";
-import { AssistantTab } from "@/components/admin/AssistantTab";
-import { OffersTab } from "@/components/admin/OffersTab";
 import { AdminAssistantButton } from "@/components/admin/AdminAssistantButton";
 import { AdminI18nProvider, useAdminI18n, tabLabel } from "@/lib/admin-i18n";
 import { LanguageSwitcher, HelpButton, AdminTip } from "@/components/admin/AdminShell";
@@ -72,7 +80,11 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { MOCKUP_KEYS, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
-import { GRID_DISPLAY_MODE_KEY, GRID_DISPLAY_MODE_DEFAULT, type GridDisplayMode } from "@/lib/use-settings";
+import {
+  GRID_DISPLAY_MODE_KEY,
+  GRID_DISPLAY_MODE_DEFAULT,
+  type GridDisplayMode,
+} from "@/lib/use-settings";
 import { PRICING_DEFAULTS, PRICING_KEYS, type Pricing } from "@/lib/use-settings";
 import {
   ANNOUNCEMENT_KEY,
@@ -95,6 +107,7 @@ import {
   DEFAULT_HOME_SECTIONS,
   HOME_SECTION_LABELS,
   HOME_SECTIONS_KEY,
+  normalizeHomeSectionKey,
   BEST_SELLERS_CONFIG_KEY,
   DEFAULT_BS_CONFIG,
   type HomeSectionConfig,
@@ -122,6 +135,168 @@ export const Route = createLazyFileRoute("/admin")({
   component: AdminPageWithI18n,
 });
 
+const AbandonedOrdersTab = lazy(() =>
+  import("@/components/admin/AbandonedOrdersTab").then((module) => ({
+    default: module.AbandonedOrdersTab,
+  })),
+);
+const AiPosterUpload = lazy(() =>
+  import("@/components/admin/AiPosterUpload").then((module) => ({
+    default: module.AiPosterUpload,
+  })),
+);
+const AiSettingsTab = lazy(() =>
+  import("@/components/admin/AiSettingsTab").then((module) => ({ default: module.AiSettingsTab })),
+);
+const AnalyticsTab = lazy(() =>
+  import("@/components/admin/AnalyticsTab").then((module) => ({ default: module.AnalyticsTab })),
+);
+const AssistantRequestsTab = lazy(() =>
+  import("@/components/admin/AssistantRequestsTab").then((module) => ({
+    default: module.AssistantRequestsTab,
+  })),
+);
+const AssistantTab = lazy(() =>
+  import("@/components/admin/AssistantTab").then((module) => ({ default: module.AssistantTab })),
+);
+const BackupsTab = lazy(() =>
+  import("@/components/admin/BackupsTab").then((module) => ({ default: module.BackupsTab })),
+);
+const BeforeAfterTab = lazy(() =>
+  import("@/components/admin/BeforeAfterTab").then((module) => ({
+    default: module.BeforeAfterTab,
+  })),
+);
+const BehaviorTab = lazy(() =>
+  import("@/components/admin/BehaviorTab").then((module) => ({ default: module.BehaviorTab })),
+);
+const BrandingTab = lazy(() =>
+  import("@/components/admin/BrandingTab").then((module) => ({ default: module.BrandingTab })),
+);
+const CampaignReportTab = lazy(() =>
+  import("@/components/admin/CampaignReportTab").then((module) => ({
+    default: module.CampaignReportTab,
+  })),
+);
+const CollectionShowcaseTab = lazy(() =>
+  import("@/components/admin/CollectionShowcaseTab").then((module) => ({
+    default: module.CollectionShowcaseTab,
+  })),
+);
+const CustomersTab = lazy(() =>
+  import("@/components/admin/CustomersTab").then((module) => ({ default: module.CustomersTab })),
+);
+const DisplayOrderTab = lazy(() =>
+  import("@/components/admin/DisplayOrderTab").then((module) => ({
+    default: module.DisplayOrderTab,
+  })),
+);
+const EnvCheckTab = lazy(() =>
+  import("@/components/admin/EnvCheckTab").then((module) => ({ default: module.EnvCheckTab })),
+);
+const ErrorLogsTab = lazy(() =>
+  import("@/components/admin/ErrorLogsTab").then((module) => ({ default: module.ErrorLogsTab })),
+);
+const ImageControlCenter = lazy(() =>
+  import("@/components/admin/ImageControlCenter").then((module) => ({
+    default: module.ImageControlCenter,
+  })),
+);
+const HomepageLayoutTab = lazy(() =>
+  import("@/components/admin/HomepageLayoutTab").then((module) => ({
+    default: module.HomepageLayoutTab,
+  })),
+);
+const LandingManagerTab = lazy(() =>
+  import("@/components/admin/LandingManagerTab").then((module) => ({
+    default: module.LandingManagerTab,
+  })),
+);
+const MaintenanceTab = lazy(() =>
+  import("@/components/admin/MaintenanceTab").then((module) => ({
+    default: module.MaintenanceTab,
+  })),
+);
+const NotificationsCenterTab = lazy(() =>
+  import("@/components/admin/NotificationsCenterTab").then((module) => ({
+    default: module.NotificationsCenterTab,
+  })),
+);
+const NotificationsTab = lazy(() =>
+  import("@/components/admin/NotificationsTab").then((module) => ({
+    default: module.NotificationsTab,
+  })),
+);
+const OffersTab = lazy(() =>
+  import("@/components/admin/OffersTab").then((module) => ({ default: module.OffersTab })),
+);
+const PerformanceMonitorTab = lazy(() =>
+  import("@/components/admin/PerformanceMonitorTab").then((module) => ({
+    default: module.PerformanceMonitorTab,
+  })),
+);
+const Photo4x6Tab = lazy(() =>
+  import("@/components/admin/Photo4x6Tab").then((module) => ({ default: module.Photo4x6Tab })),
+);
+const ProductCatalogTab = lazy(() =>
+  import("@/components/admin/ProductCatalogTab").then((module) => ({
+    default: module.ProductCatalogTab,
+  })),
+);
+const PostOrderSettingsTab = lazy(() =>
+  import("@/components/admin/PostOrderSettingsTab").then((module) => ({
+    default: module.PostOrderSettingsTab,
+  })),
+);
+const PhotoEnhancementBeforeAfterTab = lazy(() =>
+  import("@/components/admin/PhotoEnhancementBeforeAfterTab").then((module) => ({
+    default: module.PhotoEnhancementBeforeAfterTab,
+  })),
+);
+const StorefrontContentTab = lazy(() =>
+  import("@/components/admin/StorefrontContentTab").then((module) => ({
+    default: module.StorefrontContentTab,
+  })),
+);
+const RealtimeAnalyticsTab = lazy(() =>
+  import("@/components/admin/RealtimeAnalyticsTab").then((module) => ({
+    default: module.RealtimeAnalyticsTab,
+  })),
+);
+const ReportsTab = lazy(() =>
+  import("@/components/admin/ReportsTab").then((module) => ({ default: module.ReportsTab })),
+);
+const RoomTransformationTab = lazy(() =>
+  import("@/components/admin/RoomTransformationTab").then((module) => ({
+    default: module.RoomTransformationTab,
+  })),
+);
+const SocialProofTab = lazy(() =>
+  import("@/components/admin/SocialProofTab").then((module) => ({
+    default: module.SocialProofTab,
+  })),
+);
+const SubCategoriesManagerTab = lazy(() =>
+  import("@/components/admin/SubCategoriesManagerTab").then((module) => ({
+    default: module.SubCategoriesManagerTab,
+  })),
+);
+const SystemHealthTab = lazy(() =>
+  import("@/components/admin/SystemHealthTab").then((module) => ({
+    default: module.SystemHealthTab,
+  })),
+);
+const TrendingNowManager = lazy(() =>
+  import("@/components/admin/TrendingNowManager").then((module) => ({
+    default: module.TrendingNowManager,
+  })),
+);
+const WebsiteAppearanceTab = lazy(() =>
+  import("@/components/admin/WebsiteAppearanceTab").then((module) => ({
+    default: module.WebsiteAppearanceTab,
+  })),
+);
+
 function AdminPageWithI18n() {
   return (
     <AdminI18nProvider>
@@ -134,7 +309,128 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab = "analytics" | "reports" | "realtime" | "behavior" | "posters" | "ai-upload" | "ai-settings" | "assistant" | "assistant-requests" | "categories" | "subcategories" | "display-order" | "orders" | "customers" | "abandoned" | "custom" | "offers" | "photo-4x6" | "slider" | "hero-banners" | "highlights" | "best-sellers" | "sections" | "home-categories" | "sets" | "collections" | "quickbar" | "footer-menu" | "mockups" | "wishlists" | "reviews" | "before-after" | "marketing" | "campaign-landings" | "campaign-report" | "social-proof" | "announcement" | "size-guide" | "alerts" | "notifications" | "error-logs" | "performance" | "stability" | "images" | "backups" | "system-health" | "env-check" | "maintenance" | "exports" | "branding" | "settings";
+type Tab =
+  | "analytics"
+  | "reports"
+  | "realtime"
+  | "behavior"
+  | "posters"
+  | "ai-upload"
+  | "ai-settings"
+  | "assistant"
+  | "assistant-requests"
+  | "categories"
+  | "subcategories"
+  | "display-order"
+  | "orders"
+  | "customers"
+  | "abandoned"
+  | "custom"
+  | "offers"
+  | "photo-4x6"
+  | "post-order"
+  | "slider"
+  | "hero-banners"
+  | "highlights"
+  | "best-sellers"
+  | "sections"
+  | "home-categories"
+  | "room-transformation"
+  | "sets"
+  | "collections"
+  | "collection-showcase"
+  | "quickbar"
+  | "footer-menu"
+  | "mockups"
+  | "wishlists"
+  | "reviews"
+  | "before-after"
+  | "photo-enhancement"
+  | "storefront-content"
+  | "marketing"
+  | "catalog"
+  | "campaign-landings"
+  | "campaign-report"
+  | "social-proof"
+  | "announcement"
+  | "size-guide"
+  | "alerts"
+  | "notifications"
+  | "error-logs"
+  | "performance"
+  | "stability"
+  | "images"
+  | "backups"
+  | "system-health"
+  | "env-check"
+  | "maintenance"
+  | "exports"
+  | "branding"
+  | "appearance"
+  | "settings";
+
+const ADMIN_TABS: Tab[] = [
+  "analytics",
+  "reports",
+  "assistant",
+  "realtime",
+  "behavior",
+  "appearance",
+  "posters",
+  "ai-upload",
+  "ai-settings",
+  "assistant-requests",
+  "categories",
+  "subcategories",
+  "display-order",
+  "orders",
+  "customers",
+  "abandoned",
+  "custom",
+  "offers",
+  "photo-4x6",
+  "post-order",
+  "slider",
+  "hero-banners",
+  "highlights",
+  "best-sellers",
+  "sections",
+  "home-categories",
+  "room-transformation",
+  "sets",
+  "collections",
+  "collection-showcase",
+  "quickbar",
+  "footer-menu",
+  "mockups",
+  "wishlists",
+  "reviews",
+  "before-after",
+  "photo-enhancement",
+  "storefront-content",
+  "marketing",
+  "catalog",
+  "campaign-landings",
+  "campaign-report",
+  "social-proof",
+  "announcement",
+  "size-guide",
+  "alerts",
+  "notifications",
+  "error-logs",
+  "performance",
+  "stability",
+  "images",
+  "backups",
+  "system-health",
+  "env-check",
+  "maintenance",
+  "exports",
+  "branding",
+  "settings",
+];
+
+const isAdminTab = (value: string): value is Tab => ADMIN_TABS.includes(value as Tab);
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -145,11 +441,18 @@ function AdminPage() {
   const [tab, setTab] = useState<Tab>("analytics");
   const { t } = useAdminI18n();
 
+  const setActiveTab = (next: Tab) => {
+    setTab(next);
+    if (typeof window !== "undefined") window.history.replaceState(null, "", `#${next}`);
+  };
+
   useEffect(() => {
     const applyHash = () => {
       const h = typeof window !== "undefined" ? window.location.hash : "";
-      const m = h.match(/tab=([\w-]+)/);
-      if (m) setTab(m[1] as Tab);
+      const tabId = h.match(/tab=([\w-]+)/)?.[1] ?? h.replace(/^#/, "");
+      const normalized =
+        tabId === "theme-manager" || tabId === "website-appearance" ? "appearance" : tabId;
+      if (isAdminTab(normalized)) setTab(normalized);
     };
     applyHash();
     window.addEventListener("hashchange", applyHash);
@@ -157,33 +460,47 @@ function AdminPage() {
   }, []);
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => setReady(true), 10000);
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        navigate({ to: "/auth" });
-        return;
-      }
-      setUserId(data.session.user.id);
-      const ensured = await ensureAdmin();
-      if (ensured.isAdmin) {
-        setIsAdmin(true);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data?.session) {
+          clearTimeout(timeoutId);
+          setReady(true);
+          setIsAdmin(false);
+          if (!data?.session) navigate({ to: "/auth" });
+          return;
+        }
+        setUserId(data.session.user.id);
+        // Background role sync — non-blocking
+        ensureAdmin().catch(() => {});
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.session.user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (roleError) console.warn("Admin role lookup failed.", roleError);
+        clearTimeout(timeoutId);
+        setIsAdmin(!roleError && !!roleData);
         setReady(true);
-        return;
+      } catch (err) {
+        console.error("Admin auth check failed:", err);
+        clearTimeout(timeoutId);
+        setIsAdmin(false);
+        setReady(true);
       }
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.session.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!roleData);
-      setReady(true);
     })();
-  }, [ensureAdmin, navigate]);
+    return () => clearTimeout(timeoutId);
+  }, [navigate]);
 
   useEffect(() => {
     if (isAdmin) {
-      try { window.localStorage.setItem("brw-admin-seen", "1"); } catch { /* ignore */ }
+      try {
+        window.localStorage.setItem("brw-admin-seen", "1");
+      } catch {
+        /* ignore */
+      }
     }
   }, [isAdmin]);
 
@@ -202,14 +519,20 @@ function AdminPage() {
         <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-8 text-center">
           <h1 className="text-display text-3xl">No admin access</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your account ({userId?.slice(0, 8)}…) is not authorized for the admin dashboard.
-            Sign in with the BRWAZWNEON owner email to continue.
+            Your account ({userId?.slice(0, 8)}…) is not authorized for the admin dashboard. Sign in
+            with the BRWAZWNEON owner email to continue.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <button onClick={signOut} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent">
+            <button
+              onClick={signOut}
+              className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+            >
               Sign out
             </button>
-            <Link to="/" className="rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground">
+            <Link
+              to="/"
+              className="rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground"
+            >
               Home
             </Link>
           </div>
@@ -222,14 +545,18 @@ function AdminPage() {
     <div className="container-page py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{t("shell.dashboard")}</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+            {t("shell.dashboard")}
+          </div>
           <h1 className="text-display text-5xl">{t("shell.admin")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <AdminTip label={t("shell.preview")}>
-            <div><PreviewAsClient /></div>
+            <div>
+              <PreviewAsClient />
+            </div>
           </AdminTip>
-          <NotificationBell onOpenCenter={() => setTab("alerts")} />
+          <NotificationBell onOpenCenter={() => setActiveTab("alerts")} />
           <HelpModeToggle />
           <LanguageSwitcher />
           <AdminTip label={t("shell.sign_out")}>
@@ -243,76 +570,95 @@ function AdminPage() {
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-2 border-b border-border">
-        {(["analytics", "reports", "assistant", "realtime", "behavior", "posters", "ai-upload", "ai-settings", "assistant-requests", "categories", "subcategories", "display-order", "orders", "customers", "abandoned", "custom", "offers", "photo-4x6", "slider", "hero-banners", "highlights", "best-sellers", "sections", "home-categories", "sets", "collections", "quickbar", "footer-menu", "mockups", "wishlists", "reviews", "before-after", "marketing", "campaign-landings", "campaign-report", "social-proof", "announcement", "size-guide", "alerts", "notifications", "error-logs", "performance", "stability", "images", "backups", "system-health", "env-check", "maintenance", "exports", "branding", "settings"] as Tab[]).map((tabKey) => (
-          <button
-            key={tabKey}
-            onClick={() => setTab(tabKey)}
-            className={cn(
-              "border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-widest transition",
-              tab === tabKey
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tabLabel(t, tabKey)}
-          </button>
-        ))}
+      <div className="mt-8 overflow-x-auto border-b border-border pb-px">
+        <div className="flex min-w-max gap-2 sm:min-w-0 sm:flex-wrap">
+          {ADMIN_TABS.map((tabKey) => (
+            <button
+              key={tabKey}
+              onClick={() => setActiveTab(tabKey)}
+              className={cn(
+                "shrink-0 border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-widest transition",
+                tab === tabKey
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tabKey === "collection-showcase" ? "Collection Showcase" : tabLabel(t, tabKey)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-8">
-        {tab === "analytics" && <AnalyticsTab onNavigate={setTab} />}
-        {tab === "realtime" && <RealtimeAnalyticsTab />}
-        {tab === "behavior" && <BehaviorTab />}
-        {tab === "posters" && <PostersTab />}
-        {tab === "ai-upload" && <AiPosterUpload />}
-        {tab === "categories" && <CategoriesTab />}
-        {tab === "subcategories" && <SubCategoriesManagerTab />}
-        {tab === "display-order" && <DisplayOrderTab />}
-        {tab === "orders" && <OrdersTab />}
-        {tab === "customers" && <CustomersTab />}
-        {tab === "abandoned" && <AbandonedOrdersTab />}
-        {tab === "reports" && <ReportsTab onNavigate={(t) => setTab(t as Tab)} />}
-        {tab === "custom" && <CustomDesignOrdersTab />}
-        {tab === "offers" && <OffersTab />}
-        {tab === "photo-4x6" && <Photo4x6Tab />}
-        {tab === "slider" && <SliderTab />}
-        {tab === "hero-banners" && <HeroBannersTab />}
-        {tab === "highlights" && <HighlightsTab />}
-        {tab === "best-sellers" && <BestSellersTab />}
-        {tab === "sections" && <HomeSectionsTab />}
-        {tab === "home-categories" && <HomeCategoryPicksTab />}
-        {tab === "sets" && <SetsTab />}
-        {tab === "collections" && <CollectionsTab />}
-        {tab === "quickbar" && <QuickBarTab />}
-        {tab === "footer-menu" && <FooterMenuTab />}
-        {tab === "mockups" && <MockupsTab />}
-        {tab === "wishlists" && <WishlistsTab />}
-        {tab === "reviews" && <ReviewsTab />}
-        {tab === "before-after" && <BeforeAfterTab />}
-        {tab === "marketing" && <MarketingTab />}
-        {tab === "campaign-landings" && <LandingManagerTab />}
-        {tab === "campaign-report" && <CampaignReportTab />}
-        {tab === "social-proof" && <SocialProofTab />}
-        {tab === "announcement" && <AnnouncementTab />}
-        {tab === "size-guide" && <SizeGuideTab />}
-        {tab === "alerts" && <NotificationsCenterTab />}
-        {tab === "notifications" && <NotificationsTab />}
-        {tab === "error-logs" && <ErrorLogsTab />}
-        {tab === "performance" && <PerformanceMonitorTab />}
-        {tab === "images" && <ImageControlCenter />}
-        {tab === "backups" && <BackupsTab />}
-        {tab === "system-health" && <SystemHealthTab />}
-        {tab === "env-check" && <EnvCheckTab />}
-        {tab === "maintenance" && <MaintenanceTab />}
-        {tab === "exports" && <ExportsTab />}
-        {tab === "branding" && <BrandingTab />}
-        {tab === "ai-settings" && <AiSettingsTab />}
-        {tab === "assistant-requests" && <AssistantRequestsTab />}
-        {tab === "settings" && <SettingsTab />}
-        {tab === "assistant" && <AssistantTab />}
+        <Suspense fallback={<AdminTabFallback />}>
+          {tab === "analytics" && <AnalyticsTab onNavigate={setActiveTab} />}
+          {tab === "realtime" && <RealtimeAnalyticsTab />}
+          {tab === "behavior" && <BehaviorTab />}
+          {tab === "posters" && <PostersTab />}
+          {tab === "ai-upload" && <AiPosterUpload />}
+          {tab === "categories" && <CategoriesTab />}
+          {tab === "subcategories" && <SubCategoriesManagerTab />}
+          {tab === "display-order" && <DisplayOrderTab />}
+          {tab === "orders" && <OrdersTab />}
+          {tab === "customers" && <CustomersTab />}
+          {tab === "abandoned" && <AbandonedOrdersTab />}
+          {tab === "reports" && <ReportsTab onNavigate={(t) => setActiveTab(t as Tab)} />}
+          {tab === "custom" && <CustomDesignOrdersTab />}
+          {tab === "offers" && <OffersTab />}
+          {tab === "photo-4x6" && <Photo4x6Tab />}
+          {tab === "post-order" && <PostOrderSettingsTab />}
+          {tab === "slider" && <SliderTab />}
+          {tab === "hero-banners" && <HeroBannersTab />}
+          {tab === "highlights" && <HighlightsTab />}
+          {tab === "best-sellers" && <BestSellersTab />}
+          {tab === "sections" && <HomepageLayoutTab />}
+          {tab === "home-categories" && <HomeCategoryPicksTab />}
+          {tab === "room-transformation" && <RoomTransformationTab />}
+          {tab === "sets" && <SetsTab />}
+          {tab === "collections" && <CollectionsTab />}
+          {tab === "collection-showcase" && <CollectionShowcaseTab />}
+          {tab === "quickbar" && <QuickBarTab />}
+          {tab === "footer-menu" && <FooterMenuTab />}
+          {tab === "mockups" && <MockupsTab />}
+          {tab === "wishlists" && <WishlistsTab />}
+          {tab === "reviews" && <ReviewsTab />}
+          {tab === "before-after" && <BeforeAfterTab />}
+          {tab === "photo-enhancement" && <PhotoEnhancementBeforeAfterTab />}
+          {tab === "storefront-content" && <StorefrontContentTab />}
+          {tab === "marketing" && <MarketingTab />}
+          {tab === "catalog" && <ProductCatalogTab />}
+          {tab === "campaign-landings" && <LandingManagerTab />}
+          {tab === "campaign-report" && <CampaignReportTab />}
+          {tab === "social-proof" && <SocialProofTab />}
+          {tab === "announcement" && <AnnouncementTab />}
+          {tab === "size-guide" && <SizeGuideTab />}
+          {tab === "alerts" && <NotificationsCenterTab />}
+          {tab === "notifications" && <NotificationsTab />}
+          {tab === "error-logs" && <ErrorLogsTab />}
+          {tab === "performance" && <PerformanceMonitorTab />}
+          {tab === "images" && <ImageControlCenter />}
+          {tab === "backups" && <BackupsTab />}
+          {tab === "system-health" && <SystemHealthTab />}
+          {tab === "env-check" && <EnvCheckTab />}
+          {tab === "maintenance" && <MaintenanceTab />}
+          {tab === "exports" && <ExportsTab />}
+          {tab === "branding" && <BrandingTab />}
+          {tab === "appearance" && <WebsiteAppearanceTab />}
+          {tab === "ai-settings" && <AiSettingsTab />}
+          {tab === "assistant-requests" && <AssistantRequestsTab />}
+          {tab === "settings" && <SettingsTab />}
+          {tab === "assistant" && <AssistantTab />}
+        </Suspense>
       </div>
       <AdminAssistantButton />
+    </div>
+  );
+}
+
+function AdminTabFallback() {
+  return (
+    <div className="flex min-h-[220px] items-center justify-center rounded-sm border border-border bg-card/50 text-sm text-muted-foreground">
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading tab…
     </div>
   );
 }
@@ -357,9 +703,7 @@ function HomeCategoryPicksTab() {
   const { data: cats = [] } = useQuery({
     queryKey: ["admin-home-cats"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id,slug,name,parent_id");
+      const { data, error } = await supabase.from("categories").select("id,slug,name,parent_id");
       if (error) throw error;
       return data ?? [];
     },
@@ -457,7 +801,8 @@ function HomeCategoryPicksTab() {
       <div className="rounded-sm border border-border bg-card p-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm">
-            Pick up to <b>6</b> posters per collection. When empty, the homepage rotates random posters from that category.
+            Pick up to <b>6</b> posters per collection. When empty, the homepage rotates random
+            posters from that category.
           </div>
           <button
             onClick={save}
@@ -542,7 +887,9 @@ function HomeCategoryPicksTab() {
 
         <div className="rounded-sm border border-border bg-card p-4">
           <div className="flex items-center gap-2">
-            <div className="text-sm font-semibold uppercase tracking-widest">Selected ({selectedPosters.length}/6)</div>
+            <div className="text-sm font-semibold uppercase tracking-widest">
+              Selected ({selectedPosters.length}/6)
+            </div>
             {selectedPosters.length > 0 && (
               <button
                 onClick={clearActive}
@@ -559,19 +906,38 @@ function HomeCategoryPicksTab() {
           ) : (
             <div className="mt-3 space-y-2">
               {selectedPosters.map((p, i) => (
-                <div key={p.id} className="flex items-center gap-2 rounded-sm border border-border p-2">
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 rounded-sm border border-border p-2"
+                >
                   <div className="h-12 w-9 shrink-0 overflow-hidden rounded-sm bg-muted">
-                    {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                    {p.image_url && (
+                      <img src={p.image_url} alt="" className="h-full w-full object-cover" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1 truncate text-xs">{p.title}</div>
                   <div className="flex gap-1">
-                    <button onClick={() => move(p.id, -1)} disabled={i === 0} className="rounded-sm border border-border p-1 disabled:opacity-30" aria-label="Move up">
+                    <button
+                      onClick={() => move(p.id, -1)}
+                      disabled={i === 0}
+                      className="rounded-sm border border-border p-1 disabled:opacity-30"
+                      aria-label="Move up"
+                    >
                       <ArrowUp className="h-3 w-3" />
                     </button>
-                    <button onClick={() => move(p.id, 1)} disabled={i === selectedPosters.length - 1} className="rounded-sm border border-border p-1 disabled:opacity-30" aria-label="Move down">
+                    <button
+                      onClick={() => move(p.id, 1)}
+                      disabled={i === selectedPosters.length - 1}
+                      className="rounded-sm border border-border p-1 disabled:opacity-30"
+                      aria-label="Move down"
+                    >
                       <ArrowDown className="h-3 w-3" />
                     </button>
-                    <button onClick={() => toggle(p.id)} className="rounded-sm border border-border p-1 text-muted-foreground hover:text-destructive" aria-label="Remove">
+                    <button
+                      onClick={() => toggle(p.id)}
+                      className="rounded-sm border border-border p-1 text-muted-foreground hover:text-destructive"
+                      aria-label="Remove"
+                    >
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
@@ -602,12 +968,17 @@ function QuickBarTab() {
       const v = (data?.value ?? {}) as Partial<QuickBarConfig>;
       return {
         enabled: v.enabled !== false,
-        chips: Array.isArray(v.chips) && v.chips.length ? (v.chips as QuickBarChip[]) : DEFAULT_QUICKBAR.chips,
+        chips:
+          Array.isArray(v.chips) && v.chips.length
+            ? (v.chips as QuickBarChip[])
+            : DEFAULT_QUICKBAR.chips,
       };
     },
   });
 
-  useEffect(() => { if (data) setCfg(data); }, [data]);
+  useEffect(() => {
+    if (data) setCfg(data);
+  }, [data]);
 
   const save = async () => {
     setSaving(true);
@@ -629,7 +1000,10 @@ function QuickBarTab() {
   };
 
   const updateChip = (i: number, patch: Partial<QuickBarChip>) =>
-    setCfg((c) => ({ ...c, chips: c.chips.map((ch, idx) => (idx === i ? { ...ch, ...patch } : ch)) }));
+    setCfg((c) => ({
+      ...c,
+      chips: c.chips.map((ch, idx) => (idx === i ? { ...ch, ...patch } : ch)),
+    }));
   const removeChip = (i: number) =>
     setCfg((c) => ({ ...c, chips: c.chips.filter((_, idx) => idx !== i) }));
   const moveChip = (i: number, dir: -1 | 1) => {
@@ -647,7 +1021,8 @@ function QuickBarTab() {
       chips: [...c.chips, { id: `chip-${Date.now()}`, label: "New", href: "/", enabled: true }],
     }));
 
-  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -668,7 +1043,10 @@ function QuickBarTab() {
 
         <div className="space-y-2">
           {cfg.chips.map((ch, i) => (
-            <div key={ch.id} className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3">
+            <div
+              key={ch.id}
+              className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3"
+            >
               <input
                 type="checkbox"
                 checked={ch.enabled}
@@ -688,13 +1066,25 @@ function QuickBarTab() {
                 placeholder="/category/football"
                 className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
               />
-              <button onClick={() => moveChip(i, -1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move up">
+              <button
+                onClick={() => moveChip(i, -1)}
+                className="rounded-sm border border-border p-1.5 hover:bg-accent"
+                title="Move up"
+              >
                 <ArrowUp className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => moveChip(i, 1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move down">
+              <button
+                onClick={() => moveChip(i, 1)}
+                className="rounded-sm border border-border p-1.5 hover:bg-accent"
+                title="Move down"
+              >
                 <ArrowDown className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => removeChip(i)} className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent" title="Remove">
+              <button
+                onClick={() => removeChip(i)}
+                className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent"
+                title="Remove"
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -739,12 +1129,17 @@ function FooterMenuTab() {
       if (error) throw error;
       const v = (data?.value ?? {}) as Partial<FooterMenuConfig>;
       return {
-        links: Array.isArray(v.links) && v.links.length ? (v.links as FooterLink[]) : DEFAULT_FOOTER_MENU.links,
+        links:
+          Array.isArray(v.links) && v.links.length
+            ? (v.links as FooterLink[])
+            : DEFAULT_FOOTER_MENU.links,
       };
     },
   });
 
-  useEffect(() => { if (data) setCfg(data); }, [data]);
+  useEffect(() => {
+    if (data) setCfg(data);
+  }, [data]);
 
   const save = async () => {
     setSaving(true);
@@ -784,18 +1179,23 @@ function FooterMenuTab() {
       links: [...c.links, { id: `link-${Date.now()}`, label: "New", href: "/", enabled: true }],
     }));
 
-  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
   return (
     <div className="max-w-4xl space-y-5">
       <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
-        Links shown in the footer "Shop" column. Curated only — never auto-populated from categories.
+        Links shown in the footer "Shop" column. Curated only — never auto-populated from
+        categories.
       </div>
 
       <div className="rounded-sm border border-border bg-card p-6 space-y-5">
         <div className="space-y-2">
           {cfg.links.map((l, i) => (
-            <div key={l.id} className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3">
+            <div
+              key={l.id}
+              className="flex flex-wrap items-center gap-2 rounded-sm border border-border bg-background p-3"
+            >
               <input
                 type="checkbox"
                 checked={l.enabled}
@@ -815,13 +1215,25 @@ function FooterMenuTab() {
                 placeholder="/category/football"
                 className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1.5 text-sm outline-none"
               />
-              <button onClick={() => moveLink(i, -1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move up">
+              <button
+                onClick={() => moveLink(i, -1)}
+                className="rounded-sm border border-border p-1.5 hover:bg-accent"
+                title="Move up"
+              >
                 <ArrowUp className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => moveLink(i, 1)} className="rounded-sm border border-border p-1.5 hover:bg-accent" title="Move down">
+              <button
+                onClick={() => moveLink(i, 1)}
+                className="rounded-sm border border-border p-1.5 hover:bg-accent"
+                title="Move down"
+              >
                 <ArrowDown className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => removeLink(i)} className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent" title="Remove">
+              <button
+                onClick={() => removeLink(i)}
+                className="rounded-sm border border-border p-1.5 text-destructive hover:bg-accent"
+                title="Remove"
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -888,7 +1300,9 @@ function PostersTab() {
   const [bulkCategory, setBulkCategory] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [upProgress, setUpProgress] = useState<{ done: number; total: number; failed: number }>({
-    done: 0, total: 0, failed: 0,
+    done: 0,
+    total: 0,
+    failed: 0,
   });
 
   const { data, isLoading } = useQuery({
@@ -896,7 +1310,10 @@ function PostersTab() {
     queryFn: async () => {
       let q = supabase
         .from("posters")
-        .select("id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings,badge,sales_count,views_count", { count: "exact" })
+        .select(
+          "id,title,image_url,original_url,category_id,tags,featured,hidden,edit_settings,badge,sales_count,views_count",
+          { count: "exact" },
+        )
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filter !== "all") q = q.eq("category_id", filter);
@@ -949,9 +1366,7 @@ function PostersTab() {
           }
         }
       };
-      await Promise.all(
-        Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker),
-      );
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker));
       if (failed > 0) toast.error(`${failed} upload${failed === 1 ? "" : "s"} failed`);
       if (success > 0) toast.success(`Uploaded ${success} poster${success === 1 ? "" : "s"}`);
       setTitle("");
@@ -1050,7 +1465,7 @@ function PostersTab() {
           const path = extractStoragePath(r.image_url ?? "", "posters");
           if (!path) continue;
           try {
-            const signed = await signStoragePath("posters", path);
+            const signed = await signStoragePathFromUrl("posters", path);
             if (signed !== r.image_url) {
               const { error: upErr } = await supabase
                 .from("posters")
@@ -1067,7 +1482,9 @@ function PostersTab() {
         if (rows.length < CHUNK) break;
         from += CHUNK;
       }
-      toast.success(`Repaired ${fixed} poster${fixed === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+      toast.success(
+        `Repaired ${fixed} poster${fixed === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`,
+      );
       qc.invalidateQueries({ queryKey: ["admin-posters"] });
       qc.invalidateQueries({ queryKey: ["posters"] });
     } catch (err) {
@@ -1088,11 +1505,24 @@ function PostersTab() {
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <FilterPill active={filter === "all"} onClick={() => { setFilter("all"); setPage(0); }}>
+          <FilterPill
+            active={filter === "all"}
+            onClick={() => {
+              setFilter("all");
+              setPage(0);
+            }}
+          >
             All ({data?.count ?? 0})
           </FilterPill>
           {categories.map((c) => (
-            <FilterPill key={c.id} active={filter === c.id} onClick={() => { setFilter(c.id); setPage(0); }}>
+            <FilterPill
+              key={c.id}
+              active={filter === c.id}
+              onClick={() => {
+                setFilter(c.id);
+                setPage(0);
+              }}
+            >
               {indentCat(c, categories)}
             </FilterPill>
           ))}
@@ -1114,13 +1544,17 @@ function PostersTab() {
 
       {selected.size > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-sm border border-primary bg-accent/40 p-3">
-          <span className="text-xs uppercase tracking-widest">
-            {selected.size} selected
-          </span>
-          <button onClick={selectAllOnPage} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+          <span className="text-xs uppercase tracking-widest">{selected.size} selected</span>
+          <button
+            onClick={selectAllOnPage}
+            className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background"
+          >
             Select page
           </button>
-          <button onClick={clearSelected} className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background">
+          <button
+            onClick={clearSelected}
+            className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-background"
+          >
             Clear
           </button>
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -1131,22 +1565,40 @@ function PostersTab() {
             >
               <option value="">Move to category…</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
+                <option key={c.id} value={c.id}>
+                  {indentCat(c, categories)}
+                </option>
               ))}
             </select>
-            <button onClick={bulkMove} disabled={!bulkCategory} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background disabled:opacity-40">
+            <button
+              onClick={bulkMove}
+              disabled={!bulkCategory}
+              className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background disabled:opacity-40"
+            >
               Move
             </button>
-            <button onClick={() => bulkToggle({ featured: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+            <button
+              onClick={() => bulkToggle({ featured: true })}
+              className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background"
+            >
               Feature
             </button>
-            <button onClick={() => bulkToggle({ hidden: true })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+            <button
+              onClick={() => bulkToggle({ hidden: true })}
+              className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background"
+            >
               Hide
             </button>
-            <button onClick={() => bulkToggle({ hidden: false })} className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background">
+            <button
+              onClick={() => bulkToggle({ hidden: false })}
+              className="rounded-sm border border-border px-3 py-1.5 text-[10px] uppercase tracking-widest hover:bg-background"
+            >
               Show
             </button>
-            <button onClick={bulkDelete} className="rounded-sm bg-destructive px-3 py-1.5 text-[10px] uppercase tracking-widest text-destructive-foreground hover:opacity-90">
+            <button
+              onClick={bulkDelete}
+              className="rounded-sm bg-destructive px-3 py-1.5 text-[10px] uppercase tracking-widest text-destructive-foreground hover:opacity-90"
+            >
               Delete
             </button>
           </div>
@@ -1155,12 +1607,22 @@ function PostersTab() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {isLoading ? (
-          <div className="col-span-full py-16 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
+            Loading…
+          </div>
         ) : data?.rows.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-sm text-muted-foreground">No posters.</div>
+          <div className="col-span-full py-16 text-center text-sm text-muted-foreground">
+            No posters.
+          </div>
         ) : (
           data?.rows.map((p) => (
-            <div key={p.id} className={cn("group relative overflow-hidden rounded-sm border bg-card", selected.has(p.id) ? "border-primary ring-2 ring-primary/40" : "border-border")}>
+            <div
+              key={p.id}
+              className={cn(
+                "group relative overflow-hidden rounded-sm border bg-card",
+                selected.has(p.id) ? "border-primary ring-2 ring-primary/40" : "border-border",
+              )}
+            >
               <label className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-background/90 px-2 py-1 text-[10px] uppercase tracking-widest">
                 <input
                   type="checkbox"
@@ -1170,9 +1632,21 @@ function PostersTab() {
                 Select
               </label>
               <div className={cn("absolute right-2 top-2 z-10 flex flex-col items-end gap-1")}>
-                {p.featured && <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">Featured</span>}
-                {p.hidden && <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">Hidden</span>}
-                {p.badge && <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">{p.badge}</span>}
+                {p.featured && (
+                  <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-primary-foreground">
+                    Featured
+                  </span>
+                )}
+                {p.hidden && (
+                  <span className="rounded-sm bg-destructive px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-destructive-foreground">
+                    Hidden
+                  </span>
+                )}
+                {p.badge && (
+                  <span className="rounded-sm bg-foreground px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-background">
+                    {p.badge}
+                  </span>
+                )}
                 <CampaignBadges posterId={p.id} />
               </div>
               <div className="aspect-[2/3] overflow-hidden">
@@ -1295,13 +1769,23 @@ function PostersTab() {
   );
 }
 
-function FilterPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
       className={cn(
         "rounded-sm border px-3 py-1.5 text-xs uppercase tracking-widest transition",
-        active ? "border-primary bg-accent text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+        active
+          ? "border-primary bg-accent text-foreground"
+          : "border-border text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -1310,9 +1794,15 @@ function FilterPill({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 function EditPosterModal({
-  poster, categories, onClose, onSaved,
+  poster,
+  categories,
+  onClose,
+  onSaved,
 }: {
-  poster: Poster; categories: Category[]; onClose: () => void; onSaved: () => void;
+  poster: Poster;
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
 }) {
   const [title, setTitle] = useState(poster.title);
   const [categoryId, setCategoryId] = useState(poster.category_id ?? "");
@@ -1334,9 +1824,23 @@ function EditPosterModal({
   const [editArt, setEditArt] = useState(false);
   const [artSaving, setArtSaving] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState(poster.image_url);
-  const [currentEdit, setCurrentEdit] = useState<EditSettings>(() => normalizeEditSettings(poster.edit_settings));
+  const [currentEdit, setCurrentEdit] = useState<EditSettings>(() =>
+    normalizeEditSettings(poster.edit_settings),
+  );
   // Prefer the untouched original for re-editing; fall back to current image.
   const editorSource = poster.original_url || currentImageUrl;
+
+  const generatePosterMetaFn = useServerFn(generatePosterMeta);
+  const [previewSeo, setPreviewSeo] = useState<GeneratedPosterMeta | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [seoError, setSeoError] = useState<string | null>(null);
+  const activeReqIdRef = useRef(0);
+
+  useEffect(() => {
+    setPreviewSeo(null);
+    setShowPreview(false);
+    setSeoError(null);
+  }, [poster.id]);
 
   const save = async () => {
     setSaving(true);
@@ -1345,12 +1849,18 @@ function EditPosterModal({
       .update({
         title,
         category_id: categoryId || null,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
         description: description || null,
         seo_title: seoTitle || null,
         seo_description: seoDescription || null,
         alt_text: altText || null,
-        hashtags: hashtags.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean),
+        hashtags: hashtags
+          .split(",")
+          .map((t) => t.trim().replace(/^#/, ""))
+          .filter(Boolean),
         slug: slug || null,
         featured,
         hidden,
@@ -1366,89 +1876,78 @@ function EditPosterModal({
   };
 
   const runAi = async () => {
+    if (!currentImageUrl) {
+      toast.error("This poster has no image to analyze");
+      return;
+    }
     setAiBusy(true);
+    setSeoError(null);
+    setPreviewSeo(null);
+    setShowPreview(false);
     try {
       const currentCat = categories.find((c) => c.id === categoryId);
       const parentCat = currentCat?.parent_id
         ? categories.find((c) => c.id === currentCat.parent_id)
         : null;
-      const categoryLabel = [parentCat?.name, currentCat?.name].filter(Boolean).join(" › ");
-      const existingTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
-      const { data, error } = await supabase.functions.invoke("seo-generator", {
-        body: {
-          title: title || poster.title,
-          subject: title || poster.title,
-          category: categoryLabel || undefined,
-          tags: existingTags,
-        },
+      const reqId = ++activeReqIdRef.current;
+      const data = await generatePosterMetaFn({
+        imageUrl: currentImageUrl,
+        categories,
+        categoryName: parentCat?.name,
+        subcategoryName: currentCat?.name,
+        badge: badge || null,
+        productId: poster.id,
       });
-      if (error) throw error;
-      const meta = data as {
-        title?: string;
-        description?: string;
-        seo_title?: string;
-        seo_description?: string;
-        tags?: string[];
-        error?: string;
-      };
-      if (meta?.error) throw new Error(meta.error);
-      if (meta.title) setTitle(meta.title);
-      if (meta.description) setDescription(meta.description);
-      if (meta.seo_title) setSeoTitle(meta.seo_title);
-      if (meta.seo_description) setSeoDescription(meta.seo_description);
-      if (Array.isArray(meta.tags) && meta.tags.length) {
-        setTags(Array.from(new Set([...existingTags, ...meta.tags])).join(", "));
+      if (reqId !== activeReqIdRef.current) return;
+      if (data.needs_review) {
+        toast.warning(data.validation_conflicts[0] || "Low confidence — review before saving");
       }
-      toast.success("AI generated — review and Save");
+      setPreviewSeo(data);
+      setShowPreview(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "AI failed");
+      const msg = err instanceof Error ? err.message : "AI SEO failed";
+      setSeoError(msg);
+      toast.error(msg);
     } finally {
       setAiBusy(false);
     }
   };
 
   const regenerateSeo = async () => {
+    if (!currentImageUrl) {
+      toast.error("This poster has no image to analyze");
+      return;
+    }
     setRegenBusy(true);
+    setSeoError(null);
+    setPreviewSeo(null);
+    setShowPreview(false);
     try {
       const currentCat = categories.find((c) => c.id === categoryId);
       const parentCat = currentCat?.parent_id
         ? categories.find((c) => c.id === currentCat.parent_id)
         : null;
-      const categoryLabel = [parentCat?.name, currentCat?.name].filter(Boolean).join(" › ");
-      const existingTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
-      const { data, error } = await supabase.functions.invoke("seo-generator", {
-        body: {
-          title: title || poster.title,
-          subject: title || poster.title,
-          category: categoryLabel || undefined,
-          tags: existingTags,
-          include_hashtags: true,
-          include_alt_text: true,
-        },
+      const reqId = ++activeReqIdRef.current;
+      const data = await generatePosterMetaFn({
+        imageUrl: currentImageUrl,
+        categories,
+        categoryName: parentCat?.name,
+        subcategoryName: currentCat?.name,
+        badge: badge || null,
+        productId: poster.id,
       });
-      if (error) throw error;
-      const meta = (data ?? {}) as {
-        title?: string;
-        description?: string;
-        seo_title?: string;
-        seo_description?: string;
-        tags?: string[];
-        hashtags?: string[];
-        alt_text?: string;
-        error?: string;
-      };
-      if (meta.error) throw new Error(meta.error);
+      if (reqId !== activeReqIdRef.current) return;
 
-      const nextTitle = meta.title || title || poster.title;
-      const nextDescription = meta.description ?? "";
-      const nextSeoTitle = meta.seo_title ?? "";
-      const nextSeoDescription = meta.seo_description ?? "";
-      const nextAlt = meta.alt_text ?? "";
-      const nextTags = Array.isArray(meta.tags) ? meta.tags : [];
-      const nextHashtags = Array.isArray(meta.hashtags)
-        ? meta.hashtags.map((h) => h.replace(/^#/, "").trim()).filter(Boolean)
+      const nextTitle = data.title || title || poster.title;
+      const nextDescription = data.description ?? "";
+      const nextSeoTitle = data.seo_title ?? "";
+      const nextSeoDescription = data.seo_description ?? "";
+      const nextAlt = data.alt_text ?? "";
+      const nextTags = Array.isArray(data.tags) ? data.tags : [];
+      const nextHashtags = Array.isArray(data.hashtags)
+        ? data.hashtags.map((h) => h.replace(/^#/, "").trim()).filter(Boolean)
         : [];
-      const nextSlug = slugify(nextTitle);
+      const nextSlug = data.slug || slugify(nextTitle);
 
       setTitle(nextTitle);
       setDescription(nextDescription);
@@ -1473,7 +1972,15 @@ function EditPosterModal({
         })
         .eq("id", poster.id);
       if (upErr) throw upErr;
-      toast.success("SEO regenerated and saved");
+
+      if (data.needs_review) {
+        toast.warning(
+          (data.validation_conflicts[0] || "Low confidence — review fields above") + " — saved but may need edits",
+        );
+      } else {
+        toast.success("SEO regenerated and saved");
+      }
+      setPreviewSeo(data);
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Regenerate failed");
@@ -1536,7 +2043,11 @@ function EditPosterModal({
     <Modal onClose={onClose} title="Edit poster">
       <div className="flex gap-4">
         <div className="flex flex-col items-center gap-2">
-          <SafeImage src={currentImageUrl} alt={poster.title} className="h-48 w-32 rounded-sm object-cover" />
+          <SafeImage
+            src={currentImageUrl}
+            alt={poster.title}
+            className="h-48 w-32 rounded-sm object-cover"
+          />
           <button
             type="button"
             onClick={() => setEditArt(true)}
@@ -1555,7 +2066,9 @@ function EditPosterModal({
             />
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Category</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Category
+            </span>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -1563,12 +2076,16 @@ function EditPosterModal({
             >
               <option value="">— Unassigned —</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{indentCat(c, categories)}</option>
+                <option key={c.id} value={c.id}>
+                  {indentCat(c, categories)}
+                </option>
               ))}
             </select>
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Tags (comma separated)</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Tags (comma separated)
+            </span>
             <input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
@@ -1577,7 +2094,9 @@ function EditPosterModal({
             />
           </label>
           <label className="block">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Description / SEO</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Description / SEO
+            </span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -1587,7 +2106,9 @@ function EditPosterModal({
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Title</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                SEO Title
+              </span>
               <input
                 value={seoTitle}
                 onChange={(e) => setSeoTitle(e.target.value)}
@@ -1596,7 +2117,9 @@ function EditPosterModal({
               />
             </label>
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">SEO Description</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                SEO Description
+              </span>
               <input
                 value={seoDescription}
                 onChange={(e) => setSeoDescription(e.target.value)}
@@ -1607,7 +2130,9 @@ function EditPosterModal({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">Alt text</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                Alt text
+              </span>
               <input
                 value={altText}
                 onChange={(e) => setAltText(e.target.value)}
@@ -1616,7 +2141,9 @@ function EditPosterModal({
               />
             </label>
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">Hashtags (comma separated, no #)</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                Hashtags (comma separated, no #)
+              </span>
               <input
                 value={hashtags}
                 onChange={(e) => setHashtags(e.target.value)}
@@ -1639,7 +2166,11 @@ function EditPosterModal({
               disabled={aiBusy || regenBusy}
               className="inline-flex items-center gap-2 rounded-sm border border-primary/60 bg-primary/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-50"
             >
-              {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
               {aiBusy ? "Generating…" : "AI SEO (fill missing)"}
             </button>
             <button
@@ -1648,7 +2179,11 @@ function EditPosterModal({
               disabled={regenBusy || aiBusy}
               className="inline-flex items-center gap-2 rounded-sm border border-primary bg-primary px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {regenBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {regenBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
               {regenBusy ? "Regenerating…" : "Regenerate SEO"}
             </button>
             <button
@@ -1663,11 +2198,19 @@ function EditPosterModal({
           </div>
           <div className="flex gap-4 text-xs uppercase tracking-widest">
             <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+              />
               Featured
             </label>
             <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={hidden}
+                onChange={(e) => setHidden(e.target.checked)}
+              />
               Hidden
             </label>
           </div>
@@ -1681,12 +2224,16 @@ function EditPosterModal({
               >
                 <option value="">— None —</option>
                 {POSTER_BADGES.map((b) => (
-                  <option key={b.id} value={b.id}>{b.label}</option>
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
                 ))}
               </select>
             </label>
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">Purchase count</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                Purchase count
+              </span>
               <input
                 type="number"
                 min={0}
@@ -1696,7 +2243,9 @@ function EditPosterModal({
               />
             </label>
             <label className="block">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">View count</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                View count
+              </span>
               <div className="mt-1 flex gap-1">
                 <input
                   type="number"
@@ -1719,7 +2268,10 @@ function EditPosterModal({
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+        <button
+          onClick={onClose}
+          className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+        >
           Cancel
         </button>
         <button
@@ -1742,7 +2294,213 @@ function EditPosterModal({
       <div className="mt-6">
         <PosterImagesManager posterId={poster.id} />
       </div>
+      {showPreview && previewSeo && (
+        <SeoPreviewDialog
+          poster={poster}
+          currentImageUrl={currentImageUrl}
+          previewSeo={previewSeo}
+          onClose={() => setShowPreview(false)}
+          onApply={() => {
+            setTitle(previewSeo.title || title);
+            setDescription(previewSeo.description || description);
+            setSeoTitle(previewSeo.seo_title || seoTitle);
+            setSeoDescription(previewSeo.seo_description || seoDescription);
+            setAltText(previewSeo.alt_text || altText);
+            setTags((previewSeo.tags ?? []).join(", "));
+            setHashtags((previewSeo.hashtags ?? []).join(", "));
+            setSlug(previewSeo.slug || slug);
+            setShowPreview(false);
+            toast.success("SEO values applied — review and Save");
+          }}
+        />
+      )}
     </Modal>
+  );
+}
+
+function SeoPreviewDialog({
+  poster,
+  currentImageUrl,
+  previewSeo,
+  onClose,
+  onApply,
+}: {
+  poster: Poster;
+  currentImageUrl: string;
+  previewSeo: GeneratedPosterMeta;
+  onClose: () => void;
+  onApply: () => void;
+}) {
+  useEffect(() => {
+    try {
+      (window as unknown as Record<string, unknown>).__SEO_ENGINE_VERSION__ = "VISION-V2";
+    } catch { /* */ }
+  }, []);
+  const maxScore = previewSeo.confidence >= 0.8 ? "High" : previewSeo.confidence >= 0.5 ? "Medium" : "Low";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-background p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-widest">SEO Preview</h2>
+            <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary">
+              VISION-V2
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase">
+              {maxScore} confidence ({Math.round(previewSeo.confidence * 100)}%)
+            </span>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <SafeImage
+            src={currentImageUrl}
+            alt={poster.title}
+            className="h-40 w-28 shrink-0 rounded-sm object-cover"
+          />
+          <div className="min-w-0 flex-1 space-y-2 text-xs">
+            <div>
+              <span className="font-semibold">Subject:</span>{" "}
+              {previewSeo.detected_subject || "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Type:</span>{" "}
+              {previewSeo.detected_type || "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Detected text:</span>{" "}
+              {previewSeo.detected_text || "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Language:</span>{" "}
+              {previewSeo.detected_language || "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Visual style:</span>{" "}
+              {previewSeo.visual_style || "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Colors:</span>{" "}
+              {previewSeo.colors.length ? previewSeo.colors.join(", ") : "—"}
+            </div>
+            <div>
+              <span className="font-semibold">Orientation:</span>{" "}
+              {previewSeo.orientation || "—"}
+            </div>
+            {previewSeo.needs_review && previewSeo.validation_conflicts.length > 0 && (
+              <div className="rounded border border-destructive/30 bg-destructive/5 p-2">
+                <span className="font-semibold text-destructive">Conflicts:</span>
+                <ul className="mt-1 list-inside list-disc text-destructive/80">
+                  {previewSeo.validation_conflicts.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Suggested Title
+              </span>
+              <p className="mt-0.5 text-sm">{previewSeo.title}</p>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                SEO Title
+              </span>
+              <p className="mt-0.5 text-sm">{previewSeo.seo_title}</p>
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              SEO Description
+            </span>
+            <p className="mt-0.5 text-sm">{previewSeo.seo_description}</p>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Alt Text
+            </span>
+            <p className="mt-0.5 text-sm">{previewSeo.alt_text}</p>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Tags ({previewSeo.tags.length})
+            </span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {previewSeo.tags.map((t, i) => (
+                <span
+                  key={i}
+                  className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+          {previewSeo.hashtags.length > 0 && (
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Hashtags
+              </span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {previewSeo.hashtags.map((h, i) => (
+                  <span
+                    key={i}
+                    className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
+                  >
+                    #{h}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Slug
+            </span>
+            <p className="mt-0.5 text-sm font-mono text-muted-foreground">{previewSeo.slug}</p>
+          </div>
+          {previewSeo.suggested_category_name && (
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Suggested Category
+              </span>
+              <p className="mt-0.5 text-sm">{previewSeo.suggested_category_name}</p>
+            </div>
+          )}
+          {previewSeo.suggested_subcategory_name && (
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Suggested Subcategory
+              </span>
+              <p className="mt-0.5 text-sm">{previewSeo.suggested_subcategory_name}</p>
+            </div>
+          )}
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onApply}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs uppercase tracking-widest text-primary-foreground"
+          >
+            <Check className="h-4 w-4" /> Apply to fields
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1767,7 +2525,7 @@ function CategoriesTab() {
         .from("posters")
         .select("category_id")
         .not("category_id", "is", null)
-        .limit(50000);
+        .limit(2000);
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of (data ?? []) as Array<{ category_id: string | null }>) {
@@ -1789,7 +2547,11 @@ function CategoriesTab() {
   const toggleExpand = (id: string) =>
     setExpanded((s) => {
       const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
 
@@ -1830,12 +2592,18 @@ function CategoriesTab() {
   const toggleSelect = (id: string) =>
     setSelected((s) => {
       const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
 
   const bulkDeleteEmpty = async () => {
-    const ids = Array.from(selected).filter((id) => (counts[id] ?? 0) === 0 && childrenOf(id).length === 0);
+    const ids = Array.from(selected).filter(
+      (id) => (counts[id] ?? 0) === 0 && childrenOf(id).length === 0,
+    );
     if (!ids.length) return toast.error("Selection is empty or contains non-empty subcategories");
     if (!confirm(`Delete ${ids.length} empty subcategor${ids.length === 1 ? "y" : "ies"}?`)) return;
     const { error } = await supabase.from("categories").delete().in("id", ids);
@@ -2032,7 +2800,9 @@ function CategoriesTab() {
             <ul className="space-y-1 text-sm">
               {orphans.map((o) => (
                 <li key={o.id} className="flex items-center justify-between">
-                  <span>{o.name} <span className="text-muted-foreground">/{o.slug}</span></span>
+                  <span>
+                    {o.name} <span className="text-muted-foreground">/{o.slug}</span>
+                  </span>
                   <button
                     onClick={() => setEditing(o)}
                     className="rounded-sm border border-border px-2 py-1 text-xs uppercase tracking-widest"
@@ -2049,7 +2819,7 @@ function CategoriesTab() {
       {editing && (
         <EditCategoryModal
           category={
-            editing === "new-root" || typeof editing === "object" && "newUnder" in editing
+            editing === "new-root" || (typeof editing === "object" && "newUnder" in editing)
               ? null
               : editing
           }
@@ -2090,7 +2860,11 @@ function CategoriesTab() {
         <Modal onClose={() => setViewing(null)} title={`Inside “${viewing.name}”`}>
           <SubCategoryReviewManager
             subCategory={viewing}
-            parent={viewing.parent_id ? categories.find((c) => c.id === viewing.parent_id) ?? null : null}
+            parent={
+              viewing.parent_id
+                ? (categories.find((c) => c.id === viewing.parent_id) ?? null)
+                : null
+            }
             onClose={() => setViewing(null)}
           />
         </Modal>
@@ -2100,7 +2874,11 @@ function CategoriesTab() {
 }
 
 function DeleteCategoryModal({
-  category, posterCount, categories, onClose, onDone,
+  category,
+  posterCount,
+  categories,
+  onClose,
+  onDone,
 }: {
   category: Category;
   posterCount: number;
@@ -2113,7 +2891,9 @@ function DeleteCategoryModal({
   const [moveTo, setMoveTo] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const options = categories.filter((c) => c.id !== category.id && !c.parent_id ? true : c.parent_id !== null && c.id !== category.id);
+  const options = categories.filter((c) =>
+    c.id !== category.id && !c.parent_id ? true : c.parent_id !== null && c.id !== category.id,
+  );
 
   const commit = async () => {
     setBusy(true);
@@ -2162,11 +2942,16 @@ function DeleteCategoryModal({
       ) : (
         <div className="space-y-3">
           <p className="text-sm">
-            This subcategory contains <strong>{posterCount}</strong> poster{posterCount === 1 ? "" : "s"}.
-            What do you want to do?
+            This subcategory contains <strong>{posterCount}</strong> poster
+            {posterCount === 1 ? "" : "s"}. What do you want to do?
           </p>
           <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="del" checked={action === "move"} onChange={() => setAction("move")} />
+            <input
+              type="radio"
+              name="del"
+              checked={action === "move"}
+              onChange={() => setAction("move")}
+            />
             <div className="flex-1">
               <div>Move posters to another subcategory</div>
               {action === "move" && (
@@ -2177,20 +2962,30 @@ function DeleteCategoryModal({
                 >
                   <option value="">— Choose target —</option>
                   {options.map((o) => (
-                    <option key={o.id} value={o.id}>{indentCat(o, categories)}</option>
+                    <option key={o.id} value={o.id}>
+                      {indentCat(o, categories)}
+                    </option>
                   ))}
                 </select>
               )}
             </div>
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="radio" name="del" checked={action === "unassign"} onChange={() => setAction("unassign")} />
+            <input
+              type="radio"
+              name="del"
+              checked={action === "unassign"}
+              onChange={() => setAction("unassign")}
+            />
             Remove the subcategory from posters (leave them uncategorized)
           </label>
         </div>
       )}
       <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+        <button
+          onClick={onClose}
+          className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+        >
           Cancel
         </button>
         <button
@@ -2206,7 +3001,10 @@ function DeleteCategoryModal({
 }
 
 function CleanCategoriesModal({
-  categories, counts, onClose, onChanged,
+  categories,
+  counts,
+  onClose,
+  onChanged,
 }: {
   categories: Category[];
   counts: Record<string, number>;
@@ -2216,7 +3014,8 @@ function CleanCategoriesModal({
   const ids = new Set(categories.map((c) => c.id));
   const orphans = categories.filter((c) => c.parent_id && !ids.has(c.parent_id));
   const empties = categories.filter(
-    (c) => c.parent_id && (counts[c.id] ?? 0) === 0 && !categories.some((k) => k.parent_id === c.id),
+    (c) =>
+      c.parent_id && (counts[c.id] ?? 0) === 0 && !categories.some((k) => k.parent_id === c.id),
   );
   const bySlug = new Map<string, Category[]>();
   for (const c of categories) {
@@ -2229,7 +3028,13 @@ function CleanCategoriesModal({
   const deleteMany = async (list: Category[]) => {
     if (!list.length) return;
     if (!confirm(`Delete ${list.length} categor${list.length === 1 ? "y" : "ies"}?`)) return;
-    const { error } = await supabase.from("categories").delete().in("id", list.map((c) => c.id));
+    const { error } = await supabase
+      .from("categories")
+      .delete()
+      .in(
+        "id",
+        list.map((c) => c.id),
+      );
     if (error) return toast.error(error.message);
     toast.success("Cleaned");
     onChanged();
@@ -2244,7 +3049,9 @@ function CleanCategoriesModal({
             <>
               <ul className="mb-2 max-h-40 overflow-auto rounded-sm border border-border p-2">
                 {empties.map((e) => (
-                  <li key={e.id} className="truncate">{indentCat(e, categories)}</li>
+                  <li key={e.id} className="truncate">
+                    {indentCat(e, categories)}
+                  </li>
                 ))}
               </ul>
               <button
@@ -2264,7 +3071,9 @@ function CleanCategoriesModal({
           {orphans.length ? (
             <ul className="max-h-40 overflow-auto rounded-sm border border-border p-2">
               {orphans.map((o) => (
-                <li key={o.id} className="truncate">{o.name} /{o.slug}</li>
+                <li key={o.id} className="truncate">
+                  {o.name} /{o.slug}
+                </li>
               ))}
             </ul>
           ) : (
@@ -2288,7 +3097,10 @@ function CleanCategoriesModal({
         </section>
       </div>
       <div className="mt-6 flex justify-end">
-        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+        <button
+          onClick={onClose}
+          className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+        >
           Close
         </button>
       </div>
@@ -2297,7 +3109,11 @@ function CleanCategoriesModal({
 }
 
 function slugify(s: string) {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function indentCat(c: Category, all: Category[]): string {
@@ -2312,8 +3128,16 @@ function indentCat(c: Category, all: Category[]): string {
 }
 
 function EditCategoryModal({
-  category, defaultParentId, onClose, onSaved,
-}: { category: Category | null; defaultParentId?: string; onClose: () => void; onSaved: () => void }) {
+  category,
+  defaultParentId,
+  onClose,
+  onSaved,
+}: {
+  category: Category | null;
+  defaultParentId?: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const isNew = !category;
   const [name, setName] = useState(category?.name ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
@@ -2370,12 +3194,17 @@ function EditCategoryModal({
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Name</span>
           <input
             value={name}
-            onChange={(e) => { setName(e.target.value); if (isNew && !slug) setSlug(slugify(e.target.value)); }}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (isNew && !slug) setSlug(slugify(e.target.value));
+            }}
             className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
         </label>
         <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Slug (URL)</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Slug (URL)
+          </span>
           <input
             value={slug}
             onChange={(e) => setSlug(slugify(e.target.value))}
@@ -2383,20 +3212,28 @@ function EditCategoryModal({
           />
         </label>
         <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Parent category (for subcategories)</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Parent category (for subcategories)
+          </span>
           <select
             value={parentId}
             onChange={(e) => setParentId(e.target.value)}
             className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           >
             <option value="">— None (top-level) —</option>
-            {allCats.filter((c) => c.id !== category?.id).map((c) => (
-              <option key={c.id} value={c.id}>{indentCat(c, allCats)}</option>
-            ))}
+            {allCats
+              .filter((c) => c.id !== category?.id)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {indentCat(c, allCats)}
+                </option>
+              ))}
           </select>
         </label>
         <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Sort order</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Sort order
+          </span>
           <input
             type="number"
             value={sortOrder}
@@ -2405,7 +3242,9 @@ function EditCategoryModal({
           />
         </label>
         <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Cover image</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Cover image
+          </span>
           <input
             type="file"
             accept="image/*"
@@ -2417,7 +3256,9 @@ function EditCategoryModal({
           )}
         </label>
         <label className="block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Icon (small square)</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Icon (small square)
+          </span>
           <input
             type="file"
             accept="image/*"
@@ -2430,7 +3271,10 @@ function EditCategoryModal({
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest">
+        <button
+          onClick={onClose}
+          className="rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest"
+        >
           Cancel
         </button>
         <button
@@ -2592,7 +3436,12 @@ function groupOrders(rows: OrderRowRaw[]): OrderGroup[] {
     sorted.forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
     let status = first.status;
     let best = 0;
-    counts.forEach((c, s) => { if (c > best) { best = c; status = s; } });
+    counts.forEach((c, s) => {
+      if (c > best) {
+        best = c;
+        status = s;
+      }
+    });
     groups.push({
       groupId: key,
       primaryNumber: numbers[0] ?? first.id.slice(0, 8),
@@ -2656,12 +3505,20 @@ function OrdersTab() {
   const [viewing, setViewing] = useState<OrderGroup | null>(null);
   const [showTests, setShowTests] = useState(false);
 
-  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: orders = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-orders", statusFilter],
     queryFn: async () => {
       let q = supabase
         .from("orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,subtotal,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test,notes,guest_session_id,user_id")
+        .select(
+          "id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,subtotal,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test,notes,guest_session_id,user_id",
+        )
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
@@ -2717,9 +3574,10 @@ function OrdersTab() {
   };
 
   const setPaymentStatus = async (o: Order, payment_status: string) => {
-    const patch = payment_status === "verified"
-      ? { payment_status, payment_verified_at: new Date().toISOString() }
-      : { payment_status };
+    const patch =
+      payment_status === "verified"
+        ? { payment_status, payment_verified_at: new Date().toISOString() }
+        : { payment_status };
     const { error } = await supabase.from("orders").update(patch).eq("id", o.id);
     if (error) return toast.error(error.message);
     toast.success("Payment status updated");
@@ -2727,7 +3585,8 @@ function OrdersTab() {
   };
 
   const removeGroup = async (g: OrderGroup) => {
-    if (!confirm(`Delete order ${g.primaryNumber}? This removes all ${g.linesCount} item row(s).`)) return;
+    if (!confirm(`Delete order ${g.primaryNumber}? This removes all ${g.linesCount} item row(s).`))
+      return;
     const ids = g.items.map((i) => i.id);
     const { error } = await supabase.from("orders").delete().in("id", ids);
     if (error) return toast.error(error.message);
@@ -2737,41 +3596,50 @@ function OrdersTab() {
   };
 
   const convertToReal = async (g: OrderGroup) => {
-    if (!confirm("Convert this test order into a real one? It will start counting in analytics and sales.")) return;
+    if (
+      !confirm(
+        "Convert this test order into a real one? It will start counting in analytics and sales.",
+      )
+    )
+      return;
     const ids = g.items.map((i) => i.id);
-    const { error } = await supabase.from("orders").update({ is_test: false } as never).in("id", ids);
+    const { error } = await supabase
+      .from("orders")
+      .update({ is_test: false } as never)
+      .in("id", ids);
     if (error) return toast.error(error.message);
     toast.success("Converted to real order");
     qc.invalidateQueries({ queryKey: ["admin-orders"] });
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     const rows: Record<string, string | number>[] = [];
     for (const g of filtered) {
       for (const o of g.items) {
         rows.push({
           "Order Number": o.order_number ?? o.id.slice(0, 8),
-          "Date": new Date(o.created_at).toLocaleString(),
-          "Customer": o.customer_name,
-          "Phone": o.phone,
-          "Governorate": o.governorate,
-          "Address": o.address,
-          "Poster": o.poster_title ?? "",
+          Date: new Date(o.created_at).toLocaleString(),
+          Customer: o.customer_name,
+          Phone: o.phone,
+          Governorate: o.governorate,
+          Address: o.address,
+          Poster: o.poster_title ?? "",
           "Frame Type": o.frame_type,
           "Frame Color": o.frame_color,
-          "Size": o.size,
-          "Quantity": o.quantity,
-          "Shipping": Number(o.shipping_cost ?? 0),
-          "Packaging": Number(o.packaging_fee ?? 0),
-          "Total": Number(o.total_price ?? 0),
-          "Status": STATUS_LABEL[o.status] ?? o.status,
+          Size: o.size,
+          Quantity: o.quantity,
+          Shipping: Number(o.shipping_cost ?? 0),
+          Packaging: Number(o.packaging_fee ?? 0),
+          Total: Number(o.total_price ?? 0),
+          Status: STATUS_LABEL[o.status] ?? o.status,
         });
       }
     }
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, `brwazwneon-orders-${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `brwazwneon-orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
@@ -2816,7 +3684,11 @@ function OrdersTab() {
           className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All governorates</option>
-          {governorates.map((g) => <option key={g} value={g}>{g}</option>)}
+          {governorates.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
         </select>
         <label className="flex flex-col text-[10px] uppercase tracking-widest text-muted-foreground">
           From
@@ -2838,7 +3710,12 @@ function OrdersTab() {
         </label>
         {(dateFrom || dateTo || search || govFilter !== "all") && (
           <button
-            onClick={() => { setDateFrom(""); setDateTo(""); setSearch(""); setGovFilter("all"); }}
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+              setSearch("");
+              setGovFilter("all");
+            }}
             className="rounded-sm border border-border px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-accent"
           >
             Clear
@@ -2953,9 +3830,18 @@ function OrderCard({
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(g.created_at).toLocaleString()}</span>
-            <span className="inline-flex items-center gap-1"><Package className="h-3 w-3" />{g.linesCount} item{g.linesCount === 1 ? "" : "s"} · {g.itemsCount} pc</span>
-            <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{g.governorate}</span>
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {new Date(g.created_at).toLocaleString()}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Package className="h-3 w-3" />
+              {g.linesCount} item{g.linesCount === 1 ? "" : "s"} · {g.itemsCount} pc
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {g.governorate}
+            </span>
           </div>
         </div>
         <div className="text-right">
@@ -2986,7 +3872,9 @@ function OrderCard({
             aria-label="Change status"
           >
             {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
             ))}
           </select>
           <button
@@ -3044,7 +3932,12 @@ function OrderDetailsModal({
   const qc = useQueryClient();
   const message = useMemo(() => buildWhatsAppMessage(g), [g]);
   const waHref = waLinkFor(g.phone, message);
-  const customerNotes = (g.items[0] as OrderRowRaw).notes;
+  const rawNote = (g.items[0] as OrderRowRaw).notes;
+  const customerNotes = (() => {
+    if (!rawNote) return null;
+    try { const m = JSON.parse(rawNote); if (m.originalFilename) return null; } catch {}
+    return rawNote;
+  })();
 
   const copyMessage = async () => {
     try {
@@ -3056,7 +3949,10 @@ function OrderDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4"
+      onClick={onClose}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
         className="my-8 w-full max-w-4xl rounded-sm border border-border bg-card"
@@ -3094,19 +3990,38 @@ function OrderDetailsModal({
           {/* Customer + status column */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-sm border border-border bg-background p-4">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Customer</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Customer
+              </div>
               <div className="mt-2 space-y-1.5 text-sm">
-                <div className="flex items-center gap-2"><UserIcon className="h-3.5 w-3.5 text-muted-foreground" />{g.customer_name}</div>
-                <div className="flex items-center gap-2"><PhoneIcon className="h-3.5 w-3.5 text-muted-foreground" /><span dir="ltr">{g.phone}</span></div>
-                <div className="flex items-start gap-2"><MapPin className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" /><div><div>{g.governorate}</div><div className="text-muted-foreground">{g.address}</div></div></div>
+                <div className="flex items-center gap-2">
+                  <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  {g.customer_name}
+                </div>
+                <div className="flex items-center gap-2">
+                  <PhoneIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span dir="ltr">{g.phone}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <div>
+                    <div>{g.governorate}</div>
+                    <div className="text-muted-foreground">{g.address}</div>
+                  </div>
+                </div>
                 {customerNotes && (
-                  <div className="flex items-start gap-2 pt-1"><StickyNote className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" /><div className="text-muted-foreground">{customerNotes}</div></div>
+                  <div className="flex items-start gap-2 pt-1">
+                    <StickyNote className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="text-muted-foreground">{customerNotes}</div>
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="rounded-sm border border-border bg-background p-4">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Order status</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Order status
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {ORDER_STATUSES.map((s) => (
                   <button
@@ -3126,11 +4041,15 @@ function OrderDetailsModal({
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-sm border border-border p-2">
                   <div className="text-[10px] uppercase text-muted-foreground">Payment</div>
-                  <div className="mt-1">{g.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}</div>
+                  <div className="mt-1">
+                    {g.payment_method === "instapay" ? "Instapay / Vodafone" : "Cash on delivery"}
+                  </div>
                 </div>
                 <div className="rounded-sm border border-border p-2">
                   <div className="text-[10px] uppercase text-muted-foreground">Payment status</div>
-                  <div className="mt-1">{PAYMENT_STATUS_LABEL[g.payment_status ?? "not_required"]}</div>
+                  <div className="mt-1">
+                    {PAYMENT_STATUS_LABEL[g.payment_status ?? "not_required"]}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3143,14 +4062,19 @@ function OrderDetailsModal({
               <div className="text-xs text-muted-foreground">Total pieces: {g.itemsCount}</div>
             </div>
             <div className="grid gap-3">
-              {g.items.map((it, idx) => <ItemCard key={it.id} item={it as OrderRowRaw} index={idx + 1} />)}
+              {g.items.map((it, idx) => (
+                <ItemCard key={it.id} item={it as OrderRowRaw} index={idx + 1} />
+              ))}
             </div>
           </div>
 
           {/* Totals */}
           <div className="rounded-sm border border-border bg-background p-4">
             <div className="grid gap-1 text-sm sm:grid-cols-4">
-              <TotalCell label="Subtotal" value={`${Math.round(g.subtotal || g.total - g.shipping - g.packaging)} EGP`} />
+              <TotalCell
+                label="Subtotal"
+                value={`${Math.round(g.subtotal || g.total - g.shipping - g.packaging)} EGP`}
+              />
               <TotalCell label="Shipping" value={`${Math.round(g.shipping)} EGP`} />
               <TotalCell label="Packaging" value={`${Math.round(g.packaging)} EGP`} />
               <TotalCell label="Total" value={`${Math.round(g.total)} EGP`} emphasize />
@@ -3177,7 +4101,9 @@ function OrderDetailsModal({
                       className={`mt-1 w-full rounded-sm border border-border bg-background px-2 py-1 text-[11px] ${PAYMENT_STATUS_TONE[it.payment_status ?? "not_required"] ?? ""}`}
                     >
                       {PAYMENT_STATUSES.map((s) => (
-                        <option key={s} value={s}>{PAYMENT_STATUS_LABEL[s]}</option>
+                        <option key={s} value={s}>
+                          {PAYMENT_STATUS_LABEL[s]}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -3191,7 +4117,9 @@ function OrderDetailsModal({
             <div className="mb-2 flex items-center justify-between">
               <div>
                 <div className="text-display text-lg">WhatsApp confirmation template</div>
-                <div className="text-[11px] text-muted-foreground">Ready-to-send Arabic confirmation for the customer.</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Ready-to-send Arabic confirmation for the customer.
+                </div>
               </div>
               <MessageCircle className="h-5 w-5 text-emerald-400" />
             </div>
@@ -3233,7 +4161,15 @@ function OrderDetailsModal({
   );
 }
 
-function TotalCell({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+function TotalCell({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
@@ -3301,12 +4237,18 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item {index}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Item {index}
+            </div>
             <div className="mt-0.5 text-display text-lg">{item.poster_title ?? "—"}</div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Line total</div>
-            <div className="text-lg font-semibold">{Math.round(Number(item.total_price ?? 0))} EGP</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Line total
+            </div>
+            <div className="text-lg font-semibold">
+              {Math.round(Number(item.total_price ?? 0))} EGP
+            </div>
           </div>
         </div>
 
@@ -3315,15 +4257,37 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
           <Spec label="Frame color" value={item.frame_color} />
           <Spec label="Size" value={item.size} />
           <Spec label="Quantity" value={`× ${item.quantity}`} />
-          {item.subtotal ? <Spec label="Unit / subtotal" value={`${Math.round(Number(item.subtotal))} EGP`} /> : null}
+          {item.subtotal ? (
+            <Spec label="Unit / subtotal" value={`${Math.round(Number(item.subtotal))} EGP`} />
+          ) : null}
           <Spec label="Ref" value={item.order_number ?? item.id.slice(0, 8)} />
         </div>
-        {item.notes && (
-          <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item note</div>
-            <div className="mt-0.5">{item.notes}</div>
-          </div>
-        )}
+        {item.notes && (() => {
+          try {
+            const meta = JSON.parse(item.notes);
+            if (meta.originalFilename) {
+              const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(1)} KB` : `${(b/1048576).toFixed(1)} MB`;
+              const dim = meta.originalWidth && meta.originalHeight ? `${meta.originalWidth} × ${meta.originalHeight} px` : null;
+              return (
+                <div className="mt-3 space-y-1 rounded-sm border border-border bg-accent/20 p-2 text-xs">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Original file</div>
+                  <div className="truncate font-medium" title={meta.originalFilename}>{meta.originalFilename}</div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                    {dim && <span>{dim}</span>}
+                    <span>{fmt(meta.originalFileSize)}</span>
+                    <span className="uppercase">{meta.originalMimeType}</span>
+                  </div>
+                </div>
+              );
+            }
+          } catch {}
+          return (
+            <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item note</div>
+              <div className="mt-0.5">{item.notes}</div>
+            </div>
+          );
+        })()}
       </div>
 
       {zoom && item.poster_image && (
@@ -3374,27 +4338,40 @@ function PaymentScreenshotBlock({ order, onUpdate }: { order: Order; onUpdate: (
 
   useEffect(() => {
     let cancelled = false;
-    if (!order.payment_screenshot) { setUrl(null); return; }
+    if (!order.payment_screenshot) {
+      setUrl(null);
+      return;
+    }
     setLoading(true);
     supabase.storage
       .from("payment-screenshots")
       .createSignedUrl(order.payment_screenshot, 60 * 60)
-      .then(({ data }) => { if (!cancelled) setUrl(data?.signedUrl ?? null); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data?.signedUrl ?? null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [order.payment_screenshot]);
 
   const saveNotes = async () => {
-    const { error } = await supabase.from("orders").update({ payment_notes: notes }).eq("id", order.id);
+    const { error } = await supabase
+      .from("orders")
+      .update({ payment_notes: notes })
+      .eq("id", order.id);
     if (error) return toast.error(error.message);
     toast.success("Notes saved");
     onUpdate();
   };
 
   const setPS = async (payment_status: string) => {
-    const patch = payment_status === "verified"
-      ? { payment_status, payment_verified_at: new Date().toISOString() }
-      : { payment_status };
+    const patch =
+      payment_status === "verified"
+        ? { payment_status, payment_verified_at: new Date().toISOString() }
+        : { payment_status };
     const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
     if (error) return toast.error(error.message);
     toast.success("Payment status updated");
@@ -3418,19 +4395,37 @@ function PaymentScreenshotBlock({ order, onUpdate }: { order: Order; onUpdate: (
         ) : url ? (
           <div className="space-y-2">
             {/\.pdf$/i.test(order.payment_screenshot) ? (
-              <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm underline">
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm underline"
+              >
                 Open PDF receipt
               </a>
             ) : (
               <a href={url} target="_blank" rel="noreferrer">
-                <img src={url} alt="Payment screenshot" className="max-h-72 w-full rounded-sm border border-border object-contain bg-black/40" />
+                <img
+                  src={url}
+                  alt="Payment screenshot"
+                  className="max-h-72 w-full rounded-sm border border-border object-contain bg-black/40"
+                />
               </a>
             )}
             <div className="flex flex-wrap gap-2">
-              <a href={url} download className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+              <a
+                href={url}
+                download
+                className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent"
+              >
                 Download
               </a>
-              <a href={url} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent"
+              >
                 Open in new tab
               </a>
             </div>
@@ -3443,22 +4438,38 @@ function PaymentScreenshotBlock({ order, onUpdate }: { order: Order; onUpdate: (
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => setPS("received")} className="rounded-sm border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-blue-300 hover:bg-blue-500/20">
+        <button
+          onClick={() => setPS("received")}
+          className="rounded-sm border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-blue-300 hover:bg-blue-500/20"
+        >
           Mark Received
         </button>
-        <button onClick={() => setPS("verified")} className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20">
+        <button
+          onClick={() => setPS("verified")}
+          className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20"
+        >
           ✓ Verify Payment
         </button>
-        <button onClick={() => setPS("rejected")} className="rounded-sm border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-red-300 hover:bg-red-500/20">
+        <button
+          onClick={() => setPS("rejected")}
+          className="rounded-sm border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] uppercase tracking-widest text-red-300 hover:bg-red-500/20"
+        >
           ✕ Reject
         </button>
-        <a href={waLink} target="_blank" rel="noreferrer" className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent">
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-sm border border-border px-3 py-1.5 text-[11px] uppercase tracking-widest hover:bg-accent"
+        >
           Contact on WhatsApp
         </a>
       </div>
 
       <label className="block">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Payment notes (internal)</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Payment notes (internal)
+        </span>
         <textarea
           rows={2}
           value={notes}
@@ -3507,7 +4518,9 @@ function CustomDesignOrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("custom_design_orders")
-        .select("id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,image_paths,unit_price,subtotal,shipping_cost,total_price,notes,status,created_at")
+        .select(
+          "id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,image_paths,unit_price,subtotal,shipping_cost,total_price,notes,status,created_at",
+        )
         .order("created_at", { ascending: false })
         .limit(1000);
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
@@ -3551,29 +4564,30 @@ function CustomDesignOrdersTab() {
     qc.invalidateQueries({ queryKey: ["admin-custom-orders"] });
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     const rows = filtered.map((o) => ({
       "Order Number": o.order_number ?? o.id.slice(0, 8),
-      "Date": new Date(o.created_at).toLocaleString(),
-      "Customer": o.customer_name,
-      "Phone": o.phone,
-      "Governorate": o.governorate,
-      "Address": o.address,
+      Date: new Date(o.created_at).toLocaleString(),
+      Customer: o.customer_name,
+      Phone: o.phone,
+      Governorate: o.governorate,
+      Address: o.address,
       "Frame Type": o.frame_type,
       "Frame Color": o.frame_color,
-      "Size": o.size,
-      "Images": o.image_paths?.length ?? 0,
+      Size: o.size,
+      Images: o.image_paths?.length ?? 0,
       "Unit Price": Number(o.unit_price ?? 0),
-      "Subtotal": Number(o.subtotal ?? 0),
-      "Shipping": Number(o.shipping_cost ?? 0),
-      "Total": Number(o.total_price ?? 0),
-      "Status": o.status,
-      "Notes": o.notes ?? "",
+      Subtotal: Number(o.subtotal ?? 0),
+      Shipping: Number(o.shipping_cost ?? 0),
+      Total: Number(o.total_price ?? 0),
+      Status: o.status,
+      Notes: o.notes ?? "",
     }));
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "CustomDesign");
-    XLSX.writeFile(wb, `brwazwneon-custom-design-${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `brwazwneon-custom-design-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
@@ -3601,7 +4615,11 @@ function CustomDesignOrdersTab() {
           className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All governorates</option>
-          {governorates.map((g) => <option key={g} value={g}>{g}</option>)}
+          {governorates.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
         </select>
         <button
           onClick={exportExcel}
@@ -3612,9 +4630,13 @@ function CustomDesignOrdersTab() {
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>All</FilterPill>
+        <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
+          All
+        </FilterPill>
         {STATUSES.map((s) => (
-          <FilterPill key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>{s}</FilterPill>
+          <FilterPill key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
+            {s}
+          </FilterPill>
         ))}
       </div>
 
@@ -3658,7 +4680,9 @@ function CustomDesignOrdersTab() {
                     </td>
                     <td className="px-3 py-3 text-xs">
                       <div>{o.frame_type}</div>
-                      <div className="text-muted-foreground">{o.size} · {o.frame_color}</div>
+                      <div className="text-muted-foreground">
+                        {o.size} · {o.frame_color}
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-xs">{o.image_paths?.length ?? 0}</td>
                     <td className="px-3 py-3 text-right font-semibold">{o.total_price} EGP</td>
@@ -3668,15 +4692,27 @@ function CustomDesignOrdersTab() {
                         onChange={(e) => setStatus(o, e.target.value)}
                         className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                       >
-                        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
                       </select>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => setViewing(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground" aria-label="View">
+                        <button
+                          onClick={() => setViewing(o)}
+                          className="rounded-sm p-1.5 text-muted-foreground hover:text-foreground"
+                          aria-label="View"
+                        >
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button onClick={() => remove(o)} className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                        <button
+                          onClick={() => remove(o)}
+                          className="rounded-sm p-1.5 text-muted-foreground hover:text-destructive"
+                          aria-label="Delete"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -3689,9 +4725,7 @@ function CustomDesignOrdersTab() {
         </div>
       )}
 
-      {viewing && (
-        <CustomOrderModal order={viewing} onClose={() => setViewing(null)} />
-      )}
+      {viewing && <CustomOrderModal order={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
@@ -3706,7 +4740,10 @@ function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () 
       setLoading(true);
       const paths = order.image_paths ?? [];
       if (paths.length === 0) {
-        if (!cancelled) { setUrls([]); setLoading(false); }
+        if (!cancelled) {
+          setUrls([]);
+          setLoading(false);
+        }
         return;
       }
       const out: string[] = [];
@@ -3716,12 +4753,20 @@ function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () 
         const { data, error } = await supabase.storage
           .from("custom-designs")
           .createSignedUrls(batch, 60 * 60 * 24);
-        if (error) { toast.error(error.message); break; }
+        if (error) {
+          toast.error(error.message);
+          break;
+        }
         for (const d of data ?? []) out.push(d.signedUrl ?? "");
       }
-      if (!cancelled) { setUrls(out); setLoading(false); }
+      if (!cancelled) {
+        setUrls(out);
+        setLoading(false);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [order.id, order.image_paths]);
 
   const downloadOne = async (path: string) => {
@@ -3731,13 +4776,14 @@ function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () 
     const a = document.createElement("a");
     a.href = blobUrl;
     a.download = path.split("/").pop() ?? "image";
-    document.body.appendChild(a); a.click(); a.remove();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
   const downloadAll = async () => {
     for (const p of order.image_paths ?? []) {
-      // eslint-disable-next-line no-await-in-loop
       await downloadOne(p);
     }
   };
@@ -3778,7 +4824,10 @@ function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () 
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {urls.map((url, i) => (
-            <div key={i} className="group relative aspect-square overflow-hidden rounded-sm border border-border bg-muted">
+            <div
+              key={i}
+              className="group relative aspect-square overflow-hidden rounded-sm border border-border bg-muted"
+            >
               <a href={url} target="_blank" rel="noreferrer">
                 <SafeImage src={url} alt="" className="h-full w-full object-cover" />
               </a>
@@ -3790,7 +4839,9 @@ function CustomOrderModal({ order, onClose }: { order: CustomOrder; onClose: () 
               >
                 <Download className="h-3.5 w-3.5" />
               </button>
-              <div className="absolute left-1 top-1 rounded-full bg-background/80 px-1.5 py-0.5 text-[10px]">#{i + 1}</div>
+              <div className="absolute left-1 top-1 rounded-full bg-background/80 px-1.5 py-0.5 text-[10px]">
+                #{i + 1}
+              </div>
             </div>
           ))}
         </div>
@@ -3843,7 +4894,7 @@ function SliderTab() {
       let order = (slides[slides.length - 1]?.sort_order ?? 0) + 1;
       for (const file of Array.from(files)) {
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-        const path = `${crypto.randomUUID()}.${ext}`;
+        const path = `homepage-slider/${crypto.randomUUID()}.${ext}`;
         const signedUrl = await uploadAndSign("slider", path, file);
         const { error } = await supabase.from("slider_images").insert({
           image_url: signedUrl,
@@ -3857,7 +4908,7 @@ function SliderTab() {
       const input = document.getElementById("slider-files") as HTMLInputElement | null;
       if (input) input.value = "";
       qc.invalidateQueries({ queryKey: ["admin-slider"] });
-      qc.invalidateQueries({ queryKey: ["slider"] });
+      qc.invalidateQueries({ queryKey: ["homepage-slider"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -3869,7 +4920,7 @@ function SliderTab() {
     const { error } = await supabase.from("slider_images").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["admin-slider"] });
-    qc.invalidateQueries({ queryKey: ["slider"] });
+    qc.invalidateQueries({ queryKey: ["homepage-slider"] });
   };
 
   const remove = async (s: Slide) => {
@@ -3878,7 +4929,7 @@ function SliderTab() {
     if (error) return toast.error(error.message);
     toast.success("Deleted");
     qc.invalidateQueries({ queryKey: ["admin-slider"] });
-    qc.invalidateQueries({ queryKey: ["slider"] });
+    qc.invalidateQueries({ queryKey: ["homepage-slider"] });
   };
 
   const move = async (s: Slide, dir: -1 | 1) => {
@@ -3921,18 +4972,27 @@ function SliderTab() {
           </div>
         ) : (
           slides.map((s, i) => (
-            <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-sm border border-border bg-card p-3">
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center gap-4 rounded-sm border border-border bg-card p-3"
+            >
               <SafeImage src={s.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
               <input
                 defaultValue={s.title ?? ""}
                 placeholder="Title (optional)"
-                onBlur={(e) => e.target.value !== (s.title ?? "") && update(s.id, { title: e.target.value || null })}
+                onBlur={(e) =>
+                  e.target.value !== (s.title ?? "") &&
+                  update(s.id, { title: e.target.value || null })
+                }
                 className="w-48 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
               />
               <input
                 defaultValue={s.link_url ?? ""}
                 placeholder="Link URL (optional)"
-                onBlur={(e) => e.target.value !== (s.link_url ?? "") && update(s.id, { link_url: e.target.value || null })}
+                onBlur={(e) =>
+                  e.target.value !== (s.link_url ?? "") &&
+                  update(s.id, { link_url: e.target.value || null })
+                }
                 className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
               />
               <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
@@ -3944,13 +5004,27 @@ function SliderTab() {
                 Enabled
               </label>
               <div className="ml-auto flex gap-1">
-                <button onClick={() => move(s, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move up">
+                <button
+                  onClick={() => move(s, -1)}
+                  disabled={i === 0}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  aria-label="Move up"
+                >
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => move(s, 1)} disabled={i === slides.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move down">
+                <button
+                  onClick={() => move(s, 1)}
+                  disabled={i === slides.length - 1}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  aria-label="Move down"
+                >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => remove(s)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                <button
+                  onClick={() => remove(s)}
+                  className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"
+                  aria-label="Delete"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -4022,7 +5096,8 @@ function SettingsTab() {
     }
   };
 
-  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
   const PriceField = ({ k, label }: { k: keyof typeof PRICING_KEYS; label: string }) => (
     <label className="block">
@@ -4034,7 +5109,9 @@ function SettingsTab() {
           inputMode="numeric"
           className="w-full bg-transparent px-3 py-2 text-sm outline-none"
         />
-        <span className="pr-3 text-[10px] uppercase tracking-widest text-muted-foreground">EGP</span>
+        <span className="pr-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+          EGP
+        </span>
       </div>
     </label>
   );
@@ -4049,7 +5126,8 @@ function SettingsTab() {
   return (
     <div className="max-w-4xl space-y-5">
       <div className="rounded-sm border border-border bg-card/50 p-4 text-xs uppercase tracking-widest text-muted-foreground">
-        Every price below drives the live website. Changes apply instantly across product pages, cart, checkout, offers and photo printing.
+        Every price below drives the live website. Changes apply instantly across product pages,
+        cart, checkout, offers and photo printing.
       </div>
 
       <Section title="PVC Frame Prices">
@@ -4148,9 +5226,27 @@ function MockupsTab() {
         };
       };
       return {
-        black: parse(map.get(MOCKUP_KEYS.black), { image: "", top: 8, left: 8, width: 84, height: 84 }),
-        white: parse(map.get(MOCKUP_KEYS.white), { image: "", top: 8, left: 8, width: 84, height: 84 }),
-        wood:  parse(map.get(MOCKUP_KEYS.wood),  { image: "", top: 10, left: 10, width: 80, height: 80 }),
+        black: parse(map.get(MOCKUP_KEYS.black), {
+          image: "",
+          top: 8,
+          left: 8,
+          width: 84,
+          height: 84,
+        }),
+        white: parse(map.get(MOCKUP_KEYS.white), {
+          image: "",
+          top: 8,
+          left: 8,
+          width: 84,
+          height: 84,
+        }),
+        wood: parse(map.get(MOCKUP_KEYS.wood), {
+          image: "",
+          top: 10,
+          left: 10,
+          width: 80,
+          height: 80,
+        }),
       };
     },
   });
@@ -4171,8 +5267,8 @@ function MockupsTab() {
           Upload each mockup once. The website auto-composites every poster inside it.
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          Use a transparent-center PNG. Set the printable area as % of the mockup canvas
-          (top, left, width, height) so the poster sits exactly inside the frame opening.
+          Use a transparent-center PNG. Set the printable area as % of the mockup canvas (top, left,
+          width, height) so the poster sits exactly inside the frame opening.
         </p>
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
@@ -4206,9 +5302,17 @@ function GridDisplayModeCard() {
   });
   const [saving, setSaving] = useState(false);
   const options: { id: GridDisplayMode; label: string; hint: string }[] = [
-    { id: "black", label: "Black Frame Preview", hint: "Show poster inside black frame mockup (default)" },
+    {
+      id: "black",
+      label: "Black Frame Preview",
+      hint: "Show poster inside black frame mockup (default)",
+    },
     { id: "white", label: "White Frame Preview", hint: "Show poster inside white frame mockup" },
-    { id: "wood", label: "Wooden Portrait Preview", hint: "Show poster inside wooden frame mockup" },
+    {
+      id: "wood",
+      label: "Wooden Portrait Preview",
+      hint: "Show poster inside wooden frame mockup",
+    },
   ];
   const save = async (next: GridDisplayMode) => {
     setSaving(true);
@@ -4241,9 +5345,7 @@ function GridDisplayModeCard() {
             onClick={() => save(o.id)}
             className={cn(
               "rounded-sm border p-4 text-left transition disabled:opacity-60",
-              mode === o.id
-                ? "border-primary bg-accent"
-                : "border-border hover:bg-accent/50",
+              mode === o.id ? "border-primary bg-accent" : "border-border hover:bg-accent/50",
             )}
           >
             <div className="text-sm font-semibold">{o.label}</div>
@@ -4317,8 +5419,40 @@ function MockupEditor({
   const resetAll = () => {
     const defaults: FrameMockup =
       variant === "wood"
-        ? { image: m.image, top: 10, left: 10, width: 80, height: 80, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false }
-        : { image: m.image, top: 8, left: 8, width: 84, height: 84, rotate: 0, skewX: 0, skewY: 0, borderRadius: 0, scale: 1, perspective: 1000, rotateX: 0, rotateY: 0, flipX: false, flipY: false };
+        ? {
+            image: m.image,
+            top: 10,
+            left: 10,
+            width: 80,
+            height: 80,
+            rotate: 0,
+            skewX: 0,
+            skewY: 0,
+            borderRadius: 0,
+            scale: 1,
+            perspective: 1000,
+            rotateX: 0,
+            rotateY: 0,
+            flipX: false,
+            flipY: false,
+          }
+        : {
+            image: m.image,
+            top: 8,
+            left: 8,
+            width: 84,
+            height: 84,
+            rotate: 0,
+            skewX: 0,
+            skewY: 0,
+            borderRadius: 0,
+            scale: 1,
+            perspective: 1000,
+            rotateX: 0,
+            rotateY: 0,
+            flipX: false,
+            flipY: false,
+          };
     setM(defaults);
   };
 
@@ -4373,29 +5507,154 @@ function MockupEditor({
 
       {/* Quick action buttons */}
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <ToolBtn onClick={() => setNum("rotate", Math.max(-10, (m.rotate ?? 0) - 1))} icon={<RotateCcw className="h-3.5 w-3.5" />} label="Rot −" />
-        <ToolBtn onClick={() => setNum("rotate", Math.min(10, (m.rotate ?? 0) + 1))} icon={<RotateCw className="h-3.5 w-3.5" />} label="Rot +" />
-        <ToolBtn onClick={centerArtwork} icon={<Crosshair className="h-3.5 w-3.5" />} label="Center" />
-        <ToolBtn onClick={() => setNum("scale", Math.min(3, +((m.scale ?? 1) + 0.05).toFixed(2)))} icon={<ZoomIn className="h-3.5 w-3.5" />} label="Zoom +" />
-        <ToolBtn onClick={() => setNum("scale", Math.max(0.3, +((m.scale ?? 1) - 0.05).toFixed(2)))} icon={<ZoomOut className="h-3.5 w-3.5" />} label="Zoom −" />
+        <ToolBtn
+          onClick={() => setNum("rotate", Math.max(-10, (m.rotate ?? 0) - 1))}
+          icon={<RotateCcw className="h-3.5 w-3.5" />}
+          label="Rot −"
+        />
+        <ToolBtn
+          onClick={() => setNum("rotate", Math.min(10, (m.rotate ?? 0) + 1))}
+          icon={<RotateCw className="h-3.5 w-3.5" />}
+          label="Rot +"
+        />
+        <ToolBtn
+          onClick={centerArtwork}
+          icon={<Crosshair className="h-3.5 w-3.5" />}
+          label="Center"
+        />
+        <ToolBtn
+          onClick={() => setNum("scale", Math.min(3, +((m.scale ?? 1) + 0.05).toFixed(2)))}
+          icon={<ZoomIn className="h-3.5 w-3.5" />}
+          label="Zoom +"
+        />
+        <ToolBtn
+          onClick={() => setNum("scale", Math.max(0.3, +((m.scale ?? 1) - 0.05).toFixed(2)))}
+          icon={<ZoomOut className="h-3.5 w-3.5" />}
+          label="Zoom −"
+        />
         <ToolBtn onClick={resetAll} icon={<RotateCcw className="h-3.5 w-3.5" />} label="Reset" />
-        <ToolBtn active={!!m.flipX} onClick={() => patch({ flipX: !m.flipX })} icon={<FlipHorizontal className="h-3.5 w-3.5" />} label="Flip H" />
-        <ToolBtn active={!!m.flipY} onClick={() => patch({ flipY: !m.flipY })} icon={<FlipVertical className="h-3.5 w-3.5" />} label="Flip V" />
+        <ToolBtn
+          active={!!m.flipX}
+          onClick={() => patch({ flipX: !m.flipX })}
+          icon={<FlipHorizontal className="h-3.5 w-3.5" />}
+          label="Flip H"
+        />
+        <ToolBtn
+          active={!!m.flipY}
+          onClick={() => patch({ flipY: !m.flipY })}
+          icon={<FlipVertical className="h-3.5 w-3.5" />}
+          label="Flip V"
+        />
       </div>
 
       <div className="mt-5 space-y-3">
-        <SliderRow label="X Position" value={m.left} min={-20} max={100} step={0.1} suffix="%" onChange={(v) => setNum("left", v)} />
-        <SliderRow label="Y Position" value={m.top} min={-20} max={100} step={0.1} suffix="%" onChange={(v) => setNum("top", v)} />
-        <SliderRow label="Width" value={m.width} min={5} max={120} step={0.1} suffix="%" onChange={(v) => setNum("width", v)} />
-        <SliderRow label="Height" value={m.height} min={5} max={120} step={0.1} suffix="%" onChange={(v) => setNum("height", v)} />
-        <SliderRow label="Scale" value={m.scale ?? 1} min={0.3} max={3} step={0.01} onChange={(v) => setNum("scale", v)} />
-        <SliderRow label="Rotation" value={m.rotate ?? 0} min={-10} max={10} step={0.1} suffix="°" onChange={(v) => setNum("rotate", v)} />
-        <SliderRow label="Perspective X" value={m.rotateY ?? 0} min={-30} max={30} step={0.1} suffix="°" onChange={(v) => setNum("rotateY", v)} />
-        <SliderRow label="Perspective Y" value={m.rotateX ?? 0} min={-30} max={30} step={0.1} suffix="°" onChange={(v) => setNum("rotateX", v)} />
-        <SliderRow label="Skew Horizontal" value={m.skewX ?? 0} min={-20} max={20} step={0.1} suffix="°" onChange={(v) => setNum("skewX", v)} />
-        <SliderRow label="Skew Vertical" value={m.skewY ?? 0} min={-20} max={20} step={0.1} suffix="°" onChange={(v) => setNum("skewY", v)} />
-        <SliderRow label="Perspective Depth" value={m.perspective ?? 1000} min={200} max={3000} step={10} suffix="px" onChange={(v) => setNum("perspective", v)} />
-        <SliderRow label="Border Radius" value={m.borderRadius ?? 0} min={0} max={50} step={0.1} suffix="%" onChange={(v) => setNum("borderRadius", v)} />
+        <SliderRow
+          label="X Position"
+          value={m.left}
+          min={-20}
+          max={100}
+          step={0.1}
+          suffix="%"
+          onChange={(v) => setNum("left", v)}
+        />
+        <SliderRow
+          label="Y Position"
+          value={m.top}
+          min={-20}
+          max={100}
+          step={0.1}
+          suffix="%"
+          onChange={(v) => setNum("top", v)}
+        />
+        <SliderRow
+          label="Width"
+          value={m.width}
+          min={5}
+          max={120}
+          step={0.1}
+          suffix="%"
+          onChange={(v) => setNum("width", v)}
+        />
+        <SliderRow
+          label="Height"
+          value={m.height}
+          min={5}
+          max={120}
+          step={0.1}
+          suffix="%"
+          onChange={(v) => setNum("height", v)}
+        />
+        <SliderRow
+          label="Scale"
+          value={m.scale ?? 1}
+          min={0.3}
+          max={3}
+          step={0.01}
+          onChange={(v) => setNum("scale", v)}
+        />
+        <SliderRow
+          label="Rotation"
+          value={m.rotate ?? 0}
+          min={-10}
+          max={10}
+          step={0.1}
+          suffix="°"
+          onChange={(v) => setNum("rotate", v)}
+        />
+        <SliderRow
+          label="Perspective X"
+          value={m.rotateY ?? 0}
+          min={-30}
+          max={30}
+          step={0.1}
+          suffix="°"
+          onChange={(v) => setNum("rotateY", v)}
+        />
+        <SliderRow
+          label="Perspective Y"
+          value={m.rotateX ?? 0}
+          min={-30}
+          max={30}
+          step={0.1}
+          suffix="°"
+          onChange={(v) => setNum("rotateX", v)}
+        />
+        <SliderRow
+          label="Skew Horizontal"
+          value={m.skewX ?? 0}
+          min={-20}
+          max={20}
+          step={0.1}
+          suffix="°"
+          onChange={(v) => setNum("skewX", v)}
+        />
+        <SliderRow
+          label="Skew Vertical"
+          value={m.skewY ?? 0}
+          min={-20}
+          max={20}
+          step={0.1}
+          suffix="°"
+          onChange={(v) => setNum("skewY", v)}
+        />
+        <SliderRow
+          label="Perspective Depth"
+          value={m.perspective ?? 1000}
+          min={200}
+          max={3000}
+          step={10}
+          suffix="px"
+          onChange={(v) => setNum("perspective", v)}
+        />
+        <SliderRow
+          label="Border Radius"
+          value={m.borderRadius ?? 0}
+          min={0}
+          max={50}
+          step={0.1}
+          suffix="%"
+          onChange={(v) => setNum("borderRadius", v)}
+        />
       </div>
 
       <button
@@ -4499,8 +5758,7 @@ function FramePreviewPreviewWithOverride({
   mockup: FrameMockup;
   variant: keyof FrameMockups;
 }) {
-  const matte =
-    variant === "white" ? "#f3f3f0" : variant === "wood" ? "#3a2515" : "#0a0a0a";
+  const matte = variant === "white" ? "#f3f3f0" : variant === "wood" ? "#3a2515" : "#0a0a0a";
   return (
     <div
       className="relative isolate aspect-[2/3] w-full overflow-hidden drop-shadow-[0_18px_25px_rgba(0,0,0,0.5)]"
@@ -4555,7 +5813,15 @@ function FramePreviewPreviewWithOverride({
 
 /* ---------- MODAL ---------- */
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -4567,7 +5833,10 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-display text-2xl">{title}</h3>
-          <button onClick={onClose} className="rounded-sm p-1 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={onClose}
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -4593,16 +5862,15 @@ function WishlistsTab() {
     queryFn: async (): Promise<WishStat[]> => {
       const { data: rows, error } = await supabase
         .from("wishlists")
-        .select("poster_id");
+        .select("poster_id")
+        .limit(2000);
       if (error) throw error;
       const counts = new Map<string, number>();
       for (const r of rows ?? []) {
         const id = (r as { poster_id: string }).poster_id;
         counts.set(id, (counts.get(id) ?? 0) + 1);
       }
-      const top = [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 20);
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20);
       if (top.length === 0) return [];
       const ids = top.map(([id]) => id);
       const { data: posters, error: pErr } = await supabase
@@ -4724,7 +5992,8 @@ function ReviewsTab() {
         .from("reviews")
         .select("*")
         .order("featured", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(2000);
       if (error) throw error;
       return (data ?? []) as ReviewRow[];
     },
@@ -4773,7 +6042,8 @@ function ReviewsTab() {
   function toggleSelect(id: string) {
     setSelected((s) => {
       const n = new Set(s);
-      if (n.has(id)) n.delete(id); else n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }
@@ -4789,7 +6059,10 @@ function ReviewsTab() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => { setEditing(null); setShowForm(true); }}
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
             className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Add Review
@@ -4838,7 +6111,9 @@ function ReviewsTab() {
                   const parsed = JSON.parse(text);
                   if (!Array.isArray(parsed)) throw new Error("File must be a JSON array");
                   const rows = parsed
-                    .filter((r) => r && typeof r === "object" && typeof r.customer_name === "string")
+                    .filter(
+                      (r) => r && typeof r === "object" && typeof r.customer_name === "string",
+                    )
                     .map((r) => ({
                       customer_name: String(r.customer_name).slice(0, 100),
                       governorate: r.governorate ? String(r.governorate).slice(0, 60) : null,
@@ -4884,12 +6159,16 @@ function ReviewsTab() {
         </div>
         <select
           value={ratingFilter}
-          onChange={(e) => setRatingFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+          onChange={(e) =>
+            setRatingFilter(e.target.value === "all" ? "all" : Number(e.target.value))
+          }
           className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
         >
           <option value="all">All ratings</option>
           {[5, 4, 3, 2, 1].map((r) => (
-            <option key={r} value={r}>{r} ★</option>
+            <option key={r} value={r}>
+              {r} ★
+            </option>
           ))}
         </select>
         <select
@@ -4929,10 +6208,18 @@ function ReviewsTab() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading…</td></tr>
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                  Loading…
+                </td>
+              </tr>
             )}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No reviews match these filters.</td></tr>
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                  No reviews match these filters.
+                </td>
+              </tr>
             )}
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-border align-top">
@@ -4988,7 +6275,10 @@ function ReviewsTab() {
                       {r.featured ? "Unhighlight" : "Highlight"}
                     </button>
                     <button
-                      onClick={() => { setEditing(r); setShowForm(true); }}
+                      onClick={() => {
+                        setEditing(r);
+                        setShowForm(true);
+                      }}
                       className="rounded-sm border border-border p-1 hover:bg-accent"
                       title="Edit"
                     >
@@ -5013,7 +6303,10 @@ function ReviewsTab() {
         <ReviewForm
           initial={editing}
           posters={posters as { id: string; title: string }[]}
-          onClose={() => { setShowForm(false); setEditing(null); }}
+          onClose={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["admin-reviews"] });
             qc.invalidateQueries({ queryKey: ["reviews"] });
@@ -5118,7 +6411,11 @@ function ReviewForm({
               onChange={(e) => setRating(Number(e.target.value))}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
-              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} ★</option>)}
+              {[5, 4, 3, 2, 1].map((n) => (
+                <option key={n} value={n}>
+                  {n} ★
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-xs uppercase tracking-widest space-y-1">
@@ -5129,7 +6426,11 @@ function ReviewForm({
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm normal-case"
             >
               <option value="">— None —</option>
-              {posters.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              {posters.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -5172,11 +6473,19 @@ function ReviewForm({
           </label>
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-              <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={approved}
+                onChange={(e) => setApproved(e.target.checked)}
+              />
               Approved (visible on site)
             </label>
             <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+              />
               ⭐ Highlight as Featured
             </label>
           </div>
@@ -5221,16 +6530,17 @@ function CollectionsTab() {
       const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
       const raw = map.get("home_collections");
       const v = map.get("home_collections_visible");
-      const list: CollectionCard[] = Array.isArray(raw) && raw.length > 0
-        ? (raw as CollectionCard[]).map((c, i) => ({
-            id: c.id ?? String(i),
-            title: c.title ?? "",
-            subtitle: c.subtitle ?? "",
-            image: c.image ?? "",
-            link: c.link ?? "/",
-            enabled: c.enabled !== false,
-          }))
-        : DEFAULT_COLLECTIONS;
+      const list: CollectionCard[] =
+        Array.isArray(raw) && raw.length > 0
+          ? (raw as CollectionCard[]).map((c, i) => ({
+              id: c.id ?? String(i),
+              title: c.title ?? "",
+              subtitle: c.subtitle ?? "",
+              image: c.image ?? "",
+              link: c.link ?? "/",
+              enabled: c.enabled !== false,
+            }))
+          : DEFAULT_COLLECTIONS;
       return { cards: list, visible: v === undefined ? true : !!v };
     },
   });
@@ -5263,7 +6573,14 @@ function CollectionsTab() {
   const add = () => {
     setCards((prev) => [
       ...(prev ?? []),
-      { id: crypto.randomUUID(), title: "New Collection", subtitle: "", image: "", link: "/", enabled: true },
+      {
+        id: crypto.randomUUID(),
+        title: "New Collection",
+        subtitle: "",
+        image: "",
+        link: "/",
+        enabled: true,
+      },
     ]);
   };
   const uploadImage = async (idx: number, file: File) => {
@@ -5308,11 +6625,7 @@ function CollectionsTab() {
     <div>
       <div className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-6">
         <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-          <input
-            type="checkbox"
-            checked={visible}
-            onChange={(e) => setVisible(e.target.checked)}
-          />
+          <input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} />
           Show section on homepage
         </label>
         <button
@@ -5332,12 +6645,17 @@ function CollectionsTab() {
 
       <div className="mt-6 space-y-3">
         {list.map((c, i) => (
-          <div key={c.id} className="flex flex-wrap items-start gap-4 rounded-sm border border-border bg-card p-3">
+          <div
+            key={c.id}
+            className="flex flex-wrap items-start gap-4 rounded-sm border border-border bg-card p-3"
+          >
             <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
               {c.image ? (
                 <SafeImage src={c.image} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-muted-foreground">No image</div>
+                <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-muted-foreground">
+                  No image
+                </div>
               )}
             </div>
             <div className="flex min-w-[240px] flex-1 flex-col gap-2">
@@ -5420,7 +6738,8 @@ function CollectionsTab() {
       </div>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Tip: link to category pages like <code>/category/football</code>, or to <code>/custom-design</code> and <code>/photo-printing</code>.
+        Tip: link to category pages like <code>/category/football</code>, or to{" "}
+        <code>/custom-design</code> and <code>/photo-printing</code>.
       </p>
     </div>
   );
@@ -5448,10 +6767,12 @@ function CoverSettingsEditor({
     enabled: !!slug && open,
     queryFn: async () => {
       const { data: cat } = await supabase
-        .from("categories").select("id").eq("slug", slug!).maybeSingle();
+        .from("categories")
+        .select("id")
+        .eq("slug", slug!)
+        .maybeSingle();
       if (!cat) return [];
-      const { data: kids } = await supabase
-        .from("categories").select("id").eq("parent_id", cat.id);
+      const { data: kids } = await supabase.from("categories").select("id").eq("parent_id", cat.id);
       const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
@@ -5473,19 +6794,18 @@ function CoverSettingsEditor({
       if (mode === "selected") {
         const ids = selectedIds.filter(Boolean);
         if (ids.length === 0) return card.image ? [card.image] : [];
-        const { data, error } = await supabase
-          .from("posters")
-          .select("id,image_url")
-          .in("id", ids);
+        const { data, error } = await supabase.from("posters").select("id,image_url").in("id", ids);
         if (error) throw error;
         return (data ?? []).map((p) => p.image_url as string).filter(Boolean);
       }
       if (!slug) return card.image ? [card.image] : [];
       const { data: cat } = await supabase
-        .from("categories").select("id").eq("slug", slug).maybeSingle();
+        .from("categories")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
       if (!cat) return [];
-      const { data: kids } = await supabase
-        .from("categories").select("id").eq("parent_id", cat.id);
+      const { data: kids } = await supabase.from("categories").select("id").eq("parent_id", cat.id);
       const ids = [cat.id, ...(kids ?? []).map((k) => k.id)];
       const { data, error } = await supabase
         .from("posters")
@@ -5734,7 +7054,9 @@ function MarketingTab() {
       setGa4Enabled(settingsQ.data.ga4Enabled);
     }
   }, [settingsQ.data]);
-  useEffect(() => { if (secretQ.data !== undefined) setToken(secretQ.data); }, [secretQ.data]);
+  useEffect(() => {
+    if (secretQ.data !== undefined) setToken(secretQ.data);
+  }, [secretQ.data]);
 
   const pixelIdValid = pixelId === "" || /^\d{6,20}$/.test(pixelId);
   const tokenValid = token === "" || /^[A-Za-z0-9_\-|]{20,}$/.test(token);
@@ -5742,10 +7064,12 @@ function MarketingTab() {
 
   const onSave = async () => {
     if (pixelEnabled && !pixelIdValid) return toast.error("Pixel ID must be 6–20 digits");
-    if (capiEnabled && !pixelId) return toast.error("Set a Pixel ID before enabling Conversion API");
+    if (capiEnabled && !pixelId)
+      return toast.error("Set a Pixel ID before enabling Conversion API");
     if (capiEnabled && !token) return toast.error("Conversion API requires an access token");
     if (!tokenValid) return toast.error("Access token format looks invalid");
-    if (ga4Enabled && !ga4IdValid) return toast.error("GA4 Measurement ID must look like G-XXXXXXXX");
+    if (ga4Enabled && !ga4IdValid)
+      return toast.error("GA4 Measurement ID must look like G-XXXXXXXX");
 
     setSaving(true);
     try {
@@ -5761,9 +7085,11 @@ function MarketingTab() {
         .from("site_settings")
         .upsert(upserts, { onConflict: "key" });
       if (e1) throw e1;
-      const { error: e2 } = await supabase
-        .from("marketing_secrets")
-        .upsert({ id: 1, meta_capi_access_token: token || null, updated_at: new Date().toISOString() });
+      const { error: e2 } = await supabase.from("marketing_secrets").upsert({
+        id: 1,
+        meta_capi_access_token: token || null,
+        updated_at: new Date().toISOString(),
+      });
       if (e2) throw e2;
       toast.success("Marketing settings saved");
       qc.invalidateQueries({ queryKey: ["admin-marketing-settings"] });
@@ -5781,7 +7107,8 @@ function MarketingTab() {
       <div>
         <h2 className="text-display text-3xl">Marketing & Tracking</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure Meta Pixel + Conversion API. Events automatically deduplicate via shared event IDs.
+          Configure Meta Pixel + Conversion API. Events automatically deduplicate via shared event
+          IDs.
         </p>
       </div>
 
@@ -5802,13 +7129,21 @@ function MarketingTab() {
             <span className="mt-1 block text-xs text-destructive">Must be 6–20 digits.</span>
           )}
         </label>
-        <ToggleRow label="Enable Pixel (browser tracking)" value={pixelEnabled} onChange={setPixelEnabled} />
+        <ToggleRow
+          label="Enable Pixel (browser tracking)"
+          value={pixelEnabled}
+          onChange={setPixelEnabled}
+        />
       </div>
 
       <div className="rounded-sm border border-border bg-card p-6">
-        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Google Analytics 4</h3>
+        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          Google Analytics 4
+        </h3>
         <label className="mt-4 block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Measurement ID</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Measurement ID
+          </span>
           <input
             value={ga4Id}
             onChange={(e) => setGa4Id(e.target.value.toUpperCase().trim())}
@@ -5824,14 +7159,19 @@ function MarketingTab() {
         </label>
         <ToggleRow label="Enable Google Analytics 4" value={ga4Enabled} onChange={setGa4Enabled} />
         <p className="mt-3 text-xs text-muted-foreground">
-          Tracks page_view, search, view_item, add_to_cart, add_to_wishlist, begin_checkout, purchase, photo_printing, and custom_design.
+          Tracks page_view, search, view_item, add_to_cart, add_to_wishlist, begin_checkout,
+          purchase, photo_printing, and custom_design.
         </p>
       </div>
 
       <div className="rounded-sm border border-border bg-card p-6">
-        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Conversion API (server-side)</h3>
+        <h3 className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          Conversion API (server-side)
+        </h3>
         <label className="mt-4 block">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">Access Token</span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            Access Token
+          </span>
           <input
             type="password"
             value={token}
@@ -5871,8 +7211,14 @@ function MarketingTab() {
 }
 
 function ToggleRow({
-  label, value, onChange,
-}: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-sm border border-border bg-background px-3 py-2">
       <span className="text-sm">{label}</span>
@@ -5898,14 +7244,18 @@ function ExportsTab() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    return [headers.join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join("\n");
+    return [headers.join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join(
+      "\n",
+    );
   }
 
   function downloadBlob(filename: string, mime: string, content: BlobPart) {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
+    a.href = url;
+    a.download = filename;
+    a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
@@ -5913,10 +7263,10 @@ function ExportsTab() {
     const out: T[] = [];
     const pageSize = 1000;
     for (let from = 0; ; from += pageSize) {
-      const { data, error } = await supabase
+      const { data, error } = (await supabase
         .from(table as never)
         .select(columns)
-        .range(from, from + pageSize - 1) as { data: T[] | null; error: unknown };
+        .range(from, from + pageSize - 1)) as { data: T[] | null; error: unknown };
       if (error) throw error;
       const chunk = data ?? [];
       out.push(...chunk);
@@ -5925,12 +7275,18 @@ function ExportsTab() {
     return out;
   }
 
-  function exportAs(rows: Record<string, unknown>[], base: string, kind: "xlsx" | "csv", sheet = "Sheet1") {
+  async function exportAs(
+    rows: Record<string, unknown>[],
+    base: string,
+    kind: "xlsx" | "csv",
+    sheet = "Sheet1",
+  ) {
     const stamp = new Date().toISOString().slice(0, 10);
     if (kind === "csv") {
       downloadBlob(`${base}-${stamp}.csv`, "text/csv;charset=utf-8", "\uFEFF" + toCSV(rows));
       return;
     }
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheet);
@@ -5938,45 +7294,70 @@ function ExportsTab() {
   }
 
   type RawOrder = {
-    id: string; order_number?: string | null; created_at: string;
-    customer_name: string; phone: string; governorate: string; address: string;
-    poster_title?: string | null; frame_type: string; frame_color: string;
-    size: string; quantity: number; shipping_cost?: number | null;
-    packaging_fee?: number | null; total_price?: number | null; status: string;
+    id: string;
+    order_number?: string | null;
+    created_at: string;
+    customer_name: string;
+    phone: string;
+    governorate: string;
+    address: string;
+    poster_title?: string | null;
+    frame_type: string;
+    frame_color: string;
+    size: string;
+    quantity: number;
+    shipping_cost?: number | null;
+    packaging_fee?: number | null;
+    total_price?: number | null;
+    status: string;
   };
   type RawVisit = {
-    visitor_id: string; session_id: string; path: string;
-    referrer: string | null; source: string | null; device: string | null;
-    user_agent: string | null; created_at: string;
+    visitor_id: string;
+    session_id: string;
+    path: string;
+    referrer: string | null;
+    source: string | null;
+    device: string | null;
+    user_agent: string | null;
+    created_at: string;
   };
 
   async function loadOrderRows() {
     const orders = await fetchAll<RawOrder>("orders");
     return orders.map((o) => ({
       "Order Number": o.order_number ?? o.id.slice(0, 8),
-      "Date": new Date(o.created_at).toISOString(),
-      "Customer": o.customer_name,
-      "Phone": o.phone,
-      "Governorate": o.governorate,
-      "Address": o.address,
-      "Poster": o.poster_title ?? "",
+      Date: new Date(o.created_at).toISOString(),
+      Customer: o.customer_name,
+      Phone: o.phone,
+      Governorate: o.governorate,
+      Address: o.address,
+      Poster: o.poster_title ?? "",
       "Frame Type": o.frame_type,
       "Frame Color": o.frame_color,
-      "Size": o.size,
-      "Quantity": o.quantity,
-      "Shipping": Number(o.shipping_cost ?? 0),
-      "Packaging": Number(o.packaging_fee ?? 0),
-      "Total": Number(o.total_price ?? 0),
-      "Status": o.status,
+      Size: o.size,
+      Quantity: o.quantity,
+      Shipping: Number(o.shipping_cost ?? 0),
+      Packaging: Number(o.packaging_fee ?? 0),
+      Total: Number(o.total_price ?? 0),
+      Status: o.status,
     }));
   }
 
   async function loadCustomerRows() {
     const orders = await fetchAll<RawOrder>("orders");
-    const map = new Map<string, {
-      name: string; phone: string; governorate: string; address: string;
-      orders: number; revenue: number; first: string; last: string;
-    }>();
+    const map = new Map<
+      string,
+      {
+        name: string;
+        phone: string;
+        governorate: string;
+        address: string;
+        orders: number;
+        revenue: number;
+        first: string;
+        last: string;
+      }
+    >();
     for (const o of orders) {
       const key = (o.phone || o.customer_name).trim().toLowerCase();
       const existing = map.get(key);
@@ -5987,18 +7368,23 @@ function ExportsTab() {
         if (o.created_at > existing.last) existing.last = o.created_at;
       } else {
         map.set(key, {
-          name: o.customer_name, phone: o.phone, governorate: o.governorate, address: o.address,
-          orders: 1, revenue: Number(o.total_price ?? 0),
-          first: o.created_at, last: o.created_at,
+          name: o.customer_name,
+          phone: o.phone,
+          governorate: o.governorate,
+          address: o.address,
+          orders: 1,
+          revenue: Number(o.total_price ?? 0),
+          first: o.created_at,
+          last: o.created_at,
         });
       }
     }
     return Array.from(map.values()).map((c) => ({
-      "Customer": c.name,
-      "Phone": c.phone,
-      "Governorate": c.governorate,
-      "Address": c.address,
-      "Orders": c.orders,
+      Customer: c.name,
+      Phone: c.phone,
+      Governorate: c.governorate,
+      Address: c.address,
+      Orders: c.orders,
       "Total Revenue (EGP)": Math.round(c.revenue),
       "First Order": new Date(c.first).toISOString(),
       "Last Order": new Date(c.last).toISOString(),
@@ -6008,20 +7394,23 @@ function ExportsTab() {
   async function loadVisitorRows() {
     const visits = await fetchAll<RawVisit>("analytics_visits");
     return visits.map((v) => ({
-      "Visitor": v.visitor_id,
-      "Session": v.session_id,
-      "Path": v.path,
-      "Source": v.source ?? "",
-      "Device": v.device ?? "",
-      "Referrer": v.referrer ?? "",
+      Visitor: v.visitor_id,
+      Session: v.session_id,
+      Path: v.path,
+      Source: v.source ?? "",
+      Device: v.device ?? "",
+      Referrer: v.referrer ?? "",
       "User Agent": v.user_agent ?? "",
-      "Date": new Date(v.created_at).toISOString(),
+      Date: new Date(v.created_at).toISOString(),
     }));
   }
 
   async function loadAnalyticsRows() {
     const visits = await fetchAll<RawVisit>("analytics_visits");
-    const byDay = new Map<string, { visits: number; visitors: Set<string>; sources: Map<string, number> }>();
+    const byDay = new Map<
+      string,
+      { visits: number; visitors: Set<string>; sources: Map<string, number> }
+    >();
     for (const v of visits) {
       const day = v.created_at.slice(0, 10);
       const slot = byDay.get(day) ?? { visits: 0, visitors: new Set(), sources: new Map() };
@@ -6032,10 +7421,10 @@ function ExportsTab() {
       byDay.set(day, slot);
     }
     return Array.from(byDay.entries())
-      .sort((a, b) => a[0] < b[0] ? 1 : -1)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([day, s]) => ({
-        "Date": day,
-        "Visits": s.visits,
+        Date: day,
+        Visits: s.visits,
         "Unique Visitors": s.visitors.size,
         "Top Source": Array.from(s.sources.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "",
       }));
@@ -6043,7 +7432,10 @@ function ExportsTab() {
 
   async function loadRevenueRows() {
     const orders = await fetchAll<RawOrder>("orders");
-    const byDay = new Map<string, { orders: number; revenue: number; shipping: number; packaging: number }>();
+    const byDay = new Map<
+      string,
+      { orders: number; revenue: number; shipping: number; packaging: number }
+    >();
     for (const o of orders) {
       const day = o.created_at.slice(0, 10);
       const slot = byDay.get(day) ?? { orders: 0, revenue: 0, shipping: 0, packaging: 0 };
@@ -6054,10 +7446,10 @@ function ExportsTab() {
       byDay.set(day, slot);
     }
     return Array.from(byDay.entries())
-      .sort((a, b) => a[0] < b[0] ? 1 : -1)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([day, s]) => ({
-        "Date": day,
-        "Orders": s.orders,
+        Date: day,
+        Orders: s.orders,
         "Revenue (EGP)": Math.round(s.revenue),
         "Shipping (EGP)": Math.round(s.shipping),
         "Packaging (EGP)": Math.round(s.packaging),
@@ -6065,13 +7457,22 @@ function ExportsTab() {
       }));
   }
 
-  async function run(key: string, loader: () => Promise<Record<string, unknown>[]>, base: string, kind: "xlsx" | "csv", sheet: string) {
+  async function run(
+    key: string,
+    loader: () => Promise<Record<string, unknown>[]>,
+    base: string,
+    kind: "xlsx" | "csv",
+    sheet: string,
+  ) {
     if (busy) return;
     setBusy(`${key}-${kind}`);
     try {
       const rows = await loader();
-      if (!rows.length) { toast.error("Nothing to export yet."); return; }
-      exportAs(rows, base, kind, sheet);
+      if (!rows.length) {
+        toast.error("Nothing to export yet.");
+        return;
+      }
+      await exportAs(rows, base, kind, sheet);
       toast.success(`Exported ${rows.length} ${sheet.toLowerCase()} rows.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
@@ -6080,12 +7481,54 @@ function ExportsTab() {
     }
   }
 
-  const groups: Array<{ key: string; title: string; desc: string; base: string; sheet: string; loader: () => Promise<Record<string, unknown>[]> }> = [
-    { key: "orders", title: "Orders", desc: "All orders with customer, frame, totals and status.", base: "brwazwneon-orders", sheet: "Orders", loader: loadOrderRows },
-    { key: "customers", title: "Customers", desc: "Unique customers aggregated from orders (orders, revenue, dates).", base: "brwazwneon-customers", sheet: "Customers", loader: loadCustomerRows },
-    { key: "visitors", title: "Visitors", desc: "Raw visitor sessions from on-site analytics.", base: "brwazwneon-visitors", sheet: "Visitors", loader: loadVisitorRows },
-    { key: "analytics", title: "Analytics", desc: "Daily visits, unique visitors and top traffic source.", base: "brwazwneon-analytics", sheet: "Analytics", loader: loadAnalyticsRows },
-    { key: "revenue", title: "Revenue", desc: "Daily revenue, shipping, packaging and AOV.", base: "brwazwneon-revenue", sheet: "Revenue", loader: loadRevenueRows },
+  const groups: Array<{
+    key: string;
+    title: string;
+    desc: string;
+    base: string;
+    sheet: string;
+    loader: () => Promise<Record<string, unknown>[]>;
+  }> = [
+    {
+      key: "orders",
+      title: "Orders",
+      desc: "All orders with customer, frame, totals and status.",
+      base: "brwazwneon-orders",
+      sheet: "Orders",
+      loader: loadOrderRows,
+    },
+    {
+      key: "customers",
+      title: "Customers",
+      desc: "Unique customers aggregated from orders (orders, revenue, dates).",
+      base: "brwazwneon-customers",
+      sheet: "Customers",
+      loader: loadCustomerRows,
+    },
+    {
+      key: "visitors",
+      title: "Visitors",
+      desc: "Raw visitor sessions from on-site analytics.",
+      base: "brwazwneon-visitors",
+      sheet: "Visitors",
+      loader: loadVisitorRows,
+    },
+    {
+      key: "analytics",
+      title: "Analytics",
+      desc: "Daily visits, unique visitors and top traffic source.",
+      base: "brwazwneon-analytics",
+      sheet: "Analytics",
+      loader: loadAnalyticsRows,
+    },
+    {
+      key: "revenue",
+      title: "Revenue",
+      desc: "Daily revenue, shipping, packaging and AOV.",
+      base: "brwazwneon-revenue",
+      sheet: "Revenue",
+      loader: loadRevenueRows,
+    },
   ];
 
   return (
@@ -6099,7 +7542,9 @@ function ExportsTab() {
       <div className="grid gap-3 sm:grid-cols-2">
         {groups.map((g) => (
           <div key={g.key} className="rounded-sm border border-border bg-card p-5">
-            <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{g.title}</div>
+            <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {g.title}
+            </div>
             <p className="mt-2 text-sm text-foreground/80">{g.desc}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -6107,7 +7552,11 @@ function ExportsTab() {
                 onClick={() => run(g.key, g.loader, g.base, "xlsx", g.sheet)}
                 className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
               >
-                {busy === `${g.key}-xlsx` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {busy === `${g.key}-xlsx` ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
                 Excel
               </button>
               <button
@@ -6115,7 +7564,11 @@ function ExportsTab() {
                 onClick={() => run(g.key, g.loader, g.base, "csv", g.sheet)}
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent disabled:opacity-50"
               >
-                {busy === `${g.key}-csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {busy === `${g.key}-csv` ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
                 CSV
               </button>
             </div>
@@ -6196,7 +7649,9 @@ function HighlightsTab() {
     const title = prompt("Title:") ?? key;
     const link = prompt("Link (e.g. /category/new):") ?? "/";
     const sort_order = (rows[rows.length - 1]?.sort_order ?? 0) + 1;
-    const { error } = await supabase.from("highlights").insert({ key, title, link, sort_order, enabled: true });
+    const { error } = await supabase
+      .from("highlights")
+      .insert({ key, title, link, sort_order, enabled: true });
     if (error) return toast.error(error.message);
     invalidate();
   };
@@ -6204,8 +7659,13 @@ function HighlightsTab() {
   return (
     <div>
       <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
-        <p className="text-xs text-muted-foreground">Homepage highlight strip — reorder, toggle, or change images/links.</p>
-        <button onClick={addNew} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground">
+        <p className="text-xs text-muted-foreground">
+          Homepage highlight strip — reorder, toggle, or change images/links.
+        </p>
+        <button
+          onClick={addNew}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+        >
           <Plus className="h-4 w-4" /> New highlight
         </button>
       </div>
@@ -6219,25 +7679,78 @@ function HighlightsTab() {
           </div>
         ) : (
           rows.map((r, i) => (
-            <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3">
+            <div
+              key={r.id}
+              className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3"
+            >
               <div className="h-16 w-16 overflow-hidden rounded-full border border-border bg-muted">
-                {r.image_url ? <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">No img</div>}
+                {r.image_url ? (
+                  <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                    No img
+                  </div>
+                )}
               </div>
               <label className="cursor-pointer text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
                 Upload
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(r, f); e.currentTarget.value = ""; }} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadImage(r, f);
+                    e.currentTarget.value = "";
+                  }}
+                />
               </label>
-              <input defaultValue={r.title} placeholder="Title" onBlur={(e) => e.target.value !== r.title && update(r.id, { title: e.target.value })} className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-              <input defaultValue={r.link} placeholder="/category/football" onBlur={(e) => e.target.value !== r.link && update(r.id, { link: e.target.value })} className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.key}</span>
+              <input
+                defaultValue={r.title}
+                placeholder="Title"
+                onBlur={(e) =>
+                  e.target.value !== r.title && update(r.id, { title: e.target.value })
+                }
+                className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                defaultValue={r.link}
+                placeholder="/category/football"
+                onBlur={(e) => e.target.value !== r.link && update(r.id, { link: e.target.value })}
+                className="w-56 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                {r.key}
+              </span>
               <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
-                <input type="checkbox" checked={r.enabled} onChange={(e) => update(r.id, { enabled: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={r.enabled}
+                  onChange={(e) => update(r.id, { enabled: e.target.checked })}
+                />
                 Enabled
               </label>
               <div className="ml-auto flex gap-1">
-                <button onClick={() => move(r, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button onClick={() => move(r, 1)} disabled={i === rows.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
-                <button onClick={() => remove(r.id)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button
+                  onClick={() => move(r, -1)}
+                  disabled={i === 0}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => move(r, 1)}
+                  disabled={i === rows.length - 1}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => remove(r.id)}
+                  className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))
@@ -6318,7 +7831,9 @@ function SetsTab() {
     const name = prompt("Set name (e.g. 6 Frames Set):");
     if (!name) return;
     const sort_order = (rows[rows.length - 1]?.sort_order ?? 0) + 1;
-    const { error } = await supabase.from("sets").insert({ name, frames_count: 6, price: 0, sort_order, enabled: true });
+    const { error } = await supabase
+      .from("sets")
+      .insert({ name, frames_count: 6, price: 0, sort_order, enabled: true });
     if (error) return toast.error(error.message);
     invalidate();
   };
@@ -6326,8 +7841,13 @@ function SetsTab() {
   return (
     <div>
       <div className="flex items-center justify-between rounded-sm border border-border bg-card p-4">
-        <p className="text-xs text-muted-foreground">Frame Sets — bundles shown on the /sets page. Admin controls all prices.</p>
-        <button onClick={addNew} className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground">
+        <p className="text-xs text-muted-foreground">
+          Frame Sets — bundles shown on the /sets page. Admin controls all prices.
+        </p>
+        <button
+          onClick={addNew}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+        >
           <Plus className="h-4 w-4" /> New set
         </button>
       </div>
@@ -6344,31 +7864,115 @@ function SetsTab() {
             <div key={r.id} className="rounded-sm border border-border bg-card p-4">
               <div className="flex flex-wrap items-start gap-4">
                 <div className="h-24 w-32 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
-                  {r.image_url ? <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">No image</div>}
+                  {r.image_url ? (
+                    <SafeImage src={r.image_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                      No image
+                    </div>
+                  )}
                 </div>
                 <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                  <input defaultValue={r.name} placeholder="Set name" onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-                  <input type="number" defaultValue={r.frames_count} placeholder="Number of frames" onBlur={(e) => Number(e.target.value) !== r.frames_count && update(r.id, { frames_count: Number(e.target.value) || 1 })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-                  <input type="number" defaultValue={r.price} placeholder="Price (EGP)" onBlur={(e) => Number(e.target.value) !== Number(r.price) && update(r.id, { price: Number(e.target.value) || 0 })} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-                  <input type="number" defaultValue={r.old_price ?? ""} placeholder="Old price (optional)" onBlur={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== (r.old_price ?? null)) update(r.id, { old_price: v }); }} className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-                  <textarea defaultValue={r.description ?? ""} placeholder="Description" onBlur={(e) => e.target.value !== (r.description ?? "") && update(r.id, { description: e.target.value || null })} className="col-span-full min-h-[60px] rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+                  <input
+                    defaultValue={r.name}
+                    placeholder="Set name"
+                    onBlur={(e) =>
+                      e.target.value !== r.name && update(r.id, { name: e.target.value })
+                    }
+                    className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    defaultValue={r.frames_count}
+                    placeholder="Number of frames"
+                    onBlur={(e) =>
+                      Number(e.target.value) !== r.frames_count &&
+                      update(r.id, { frames_count: Number(e.target.value) || 1 })
+                    }
+                    className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    defaultValue={r.price}
+                    placeholder="Price (EGP)"
+                    onBlur={(e) =>
+                      Number(e.target.value) !== Number(r.price) &&
+                      update(r.id, { price: Number(e.target.value) || 0 })
+                    }
+                    className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    defaultValue={r.old_price ?? ""}
+                    placeholder="Old price (optional)"
+                    onBlur={(e) => {
+                      const v = e.target.value === "" ? null : Number(e.target.value);
+                      if (v !== (r.old_price ?? null)) update(r.id, { old_price: v });
+                    }}
+                    className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                  <textarea
+                    defaultValue={r.description ?? ""}
+                    placeholder="Description"
+                    onBlur={(e) =>
+                      e.target.value !== (r.description ?? "") &&
+                      update(r.id, { description: e.target.value || null })
+                    }
+                    className="col-span-full min-h-[60px] rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+                  />
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <label className="cursor-pointer text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
                   Upload image
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(r, f); e.currentTarget.value = ""; }} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadImage(r, f);
+                      e.currentTarget.value = "";
+                    }}
+                  />
                 </label>
                 <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
-                  <input type="checkbox" checked={r.enabled} onChange={(e) => update(r.id, { enabled: e.target.checked })} /> Enabled
+                  <input
+                    type="checkbox"
+                    checked={r.enabled}
+                    onChange={(e) => update(r.id, { enabled: e.target.checked })}
+                  />{" "}
+                  Enabled
                 </label>
                 <label className="inline-flex items-center gap-2 text-xs uppercase tracking-widest">
-                  <input type="checkbox" checked={r.featured} onChange={(e) => update(r.id, { featured: e.target.checked })} /> Featured
+                  <input
+                    type="checkbox"
+                    checked={r.featured}
+                    onChange={(e) => update(r.id, { featured: e.target.checked })}
+                  />{" "}
+                  Featured
                 </label>
                 <div className="ml-auto flex gap-1">
-                  <button onClick={() => move(r, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => move(r, 1)} disabled={i === rows.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => remove(r.id)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button
+                    onClick={() => move(r, -1)}
+                    disabled={i === 0}
+                    className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => move(r, 1)}
+                    disabled={i === rows.length - 1}
+                    className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => remove(r.id)}
+                    className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -6413,7 +8017,12 @@ function BestSellersTab() {
       return data as {
         top_viewed: Array<{ id: string; title: string; image_url: string; views_count: number }>;
         top_purchased: Array<{ id: string; title: string; image_url: string; sales_count: number }>;
-        top_wishlisted: Array<{ id: string; title: string; image_url: string; wishlist_count: number }>;
+        top_wishlisted: Array<{
+          id: string;
+          title: string;
+          image_url: string;
+          wishlist_count: number;
+        }>;
         trending_today: Array<{ id: string; title: string; image_url: string; score: number }>;
         trending_week: Array<{ id: string; title: string; image_url: string; score: number }>;
         trending_month: Array<{ id: string; title: string; image_url: string; score: number }>;
@@ -6473,7 +8082,10 @@ function BestSellersTab() {
         enabled: v.enabled !== false,
         title: typeof v.title === "string" && v.title.trim() ? v.title : DEFAULT_BS_CONFIG.title,
         subtitle: typeof v.subtitle === "string" ? v.subtitle : DEFAULT_BS_CONFIG.subtitle,
-        homepage_count: Number.isFinite(hc) && hc > 0 && hc <= 24 ? Math.floor(hc) : DEFAULT_BS_CONFIG.homepage_count,
+        homepage_count:
+          Number.isFinite(hc) && hc > 0 && hc <= 24
+            ? Math.floor(hc)
+            : DEFAULT_BS_CONFIG.homepage_count,
         auto: v.auto !== false,
         show_badges: v.show_badges !== false,
         show_price: v.show_price !== false,
@@ -6543,7 +8155,9 @@ function BestSellersTab() {
   const recalculate = async () => {
     setBusy("recalc");
     try {
-      const { data, error } = await supabase.rpc("refresh_auto_best_sellers", { _top_n: currentCfg.max });
+      const { data, error } = await supabase.rpc("refresh_auto_best_sellers", {
+        _top_n: currentCfg.max,
+      });
       if (error) throw error;
       const r = data as { added: number; removed: number; kept: number };
       toast.success(`Recalculated — ${r.added} added, ${r.removed} removed, ${r.kept} kept`);
@@ -6614,7 +8228,9 @@ function BestSellersTab() {
             <input
               type="text"
               defaultValue={currentCfg.title}
-              onBlur={(e) => e.target.value !== currentCfg.title && saveConfig({ title: e.target.value })}
+              onBlur={(e) =>
+                e.target.value !== currentCfg.title && saveConfig({ title: e.target.value })
+              }
               className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
             />
           </label>
@@ -6623,7 +8239,9 @@ function BestSellersTab() {
             <input
               type="text"
               defaultValue={currentCfg.subtitle}
-              onBlur={(e) => e.target.value !== currentCfg.subtitle && saveConfig({ subtitle: e.target.value })}
+              onBlur={(e) =>
+                e.target.value !== currentCfg.subtitle && saveConfig({ subtitle: e.target.value })
+              }
               className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
             />
           </label>
@@ -6674,23 +8292,43 @@ function BestSellersTab() {
             Loop
           </label>
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            <input type="checkbox" checked={currentCfg.show_badges} onChange={(e) => saveConfig({ show_badges: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={currentCfg.show_badges}
+              onChange={(e) => saveConfig({ show_badges: e.target.checked })}
+            />
             Show badges
           </label>
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            <input type="checkbox" checked={currentCfg.show_price} onChange={(e) => saveConfig({ show_price: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={currentCfg.show_price}
+              onChange={(e) => saveConfig({ show_price: e.target.checked })}
+            />
             Show price
           </label>
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            <input type="checkbox" checked={currentCfg.show_cart} onChange={(e) => saveConfig({ show_cart: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={currentCfg.show_cart}
+              onChange={(e) => saveConfig({ show_cart: e.target.checked })}
+            />
             Show Add to Cart
           </label>
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            <input type="checkbox" checked={currentCfg.show_wishlist} onChange={(e) => saveConfig({ show_wishlist: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={currentCfg.show_wishlist}
+              onChange={(e) => saveConfig({ show_wishlist: e.target.checked })}
+            />
             Show Wishlist
           </label>
           <label className="flex items-center gap-2 text-xs uppercase tracking-widest">
-            <input type="checkbox" checked={currentCfg.show_quick_view} onChange={(e) => saveConfig({ show_quick_view: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={currentCfg.show_quick_view}
+              onChange={(e) => saveConfig({ show_quick_view: e.target.checked })}
+            />
             Show Quick View
           </label>
         </div>
@@ -6723,16 +8361,68 @@ function BestSellersTab() {
       {/* Analytics */}
       {analytics ? (
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {([
-            ["Top viewed", analytics.top_viewed.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.views_count} views` }))],
-            ["Top purchased", analytics.top_purchased.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.sales_count} sold` }))],
-            ["Top wishlisted", analytics.top_wishlisted.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.wishlist_count} saves` }))],
-            ["Trending today", analytics.trending_today.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
-            ["Trending this week", analytics.trending_week.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
-            ["Trending this month", analytics.trending_month.map((x) => ({ id: x.id, title: x.title, image_url: x.image_url, meta: `${x.score} adds` }))],
-          ] as const).map(([label, items]) => (
+          {(
+            [
+              [
+                "Top viewed",
+                analytics.top_viewed.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.views_count} views`,
+                })),
+              ],
+              [
+                "Top purchased",
+                analytics.top_purchased.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.sales_count} sold`,
+                })),
+              ],
+              [
+                "Top wishlisted",
+                analytics.top_wishlisted.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.wishlist_count} saves`,
+                })),
+              ],
+              [
+                "Trending today",
+                analytics.trending_today.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.score} adds`,
+                })),
+              ],
+              [
+                "Trending this week",
+                analytics.trending_week.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.score} adds`,
+                })),
+              ],
+              [
+                "Trending this month",
+                analytics.trending_month.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  image_url: x.image_url,
+                  meta: `${x.score} adds`,
+                })),
+              ],
+            ] as const
+          ).map(([label, items]) => (
             <div key={label} className="rounded-sm border border-border bg-card p-4">
-              <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+              <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+                {label}
+              </p>
               {items.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No data yet.</p>
               ) : (
@@ -6742,11 +8432,17 @@ function BestSellersTab() {
                     return (
                       <li key={it.id} className="flex items-center gap-2">
                         <div className="h-10 w-8 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
-                          <SafeImage src={it.image_url} alt="" className="h-full w-full object-cover" />
+                          <SafeImage
+                            src={it.image_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs">{it.title}</div>
-                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{it.meta}</div>
+                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            {it.meta}
+                          </div>
                         </div>
                         <button
                           onClick={() => !already && addPoster(it.id)}
@@ -6767,9 +8463,7 @@ function BestSellersTab() {
 
       {/* Add poster */}
       <div className="mt-6 rounded-sm border border-border bg-card p-4">
-        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
-          Add a poster
-        </p>
+        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Add a poster</p>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -6943,7 +8637,7 @@ function HomeSectionsTab() {
       const out: HomeSectionConfig[] = [];
       for (const item of raw) {
         const it = item as Record<string, unknown>;
-        const key = it.key as string | undefined;
+         const key = typeof it.key === "string" ? normalizeHomeSectionKey(it.key) : undefined;
         if (!key) continue;
         const isCustom = it.custom === true || key.startsWith("custom-");
         if (!isCustom && !(key in HOME_SECTION_LABELS)) continue;
@@ -7048,7 +8742,8 @@ function HomeSectionsTab() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-card p-4">
         <p className="text-xs text-muted-foreground">
-          Reorder, show/hide, and rename homepage sections. Every change saves and applies instantly.
+          Reorder, show/hide, and rename homepage sections. Every change saves and applies
+          instantly.
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -7084,10 +8779,7 @@ function HomeSectionsTab() {
           <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
         ) : (
           sections.map((s, i) => (
-            <div
-              key={s.key}
-              className="rounded-sm border border-border bg-card p-3"
-            >
+            <div key={s.key} className="rounded-sm border border-border bg-card p-3">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-[160px]">
                   <div className="flex items-center gap-1.5 text-sm font-semibold">
@@ -7160,7 +8852,8 @@ function HomeSectionsTab() {
                   placeholder="Title (English)"
                   onBlur={(e) => {
                     const v = e.target.value;
-                    if (v !== (s.title_en ?? s.title ?? "")) updateAt(i, { title_en: v || undefined });
+                    if (v !== (s.title_en ?? s.title ?? ""))
+                      updateAt(i, { title_en: v || undefined });
                   }}
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
@@ -7169,7 +8862,8 @@ function HomeSectionsTab() {
                   placeholder="العنوان (عربي)"
                   dir="rtl"
                   onBlur={(e) => {
-                    if (e.target.value !== (s.title_ar ?? "")) updateAt(i, { title_ar: e.target.value || undefined });
+                    if (e.target.value !== (s.title_ar ?? ""))
+                      updateAt(i, { title_ar: e.target.value || undefined });
                   }}
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
@@ -7178,7 +8872,8 @@ function HomeSectionsTab() {
                   placeholder="Subtitle (English)"
                   onBlur={(e) => {
                     const v = e.target.value;
-                    if (v !== (s.subtitle_en ?? s.subtitle ?? "")) updateAt(i, { subtitle_en: v || undefined });
+                    if (v !== (s.subtitle_en ?? s.subtitle ?? ""))
+                      updateAt(i, { subtitle_en: v || undefined });
                   }}
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
@@ -7187,7 +8882,8 @@ function HomeSectionsTab() {
                   placeholder="العنوان الفرعي (عربي)"
                   dir="rtl"
                   onBlur={(e) => {
-                    if (e.target.value !== (s.subtitle_ar ?? "")) updateAt(i, { subtitle_ar: e.target.value || undefined });
+                    if (e.target.value !== (s.subtitle_ar ?? ""))
+                      updateAt(i, { subtitle_ar: e.target.value || undefined });
                   }}
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
@@ -7198,12 +8894,19 @@ function HomeSectionsTab() {
                   <span className="text-muted-foreground">Source</span>
                   <select
                     value={s.source_type ?? ""}
-                    onChange={(e) => updateAt(i, { source_type: (e.target.value || undefined) as HomeSectionConfig["source_type"] })}
+                    onChange={(e) =>
+                      updateAt(i, {
+                        source_type: (e.target.value ||
+                          undefined) as HomeSectionConfig["source_type"],
+                      })
+                    }
                     className="rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
                   >
                     <option value="">—</option>
                     {sourceTypes.map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -7211,12 +8914,19 @@ function HomeSectionsTab() {
                   <span className="text-muted-foreground">Display</span>
                   <select
                     value={s.display_type ?? ""}
-                    onChange={(e) => updateAt(i, { display_type: (e.target.value || undefined) as HomeSectionConfig["display_type"] })}
+                    onChange={(e) =>
+                      updateAt(i, {
+                        display_type: (e.target.value ||
+                          undefined) as HomeSectionConfig["display_type"],
+                      })
+                    }
                     className="rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
                   >
                     <option value="">—</option>
                     {displayTypes.map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -7229,7 +8939,8 @@ function HomeSectionsTab() {
                     defaultValue={s.items_count ?? 12}
                     onBlur={(e) => {
                       const n = Number(e.target.value);
-                      if (Number.isFinite(n) && n > 0 && n !== s.items_count) updateAt(i, { items_count: n });
+                      if (Number.isFinite(n) && n > 0 && n !== s.items_count)
+                        updateAt(i, { items_count: n });
                     }}
                     className="w-16 rounded-sm border border-border bg-background px-1.5 py-1 text-xs"
                   />
@@ -7265,6 +8976,7 @@ function ManualSelectionModal({
   onClose: () => void;
   onSave: (ids: string[]) => void;
 }) {
+  type ManualSectionPoster = { id: string; title: string; image_url: string };
   const [ids, setIds] = useState<string[]>(section.manual_ids ?? []);
   const [q, setQ] = useState("");
   const { data: posters = [] } = useQuery({
@@ -7280,7 +8992,7 @@ function ManualSelectionModal({
       if (q.trim()) query = query.ilike("title", `%${q.trim()}%`);
       const { data, error } = await query;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as ManualSectionPoster[];
     },
   });
   const toggle = (id: string) =>
@@ -7290,10 +9002,17 @@ function ManualSelectionModal({
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-sm border border-border bg-background">
         <div className="flex items-center justify-between border-b border-border p-4">
           <div>
-            <div className="text-sm font-semibold">Manage Items — {section.title_en || section.label || section.key}</div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{ids.length} selected</div>
+            <div className="text-sm font-semibold">
+              Manage Items — {section.title_en || section.label || section.key}
+            </div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {ids.length} selected
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-sm border border-border p-1.5 hover:bg-accent">
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border p-1.5 hover:bg-accent"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -7307,7 +9026,7 @@ function ManualSelectionModal({
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
-            {posters.map((p: any) => {
+            {posters.map((p) => {
               const on = ids.includes(p.id);
               return (
                 <button
@@ -7315,10 +9034,16 @@ function ManualSelectionModal({
                   onClick={() => toggle(p.id)}
                   className={cn(
                     "group relative aspect-[2/3] overflow-hidden rounded-sm border bg-muted transition",
-                    on ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40",
+                    on
+                      ? "border-primary ring-2 ring-primary"
+                      : "border-border hover:border-primary/40",
                   )}
                 >
-                  <SafeImage src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                  <SafeImage
+                    src={p.image_url}
+                    alt={p.title}
+                    className="h-full w-full object-cover"
+                  />
                   <div className="absolute inset-x-0 bottom-0 truncate bg-background/85 px-1 py-0.5 text-[10px]">
                     {p.title}
                   </div>
@@ -7328,7 +9053,10 @@ function ManualSelectionModal({
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-border p-3">
-          <button onClick={onClose} className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
+          <button
+            onClick={onClose}
+            className="rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+          >
             Cancel
           </button>
           <button
@@ -7364,7 +9092,9 @@ function AnnouncementTab() {
     },
   });
 
-  useEffect(() => { if (data) setCfg(data); }, [data]);
+  useEffect(() => {
+    if (data) setCfg(data);
+  }, [data]);
 
   const save = async () => {
     setSaving(true);
@@ -7385,7 +9115,8 @@ function AnnouncementTab() {
     }
   };
 
-  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
   const set = <K extends keyof AnnouncementConfig>(k: K, v: AnnouncementConfig[K]) =>
     setCfg((c) => ({ ...c, [k]: v }));
@@ -7431,13 +9162,17 @@ function AnnouncementTab() {
         </label>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          {([
-            ["bg", "Background"],
-            ["color", "Text color"],
-            ["accent", "Accent color"],
-          ] as const).map(([k, label]) => (
+          {(
+            [
+              ["bg", "Background"],
+              ["color", "Text color"],
+              ["accent", "Accent color"],
+            ] as const
+          ).map(([k, label]) => (
             <label key={k} className="block">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                {label}
+              </span>
               <div className="mt-1 flex items-center gap-2 rounded-sm border border-border bg-background px-2 py-1.5">
                 <input
                   type="color"
@@ -7456,8 +9191,13 @@ function AnnouncementTab() {
         </div>
 
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Preview</div>
-          <div className="overflow-hidden rounded-sm" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+            Preview
+          </div>
+          <div
+            className="overflow-hidden rounded-sm"
+            style={{ backgroundColor: cfg.bg, color: cfg.color }}
+          >
             <div className="whitespace-nowrap py-1.5 text-xs uppercase tracking-[0.28em]">
               <span className="mx-6">{cfg.text}</span>
               <span style={{ color: cfg.accent }}>•</span>
@@ -7502,7 +9242,9 @@ function SizeGuideTab() {
     },
   });
 
-  useEffect(() => { if (data) setCfg(data); }, [data]);
+  useEffect(() => {
+    if (data) setCfg(data);
+  }, [data]);
 
   const save = async () => {
     setSaving(true);
@@ -7540,20 +9282,24 @@ function SizeGuideTab() {
 
   const updateSize = (i: number, patch: Partial<SizeGuideItem>) =>
     setCfg((c) => ({ ...c, sizes: c.sizes.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }));
-  const moveSize = (i: number, dir: -1 | 1) => setCfg((c) => {
-    const j = i + dir;
-    if (j < 0 || j >= c.sizes.length) return c;
-    const next = c.sizes.slice();
-    [next[i], next[j]] = [next[j], next[i]];
-    return { ...c, sizes: next };
-  });
-  const removeSize = (i: number) => setCfg((c) => ({ ...c, sizes: c.sizes.filter((_, idx) => idx !== i) }));
-  const addSize = () => setCfg((c) => ({
-    ...c,
-    sizes: [...c.sizes, { id: `custom-${Date.now()}`, label: "New size", width: 30, height: 40 }],
-  }));
+  const moveSize = (i: number, dir: -1 | 1) =>
+    setCfg((c) => {
+      const j = i + dir;
+      if (j < 0 || j >= c.sizes.length) return c;
+      const next = c.sizes.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...c, sizes: next };
+    });
+  const removeSize = (i: number) =>
+    setCfg((c) => ({ ...c, sizes: c.sizes.filter((_, idx) => idx !== i) }));
+  const addSize = () =>
+    setCfg((c) => ({
+      ...c,
+      sizes: [...c.sizes, { id: `custom-${Date.now()}`, label: "New size", width: 30, height: 40 }],
+    }));
 
-  if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading)
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>;
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -7563,28 +9309,46 @@ function SizeGuideTab() {
 
       <div className="rounded-sm border border-border bg-card p-6 space-y-4">
         <label className="flex items-center gap-3">
-          <input type="checkbox" checked={cfg.enabled}
-            onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))} className="h-4 w-4" />
+          <input
+            type="checkbox"
+            checked={cfg.enabled}
+            onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))}
+            className="h-4 w-4"
+          />
           <span className="text-xs uppercase tracking-widest">Enable Size Guide</span>
         </label>
         <label className="flex items-center gap-3">
-          <input type="checkbox" checked={cfg.roomEnabled}
-            onChange={(e) => setCfg((c) => ({ ...c, roomEnabled: e.target.checked }))} className="h-4 w-4" />
+          <input
+            type="checkbox"
+            checked={cfg.roomEnabled}
+            onChange={(e) => setCfg((c) => ({ ...c, roomEnabled: e.target.checked }))}
+            className="h-4 w-4"
+          />
           <span className="text-xs uppercase tracking-widest">Enable Room Preview tab</span>
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Room image</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Room image
+            </span>
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRoom(f); e.target.value = ""; }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadRoom(f);
+                e.target.value = "";
+              }}
               disabled={uploading}
               className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
             {cfg.roomImageUrl && (
-              <img src={cfg.roomImageUrl} alt="room" className="mt-2 h-32 w-full rounded-sm border border-border object-cover" />
+              <img
+                src={cfg.roomImageUrl}
+                alt="room"
+                className="mt-2 h-32 w-full rounded-sm border border-border object-cover"
+              />
             )}
           </label>
           <label className="block">
@@ -7596,7 +9360,12 @@ function SizeGuideTab() {
               min={60}
               max={800}
               value={cfg.wallWidthCm}
-              onChange={(e) => setCfg((c) => ({ ...c, wallWidthCm: Number(e.target.value) || DEFAULT_SIZE_GUIDE.wallWidthCm }))}
+              onChange={(e) =>
+                setCfg((c) => ({
+                  ...c,
+                  wallWidthCm: Number(e.target.value) || DEFAULT_SIZE_GUIDE.wallWidthCm,
+                }))
+              }
               className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
           </label>
@@ -7606,25 +9375,65 @@ function SizeGuideTab() {
       <div className="rounded-sm border border-border bg-card p-6">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-xs uppercase tracking-widest">Sizes</div>
-          <button onClick={addSize} className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent">
+          <button
+            onClick={addSize}
+            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs uppercase tracking-widest hover:bg-accent"
+          >
             <Plus className="h-3.5 w-3.5" /> Add size
           </button>
         </div>
         <div className="space-y-2">
           {cfg.sizes.map((s, i) => (
-            <div key={`${s.id}-${i}`} className="grid grid-cols-[1fr_1fr_80px_80px_auto] items-center gap-2 rounded-sm border border-border bg-background/50 p-2">
-              <input value={s.id} onChange={(e) => updateSize(i, { id: e.target.value })} placeholder="id"
-                className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs" />
-              <input value={s.label} onChange={(e) => updateSize(i, { label: e.target.value })} placeholder="label"
-                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-              <input type="number" value={s.width} onChange={(e) => updateSize(i, { width: Number(e.target.value) || 0 })}
-                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
-              <input type="number" value={s.height} onChange={(e) => updateSize(i, { height: Number(e.target.value) || 0 })}
-                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm" />
+            <div
+              key={`${s.id}-${i}`}
+              className="grid grid-cols-[1fr_1fr_80px_80px_auto] items-center gap-2 rounded-sm border border-border bg-background/50 p-2"
+            >
+              <input
+                value={s.id}
+                onChange={(e) => updateSize(i, { id: e.target.value })}
+                placeholder="id"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
+              <input
+                value={s.label}
+                onChange={(e) => updateSize(i, { label: e.target.value })}
+                placeholder="label"
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                type="number"
+                value={s.width}
+                onChange={(e) => updateSize(i, { width: Number(e.target.value) || 0 })}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
+              <input
+                type="number"
+                value={s.height}
+                onChange={(e) => updateSize(i, { height: Number(e.target.value) || 0 })}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+              />
               <div className="flex items-center gap-1">
-                <button onClick={() => moveSize(i, -1)} className="rounded-sm border border-border p-1 hover:bg-accent" aria-label="Up"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button onClick={() => moveSize(i, 1)} className="rounded-sm border border-border p-1 hover:bg-accent" aria-label="Down"><ArrowDown className="h-3.5 w-3.5" /></button>
-                <button onClick={() => removeSize(i)} className="rounded-sm border border-border p-1 text-destructive hover:bg-accent" aria-label="Remove"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button
+                  onClick={() => moveSize(i, -1)}
+                  className="rounded-sm border border-border p-1 hover:bg-accent"
+                  aria-label="Up"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => moveSize(i, 1)}
+                  className="rounded-sm border border-border p-1 hover:bg-accent"
+                  aria-label="Down"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => removeSize(i)}
+                  className="rounded-sm border border-border p-1 text-destructive hover:bg-accent"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))}
@@ -7632,8 +9441,11 @@ function SizeGuideTab() {
       </div>
 
       <div className="flex justify-end">
-        <button onClick={save} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-6 py-3 text-xs uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+        >
           <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save size guide"}
         </button>
       </div>
@@ -7670,8 +9482,14 @@ function HeroBannersTab() {
         .maybeSingle();
       const v = (data?.value ?? {}) as Partial<HeroBannerConfig>;
       return {
-        autoplay_ms: Number(v.autoplay_ms) > 0 ? Number(v.autoplay_ms) : DEFAULT_HERO_BANNER_CONFIG.autoplay_ms,
-        overlay_opacity: typeof v.overlay_opacity === "number" ? v.overlay_opacity : DEFAULT_HERO_BANNER_CONFIG.overlay_opacity,
+        autoplay_ms:
+          Number(v.autoplay_ms) > 0
+            ? Number(v.autoplay_ms)
+            : DEFAULT_HERO_BANNER_CONFIG.autoplay_ms,
+        overlay_opacity:
+          typeof v.overlay_opacity === "number"
+            ? v.overlay_opacity
+            : DEFAULT_HERO_BANNER_CONFIG.overlay_opacity,
       } as HeroBannerConfig;
     },
   });
@@ -7702,10 +9520,14 @@ function HeroBannersTab() {
     try {
       let order = (banners[banners.length - 1]?.sort_order ?? 0) + 1;
       for (const file of Array.from(files)) {
+        const id = crypto.randomUUID();
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-        const path = `hero-${crypto.randomUUID()}.${ext}`;
-        const signedUrl = await uploadAndSign("slider", path, file);
+        const path = `hero-banners/hero-${crypto.randomUUID()}.${ext}`;
+        const signedUrl = await uploadAndSign("slider", path, file, {
+          autoOptimize: { sourceTable: "hero_banners", sourceId: id },
+        });
         const { error } = await supabase.from("hero_banners" as never).insert({
+          id,
           image_url: signedUrl,
           sort_order: order++,
           enabled: true,
@@ -7726,7 +9548,10 @@ function HeroBannersTab() {
   };
 
   const update = async (id: string, patch: Partial<HeroBanner>) => {
-    const { error } = await supabase.from("hero_banners" as never).update(patch as never).eq("id", id);
+    const { error } = await supabase
+      .from("hero_banners" as never)
+      .update(patch as never)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["admin-hero-banners"] });
     qc.invalidateQueries({ queryKey: ["hero-banners"] });
@@ -7734,7 +9559,10 @@ function HeroBannersTab() {
 
   const remove = async (b: HeroBanner) => {
     if (!confirm("Delete this banner?")) return;
-    const { error } = await supabase.from("hero_banners" as never).delete().eq("id", b.id);
+    const { error } = await supabase
+      .from("hero_banners" as never)
+      .delete()
+      .eq("id", b.id);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
     qc.invalidateQueries({ queryKey: ["admin-hero-banners"] });
@@ -7752,9 +9580,12 @@ function HeroBannersTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold uppercase tracking-widest">Hero Advertising Banners</h2>
+        <h2 className="text-lg font-semibold uppercase tracking-widest">
+          Hero Advertising Banners
+        </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Rotating banners displayed behind the homepage hero. Falls back to the default hero image when empty.
+          Rotating banners displayed behind the homepage hero. Falls back to the default hero image
+          when empty.
         </p>
       </div>
 
@@ -7819,31 +9650,46 @@ function HeroBannersTab() {
           </div>
         ) : (
           banners.map((b, i) => (
-            <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3">
+            <div
+              key={b.id}
+              className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-3"
+            >
               <SafeImage src={b.image_url} alt="" className="h-20 w-32 rounded-sm object-cover" />
               <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                 <input
                   defaultValue={b.title ?? ""}
                   placeholder="Title"
-                  onBlur={(e) => e.target.value !== (b.title ?? "") && update(b.id, { title: e.target.value || null })}
+                  onBlur={(e) =>
+                    e.target.value !== (b.title ?? "") &&
+                    update(b.id, { title: e.target.value || null })
+                  }
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
                 <input
                   defaultValue={b.subtitle ?? ""}
                   placeholder="Subtitle"
-                  onBlur={(e) => e.target.value !== (b.subtitle ?? "") && update(b.id, { subtitle: e.target.value || null })}
+                  onBlur={(e) =>
+                    e.target.value !== (b.subtitle ?? "") &&
+                    update(b.id, { subtitle: e.target.value || null })
+                  }
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
                 <input
                   defaultValue={b.button_text ?? ""}
                   placeholder="Button text"
-                  onBlur={(e) => e.target.value !== (b.button_text ?? "") && update(b.id, { button_text: e.target.value || null })}
+                  onBlur={(e) =>
+                    e.target.value !== (b.button_text ?? "") &&
+                    update(b.id, { button_text: e.target.value || null })
+                  }
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
                 <input
                   defaultValue={b.button_link ?? ""}
                   placeholder="Button link (https://…)"
-                  onBlur={(e) => e.target.value !== (b.button_link ?? "") && update(b.id, { button_link: e.target.value || null })}
+                  onBlur={(e) =>
+                    e.target.value !== (b.button_link ?? "") &&
+                    update(b.id, { button_link: e.target.value || null })
+                  }
                   className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
                 />
               </div>
@@ -7856,13 +9702,27 @@ function HeroBannersTab() {
                 Enabled
               </label>
               <div className="ml-auto flex gap-1">
-                <button onClick={() => move(b, -1)} disabled={i === 0} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move up">
+                <button
+                  onClick={() => move(b, -1)}
+                  disabled={i === 0}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  aria-label="Move up"
+                >
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => move(b, 1)} disabled={i === banners.length - 1} className="rounded-sm border border-border p-1.5 disabled:opacity-30" aria-label="Move down">
+                <button
+                  onClick={() => move(b, 1)}
+                  disabled={i === banners.length - 1}
+                  className="rounded-sm border border-border p-1.5 disabled:opacity-30"
+                  aria-label="Move down"
+                >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => remove(b)} className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive" aria-label="Delete">
+                <button
+                  onClick={() => remove(b)}
+                  className="rounded-sm border border-border p-1.5 text-muted-foreground hover:text-destructive"
+                  aria-label="Delete"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>

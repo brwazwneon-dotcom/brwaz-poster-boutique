@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState, type ImgHTMLAttributes } from "react";
 import { toast } from "sonner";
 import { Loader2, RotateCcw, Upload, ExternalLink, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,13 +24,53 @@ type Row = {
   help: string;
 };
 
+function LogoImage(props: ImgHTMLAttributes<HTMLImageElement>) {
+  return createElement("img", props);
+}
+
 const ROWS: Row[] = [
-  { key: "headerDesktop", label: "Desktop header logo", min: 40, max: 300, help: "Height on desktop header (px)." },
-  { key: "headerMobile", label: "Mobile header logo", min: 30, max: 200, help: "Height on mobile header (px)." },
-  { key: "footerDesktop", label: "Desktop footer logo", min: 40, max: 250, help: "Height in footer on desktop (px)." },
-  { key: "footerMobile", label: "Mobile footer logo", min: 30, max: 200, help: "Height in footer on mobile (px)." },
-  { key: "maintenance", label: "Maintenance page logo", min: 40, max: 400, help: "Logo height on the maintenance page (px)." },
-  { key: "pwa", label: "PWA app logo", min: 64, max: 512, help: "Square icon size for install/PWA reference (px)." },
+  {
+    key: "headerDesktop",
+    label: "Desktop header logo",
+    min: 40,
+    max: 300,
+    help: "Height on desktop header (px).",
+  },
+  {
+    key: "headerMobile",
+    label: "Mobile header logo",
+    min: 30,
+    max: 200,
+    help: "Height on mobile header (px).",
+  },
+  {
+    key: "footerDesktop",
+    label: "Desktop footer logo",
+    min: 40,
+    max: 250,
+    help: "Height in footer on desktop (px).",
+  },
+  {
+    key: "footerMobile",
+    label: "Mobile footer logo",
+    min: 30,
+    max: 200,
+    help: "Height in footer on mobile (px).",
+  },
+  {
+    key: "maintenance",
+    label: "Maintenance page logo",
+    min: 40,
+    max: 400,
+    help: "Logo height on the maintenance page (px).",
+  },
+  {
+    key: "pwa",
+    label: "PWA app logo",
+    min: 64,
+    max: 512,
+    help: "Square icon size for install/PWA reference (px).",
+  },
 ];
 
 export function BrandingTab() {
@@ -46,12 +86,18 @@ export function BrandingTab() {
   useEffect(() => {
     setDraft(server);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server.logoUrl, server.keepAspect, server.headerDesktop, server.headerMobile, server.footerDesktop, server.footerMobile, server.maintenance, server.pwa]);
+  }, [
+    server.logoUrl,
+    server.keepAspect,
+    server.headerDesktop,
+    server.headerMobile,
+    server.footerDesktop,
+    server.footerMobile,
+    server.maintenance,
+    server.pwa,
+  ]);
 
-  const dirty = useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(server),
-    [draft, server],
-  );
+  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(server), [draft, server]);
 
   const setField = <K extends keyof BrandingConfig>(k: K, v: BrandingConfig[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
@@ -73,7 +119,10 @@ export function BrandingTab() {
       // Read intrinsic ratio.
       const ratio = await new Promise<number | null>((resolve) => {
         const img = new Image();
-        img.onload = () => resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null);
+        img.onload = () =>
+          resolve(
+            img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null,
+          );
         img.onerror = () => resolve(null);
         img.src = data.publicUrl;
       });
@@ -105,10 +154,7 @@ export function BrandingTab() {
     toast.info("Sizes reset to defaults. Click Save to apply.");
   };
 
-  const previewHeight =
-    device === "desktop"
-      ? draft.headerDesktop
-      : draft.headerMobile;
+  const previewHeight = device === "desktop" ? draft.headerDesktop : draft.headerMobile;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -121,12 +167,17 @@ export function BrandingTab() {
         </section>
 
         <section className="rounded-sm border border-border p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Logo image</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            Logo image
+          </h3>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="flex h-32 w-48 items-center justify-center rounded-sm border border-dashed border-border bg-neutral-950">
               {draft.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={draft.logoUrl} alt="Current logo" className="max-h-28 max-w-44 object-contain" />
+                <LogoImage
+                  src={draft.logoUrl}
+                  alt="Current logo"
+                  className="max-h-28 max-w-44 object-contain"
+                />
               ) : (
                 <span className="text-xs text-muted-foreground">No logo</span>
               )}
@@ -150,7 +201,11 @@ export function BrandingTab() {
                   disabled={uploading}
                   className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent disabled:opacity-60"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
                   Upload logo
                 </button>
                 <a
@@ -163,7 +218,10 @@ export function BrandingTab() {
                 </a>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="logo-url" className="text-xs uppercase tracking-widest text-muted-foreground">
+                <Label
+                  htmlFor="logo-url"
+                  className="text-xs uppercase tracking-widest text-muted-foreground"
+                >
                   Or paste image URL
                 </Label>
                 <Input
@@ -191,7 +249,9 @@ export function BrandingTab() {
 
         <section className="rounded-sm border border-border p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Sizes</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              Sizes
+            </h3>
             <button
               type="button"
               onClick={onReset}
@@ -226,7 +286,9 @@ export function BrandingTab() {
                 />
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>{r.help}</span>
-                  <span>{r.min}–{r.max}px</span>
+                  <span>
+                    {r.min}–{r.max}px
+                  </span>
                 </div>
               </div>
             ))}
@@ -257,7 +319,9 @@ export function BrandingTab() {
       <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
         <div className="rounded-sm border border-border p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Live preview</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              Live preview
+            </h3>
             <div className="flex overflow-hidden rounded-sm border border-border text-[10px] uppercase tracking-widest">
               {(["desktop", "mobile"] as const).map((d) => (
                 <button
@@ -276,7 +340,7 @@ export function BrandingTab() {
           </div>
           <div className="mt-4 space-y-4">
             <PreviewBlock label="Header" bg="bg-background border-b border-border">
-              <img
+              <LogoImage
                 src={draft.logoUrl}
                 alt="Preview"
                 style={{
@@ -288,7 +352,7 @@ export function BrandingTab() {
               />
             </PreviewBlock>
             <PreviewBlock label="Footer" bg="bg-neutral-950 border border-border">
-              <img
+              <LogoImage
                 src={draft.logoUrl}
                 alt="Preview"
                 style={{
@@ -300,7 +364,7 @@ export function BrandingTab() {
               />
             </PreviewBlock>
             <PreviewBlock label="Maintenance" bg="bg-black">
-              <img
+              <LogoImage
                 src={draft.logoUrl}
                 alt="Preview"
                 style={{
@@ -316,7 +380,7 @@ export function BrandingTab() {
                 className="flex items-center justify-center rounded-2xl bg-white"
                 style={{ width: Math.min(draft.pwa, 128), height: Math.min(draft.pwa, 128) }}
               >
-                <img
+                <LogoImage
                   src={draft.logoUrl}
                   alt="Preview"
                   className="max-h-[75%] max-w-[75%] object-contain"
@@ -355,8 +419,12 @@ function PreviewBlock({
 }) {
   return (
     <div>
-      <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`flex min-h-16 items-center justify-center rounded-sm px-4 py-5 ${bg}`}>{children}</div>
+      <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className={`flex min-h-16 items-center justify-center rounded-sm px-4 py-5 ${bg}`}>
+        {children}
+      </div>
     </div>
   );
 }

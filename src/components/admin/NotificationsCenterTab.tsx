@@ -38,7 +38,11 @@ export function NotificationsCenterTab() {
   const [priority, setPriority] = useState<string>("all");
   const [search, setSearch] = useState("");
 
-  const { data: items = [], isLoading, refetch } = useQuery({
+  const {
+    data: items = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-notif-list", { unreadOnly, type, priority, search }],
     queryFn: () => fetchNotifications({ limit: 200, unreadOnly, type, priority, search }),
   });
@@ -47,15 +51,17 @@ export function NotificationsCenterTab() {
     queryKey: ["admin-notif-summary"],
     queryFn: async (): Promise<SummaryCards> => {
       const { data } = await supabase.rpc("admin_notifications_summary" as never);
-      return (data as unknown as SummaryCards) ?? {
-        unread_total: 0,
-        critical_open: 0,
-        high_open: 0,
-        new_orders_today: 0,
-        errors_24h: 0,
-        low_quality_24h: 0,
-        upload_failures_24h: 0,
-      };
+      return (
+        (data as unknown as SummaryCards) ?? {
+          unread_total: 0,
+          critical_open: 0,
+          high_open: 0,
+          new_orders_today: 0,
+          errors_24h: 0,
+          low_quality_24h: 0,
+          upload_failures_24h: 0,
+        }
+      );
     },
     refetchInterval: 30_000,
   });
@@ -79,12 +85,24 @@ export function NotificationsCenterTab() {
         <SummaryCard label="Unread" value={summary?.unread_total ?? 0} tone="blue" />
         <SummaryCard label="Critical" value={summary?.critical_open ?? 0} tone="red" />
         <SummaryCard label="Open bugs" value={summary?.open_bugs ?? 0} tone="orange" />
-        <SummaryCard label="Orders need attention" value={summary?.orders_need_attention ?? 0} tone="amber" />
-        <SummaryCard label="Failed uploads 24h" value={summary?.upload_failures_24h ?? 0} tone="amber" />
+        <SummaryCard
+          label="Orders need attention"
+          value={summary?.orders_need_attention ?? 0}
+          tone="amber"
+        />
+        <SummaryCard
+          label="Failed uploads 24h"
+          value={summary?.upload_failures_24h ?? 0}
+          tone="amber"
+        />
         <SummaryCard label="Slow pages 24h" value={summary?.slow_pages_24h ?? 0} tone="amber" />
         <SummaryCard label="Low-quality 24h" value={summary?.low_quality_24h ?? 0} tone="amber" />
         <SummaryCard label="Errors 24h" value={summary?.errors_24h ?? 0} tone="red" />
-        <SummaryCard label="Unresolved alerts" value={summary?.unresolved_alerts ?? 0} tone="orange" />
+        <SummaryCard
+          label="Unresolved alerts"
+          value={summary?.unresolved_alerts ?? 0}
+          tone="orange"
+        />
         <SummaryCard label="Orders today" value={summary?.new_orders_today ?? 0} tone="green" />
       </div>
 
@@ -107,7 +125,7 @@ export function NotificationsCenterTab() {
           >
             {typeOptions.map((t) => (
               <option key={t} value={t}>
-                {t === "all" ? "All types" : TYPE_LABEL[t] ?? t}
+                {t === "all" ? "All types" : (TYPE_LABEL[t] ?? t)}
               </option>
             ))}
           </select>
@@ -156,11 +174,7 @@ export function NotificationsCenterTab() {
         ) : (
           <ul className="divide-y divide-border">
             {items.map((n) => (
-              <NotificationRow
-                key={n.id}
-                n={n}
-                onChange={invalidateAll}
-              />
+              <NotificationRow key={n.id} n={n} onChange={invalidateAll} />
             ))}
           </ul>
         )}
@@ -204,7 +218,9 @@ function NotificationRow({ n, onChange }: { n: AdminNotification; onChange: () =
             <div className="text-sm font-medium">{n.title}</div>
             {n.body && <div className="mt-0.5 text-xs text-muted-foreground">{n.body}</div>}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
-              <span className={cn("rounded px-1.5 py-0.5 font-semibold", st.badge)}>{st.label}</span>
+              <span className={cn("rounded px-1.5 py-0.5 font-semibold", st.badge)}>
+                {st.label}
+              </span>
               <span className="rounded bg-accent px-1.5 py-0.5 text-muted-foreground">
                 {TYPE_LABEL[n.type] ?? n.type}
               </span>

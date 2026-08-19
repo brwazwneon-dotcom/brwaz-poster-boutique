@@ -7,12 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
  */
 
 export type PhotoAiAction =
-  | "enhance"
-  | "colors"
-  | "sharpen_face"
-  | "remove_blur"
-  | "prepare_print"
-  | "suit";
+  "enhance" | "colors" | "sharpen_face" | "remove_blur" | "prepare_print" | "suit";
 
 const PROMPTS: Record<PhotoAiAction, string> = {
   enhance:
@@ -25,8 +20,7 @@ const PROMPTS: Record<PhotoAiAction, string> = {
     "Reduce motion blur and focus blur in this photo to make it print-sharp. Keep the exact same subject, composition, and colors.",
   prepare_print:
     "Prepare this photo for high-quality 4x6 photo print: optimize contrast, sharpness, saturation, and remove digital noise. Preserve all original detail.",
-  suit:
-    "Transform the person in this photo so they are wearing a professional formal business suit (dark navy or charcoal black jacket with white shirt and tie). Keep the exact same face, hairstyle, skin tone, pose, and background. Do NOT change the identity of the person. Do NOT add or remove people. If the photo does not clearly show a person, respond with the exact text ONLY: NO_PERSON",
+  suit: "Transform the person in this photo so they are wearing a professional formal business suit (dark navy or charcoal black jacket with white shirt and tie). Keep the exact same face, hairstyle, skin tone, pose, and background. Do NOT change the identity of the person. Do NOT add or remove people. If the photo does not clearly show a person, respond with the exact text ONLY: NO_PERSON",
 };
 
 type Input = {
@@ -44,12 +38,16 @@ export type PhotoAiResult = {
 const MAX_INPUT_BYTES = 8 * 1024 * 1024; // 8 MB
 
 export const enhancePhoto = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown): Input => {
+  .validator((data: unknown): Input => {
     const d = data as Input;
     if (!d || typeof d.imageBase64 !== "string" || !d.imageBase64.startsWith("data:image/")) {
       throw new Error("invalid image");
     }
-    if (!["enhance", "colors", "sharpen_face", "remove_blur", "prepare_print", "suit"].includes(d.action)) {
+    if (
+      !["enhance", "colors", "sharpen_face", "remove_blur", "prepare_print", "suit"].includes(
+        d.action,
+      )
+    ) {
       throw new Error("invalid action");
     }
     // Rough size check (base64 is ~1.37x binary size)
@@ -71,10 +69,7 @@ export const enhancePhoto = createServerFn({ method: "POST" })
         contents: [
           {
             role: "user",
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: m[1], data: m[2] } },
-            ],
+            parts: [{ text: prompt }, { inlineData: { mimeType: m[1], data: m[2] } }],
           },
         ],
         generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
