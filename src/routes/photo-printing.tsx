@@ -8,7 +8,10 @@ import {
   useSiteSettings,
   computeShipping,
   usePricing,
+  usePhotoPrintingMediaConfig,
   readPostOrderMessageEnabled,
+  type PhotoPrintingBanner,
+  type PhotoPrintingPageImage,
 } from "@/lib/use-settings";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
@@ -96,6 +99,18 @@ function PhotoPrintingPage() {
   const qty = pics.length;
   const subtotal = qty * size.price;
   const settings = useSiteSettings();
+  const media = usePhotoPrintingMediaConfig();
+  const banners = useMemo(
+    () =>
+      media.banners.filter(
+        (banner) => banner.enabled && (banner.desktopImageUrl || banner.mobileImageUrl),
+      ),
+    [media.banners],
+  );
+  const pageImages = useMemo(
+    () => media.images.filter((image) => image.enabled && image.imageUrl),
+    [media.images],
+  );
   const shipping = computeShipping(subtotal, settings);
   const total = subtotal + shipping;
   const remaining = Math.max(0, MIN_QTY - qty);
@@ -253,6 +268,8 @@ function PhotoPrintingPage() {
         </div>
       </section>
 
+      <PhotoPrintingBannerRail banners={banners} />
+
       {/* PRICING */}
       <section className="border-b border-border">
         <div className="container-page py-14">
@@ -286,6 +303,8 @@ function PhotoPrintingPage() {
           </div>
         </div>
       </section>
+
+      <PhotoPrintingImagesSection images={pageImages} />
 
       {/* UPLOAD + ORDER */}
       <section>
@@ -469,6 +488,112 @@ function PhotoPrintingPage() {
       <BeforeAfter location="photo-printing" />
       <ProductInfoSections variant="photo" />
     </div>
+  );
+}
+
+function PhotoPrintingBannerRail({ banners }: { banners: PhotoPrintingBanner[] }) {
+  if (banners.length === 0) return null;
+  return (
+    <section className="border-b border-border bg-background">
+      <div className="container-page py-8 sm:py-10">
+        <div className="space-y-4">
+          {banners.map((banner) => (
+            <PhotoPrintingBannerCard key={banner.id} banner={banner} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PhotoPrintingBannerCard({ banner }: { banner: PhotoPrintingBanner }) {
+  const desktop = banner.desktopImageUrl || banner.mobileImageUrl;
+  const mobile = banner.mobileImageUrl || banner.desktopImageUrl;
+  const image = (
+    <picture>
+      {mobile && <source media="(max-width: 640px)" srcSet={mobile} />}
+      <img
+        src={desktop}
+        alt={banner.altText || banner.title || "Photo printing banner"}
+        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.015]"
+        loading="lazy"
+        decoding="async"
+        sizes="(max-width: 640px) 100vw, min(1120px, 100vw)"
+      />
+    </picture>
+  );
+  const content = (
+    <div className="group relative isolate aspect-[16/9] overflow-hidden rounded-sm border border-border bg-card shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:aspect-[21/7]">
+      {image}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.34),rgba(0,0,0,0.04)_48%,rgba(255,255,255,0.08))]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/35 to-transparent" />
+    </div>
+  );
+  if (!banner.linkUrl) return content;
+  return (
+    <a
+      href={banner.linkUrl}
+      className="block outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      {content}
+    </a>
+  );
+}
+
+function PhotoPrintingImagesSection({ images }: { images: PhotoPrintingPageImage[] }) {
+  if (images.length === 0) return null;
+  const primary = images.find((image) => image.isPrimary) ?? images[0];
+  const secondary = images.filter((image) => image.id !== primary.id);
+  return (
+    <section className="border-b border-border bg-card/40">
+      <div className="container-page py-14">
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+          <figure className="overflow-hidden rounded-sm border border-border bg-background">
+            <img
+              src={primary.imageUrl}
+              alt={primary.altText || primary.title || "Premium photo print sample"}
+              className="aspect-[4/3] h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              sizes="(max-width: 1024px) 100vw, 58vw"
+            />
+            {(primary.title || primary.description) && (
+              <figcaption className="border-t border-border p-5">
+                {primary.title && <h2 className="text-display text-3xl">{primary.title}</h2>}
+                {primary.description && (
+                  <p className="mt-2 text-sm text-muted-foreground">{primary.description}</p>
+                )}
+              </figcaption>
+            )}
+          </figure>
+
+          {secondary.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {secondary.map((image) => (
+                <figure
+                  key={image.id}
+                  className="overflow-hidden rounded-sm border border-border bg-background"
+                >
+                  <img
+                    src={image.imageUrl}
+                    alt={image.altText || image.title || "Photo print detail"}
+                    className="aspect-square h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    sizes="(max-width: 1024px) 50vw, 20vw"
+                  />
+                  {image.title && (
+                    <figcaption className="border-t border-border px-3 py-2 text-xs font-semibold">
+                      {image.title}
+                    </figcaption>
+                  )}
+                </figure>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

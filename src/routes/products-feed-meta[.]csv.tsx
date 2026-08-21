@@ -3,7 +3,7 @@ import type {} from "@tanstack/react-start";
 import {
   buildMetaFeedCsv,
   buildMetaRows,
-  fetchCatalogData,
+  fetchAllCatalogData,
   parseCatalogConfig,
 } from "@/lib/catalog";
 
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/products-feed-meta.csv")({
             { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
           );
 
-          const data = await fetchCatalogData(supa);
+          const data = await fetchAllCatalogData(supa);
           const config = parseCatalogConfig(data.config);
 
           // When nothing is selected yet, default to every eligible product.

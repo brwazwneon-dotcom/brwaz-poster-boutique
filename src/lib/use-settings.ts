@@ -454,6 +454,123 @@ export function usePhoto4x6Config(): Photo4x6Config {
   return q.data ?? PHOTO_4X6_DEFAULTS;
 }
 
+/* -------------------- Photo Printing media -------------------- */
+
+export type PhotoPrintingBanner = {
+  id: string;
+  desktopImageUrl: string;
+  mobileImageUrl: string;
+  enabled: boolean;
+  linkUrl: string;
+  altText: string;
+  title: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PhotoPrintingPageImage = {
+  id: string;
+  imageUrl: string;
+  enabled: boolean;
+  isPrimary: boolean;
+  altText: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PhotoPrintingMediaConfig = {
+  banners: PhotoPrintingBanner[];
+  images: PhotoPrintingPageImage[];
+};
+
+export const PHOTO_PRINTING_MEDIA_KEY = "photo_printing_media";
+export const PHOTO_PRINTING_MEDIA_DEFAULTS: PhotoPrintingMediaConfig = {
+  banners: [],
+  images: [],
+};
+
+const asString = (value: unknown): string => (typeof value === "string" ? value : "");
+const asBool = (value: unknown, fallback = false): boolean =>
+  typeof value === "boolean" ? value : fallback;
+const asNumber = (value: unknown, fallback = 0): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export function parsePhotoPrintingMediaConfig(raw: unknown): PhotoPrintingMediaConfig {
+  if (!raw || typeof raw !== "object") return PHOTO_PRINTING_MEDIA_DEFAULTS;
+  const value = raw as Partial<PhotoPrintingMediaConfig>;
+  const banners = Array.isArray(value.banners)
+    ? value.banners
+        .map((item, index) => {
+          if (!item || typeof item !== "object") return null;
+          const b = item as Partial<PhotoPrintingBanner>;
+          const desktopImageUrl = asString(b.desktopImageUrl);
+          const mobileImageUrl = asString(b.mobileImageUrl);
+          if (!desktopImageUrl && !mobileImageUrl) return null;
+          return {
+            id: asString(b.id) || `banner-${index}`,
+            desktopImageUrl,
+            mobileImageUrl,
+            enabled: asBool(b.enabled, true),
+            linkUrl: asString(b.linkUrl),
+            altText: asString(b.altText),
+            title: asString(b.title),
+            sortOrder: asNumber(b.sortOrder, index),
+            createdAt: asString(b.createdAt),
+            updatedAt: asString(b.updatedAt),
+          } satisfies PhotoPrintingBanner;
+        })
+        .filter((item): item is PhotoPrintingBanner => !!item)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
+  const images = Array.isArray(value.images)
+    ? value.images
+        .map((item, index) => {
+          if (!item || typeof item !== "object") return null;
+          const image = item as Partial<PhotoPrintingPageImage>;
+          const imageUrl = asString(image.imageUrl);
+          if (!imageUrl) return null;
+          return {
+            id: asString(image.id) || `image-${index}`,
+            imageUrl,
+            enabled: asBool(image.enabled, true),
+            isPrimary: asBool(image.isPrimary, false),
+            altText: asString(image.altText),
+            title: asString(image.title),
+            description: asString(image.description),
+            sortOrder: asNumber(image.sortOrder, index),
+            createdAt: asString(image.createdAt),
+            updatedAt: asString(image.updatedAt),
+          } satisfies PhotoPrintingPageImage;
+        })
+        .filter((item): item is PhotoPrintingPageImage => !!item)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
+  return { banners, images };
+}
+
+export function usePhotoPrintingMediaConfig(): PhotoPrintingMediaConfig {
+  const q = useQuery({
+    queryKey: ["photo-printing-media"],
+    staleTime: 30_000,
+    queryFn: async (): Promise<PhotoPrintingMediaConfig> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", PHOTO_PRINTING_MEDIA_KEY)
+        .maybeSingle();
+      if (error) throw error;
+      return parsePhotoPrintingMediaConfig(data?.value);
+    },
+  });
+  return q.data ?? PHOTO_PRINTING_MEDIA_DEFAULTS;
+}
+
 /* -------------------- Post-order success message -------------------- */
 
 export const POST_ORDER_MESSAGE_ENABLED_KEY = "post_order_success_message_enabled";

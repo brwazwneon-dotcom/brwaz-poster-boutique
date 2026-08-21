@@ -1,0 +1,17 @@
+node_modules
+.output
+.wrangler
+.nitro
+.tanstack
+dist
+.vercel
+test-results
+*.mjs
+*.png
+*.tgz
+*.log
+bun.lock
+bunfig.toml
+package-lock.json
+.git
+TECHNICAL_CONTEXT.md

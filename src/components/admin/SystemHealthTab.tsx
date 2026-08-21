@@ -187,6 +187,7 @@ export function SystemHealthTab() {
     queryFn: () => fetchHealth(),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    placeholderData: (prev: HealthReport | undefined) => prev,
   });
 
   const checks = useMemo(() => (data ? computeChecks(data) : null), [data]);
@@ -315,9 +316,17 @@ export function SystemHealthTab() {
     doc.save("system-health.pdf");
   }
 
-  if (isLoading || !data || !checks || !health) {
+  if (isLoading) {
     return (
       <div className="p-8 text-center text-muted-foreground text-sm">Loading system health…</div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-8 text-center text-muted-foreground text-sm">
+        Could not load system health. Check connection.
+      </div>
     );
   }
 

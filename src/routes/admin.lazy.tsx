@@ -49,7 +49,10 @@ import {
   RefreshCw,
   Crop,
   Check,
+  ChevronDown,
 } from "lucide-react";
+import { ADMIN_TABS, NAVIGATION_GROUPS, isAdminTab } from "@/lib/admin-navigation";
+import type { Tab } from "@/lib/admin-types";
 import { Slider } from "@/components/ui/slider";
 import {
   IMAGE_FALLBACK,
@@ -238,6 +241,11 @@ const PerformanceMonitorTab = lazy(() =>
 const Photo4x6Tab = lazy(() =>
   import("@/components/admin/Photo4x6Tab").then((module) => ({ default: module.Photo4x6Tab })),
 );
+const PhotoPrintingMediaTab = lazy(() =>
+  import("@/components/admin/PhotoPrintingMediaTab").then((module) => ({
+    default: module.PhotoPrintingMediaTab,
+  })),
+);
 const ProductCatalogTab = lazy(() =>
   import("@/components/admin/ProductCatalogTab").then((module) => ({
     default: module.ProductCatalogTab,
@@ -309,127 +317,6 @@ function AdminPageWithI18n() {
   );
 }
 
-type Tab =
-  | "analytics"
-  | "reports"
-  | "realtime"
-  | "behavior"
-  | "posters"
-  | "ai-upload"
-  | "ai-settings"
-  | "assistant"
-  | "assistant-requests"
-  | "categories"
-  | "subcategories"
-  | "display-order"
-  | "orders"
-  | "customers"
-  | "abandoned"
-  | "custom"
-  | "offers"
-  | "photo-4x6"
-  | "post-order"
-  | "slider"
-  | "hero-banners"
-  | "highlights"
-  | "best-sellers"
-  | "sections"
-  | "home-categories"
-  | "room-transformation"
-  | "sets"
-  | "collections"
-  | "collection-showcase"
-  | "quickbar"
-  | "footer-menu"
-  | "mockups"
-  | "wishlists"
-  | "reviews"
-  | "before-after"
-  | "photo-enhancement"
-  | "storefront-content"
-  | "marketing"
-  | "catalog"
-  | "campaign-landings"
-  | "campaign-report"
-  | "social-proof"
-  | "announcement"
-  | "size-guide"
-  | "alerts"
-  | "notifications"
-  | "error-logs"
-  | "performance"
-  | "stability"
-  | "images"
-  | "backups"
-  | "system-health"
-  | "env-check"
-  | "maintenance"
-  | "exports"
-  | "branding"
-  | "appearance"
-  | "settings";
-
-const ADMIN_TABS: Tab[] = [
-  "analytics",
-  "reports",
-  "assistant",
-  "realtime",
-  "behavior",
-  "appearance",
-  "posters",
-  "ai-upload",
-  "ai-settings",
-  "assistant-requests",
-  "categories",
-  "subcategories",
-  "display-order",
-  "orders",
-  "customers",
-  "abandoned",
-  "custom",
-  "offers",
-  "photo-4x6",
-  "post-order",
-  "slider",
-  "hero-banners",
-  "highlights",
-  "best-sellers",
-  "sections",
-  "home-categories",
-  "room-transformation",
-  "sets",
-  "collections",
-  "collection-showcase",
-  "quickbar",
-  "footer-menu",
-  "mockups",
-  "wishlists",
-  "reviews",
-  "before-after",
-  "photo-enhancement",
-  "storefront-content",
-  "marketing",
-  "catalog",
-  "campaign-landings",
-  "campaign-report",
-  "social-proof",
-  "announcement",
-  "size-guide",
-  "alerts",
-  "notifications",
-  "error-logs",
-  "performance",
-  "stability",
-  "images",
-  "backups",
-  "system-health",
-  "env-check",
-  "maintenance",
-  "exports",
-  "branding",
-  "settings",
-];
-
 const isAdminTab = (value: string): value is Tab => ADMIN_TABS.includes(value as Tab);
 
 function AdminPage() {
@@ -439,6 +326,13 @@ function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("analytics");
+  const [isGroupOpen, setIsGroupOpen] = useState<Record<string, boolean>>(() => {
+    const open: Record<string, boolean> = {};
+    Object.keys(NAVIGATION_GROUPS).forEach((key) => {
+      open[key] = true;
+    });
+    return open;
+  });
   const { t } = useAdminI18n();
 
   const setActiveTab = (next: Tab) => {
@@ -492,7 +386,7 @@ function AdminPage() {
       }
     })();
     return () => clearTimeout(timeoutId);
-  }, [navigate]);
+  }, [navigate, ensureAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -571,20 +465,37 @@ function AdminPage() {
       </div>
 
       <div className="mt-8 overflow-x-auto border-b border-border pb-px">
-        <div className="flex min-w-max gap-2 sm:min-w-0 sm:flex-wrap">
-          {ADMIN_TABS.map((tabKey) => (
-            <button
-              key={tabKey}
-              onClick={() => setActiveTab(tabKey)}
-              className={cn(
-                "shrink-0 border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-widest transition",
-                tab === tabKey
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+        <div className="space-y-6">
+          {Object.entries(NAVIGATION_GROUPS).map(([groupName, tabKeys]) => (
+            <div key={groupName} className="rounded-sm border border-border bg-card p-4">
+              <button
+                onClick={() => setIsGroupOpen((prev) => !prev)}
+                className="flex items-center justify-between w-full text-left text-sm font-medium uppercase tracking-widest text-muted-foreground mb-3"
+              >
+                {groupName}
+                <ChevronDown className="h-3 w-3 transition-transform duration-150" />
+              </button>
+              {isGroupOpen[groupName] && (
+                <div className="space-y-2">
+                  {tabKeys.map((tabKey) => (
+                    <button
+                      key={tabKey}
+                      onClick={() => setActiveTab(tabKey)}
+                      className={cn(
+                        "shrink-0 px-3 py-2 text-xs uppercase tracking-widest transition",
+                        tab === tabKey
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {tabKey === "collection-showcase"
+                        ? "Collection Showcase"
+                        : tabLabel(t, tabKey)}
+                    </button>
+                  ))}
+                </div>
               )}
-            >
-              {tabKey === "collection-showcase" ? "Collection Showcase" : tabLabel(t, tabKey)}
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -606,6 +517,7 @@ function AdminPage() {
           {tab === "custom" && <CustomDesignOrdersTab />}
           {tab === "offers" && <OffersTab />}
           {tab === "photo-4x6" && <Photo4x6Tab />}
+          {tab === "photo-printing-media" && <PhotoPrintingMediaTab />}
           {tab === "post-order" && <PostOrderSettingsTab />}
           {tab === "slider" && <SliderTab />}
           {tab === "hero-banners" && <HeroBannersTab />}
@@ -1975,7 +1887,8 @@ function EditPosterModal({
 
       if (data.needs_review) {
         toast.warning(
-          (data.validation_conflicts[0] || "Low confidence — review fields above") + " — saved but may need edits",
+          (data.validation_conflicts[0] || "Low confidence — review fields above") +
+            " — saved but may need edits",
         );
       } else {
         toast.success("SEO regenerated and saved");
@@ -2334,9 +2247,12 @@ function SeoPreviewDialog({
   useEffect(() => {
     try {
       (window as unknown as Record<string, unknown>).__SEO_ENGINE_VERSION__ = "VISION-V2";
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
   }, []);
-  const maxScore = previewSeo.confidence >= 0.8 ? "High" : previewSeo.confidence >= 0.5 ? "Medium" : "Low";
+  const maxScore =
+    previewSeo.confidence >= 0.8 ? "High" : previewSeo.confidence >= 0.5 ? "Medium" : "Low";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-background p-6 shadow-xl">
@@ -2364,32 +2280,27 @@ function SeoPreviewDialog({
           />
           <div className="min-w-0 flex-1 space-y-2 text-xs">
             <div>
-              <span className="font-semibold">Subject:</span>{" "}
-              {previewSeo.detected_subject || "—"}
+              <span className="font-semibold">Subject:</span> {previewSeo.detected_subject || "—"}
             </div>
             <div>
-              <span className="font-semibold">Type:</span>{" "}
-              {previewSeo.detected_type || "—"}
+              <span className="font-semibold">Type:</span> {previewSeo.detected_type || "—"}
             </div>
             <div>
               <span className="font-semibold">Detected text:</span>{" "}
               {previewSeo.detected_text || "—"}
             </div>
             <div>
-              <span className="font-semibold">Language:</span>{" "}
-              {previewSeo.detected_language || "—"}
+              <span className="font-semibold">Language:</span> {previewSeo.detected_language || "—"}
             </div>
             <div>
-              <span className="font-semibold">Visual style:</span>{" "}
-              {previewSeo.visual_style || "—"}
+              <span className="font-semibold">Visual style:</span> {previewSeo.visual_style || "—"}
             </div>
             <div>
               <span className="font-semibold">Colors:</span>{" "}
               {previewSeo.colors.length ? previewSeo.colors.join(", ") : "—"}
             </div>
             <div>
-              <span className="font-semibold">Orientation:</span>{" "}
-              {previewSeo.orientation || "—"}
+              <span className="font-semibold">Orientation:</span> {previewSeo.orientation || "—"}
             </div>
             {previewSeo.needs_review && previewSeo.validation_conflicts.length > 0 && (
               <div className="rounded border border-destructive/30 bg-destructive/5 p-2">
@@ -3935,7 +3846,12 @@ function OrderDetailsModal({
   const rawNote = (g.items[0] as OrderRowRaw).notes;
   const customerNotes = (() => {
     if (!rawNote) return null;
-    try { const m = JSON.parse(rawNote); if (m.originalFilename) return null; } catch {}
+    try {
+      const m = JSON.parse(rawNote);
+      if (m.originalFilename) return null;
+    } catch {
+      // Notes can be plain text from older orders.
+    }
     return rawNote;
   })();
 
@@ -4262,32 +4178,49 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
           ) : null}
           <Spec label="Ref" value={item.order_number ?? item.id.slice(0, 8)} />
         </div>
-        {item.notes && (() => {
-          try {
-            const meta = JSON.parse(item.notes);
-            if (meta.originalFilename) {
-              const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(1)} KB` : `${(b/1048576).toFixed(1)} MB`;
-              const dim = meta.originalWidth && meta.originalHeight ? `${meta.originalWidth} × ${meta.originalHeight} px` : null;
-              return (
-                <div className="mt-3 space-y-1 rounded-sm border border-border bg-accent/20 p-2 text-xs">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Original file</div>
-                  <div className="truncate font-medium" title={meta.originalFilename}>{meta.originalFilename}</div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
-                    {dim && <span>{dim}</span>}
-                    <span>{fmt(meta.originalFileSize)}</span>
-                    <span className="uppercase">{meta.originalMimeType}</span>
+        {item.notes &&
+          (() => {
+            try {
+              const meta = JSON.parse(item.notes);
+              if (meta.originalFilename) {
+                const fmt = (b: number) =>
+                  b < 1024
+                    ? `${b} B`
+                    : b < 1048576
+                      ? `${(b / 1024).toFixed(1)} KB`
+                      : `${(b / 1048576).toFixed(1)} MB`;
+                const dim =
+                  meta.originalWidth && meta.originalHeight
+                    ? `${meta.originalWidth} × ${meta.originalHeight} px`
+                    : null;
+                return (
+                  <div className="mt-3 space-y-1 rounded-sm border border-border bg-accent/20 p-2 text-xs">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Original file
+                    </div>
+                    <div className="truncate font-medium" title={meta.originalFilename}>
+                      {meta.originalFilename}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                      {dim && <span>{dim}</span>}
+                      <span>{fmt(meta.originalFileSize)}</span>
+                      <span className="uppercase">{meta.originalMimeType}</span>
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              }
+            } catch {
+              // Item notes can be plain text from older orders.
             }
-          } catch {}
-          return (
-            <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Item note</div>
-              <div className="mt-0.5">{item.notes}</div>
-            </div>
-          );
-        })()}
+            return (
+              <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Item note
+                </div>
+                <div className="mt-0.5">{item.notes}</div>
+              </div>
+            );
+          })()}
       </div>
 
       {zoom && item.poster_image && (
@@ -8637,7 +8570,7 @@ function HomeSectionsTab() {
       const out: HomeSectionConfig[] = [];
       for (const item of raw) {
         const it = item as Record<string, unknown>;
-         const key = typeof it.key === "string" ? normalizeHomeSectionKey(it.key) : undefined;
+        const key = typeof it.key === "string" ? normalizeHomeSectionKey(it.key) : undefined;
         if (!key) continue;
         const isCustom = it.custom === true || key.startsWith("custom-");
         if (!isCustom && !(key in HOME_SECTION_LABELS)) continue;

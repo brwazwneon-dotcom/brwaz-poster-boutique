@@ -26,6 +26,7 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { CatalogImagesView } from "@/components/admin/CatalogImagesView";
 
 const ISSUE_LABELS: Record<CatalogIssueReason, string> = {
@@ -70,9 +71,12 @@ export function ProductCatalogTab() {
     issues: CatalogIssue[];
   } | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(200);
+
   const { data, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ["admin-catalog"],
-    queryFn: () => fetchCatalogData(supabase),
+    queryKey: ["admin-catalog", page, pageSize],
+    queryFn: () => fetchCatalogData(supabase, { page, pageSize }),
     staleTime: 30_000,
   });
 
@@ -171,7 +175,14 @@ export function ProductCatalogTab() {
     );
   }
 
-  const eligibleCount = data.products.length - productIssues.size;
+  const eligibleCount = data?.totalProducts
+    ? data.totalProducts - productIssues.size
+    : (data?.products.length ?? 0) - productIssues.size;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil((data?.totalProducts ?? data?.products.length ?? 0) / pageSize),
+  );
 
   return (
     <div className="space-y-8">
@@ -289,6 +300,34 @@ export function ProductCatalogTab() {
             >
               Clear
             </button>
+          </div>
+
+          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+            <div>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className={cn(
+                  "rounded-sm border border-border px-2 py-1",
+                  page === 1 ? "opacity-50 cursor-not-allowed" : "",
+                )}
+              >
+                Prev
+              </button>
+              {`Page ${page} of ${totalPages}`}
+            </div>
+            <div>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+                className={cn(
+                  "rounded-sm border border-border px-2 py-1",
+                  page >= totalPages ? "opacity-50 cursor-not-allowed" : "",
+                )}
+              >
+                Next
+              </button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-sm border border-border">

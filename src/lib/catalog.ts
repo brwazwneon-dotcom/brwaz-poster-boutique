@@ -440,6 +440,8 @@ export type CatalogData = {
     { variant: string; width: number | null; height: number | null; format: string | null }
   >;
   config: CatalogConfig;
+  /** Total number of products (across all pages) for pagination and stats. */
+  totalProducts: number;
 };
 
 export const CATALOG_POSTER_COLUMNS =
@@ -521,12 +523,24 @@ async function fetchCatalogVariants(
 }
 
 /** Fetch everything the feed needs. Works with a server or browser supabase client. */
-export async function fetchCatalogData(supabase: SupabaseClient): Promise<CatalogData> {
-  const [catsRes, postsRes, pricingRes, cfgRes] = await Promise.all([
+export async function fetchCatalogData(
+  supabase: SupabaseClient,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<CatalogData> {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 200;
+
+  const offset = (page - 1) * pageSize;
+
+  const [catsRes, postsRes, pricingRes, cfgRes, countRes] = await Promise.all([
     supabase.from("categories").select("id,name,slug,hidden,status"),
-    supabase.from("posters").select(CATALOG_POSTER_COLUMNS).limit(5000),
+    supabase
+      .from("posters")
+      .select(CATALOG_POSTER_COLUMNS)
+      .range(offset, offset + pageSize - 1),
     supabase.from("site_settings").select("key,value").in("key", CATALOG_PRICING_KEYS),
     supabase.from("site_settings").select("value").eq("key", CATALOG_CONFIG_KEY).maybeSingle(),
+    supabase.from("posters").select("*", { count: "exact", head: true }),
   ]);
 
   const categories = new Map<string, CatalogCategory>();
@@ -541,6 +555,7 @@ export async function fetchCatalogData(supabase: SupabaseClient): Promise<Catalo
   }
 
   const products = (postsRes.data ?? []) as CatalogProduct[];
+  const totalProducts = countRes.count ?? 0;
 
   const variantsRes = await fetchCatalogVariants(
     supabase,
@@ -557,5 +572,51 @@ export async function fetchCatalogData(supabase: SupabaseClient): Promise<Catalo
     metaVariants: variantsRes.meta,
     variantInfo: variantsRes.bestInfo,
     config: parseCatalogConfig(cfgRes.data?.value),
+    totalProducts,
+  };
+}
+
+/** Fetch ALL catalog data across pages — used by the Meta feed server route. */
+export async function fetchAllCatalogData(supabase: SupabaseClient): Promise<CatalogData> {
+  const pageSize = 500;
+  let page = 1;
+  let allProducts: CatalogProduct[] = [];
+  let categoryMap = new Map<string, CatalogCategory>();
+  let pricing: CatalogPricing | null = null;
+  let variants: Record<string, string> = {};
+  let metaVariants: Record<string, string> = {};
+  let variantInfo: Record<
+    string,
+    { variant: string; width: number | null; height: number | null; format: string | null }
+  > = {};
+  let config: CatalogConfig | null = null;
+  let totalProducts = 0;
+
+  while (true) {
+    const data = await fetchCatalogData(supabase, { page, pageSize });
+    if (page === 1) {
+      categoryMap = data.categories;
+      pricing = data.pricing;
+      config = data.config;
+      totalProducts = data.totalProducts;
+    }
+    allProducts = allProducts.concat(data.products);
+    variants = { ...variants, ...data.variants };
+    metaVariants = { ...metaVariants, ...data.metaVariants };
+    variantInfo = { ...variantInfo, ...data.variantInfo };
+
+    if (data.products.length < pageSize) break;
+    page++;
+  }
+
+  return {
+    products: allProducts,
+    categories: categoryMap,
+    pricing: pricing ?? catalogPricingFromRows([]),
+    variants,
+    metaVariants,
+    variantInfo,
+    config: config ?? CATALOG_CONFIG_DEFAULTS,
+    totalProducts,
   };
 }
