@@ -4114,26 +4114,82 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
     }
   };
 
+  const [images, setImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      if (!item.selected_poster) {
+        setImages(item.poster_image ? [item.poster_image] : []);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("poster_images")
+          .select("image_url")
+          .eq("poster_id", item.selected_poster)
+          .order("sort_order", { ascending: true });
+        if (error) throw error;
+        const urls = (data ?? []).map((r) => r.image_url).filter(Boolean);
+        setImages(urls.length > 0 ? urls : [item.poster_image ?? ""]);
+      } catch (e) {
+        console.error("Failed to fetch poster images:", e);
+        setImages(item.poster_image ? [item.poster_image] : []);
+      }
+    };
+    fetchImages();
+  }, [item.selected_poster, item.poster_image]);
+
   return (
     <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[140px_1fr]">
       <div className="relative">
-        {item.poster_image ? (
-          <button
-            type="button"
-            onClick={() => setZoom(true)}
-            className="block w-full overflow-hidden rounded-sm bg-muted"
-          >
-            <SafeImage
-              src={item.poster_image}
-              alt={item.poster_title ?? "Item"}
-              className="aspect-[2/3] w-full object-cover"
-            />
-          </button>
-        ) : (
-          <div className="flex aspect-[2/3] w-full items-center justify-center rounded-sm bg-muted text-[10px] uppercase text-muted-foreground">
-            No image
-          </div>
-        )}
+        <div className="flex flex-col h-full">
+          {item.poster_image ? (
+            <div>
+              {/* Main image preview */}
+              <button
+                type="button"
+                onClick={() => setZoom(true)}
+                className="block w-full overflow-hidden rounded-sm bg-muted flex-shrink-0"
+              >
+                <SafeImage
+                  src={item.poster_image}
+                  alt={item.poster_title ?? "Item"}
+                  className="aspect-[2/3] w-full object-cover"
+                />
+              </button>
+              {/* Thumbnails of additional images from poster_images table */}
+              {images.length > 1 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {images.map((imgUrl, i) => {
+                    const isFirst = i === 0;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setZoom(true)}
+                        className={cn(
+                          "flex-1 rounded-sm border border-border bg-muted flex-shrink-0",
+                          isFirst ? "border-primary" : "border-transparent",
+                          "hover:border-border"
+                        )}
+                      >
+                        <SafeImage
+                          src={imgUrl}
+                          alt={`Item ${index} image ${i + 1}`}
+                          className="aspect-[2/3] w-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex aspect-[2/3] w-full items-center justify-center rounded-sm bg-muted text-[10px] uppercase text-muted-foreground">
+              No image
+            </div>
+          )}
+        </div>
         <div className="mt-2 flex gap-1">
           <button
             onClick={() => setZoom(true)}
