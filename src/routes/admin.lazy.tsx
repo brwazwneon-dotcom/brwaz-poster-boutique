@@ -3215,6 +3215,7 @@ type Order = {
   quantity: number;
   poster_title: string | null;
   poster_image: string | null;
+  selected_poster: string | null;
   total_price: number;
   shipping_cost: number | null;
   packaging_fee: number | null;
@@ -3428,7 +3429,7 @@ function OrdersTab() {
       let q = supabase
         .from("orders")
         .select(
-          "id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,total_price,subtotal,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test,notes,guest_session_id,user_id",
+          "id,order_number,customer_name,phone,governorate,address,frame_type,frame_color,size,quantity,poster_title,poster_image,selected_poster,total_price,subtotal,shipping_cost,packaging_fee,status,created_at,payment_method,payment_status,payment_screenshot,payment_notes,payment_verified_at,is_test,notes,guest_session_id,user_id",
         )
         .order("created_at", { ascending: false })
         .limit(1000);
