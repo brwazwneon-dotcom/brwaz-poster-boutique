@@ -1,9 +1,11 @@
 -- ===========================================================
 -- create_order_posters - Posters per order (for bundles)
 -- References public.orders(id), NOT order_items
+-- Idempotent: safe to run multiple times
 -- ===========================================================
 
-CREATE TABLE public.order_posters (
+-- Table: safe create if not exists
+CREATE TABLE IF NOT EXISTS public.order_posters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL
     REFERENCES public.orders(id)
@@ -17,27 +19,29 @@ CREATE TABLE public.order_posters (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Indexes for performance
-CREATE INDEX order_posters_order_id_idx ON public.order_posters(order_id);
-CREATE INDEX order_posters_poster_id_idx ON public.order_posters(poster_id);
-CREATE INDEX order_posters_order_position_idx ON public.order_posters(order_id, position);
+-- Indexes: safe create if not exists
+CREATE INDEX IF NOT EXISTS order_posters_order_id_idx ON public.order_posters(order_id);
+CREATE INDEX IF NOT EXISTS order_posters_poster_id_idx ON public.order_posters(poster_id);
+CREATE INDEX IF NOT EXISTS order_posters_order_position_idx ON public.order_posters(order_id, position);
 
--- RLS Policies
-ALTER TABLE public.order_posters ENABLE ROW LEVEL SECURITY;
-
+-- RLS Policies: drop if exist then create (idempotent)
 -- Insert: allow anon + authenticated (matches orders policy)
+DROP POLICY IF EXISTS "Anyone can insert order_posters" ON public.order_posters;
 CREATE POLICY "Anyone can insert order_posters" ON public.order_posters FOR INSERT TO anon, authenticated
   WITH CHECK (true);
 
 -- Select: admin only
+DROP POLICY IF EXISTS "Admins view order_posters" ON public.order_posters;
 CREATE POLICY "Admins view order_posters" ON public.order_posters FOR SELECT TO authenticated
   USING (private.has_role(auth.uid(), 'admin'::app_role));
 
 -- Update: admin only
+DROP POLICY IF EXISTS "Admins update order_posters" ON public.order_posters;
 CREATE POLICY "Admins update order_posters" ON public.order_posters FOR UPDATE TO authenticated
   USING (private.has_role(auth.uid(), 'admin'::app_role));
 
 -- Delete: admin only
+DROP POLICY IF EXISTS "Admins delete order_posters" ON public.order_posters;
 CREATE POLICY "Admins delete order_posters" ON public.order_posters FOR DELETE TO authenticated
   USING (private.has_role(auth.uid(), 'admin'::app_role));
 
