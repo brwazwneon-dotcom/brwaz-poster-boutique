@@ -679,6 +679,46 @@ function CartPage() {
           error,
         });
       }
+      // Insert order_posters records for each order item
+      // - For bundles: one record per poster in i.bundle.posters
+      // - For single posters: one record referencing the order
+      // Note: The order insert intentionally does not request returned rows,
+      // so we query the inserted orders by order_number to get their IDs.
+      const { data: insertedOrders, error: fetchError } = await supabase
+        .from("orders")
+        .select("id, order_number, bundle, selected_poster")
+        .in("order_number", rows.map((r) => r.order_number));
+      if (fetchError) throw fetchError;
+      const orderIdMap = new Map(
+        insertedOrders.map((o) => [o.order_number, o.id]),
+      );
+      // Insert order_posters for each order item
+      for (const row of rows) {
+        const orderId = orderIdMap.get(row.order_number);
+        if (!orderId) continue;
+        if (row.bundle && row.bundle.posters) {
+          // For bundles: one record per poster
+          for (let i = 0; i < row.bundle.posters.length; i++) {
+            const poster = row.bundle.posters[i];
+            await supabase.from("order_posters").insert({
+              order_id: orderId,
+              poster_id: poster.id,
+              poster_title: poster.title,
+              poster_image: poster.image ?? row.poster_image,
+              position: i,
+            });
+          }
+        } else {
+          // For single posters: one record
+          await supabase.from("order_posters").insert({
+            order_id: orderId,
+            poster_id: row.selected_poster,
+            poster_title: row.poster_title ?? row.title ?? "",
+            poster_image: row.poster_image ?? "",
+            position: 0,
+          });
+        }
+      }
       logCheckoutStep({
         step: "orders_insert_complete",
         table: "orders",

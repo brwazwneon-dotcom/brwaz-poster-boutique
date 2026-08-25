@@ -4119,6 +4119,32 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
 
   useEffect(() => {
     const fetchImages = async () => {
+      // First try to fetch from order_posters (new format for bundles)
+      if (item.id) {
+        try {
+          const { data, error } = await supabase
+            .from("order_posters")
+            .select("poster_image")
+            .eq("order_id", item.id)
+            .order("position", { ascending: true });
+          if (error) throw error;
+          const urls = (data ?? [])
+            .map((r) => r.poster_image)
+            .filter(Boolean);
+          if (urls.length > 0) {
+            setImages(urls);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to fetch order_posters:", e);
+        }
+      }
+
+      // Fallback: try selected_poster from poster_images table
+      if (!item.poster_image) {
+        setImages([]);
+        return;
+      }
       if (!item.selected_poster) {
         setImages(item.poster_image ? [item.poster_image] : []);
         return;
@@ -4130,7 +4156,9 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
           .eq("poster_id", item.selected_poster)
           .order("sort_order", { ascending: true });
         if (error) throw error;
-        const urls = (data ?? []).map((r) => r.image_url).filter(Boolean);
+        const urls = (data ?? [])
+          .map((r) => r.image_url)
+          .filter(Boolean);
         setImages(urls.length > 0 ? urls : [item.poster_image ?? ""]);
       } catch (e) {
         console.error("Failed to fetch poster images:", e);
@@ -4138,7 +4166,7 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
       }
     };
     fetchImages();
-  }, [item.selected_poster, item.poster_image]);
+  }, [item.id, item.selected_poster, item.poster_image]);
 
   return (
     <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[140px_1fr]">
