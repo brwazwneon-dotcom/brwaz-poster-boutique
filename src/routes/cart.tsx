@@ -660,6 +660,24 @@ function CartPage() {
         order_items: rows,
         totals: checkoutTotals,
       };
+      // Hard validation: reject custom-design items that have only a blob URL
+      // A permanent storage path must exist for every custom-design image.
+      for (const row of rows) {
+        const img = row.poster_image;
+        if (img && img.startsWith("blob:")) {
+          throwCheckoutError({
+            step: "order_validation",
+            table: "orders",
+            operation: "validate",
+            payload: { poster_image: "[blob URL rejected]" },
+            error: new Error(
+              "Custom design image is a temporary blob URL. " +
+              "Please re-upload the image and try again."
+            ),
+          });
+        }
+      }
+
       logCheckoutStep({
         step: "orders_insert_start",
         table: "orders",

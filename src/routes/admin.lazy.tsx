@@ -4100,13 +4100,13 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
   const [images, setImages] = useState<string[]>([]);
   const [resolvedUrl, setResolvedUrl] = useState<string>("");
 
-  // Resolve a poster_image value to a valid URL.
-  // Handles: signed URLs, raw storage paths, and legacy blob URLs.
+  // Resolve a poster_image value to a valid signed URL.
+  // The value should be a permanent storage path (e.g. "uuid/filename.webp").
   const resolveImageUrl = async (val: string): Promise<string> => {
     if (!val) return "";
-    // Already a valid HTTP URL — return as-is
+    // Already a valid HTTP URL — return as-is (pre-signed URL from posters table)
     if (val.startsWith("http://") || val.startsWith("https://")) return val;
-    // Storage path (e.g. "uuid/filename.webp") — sign it directly
+    // Storage path with folder (e.g. "uuid/filename.webp") — sign it directly
     if (val.includes("/")) {
       try {
         return await signStoragePathFromUrl("custom-designs", val);
@@ -4118,69 +4118,18 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
         }
       }
     }
-    // Legacy blob URL or bare filename — try to find the file in storage
-    // Extract original filename from order notes metadata
-    let filename = val;
-    if (val.startsWith("blob:")) {
-      try {
-        const meta = item.notes ? JSON.parse(item.notes) : null;
-        filename = meta?.originalFilename ?? val;
-      } catch {
-        filename = val;
-      }
-    }
-    // Search custom-designs bucket for a file matching this filename
+    // Legacy: bare filename or blob URL — should not happen after backfill.
+    // Minimal fallback: try signing as custom-designs path.
+    console.warn(
+      "[image-resolve] Unexpected poster_image value (expected storage path):",
+      val,
+      "Order:", item.order_number ?? item.id
+    );
     try {
-      const { data: files, error } = await supabase.storage
-        .from("custom-designs")
-        .list("", { search: filename });
-      if (!error && files && files.length > 0) {
-        // Find exact match (case-insensitive)
-        const match = files.find(
-          (f) => f.name.toLowerCase() === filename.toLowerCase()
-        );
-        if (match) {
-          // We found the file but don't know the UUID folder.
-          // List the folder to get the full path.
-          const { data: folderFiles } = await supabase.storage
-            .from("custom-designs")
-            .list("");
-          if (folderFiles) {
-            for (const folder of folderFiles) {
-              if (folder.id) {
-                const fullPath = `${folder.name}/${match.name}`;
-                try {
-                  const signed = await signStoragePathFromUrl("custom-designs", fullPath);
-                  if (signed) return signed;
-                } catch {
-                  // continue
-                }
-              }
-            }
-          }
-          // Fallback: try signing with just the filename in each subfolder
-          const { data: rootFiles } = await supabase.storage
-            .from("custom-designs")
-            .list("", { limit: 1000 });
-          if (rootFiles) {
-            for (const entry of rootFiles) {
-              if (entry.name.toLowerCase() === filename.toLowerCase() && entry.id) {
-                // This is the file at root level
-                try {
-                  const signed = await signStoragePathFromUrl("custom-designs", entry.name);
-                  if (signed) return signed;
-                } catch {
-                  // continue
-                }
-              }
-            }
-          }
-        }
-      }
+      return await signStoragePathFromUrl("custom-designs", val);
     } catch {
-      // Storage search failed
+      return "";
     }
-    return "";
   };
 
   const download = async () => {
