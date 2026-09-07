@@ -610,7 +610,7 @@ function CartPage() {
           poster_title: i.bundle
             ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
             : i.title,
-          poster_image: i.image ?? i.customImagePath,
+          poster_image: i.customImagePath ?? i.image,
           notes: i.customImageMeta ? JSON.stringify(i.customImageMeta) : null,
           subtotal: lineNet,
           packaging_fee: linePackaging,
@@ -708,8 +708,8 @@ function CartPage() {
               position: i,
             });
           }
-        } else {
-          // For single posters: one record
+        } else if (row.selected_poster) {
+          // For single posters (non-custom): one record
           await supabase.from("order_posters").insert({
             order_id: orderId,
             poster_id: row.selected_poster,
@@ -718,6 +718,8 @@ function CartPage() {
             position: 0,
           });
         }
+        // Custom designs (selected_poster is null): no order_posters record
+        // Image is stored in orders.poster_image and resolved on-the-fly in admin
       }
       logCheckoutStep({
         step: "orders_insert_complete",
