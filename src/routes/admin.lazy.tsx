@@ -4097,28 +4097,50 @@ function TotalCell({
 
 function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
   const [zoom, setZoom] = useState(false);
-  const download = async () => {
-    if (!item.poster_image) return;
+  const [images, setImages] = useState<string[]>([]);
+  const [resolvedUrl, setResolvedUrl] = useState<string>("");
+
+  // Resolve a poster_image value to a valid URL.
+  // Raw storage paths (custom designs) need to be signed on-the-fly.
+  const resolveImageUrl = async (val: string): Promise<string> => {
+    if (!val) return "";
+    if (val.startsWith("http://") || val.startsWith("https://")) return val;
     try {
-      const res = await fetch(item.poster_image);
+      return await signStoragePathFromUrl("custom-designs", val);
+    } catch {
+      try {
+        return await signStoragePathFromUrl("posters", val);
+      } catch {
+        return "";
+      }
+    }
+  };
+
+  const download = async () => {
+    const url = resolvedUrl || (await resolveImageUrl(item.poster_image));
+    if (!url) return;
+    try {
+      const res = await fetch(url);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = blobUrl;
       a.download = `${item.order_number ?? item.id.slice(0, 8)}-${(item.poster_title ?? "poster").replace(/\W+/g, "-")}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
     } catch {
-      window.open(item.poster_image, "_blank");
+      window.open(url, "_blank");
     }
   };
 
-  const [images, setImages] = useState<string[]>([]);
-
   useEffect(() => {
     const fetchImages = async () => {
+      const resolveImageUrls = async (vals: string[]): Promise<string[]> => {
+        return (await Promise.all(vals.map(resolveImageUrl))).filter(Boolean);
+      };
+
       // First try to fetch from order_posters (new format for bundles)
       if (item.id) {
         try {
@@ -4128,11 +4150,12 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
             .eq("order_id", item.id)
             .order("position", { ascending: true });
           if (error) throw error;
-          const urls = (data ?? [])
+          const rawUrls = (data ?? [])
             .map((r) => r.poster_image)
             .filter(Boolean);
-          if (urls.length > 0) {
-            setImages(urls);
+          if (rawUrls.length > 0) {
+            const resolved = await resolveImageUrls(rawUrls);
+            setImages(resolved);
             return;
           }
         } catch (e) {
@@ -4140,39 +4163,32 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
         }
       }
 
-      // Fallback: try selected_poster from poster_images table
+      // Fallback: resolve item.poster_image
       if (!item.poster_image) {
         setImages([]);
         return;
       }
-      if (!item.selected_poster) {
-        setImages(item.poster_image ? [item.poster_image] : []);
+      const resolved = await resolveImageUrl(item.poster_image);
+      if (resolved) {
+        setImages([resolved]);
         return;
       }
-      try {
-        const { data, error } = await supabase
-          .from("poster_images")
-          .select("image_url")
-          .eq("poster_id", item.selected_poster)
-          .order("sort_order", { ascending: true });
-        if (error) throw error;
-        const urls = (data ?? [])
-          .map((r) => r.image_url)
-          .filter(Boolean);
-        setImages(urls.length > 0 ? urls : [item.poster_image ?? ""]);
-      } catch (e) {
-        console.error("Failed to fetch poster images:", e);
-        setImages(item.poster_image ? [item.poster_image] : []);
-      }
+      setImages([]);
     };
     fetchImages();
   }, [item.id, item.selected_poster, item.poster_image]);
+
+  useEffect(() => {
+    if (images.length > 0) {
+      setResolvedUrl(images[0]);
+    }
+  }, [images]);
 
   return (
     <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[140px_1fr]">
       <div className="relative">
         <div className="flex flex-col h-full">
-          {item.poster_image ? (
+          {resolvedUrl || item.poster_image ? (
             <div>
               {/* Main image preview */}
               <button
@@ -4181,7 +4197,7 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
                 className="block w-full overflow-hidden rounded-sm bg-muted flex-shrink-0"
               >
                 <SafeImage
-                  src={item.poster_image}
+                  src={resolvedUrl}
                   alt={item.poster_title ?? "Item"}
                   className="aspect-[2/3] w-full object-cover"
                 />
@@ -4308,13 +4324,13 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
           })()}
       </div>
 
-      {zoom && item.poster_image && (
+      {zoom && resolvedUrl && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
           onClick={() => setZoom(false)}
         >
           <img
-            src={item.poster_image}
+            src={resolvedUrl}
             alt={item.poster_title ?? ""}
             className="max-h-full max-w-full object-contain"
           />
