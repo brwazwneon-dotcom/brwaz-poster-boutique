@@ -54,6 +54,19 @@ function bytes(n: number | null | undefined): string {
   return `${v.toFixed(v >= 10 ? 0 : 1)} ${units[i]}`;
 }
 
+// Backfill custom-design images — one-time migration
+async function backfillCustomImages() {
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const { data, error } = await supabase.functions.invoke("backfill-custom-images", {
+    method: "POST",
+  });
+  if (error) throw error;
+  return data;
+}
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
@@ -181,6 +194,7 @@ export function SystemHealthTab() {
   const sendTest = useServerFn(sendTestNotification);
   const doBackup = useServerFn(createBackupServer);
   const [busy, setBusy] = useState<string | null>(null);
+  const [backfillResult, setBackfillResult] = useState<Record<string, unknown> | null>(null);
 
   const { data, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["system-health"],
@@ -244,6 +258,21 @@ export function SystemHealthTab() {
     } finally {
       setBusy(null);
       refetch();
+    }
+  }
+
+  async function handleBackfill() {
+    setBusy("backfill");
+    try {
+      const result = await backfillCustomImages();
+      setBackfillResult(result);
+      toast.success(
+        `Backfill complete: ${result.migrated} migrated, ${result.already_valid} already valid, ${result.duplicate_matches} duplicates, ${result.file_not_found} not found`
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -393,7 +422,76 @@ export function SystemHealthTab() {
         >
           <FileText className="h-3.5 w-3.5" /> Export PDF
         </button>
+        <button
+          onClick={handleBackfill}
+          disabled={busy === "backfill"}
+          className="inline-flex items-center gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs uppercase tracking-widest text-amber-600 hover:bg-amber-500/20 disabled:opacity-50"
+        >
+          <Database className="h-3.5 w-3.5" /> {busy === "backfill" ? "Running…" : "Fix Custom Images"}
+        </button>
       </div>
+
+      {backfillResult && (
+        <div className="rounded-sm border border-border bg-card p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-2">Backfill Results</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+            <div>
+              <div className="text-2xl font-bold">{String(backfillResult.total ?? 0)}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Total Scanned</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-emerald-600">{String(backfillResult.migrated ?? 0)}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Migrated</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{String(backfillResult.already_valid ?? 0)}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Already Valid</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-600">{String(backfillResult.duplicate_matches ?? 0)}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Duplicates</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-red-600">{String(backfillResult.file_not_found ?? 0)}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Not Found</div>
+            </div>
+          </div>
+          {Array.isArray(backfillResult.details) && backfillResult.details.length > 0 && (
+            <div className="mt-3 max-h-60 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground">
+                    <th className="text-left p-1">Order</th>
+                    <th className="text-left p-1">Status</th>
+                    <th className="text-left p-1">Old Value</th>
+                    <th className="text-left p-1">New Path</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(backfillResult.details as Array<Record<string, unknown>>).map((d, i) => (
+                    <tr key={i} className="border-t border-border">
+                      <td className="p-1 font-mono">{String(d.order_number ?? d.order_id ?? "").slice(0, 12)}</td>
+                      <td className="p-1">
+                        <span className={cn(
+                          "px-1 rounded text-[10px] font-semibold",
+                          String(d.status).startsWith("MIGRATED") && "bg-emerald-500/20 text-emerald-600",
+                          String(d.status).startsWith("ALREADY") && "bg-blue-500/20 text-blue-600",
+                          String(d.status).includes("DUPLICATE") && "bg-amber-500/20 text-amber-600",
+                          String(d.status).includes("NOT_FOUND") && "bg-red-500/20 text-red-600",
+                        )}>
+                          {String(d.status).slice(0, 30)}
+                        </span>
+                      </td>
+                      <td className="p-1 font-mono text-muted-foreground truncate max-w-[200px]">{String(d.old_value ?? "").slice(0, 40)}</td>
+                      <td className="p-1 font-mono text-emerald-600 truncate max-w-[200px]">{String(d.new_path ?? "—").slice(0, 40)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Critical + Warnings summary */}
       {(checks.critical.length > 0 || checks.warnings.length > 0) && (
