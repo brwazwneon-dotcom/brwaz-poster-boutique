@@ -196,11 +196,18 @@ export function SystemHealthTab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [backfillResult, setBackfillResult] = useState<Record<string, unknown> | null>(null);
 
-  const { data, isLoading, refetch, dataUpdatedAt } = useQuery({
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["system-health"],
-    queryFn: () => fetchHealth(),
+    queryFn: () => {
+      const healthPromise = fetchHealth();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("System health check timed out after 30s")), 30_000);
+      });
+      return Promise.race([healthPromise, timeoutPromise]) as Promise<HealthReport>;
+    },
     refetchInterval: 30_000,
     staleTime: 15_000,
+    retry: 1,
     placeholderData: (prev: HealthReport | undefined) => prev,
   });
 
@@ -347,14 +354,26 @@ export function SystemHealthTab() {
 
   if (isLoading) {
     return (
-      <div className="p-8 text-center text-muted-foreground text-sm">Loading system health…</div>
+      <div className="p-8 text-center text-muted-foreground text-sm">
+        <p>Loading system health…</p>
+        <p className="text-[10px] mt-2 opacity-50">If this persists, click Refresh or check the browser console.</p>
+      </div>
     );
   }
 
-  if (!data) {
+  if (isError || !data) {
     return (
-      <div className="p-8 text-center text-muted-foreground text-sm">
-        Could not load system health. Check connection.
+      <div className="p-8 text-center text-sm">
+        <p className="text-red-500 font-medium mb-2">Could not load system health</p>
+        <p className="text-muted-foreground text-xs mb-4">
+          {error?.message ?? "Check your connection and try again."}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Retry
+        </button>
       </div>
     );
   }

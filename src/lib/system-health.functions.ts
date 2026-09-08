@@ -137,7 +137,11 @@ export const getSystemHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<HealthReport> => {
     const authContext = context as AuthContext;
-    await requireAdmin(authContext);
+    const adminCheckPromise = requireAdmin(authContext);
+    const adminTimeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Admin role check timed out")), 10_000);
+    });
+    await Promise.race([adminCheckPromise, adminTimeoutPromise]);
     const start = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin;
