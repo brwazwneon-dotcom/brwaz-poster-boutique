@@ -20,11 +20,11 @@ jobs:
           version: latest
 
       - name: Link Supabase Project
-        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase link --project-ref gxoyjyvmbttpwhihoxqk
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy Edge Functions
-        run: supabase functions deploy backfill-custom-images
+        run: supabase functions deploy backfill-custom-images --project-ref gxoyjyvmbttpwhihoxqk
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
