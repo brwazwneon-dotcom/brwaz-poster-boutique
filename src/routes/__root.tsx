@@ -187,7 +187,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "192x192", href: `${SITE_URL}/icon-192.png` },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "preconnect", href: "https://volrlqjrsxemhjwrnpun.supabase.co" },
+      { rel: "preconnect", href: import.meta.env.VITE_SUPABASE_URL || "" },
       { rel: "dns-prefetch", href: "https://analytics.tiktok.com" },
       { rel: "dns-prefetch", href: "https://connect.facebook.net" },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
