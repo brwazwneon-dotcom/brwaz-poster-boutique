@@ -80,11 +80,11 @@ export function StickyProductBar({
             ) : (
               <div className="flex flex-col gap-0.5 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-[#111] leading-tight whitespace-nowrap">
+                  <span className="text-lg font-bold text-foreground leading-tight whitespace-nowrap">
                     {"price" in content ? content.price : ""}
                   </span>
                   {"size" in content && content.size && (
-                    <span className="text-xs text-[#666] truncate">
+                    <span className="text-xs text-muted-foreground truncate">
                       {content.size}
                       {content.color ? ` · ${content.color}` : ""}
                     </span>
@@ -102,7 +102,7 @@ export function StickyProductBar({
                 type="button"
                 onClick={secondary.onClick}
                 disabled={secondary.loading}
-                className="hidden sm:inline-flex items-center justify-center rounded-md border border-[#e5e5e5] bg-white px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#111] hover:bg-[#f7f7f7] disabled:opacity-50 transition-colors min-h-[44px]"
+                className="hidden sm:inline-flex items-center justify-center rounded-md border border-border bg-card px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-foreground hover:bg-accent disabled:opacity-50 transition-colors min-h-[44px]"
                 aria-label={secondary.label}
               >
                 {secondary.label}
@@ -113,7 +113,7 @@ export function StickyProductBar({
                 href={secondary.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center justify-center rounded-md border border-[#e5e5e5] bg-white px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#111] hover:bg-[#f7f7f7] transition-colors min-h-[44px]"
+                className="hidden sm:inline-flex items-center justify-center rounded-md border border-border bg-card px-3 py-2.5 text-xs font-semibold uppercase tracking-widest text-foreground hover:bg-accent transition-colors min-h-[44px]"
                 aria-label={secondary.label}
               >
                 {secondary.label}
@@ -126,7 +126,7 @@ export function StickyProductBar({
                 type="button"
                 onClick={primary.onClick}
                 disabled={primary.loading}
-                className="inline-flex items-center justify-center rounded-md bg-[#111] px-6 py-3 text-sm font-semibold uppercase tracking-widest text-white hover:bg-[#333] disabled:opacity-50 transition-colors min-h-[48px] min-w-[140px] sm:min-w-[180px] shadow-sm"
+                className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors min-h-[48px] min-w-[140px] sm:min-w-[180px] shadow-sm"
                 aria-label={primary.label}
               >
                 {primary.loading ? (

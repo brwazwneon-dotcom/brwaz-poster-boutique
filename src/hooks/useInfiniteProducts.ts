@@ -31,7 +31,15 @@ export function getBatchSize(): number {
 
 async function fetchThumbnails(ids: string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
-  const variantTypes = ["thumb_avif", "thumb_webp", "thumb"];
+  const variantTypes = ["small_avif", "small_webp", "small", "thumb_avif", "thumb_webp", "thumb"];
+  const rankMap: Record<string, number> = {
+    small_avif: 0,
+    small_webp: 1,
+    small: 2,
+    thumb_avif: 3,
+    thumb_webp: 4,
+    thumb: 5,
+  };
   const result: Record<string, string> = {};
   for (let i = 0; i < ids.length; i += 80) {
     const batch = ids.slice(i, i + 80);
@@ -46,7 +54,7 @@ async function fetchThumbnails(ids: string[]): Promise<Record<string, string>> {
     for (const row of data ?? []) {
       const sid = String(row.source_id ?? "");
       if (!sid || !row.url) continue;
-      const rank = row.variant === "thumb_avif" ? 0 : row.variant === "thumb_webp" ? 1 : 2;
+      const rank = rankMap[row.variant] ?? 99;
       if (!best[sid] || rank < best[sid].rank) best[sid] = { url: row.url, rank };
     }
     for (const id of batch) if (best[id]) result[id] = best[id].url;

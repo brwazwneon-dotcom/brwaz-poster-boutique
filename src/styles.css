@@ -703,10 +703,11 @@ svg {
   bottom: 0;
   width: 100%;
   z-index: var(--z-sticky-bar);
-  background: rgba(255, 255, 255, 0.97);
-  border-top: 1px solid #e5e5e5;
+  background: var(--card, rgba(20, 20, 20, 0.95));
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
   transform: translateY(0);
   transition: transform 300ms ease;
 }

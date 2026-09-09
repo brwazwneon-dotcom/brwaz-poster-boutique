@@ -154,13 +154,13 @@ function CategoryPage() {
   const { t } = useTranslation();
   const sortLabels: Record<SortKey, string> = {
     newest: "category.sortNewest",
-    bestselling: "category.sortPopular",
-    popular: "category.sortPopular",
+    bestselling: "category.sortBestSelling",
+    popular: "category.sortMostViewed",
     az: "category.sortNameAsc",
     manual: "category.sortNewest",
-    trending: "category.sortPopular",
+    trending: "category.sortMostViewed",
     random: "category.sortNewest",
-    ai: "category.sortPopular",
+    ai: "category.sortBestSelling",
   };
   const sortLabel = (id: SortKey) => t(sortLabels[id]);
 

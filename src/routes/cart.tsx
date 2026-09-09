@@ -591,12 +591,20 @@ function CartPage() {
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
+      const itemRowMap: Array<{
+        rowId: string;
+        item: (typeof items)[number];
+      }> = [];
+
       const rows = items.map((i) => {
+        const rowId = crypto.randomUUID();
         const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
         const lineGross = i.price * i.qty;
         const lineDiscount = Math.round(lineGross * discountRatio);
         const lineNet = lineGross - lineDiscount;
+        itemRowMap.push({ rowId, item: i });
         return {
+          id: rowId,
           guest_session_id: guestSessionId,
           customer_name: name,
           phone,
@@ -626,6 +634,7 @@ function CartPage() {
       // Append the double-face-tape line as its own order row when chosen.
       if (tapeChoice === true && tapeTotal > 0) {
         rows.push({
+          id: crypto.randomUUID(),
           guest_session_id: guestSessionId,
           customer_name: name,
           phone,
@@ -697,47 +706,57 @@ function CartPage() {
           error,
         });
       }
-      // Insert order_posters records for each order item
-      // - For bundles: one record per poster in i.bundle.posters
-      // - For single posters: one record referencing the order
-      // Note: The order insert intentionally does not request returned rows,
-      // so we query the inserted orders by order_number to get their IDs.
-      const { data: insertedOrders, error: fetchError } = await supabase
-        .from("orders")
-        .select("id, order_number, bundle, selected_poster")
-        .in("order_number", rows.map((r) => r.order_number));
-      if (fetchError) throw fetchError;
-      const orderIdMap = new Map(
-        insertedOrders.map((o) => [o.order_number, o.id]),
-      );
-      // Insert order_posters for each order item
-      for (const row of rows) {
-        const orderId = orderIdMap.get(row.order_number);
-        if (!orderId) continue;
-        if (row.bundle && row.bundle.posters) {
-          // For bundles: one record per poster
-          for (let i = 0; i < row.bundle.posters.length; i++) {
-            const poster = row.bundle.posters[i];
-            await supabase.from("order_posters").insert({
-              order_id: orderId,
-              poster_id: poster.id,
-              poster_title: poster.title,
-              poster_image: poster.image ?? row.poster_image,
-              position: i,
-            });
+      // Insert order_posters records directly using known row IDs
+      // - For bundles: one record per poster in item.bundle.posters
+      // - For single posters: one record referencing the order row
+      try {
+        const orderPostersToInsert: Array<{
+          order_id: string;
+          poster_id: string;
+          poster_title: string;
+          poster_image: string;
+          position: number;
+        }> = [];
+
+        for (const { rowId, item } of itemRowMap) {
+          if (item.bundle && Array.isArray(item.bundle.posters) && item.bundle.posters.length > 0) {
+            for (let idx = 0; idx < item.bundle.posters.length; idx++) {
+              const poster = item.bundle.posters[idx];
+              const pId = asUuid(poster.id);
+              if (pId) {
+                orderPostersToInsert.push({
+                  order_id: rowId,
+                  poster_id: pId,
+                  poster_title: poster.title || "Poster",
+                  poster_image: poster.image || item.image || "",
+                  position: idx,
+                });
+              }
+            }
+          } else if (item.posterId) {
+            const pId = asUuid(item.posterId);
+            if (pId) {
+              orderPostersToInsert.push({
+                order_id: rowId,
+                poster_id: pId,
+                poster_title: item.title || "",
+                poster_image: item.customImagePath ?? item.image ?? "",
+                position: 0,
+              });
+            }
           }
-        } else if (row.selected_poster) {
-          // For single posters (non-custom): one record
-          await supabase.from("order_posters").insert({
-            order_id: orderId,
-            poster_id: row.selected_poster,
-            poster_title: row.poster_title ?? row.title ?? "",
-            poster_image: row.poster_image ?? "",
-            position: 0,
-          });
         }
-        // Custom designs (selected_poster is null): no order_posters record
-        // Image is stored in orders.poster_image and resolved on-the-fly in admin
+
+        if (orderPostersToInsert.length > 0) {
+          const { error: opErr } = await supabase
+            .from("order_posters")
+            .insert(orderPostersToInsert as unknown as never);
+          if (opErr) {
+            console.warn("[Checkout] Non-critical order_posters insert warning:", opErr);
+          }
+        }
+      } catch (opEx) {
+        console.warn("[Checkout] Non-critical order_posters exception:", opEx);
       }
       logCheckoutStep({
         step: "orders_insert_complete",
@@ -842,6 +861,7 @@ function CartPage() {
       const showSuccessMessage = await readPostOrderMessageEnabled().catch(() => true);
       if (showSuccessMessage) {
         toast.success("تم استلام طلبك بنجاح، سنتواصل معك قريبًا لتأكيد التفاصيل.");
+navigate({ to: "/order-confirmed", replace: true });
       }
       try {
         const { track } = await import("@/lib/behavior");
@@ -875,9 +895,9 @@ function CartPage() {
       setTapeOpen(false);
     } catch (err) {
       logCheckoutStep({ step: "checkout_failed", error: err });
-      const message = err instanceof Error ? err.message : String(err);
-      setCheckoutError(message);
-      toast.error(message);
+      const genericMessage = t("cart.checkoutFailed") ?? "فشل إنشاء الطلب، يرجى المحاولة مرة أخرى";
+      setCheckoutError(genericMessage);
+      toast.error(genericMessage);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -1492,8 +1512,11 @@ function CartPage() {
                       className={remainingForFree > 0 ? "text-muted-foreground" : "text-foreground"}
                     >
                       {remainingForFree > 0
-                        ? `Add ${remainingForFree} EGP more for free shipping`
-                        : "🎉 Free shipping unlocked"}
+                        ? t("cart.addMoreForFreeShipping", {
+                            amount: remainingForFree,
+                            defaultValue: `أضف ${remainingForFree} جنيه للحصول على شحن مجاني`,
+                          })
+                        : t("cart.freeShippingUnlocked", "🎉 تم تفعيل الشحن المجاني!")}
                     </span>
                     <span className="tabular-nums text-muted-foreground">{freeShipPct}%</span>
                   </div>
@@ -1526,12 +1549,16 @@ function CartPage() {
                 {submitting ? t("cart.placingOrder") : t("cart.confirmOrder")}
               </button>
               {checkoutError && (
-                <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-sm border border-destructive/40 bg-destructive/10 p-3 text-left text-[11px] leading-relaxed text-destructive">
-                  {checkoutError}
-                </pre>
+                <div className="mt-4 rounded-sm border border-destructive/40 bg-destructive/10 p-3 text-start text-xs text-destructive">
+                  <p className="font-semibold">{t("cart.orderErrorTitle", "حدث خطأ أثناء إرسال الطلب")}</p>
+                  <p className="mt-1 text-muted-foreground">{checkoutError}</p>
+                </div>
               )}
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Your order has been received. We will contact you soon to confirm the details.
+                {t(
+                  "cart.orderPromise",
+                  "سيتم استلام طلبك ومراجعته والتواصل معك هاتفياً أو عبر واتساب لتأكيد التفاصيل قبل الشحن.",
+                )}
               </p>
             </div>
           </aside>

@@ -1026,6 +1026,47 @@ export type Database = {
             columns: ["order_id"];
             isOneToOne: false;
             referencedRelation: "real_orders";
+      order_posters: {
+        Row: {
+          created_at: string;
+          id: string;
+          order_id: string;
+          position: number;
+          poster_id: string;
+          poster_image: string;
+          poster_title: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          order_id: string;
+          position?: number;
+          poster_id: string;
+          poster_image: string;
+          poster_title: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          order_id?: string;
+          position?: number;
+          poster_id?: string;
+          poster_image?: string;
+          poster_title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_posters_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "order_posters_poster_id_fkey";
+            columns: ["poster_id"];
+            isOneToOne: false;
+            referencedRelation: "posters";
             referencedColumns: ["id"];
           },
         ];

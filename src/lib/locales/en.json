@@ -402,6 +402,8 @@
     "filter": "Filter",
     "sortBy": "Sort by",
     "sortNewest": "Newest",
+    "sortBestSelling": "Best Selling",
+    "sortMostViewed": "Most Viewed",
     "sortPopular": "Most Popular",
     "sortPriceLow": "Price: Low to High",
     "sortPriceHigh": "Price: High to Low",

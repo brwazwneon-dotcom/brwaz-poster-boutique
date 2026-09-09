@@ -18,11 +18,28 @@ declare global {
 let ga4Id = "";
 let ga4Enabled = false;
 
+type QueuedGA =
+  | { kind: "event"; name: GAEventName; params: Record<string, unknown> }
+  | { kind: "page"; path: string; title?: string };
+const gaQueue: QueuedGA[] = [];
+
+function flushGAQueue() {
+  if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
+  while (gaQueue.length > 0) {
+    const item = gaQueue.shift()!;
+    if (item.kind === "event") gaEvent(item.name, item.params);
+    else if (item.kind === "page") gaPageView(item.path, item.title);
+  }
+}
+
 export function setGA4Config(cfg: MarketingConfig) {
   ga4Enabled = cfg.ga4Enabled;
   ga4Id = cfg.ga4MeasurementId;
   if (typeof window === "undefined") return;
-  if (ga4Enabled && ga4Id) loadGA4(ga4Id);
+  if (ga4Enabled && ga4Id) {
+    loadGA4(ga4Id);
+    flushGAQueue();
+  }
 }
 
 function loadGA4(id: string) {
@@ -58,8 +75,11 @@ export type GAEventName =
   | "contact";
 
 export function gaEvent(name: GAEventName, params: Record<string, unknown> = {}) {
-  if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
   if (isPreviewMode()) return;
+  if (!ga4Enabled || !ga4Id || typeof window === "undefined") {
+    gaQueue.push({ kind: "event", name, params });
+    return;
+  }
   try {
     window.gtag?.("event", name, params);
   } catch {
@@ -68,8 +88,11 @@ export function gaEvent(name: GAEventName, params: Record<string, unknown> = {})
 }
 
 export function gaPageView(path: string, title?: string) {
-  if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
   if (isPreviewMode()) return;
+  if (!ga4Enabled || !ga4Id || typeof window === "undefined") {
+    gaQueue.push({ kind: "page", path, title });
+    return;
+  }
   try {
     window.gtag?.("event", "page_view", {
       page_location: window.location.href,

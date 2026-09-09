@@ -337,7 +337,7 @@ export function SiteHeader() {
           aria-label={catalogLabel}
           dir={isAr ? "rtl" : "ltr"}
           className={cn(
-            "absolute top-0 flex h-[100dvh] w-[88vw] max-w-[380px] flex-col overflow-hidden bg-white text-[#111] shadow-2xl transition-transform duration-300 ease-out will-change-transform",
+            "absolute top-0 flex h-[100dvh] w-[88vw] max-w-[380px] flex-col overflow-hidden bg-card text-foreground shadow-2xl transition-transform duration-300 ease-out will-change-transform",
             drawerSide === "right" ? "right-0" : "left-0",
             mobileMenuOpen
               ? "translate-x-0"
@@ -347,9 +347,9 @@ export function SiteHeader() {
           )}
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
-          <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-black/45">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 {catalogLabel}
               </p>
               <p className="mt-1 text-base font-semibold">{t("common.brand")}</p>
@@ -358,13 +358,13 @@ export function SiteHeader() {
               type="button"
               onClick={() => setMobileMenuOpen(false)}
               aria-label={t("header.closeMenu")}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-black transition hover:bg-black/5"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground transition hover:bg-accent"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="border-b border-black/10 px-4 py-4">
+          <div className="border-b border-border px-4 py-4">
             <SearchBox
               variant="header"
               placeholder={mobileSearchPlaceholder}
@@ -376,12 +376,12 @@ export function SiteHeader() {
             {drawerGroups.map((group, index) => (
               <details
                 key={group.key}
-                className="group border-b border-black/10 py-1"
+                className="group border-b border-border py-1"
                 open={index < 2}
               >
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
                   <span>{group.label}</span>
-                  <ChevronDown className="h-4 w-4 text-black/45 transition group-open:rotate-180" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
                 </summary>
                 <div className="pb-2">
                   {group.links.map((item) => {
@@ -394,8 +394,8 @@ export function SiteHeader() {
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
                           active
-                            ? "bg-black text-white"
-                            : "text-black/75 hover:bg-black/5 hover:text-black",
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
                         )}
                       >
                         {Icon && <Icon className="h-4 w-4 shrink-0" />}
@@ -404,7 +404,7 @@ export function SiteHeader() {
                           <span
                             className={cn(
                               "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold",
-                              active ? "bg-white text-black" : "bg-black text-white",
+                              active ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground",
                             )}
                           >
                             {item.badge}
@@ -438,10 +438,10 @@ export function SiteHeader() {
           </nav>
 
           <div
-            className="border-t border-black/10 px-4 pb-4 pt-3"
+            className="border-t border-border px-4 pb-4 pt-3"
             style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
           >
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-black/45">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
               {t("nav.language")}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -449,10 +449,10 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => setLanguage("ar")}
                 className={cn(
-                  "min-h-11 rounded-lg border px-3 text-sm font-semibold",
+                  "min-h-11 rounded-lg border px-3 text-sm font-semibold transition-colors",
                   currentLanguage === "ar"
-                    ? "border-black bg-black text-white"
-                    : "border-black/15 text-black",
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-foreground hover:bg-accent",
                 )}
               >
                 العربية
@@ -461,10 +461,10 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => setLanguage("en")}
                 className={cn(
-                  "min-h-11 rounded-lg border px-3 text-sm font-semibold",
+                  "min-h-11 rounded-lg border px-3 text-sm font-semibold transition-colors",
                   currentLanguage === "en"
-                    ? "border-black bg-black text-white"
-                    : "border-black/15 text-black",
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-foreground hover:bg-accent",
                 )}
               >
                 English

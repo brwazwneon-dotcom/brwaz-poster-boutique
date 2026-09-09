@@ -62,6 +62,7 @@ export function setMarketingConfig(cfg: MarketingConfig) {
   lastConfig = cfg;
   if (typeof window === "undefined") return;
   if (cfg.pixelEnabled && cfg.pixelId) loadPixel(cfg.pixelId);
+  flushQueuedEvents();
 }
 
 function loadPixel(pixelId: string) {
@@ -125,9 +126,12 @@ export function trackEvent(
   params: Record<string, unknown> = {},
   userData?: Partial<UserData>,
 ) {
-  const cfg = lastConfig;
-  if (!cfg) return; // not loaded yet
   if (isPreviewMode()) return;
+  const cfg = lastConfig;
+  if (!cfg) {
+    enqueueEvent(name, params, userData);
+    return;
+  }
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
   const enriched = withAudience(params);
@@ -161,6 +165,53 @@ export function trackEvent(
   // 3) Mirror to GA4 (page_view handled separately by router).
   const ga = META_TO_GA[name];
   if (ga && name !== "PageView") gaEvent(ga, enriched);
+
+  // 4) Mirror to TikTok Pixel (ttq).
+  dispatchTikTokEvent(name, enriched);
+}
+
+function dispatchTikTokEvent(name: StandardEvent, params: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const ttq = window.ttq;
+  if (!ttq || typeof ttq.track !== "function") return;
+  try {
+    if (name === "ViewContent") {
+      const contentId =
+        params.content_id ||
+        (Array.isArray(params.content_ids) ? params.content_ids[0] : undefined);
+      ttq.track("ViewContent", {
+        content_id: contentId ? String(contentId) : undefined,
+        content_name: params.content_name ? String(params.content_name) : undefined,
+        content_type: "product",
+        value: typeof params.value === "number" ? params.value : undefined,
+        currency: (params.currency as string) || "EGP",
+      });
+    } else if (name === "AddToCart") {
+      const contentId =
+        params.content_id ||
+        (Array.isArray(params.content_ids) ? params.content_ids[0] : undefined);
+      ttq.track("AddToCart", {
+        content_id: contentId ? String(contentId) : undefined,
+        content_name: params.content_name ? String(params.content_name) : undefined,
+        content_type: "product",
+        value: typeof params.value === "number" ? params.value : undefined,
+        currency: (params.currency as string) || "EGP",
+      });
+    } else if (name === "InitiateCheckout") {
+      ttq.track("InitiateCheckout", {
+        value: typeof params.value === "number" ? params.value : undefined,
+        currency: (params.currency as string) || "EGP",
+      });
+    } else if (name === "Purchase") {
+      ttq.track("CompletePayment", {
+        contents: params.contents,
+        value: typeof params.value === "number" ? params.value : undefined,
+        currency: (params.currency as string) || "EGP",
+      });
+    }
+  } catch {
+    /* safe noop */
+  }
 }
 
 const META_TO_GA: Partial<Record<StandardEvent, GAEventName>> = {
@@ -184,9 +235,8 @@ export { lastConfig as _lastMarketingConfig };
 export type CustomEvent =
   | "ViewCategory"
   | "PhotoPrintingCustomer"
-  | "CustomDesignCustomer"
-  | "ViewCart"
-  | "CartUpdated"
+  | "CustomDesignLead"
+  | "ShareWishlist"
   | "RemoveFromCart"
   | "AddPhoneNumber"
   | "OrderCreated";
@@ -201,16 +251,25 @@ type QueuedEvent = {
 const queue: QueuedEvent[] = [];
 let flushScheduled = false;
 
+function flushQueuedEvents() {
+  if (!lastConfig || queue.length === 0) return;
+  const batch = queue.splice(0, queue.length);
+  for (const e of batch) {
+    if (e.kind === "std") trackEvent(e.name as StandardEvent, e.params, e.userData);
+    else trackCustom(e.name, e.params, e.userData);
+  }
+}
+
 function scheduleFlush() {
+  if (!lastConfig) {
+    // Keep in queue until setMarketingConfig provides configuration
+    return;
+  }
   if (flushScheduled || typeof window === "undefined") return;
   flushScheduled = true;
   const run = () => {
     flushScheduled = false;
-    const batch = queue.splice(0, queue.length);
-    for (const e of batch) {
-      if (e.kind === "std") trackEvent(e.name as StandardEvent, e.params, e.userData);
-      else trackCustom(e.name, e.params, e.userData);
-    }
+    flushQueuedEvents();
   };
   const ric = (
     window as unknown as {
@@ -251,9 +310,12 @@ export function trackCustom(
   params: Record<string, unknown> = {},
   userData?: Partial<UserData>,
 ) {
-  const cfg = lastConfig;
-  if (!cfg) return;
   if (isPreviewMode()) return;
+  const cfg = lastConfig;
+  if (!cfg) {
+    enqueueEvent(name as CustomEvent, params, userData);
+    return;
+  }
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
   const enriched = withAudience(params);
