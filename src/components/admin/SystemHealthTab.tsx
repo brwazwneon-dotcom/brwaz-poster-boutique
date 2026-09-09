@@ -352,22 +352,46 @@ export function SystemHealthTab() {
     doc.save("system-health.pdf");
   }
 
+  const browserSupabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const browserProjectId = browserSupabaseUrl?.match(/https?:\/\/([^.]+)\.supabase\.co/)?.[1] ?? "unknown";
+
   if (isLoading) {
     return (
-      <div className="p-8 text-center text-muted-foreground text-sm">
+      <div className="p-8 text-center text-muted-foreground text-sm space-y-4">
         <p>Loading system health…</p>
-        <p className="text-[10px] mt-2 opacity-50">If this persists, click Refresh or check the browser console.</p>
+        <div className="rounded-sm border border-border bg-card p-4 text-left max-w-md mx-auto">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2">Browser Config</p>
+          <Row label="Supabase Project" value={browserProjectId} sev={browserProjectId !== "gxoyjyvmbttpwhihoxqk" ? "crit" : "ok"} />
+          <Row label="VITE_SUPABASE_URL" value={browserSupabaseUrl ?? "MISSING"} sev={browserSupabaseUrl ? "ok" : "crit"} />
+          <p className="text-[10px] text-muted-foreground mt-2">
+            Server must use the <strong>same project</strong>. Check Lovable Cloud → Settings → Environment Variables.
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Retry
+        </button>
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="p-8 text-center text-sm">
-        <p className="text-red-500 font-medium mb-2">Could not load system health</p>
-        <p className="text-muted-foreground text-xs mb-4">
+      <div className="p-8 text-center text-sm space-y-4">
+        <p className="text-red-500 font-medium">Could not load system health</p>
+        <p className="text-muted-foreground text-xs">
           {error?.message ?? "Check your connection and try again."}
         </p>
+        <div className="rounded-sm border border-border bg-card p-4 text-left max-w-md mx-auto">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2">Browser Config</p>
+          <Row label="Supabase Project" value={browserProjectId} sev={browserProjectId !== "gxoyjyvmbttpwhihoxqk" ? "crit" : "ok"} />
+          <Row label="VITE_SUPABASE_URL" value={browserSupabaseUrl ?? "MISSING"} sev={browserSupabaseUrl ? "ok" : "crit"} />
+          <p className="text-[10px] text-muted-foreground mt-2">
+            If browser project ≠ server project, auth tokens will fail to verify. Update Lovable Cloud env vars to match.
+          </p>
+        </div>
         <button
           onClick={() => refetch()}
           className="inline-flex items-center gap-2 rounded-sm border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-accent"
@@ -776,7 +800,12 @@ export function SystemHealthTab() {
           sev={data.environment.supabase_url && data.environment.service_role_key ? "ok" : "crit"}
         >
           <Row
-            label="SUPABASE_URL"
+            label="Browser Supabase Project"
+            value={browserProjectId}
+            sev={browserProjectId !== "gxoyjyvmbttpwhihoxqk" ? "crit" : "ok"}
+          />
+          <Row
+            label="SUPABASE_URL (server)"
             value={data.environment.supabase_url ? "Set" : "MISSING"}
             sev={data.environment.supabase_url ? "ok" : "crit"}
           />
