@@ -9,7 +9,3 @@ dist
 *.local
 *.log
 *.tgz
-git-push.mjs
-
-.env*
-.vercel
