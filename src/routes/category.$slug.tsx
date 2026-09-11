@@ -4,7 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCategories, descendantIds, type Category } from "@/lib/use-categories";
+import {
+  useCategories,
+  descendantIds,
+  CATEGORIES_QUERY_KEY,
+  fetchCategories,
+  type Category,
+} from "@/lib/use-categories";
 import {
   FRAME_COLORS,
   FRAME_TYPES,
@@ -69,6 +75,18 @@ const SORTS: SortDef[] = [
 ];
 
 export const Route = createFileRoute("/category/$slug")({
+  loader: async ({ context }) => {
+    // Prefetches the categories list server-side so the category this slug
+    // resolves to (and its subcategories, for the product filter below) are
+    // available in the initial render instead of only after a client round
+    // trip. Does not touch the product grid itself — useInfiniteProducts
+    // stays client-driven, this only fixes the category-resolution half.
+    await context.queryClient.ensureQueryData({
+      queryKey: CATEGORIES_QUERY_KEY,
+      queryFn: fetchCategories,
+      staleTime: 60_000,
+    });
+  },
   head: ({ params }) => {
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;

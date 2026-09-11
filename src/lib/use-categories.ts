@@ -23,22 +23,26 @@ export type Category = {
   sort_mode?: string | null;
 };
 
+export const CATEGORIES_QUERY_KEY = ["categories"];
+
+export async function fetchCategories(): Promise<Category[]> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select(
+      "id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode,sort_mode",
+    )
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Category[];
+}
+
 export function useCategories(enabled = true) {
   return useQuery({
-    queryKey: ["categories"],
+    queryKey: CATEGORIES_QUERY_KEY,
     enabled,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select(
-          "id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode,sort_mode",
-        )
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Category[];
-    },
+    queryFn: fetchCategories,
   });
 }
 

@@ -15,6 +15,13 @@ const INITIAL_VISIBLE_POSTERS = 40;
 const POSTERS_CHUNK = 40;
 
 export const Route = createFileRoute("/trending")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: TRENDING_QUERY_KEY,
+      queryFn: fetchTrendingPosters,
+      staleTime: 60_000,
+    });
+  },
   head: () => ({
     meta: [
       { title: "Trending Posters — BRWAZWNEON" },
@@ -49,6 +56,23 @@ type Poster = {
   categories: { name: string; slug: string } | null;
 };
 
+const TRENDING_QUERY_KEY = ["trending-page"];
+
+async function fetchTrendingPosters(): Promise<Poster[]> {
+  const { data, error } = await supabase
+    .from("posters")
+    .select(
+      "id,title,image_url,category_id,hidden,sales_count,views_count,created_at,trending_order,categories(name,slug)",
+    )
+    .eq("trending", true)
+    .eq("hidden", false)
+    .not("image_url", "is", null)
+    .order("trending_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Poster[];
+}
+
 type SortKey = "curated" | "newest" | "popular";
 
 function shuffle<T>(arr: T[]): T[] {
@@ -75,22 +99,9 @@ function TrendingPage() {
   });
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["trending-page"],
+    queryKey: TRENDING_QUERY_KEY,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("posters")
-        .select(
-          "id,title,image_url,category_id,hidden,sales_count,views_count,created_at,trending_order,categories(name,slug)",
-        )
-        .eq("trending", true)
-        .eq("hidden", false)
-        .not("image_url", "is", null)
-        .order("trending_order", { ascending: true, nullsFirst: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as Poster[];
-    },
+    queryFn: fetchTrendingPosters,
   });
 
   const price = priceForFrame(pricing, "pvc", "30x40");

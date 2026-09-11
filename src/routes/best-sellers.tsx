@@ -13,6 +13,13 @@ import { useBestSellersConfig } from "@/lib/homepage-sections";
 import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
 
 export const Route = createFileRoute("/best-sellers")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: BEST_SELLERS_QUERY_KEY,
+      queryFn: fetchBestSellers,
+      staleTime: 60_000,
+    });
+  },
   head: () => ({
     meta: [
       { title: "Best Sellers — BRWAZWNEON" },
@@ -56,6 +63,28 @@ type Row = {
   } | null;
 };
 
+const BEST_SELLERS_QUERY_KEY = ["best-sellers-page"];
+
+async function fetchBestSellers(): Promise<Row[]> {
+  const { data, error } = await supabase
+    .from("best_sellers")
+    .select(
+      "id,poster_id,position,pinned,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,sales_count,views_count,created_at,categories(name,slug))",
+    )
+    .eq("hidden", false)
+    .order("pinned", { ascending: false })
+    .order("position", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  const now = Date.now();
+  return (data as unknown as Row[]).filter((r) => {
+    if (!r.posters || r.posters.hidden) return false;
+    if (r.start_date && new Date(r.start_date).getTime() > now) return false;
+    if (r.end_date && new Date(r.end_date).getTime() < now) return false;
+    return true;
+  });
+}
+
 type SortKey = "featured" | "newest" | "popular" | "price_asc" | "price_desc";
 
 function BestSellersPage() {
@@ -68,27 +97,9 @@ function BestSellersPage() {
   const [sort, setSort] = useState<SortKey>("featured");
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["best-sellers-page"],
+    queryKey: BEST_SELLERS_QUERY_KEY,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("best_sellers")
-        .select(
-          "id,poster_id,position,pinned,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,sales_count,views_count,created_at,categories(name,slug))",
-        )
-        .eq("hidden", false)
-        .order("pinned", { ascending: false })
-        .order("position", { ascending: true })
-        .limit(100);
-      if (error) throw error;
-      const now = Date.now();
-      return (data as unknown as Row[]).filter((r) => {
-        if (!r.posters || r.posters.hidden) return false;
-        if (r.start_date && new Date(r.start_date).getTime() > now) return false;
-        if (r.end_date && new Date(r.end_date).getTime() < now) return false;
-        return true;
-      });
-    },
+    queryFn: fetchBestSellers,
   });
 
   const price = priceForFrame(pricing, "pvc", "30x40");
