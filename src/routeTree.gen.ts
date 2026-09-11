@@ -28,6 +28,7 @@ import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
+import { Route as PosterSlugRouteImport } from './routes/poster.$slug'
 import { Route as ApiPublicHooksBackupRouteImport } from './routes/api/public/hooks/backup'
 
 const IndexRoute = IndexRouteImport.update({
@@ -125,6 +126,11 @@ const LandingAudienceRoute = LandingAudienceRouteImport.update({
   path: '/landing/$audience',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosterSlugRoute = PosterSlugRouteImport.update({
+  id: '/poster/$slug',
+  path: '/poster/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksBackupRoute = ApiPublicHooksBackupRouteImport.update({
   id: '/api/public/hooks/backup',
   path: '/api/public/hooks/backup',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
+  '/poster/$slug': typeof PosterSlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
 export interface FileRoutesByTo {
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
+  '/poster/$slug': typeof PosterSlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
 export interface FileRoutesById {
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
+  '/poster/$slug': typeof PosterSlugRoute
   '/api/public/hooks/backup': typeof ApiPublicHooksBackupRoute
 }
 export interface FileRouteTypes {
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
+    | '/poster/$slug'
     | '/api/public/hooks/backup'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
+    | '/poster/$slug'
     | '/api/public/hooks/backup'
   id:
     | '__root__'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/admin-assistant'
     | '/category/$slug'
     | '/landing/$audience'
+    | '/poster/$slug'
     | '/api/public/hooks/backup'
   fileRoutesById: FileRoutesById
 }
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
   CategorySlugRoute: typeof CategorySlugRoute
   LandingAudienceRoute: typeof LandingAudienceRoute
+  PosterSlugRoute: typeof PosterSlugRoute
   ApiPublicHooksBackupRoute: typeof ApiPublicHooksBackupRoute
 }
 
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LandingAudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/poster/$slug': {
+      id: '/poster/$slug'
+      path: '/poster/$slug'
+      fullPath: '/poster/$slug'
+      preLoaderRoute: typeof PosterSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/backup': {
       id: '/api/public/hooks/backup'
       path: '/api/public/hooks/backup'
@@ -455,6 +475,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,
   CategorySlugRoute: CategorySlugRoute,
   LandingAudienceRoute: LandingAudienceRoute,
+  PosterSlugRoute: PosterSlugRoute,
   ApiPublicHooksBackupRoute: ApiPublicHooksBackupRoute,
 }
 export const routeTree = rootRouteImport

@@ -45,7 +45,7 @@ import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
 import { InfiniteProductGrid } from "@/components/InfiniteProductGrid";
 import type { NormalizedProduct } from "@/hooks/useInfiniteProducts";
 
-type Poster = {
+export type Poster = {
   id: string;
   title: string;
   image_url?: string;
@@ -450,7 +450,7 @@ function CategoryPage() {
   );
 }
 
-function Customizer({
+export function Customizer({
   posters,
   imageMap,
   category,

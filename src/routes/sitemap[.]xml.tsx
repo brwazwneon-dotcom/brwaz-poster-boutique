@@ -45,6 +45,33 @@ export const Route = createFileRoute("/sitemap.xml")({
               lastmod: c.updated_at ? new Date(c.updated_at).toISOString() : undefined,
             });
           }
+
+          // Posters get their own permanent URL via the /poster/$slug route.
+          // Paginate in batches of 1000 rather than a single .limit() — a
+          // catalog in the hundreds/thousands of posters would otherwise
+          // silently truncate the sitemap.
+          let from = 0;
+          const pageSize = 1000;
+          for (;;) {
+            const { data: posterPage } = await supa
+              .from("posters")
+              .select("slug,updated_at")
+              .eq("hidden", false)
+              .not("slug", "is", null)
+              .range(from, from + pageSize - 1);
+            if (!posterPage || posterPage.length === 0) break;
+            for (const p of posterPage) {
+              if (!p?.slug) continue;
+              entries.push({
+                path: `/poster/${p.slug}`,
+                changefreq: "weekly",
+                priority: "0.7",
+                lastmod: p.updated_at ? new Date(p.updated_at).toISOString() : undefined,
+              });
+            }
+            if (posterPage.length < pageSize) break;
+            from += pageSize;
+          }
         } catch {
           /* ignore — still ship static entries */
         }
