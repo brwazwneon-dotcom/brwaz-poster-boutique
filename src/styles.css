@@ -798,11 +798,6 @@ svg {
   background-color: color-mix(in oklch, var(--foreground) 45%, transparent);
 }
 
-/* Hide the "Edit with Lovable" badge on published deployments */
-#lovable-badge,
-a[href*="lovable.dev/projects" i],
-a[href*="lovable.dev?utm" i],
-a[aria-label*="Edit with Lovable" i],
 [dir="rtl"] .text-left {
   text-align: right;
 }
@@ -828,16 +823,6 @@ a[aria-label*="Edit with Lovable" i],
   font-weight: var(--font-ar-weight-heading);
   line-height: var(--line-height-ar-heading);
   letter-spacing: normal;
-}
-
-a[aria-label*="Made with Lovable" i],
-[data-lovable-badge] {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 
 .wall-inspiration-section {

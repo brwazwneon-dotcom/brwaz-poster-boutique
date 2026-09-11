@@ -118,7 +118,7 @@ export const NAVIGATION_GROUPS = {
   ai: ["ai-upload", "ai-settings", "assistant", "assistant-requests"],
   appearance: ["appearance", "branding"],
   more: ["reports", "subcategories", "mockups", "wishlists", "photo-enhancement"],
-};
+} satisfies Record<string, Tab[]>;
 
 export function isAdminTab(value: string): value is Tab {
   return (ADMIN_TABS as string[]).includes(value);

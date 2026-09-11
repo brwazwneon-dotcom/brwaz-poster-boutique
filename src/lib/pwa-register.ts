@@ -1,5 +1,5 @@
 // Guarded PWA registration. Only runs in production on real deploys.
-// Never registers in Lovable preview, iframe, dev, or when ?sw=off is set.
+// Never registers in an iframe embed, dev, or when ?sw=off is set.
 //
 // Includes build-ID mismatch detection: if the HTML page belongs to a
 // different deployment than the JavaScript bundle, the app unregisters
@@ -8,19 +8,6 @@
 // users to a new deployment without manual cache clearing.
 
 const SW_PATH = "/sw.js";
-
-function isPreviewHost(host: string): boolean {
-  return (
-    host.startsWith("id-preview--") ||
-    host.startsWith("preview--") ||
-    host === "lovableproject.com" ||
-    host.endsWith(".lovableproject.com") ||
-    host === "lovableproject-dev.com" ||
-    host.endsWith(".lovableproject-dev.com") ||
-    host === "beta.lovable.dev" ||
-    host.endsWith(".beta.lovable.dev")
-  );
-}
 
 async function unregisterAppSw() {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
@@ -59,7 +46,7 @@ async function clearAppCaches() {
 function checkBuildIdMismatch(): boolean {
   if (typeof document === "undefined" || typeof window === "undefined") return false;
   const htmlBuildId = document.documentElement.dataset.buildId;
-  const jsBuildId = (window as Record<string, unknown>).__BRWAZ_BUILD_ID__ as string | undefined;
+  const jsBuildId = window.__BRWAZ_BUILD_ID__;
   if (!htmlBuildId || !jsBuildId) return false;
   return htmlBuildId !== jsBuildId;
 }
@@ -71,12 +58,11 @@ export async function registerPwa(): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
 
   const inIframe = window.self !== window.top;
-  const host = window.location.hostname;
   const killSwitch = new URLSearchParams(window.location.search).get("sw") === "off";
   const isProd = import.meta.env.PROD;
 
   // Preview/dev environments: unregister any SW and bail
-  if (!isProd || inIframe || isPreviewHost(host) || killSwitch) {
+  if (!isProd || inIframe || killSwitch) {
     await unregisterAppSw();
     return;
   }

@@ -317,8 +317,6 @@ function AdminPageWithI18n() {
   );
 }
 
-const isAdminTab = (value: string): value is Tab => ADMIN_TABS.includes(value as Tab);
-
 function AdminPage() {
   const navigate = useNavigate();
   const ensureAdmin = useServerFn(ensureBrandAdminRole);
@@ -469,7 +467,9 @@ function AdminPage() {
           {Object.entries(NAVIGATION_GROUPS).map(([groupName, tabKeys]) => (
             <div key={groupName} className="rounded-sm border border-border bg-card p-4">
               <button
-                onClick={() => setIsGroupOpen((prev) => !prev)}
+                onClick={() =>
+                  setIsGroupOpen((prev) => ({ ...prev, [groupName]: !prev[groupName] }))
+                }
                 className="flex items-center justify-between w-full text-left text-sm font-medium uppercase tracking-widest text-muted-foreground mb-3"
               >
                 {groupName}
@@ -1803,12 +1803,14 @@ function EditPosterModal({
         : null;
       const reqId = ++activeReqIdRef.current;
       const data = await generatePosterMetaFn({
-        imageUrl: currentImageUrl,
-        categories,
-        categoryName: parentCat?.name,
-        subcategoryName: currentCat?.name,
-        badge: badge || null,
-        productId: poster.id,
+        data: {
+          imageUrl: currentImageUrl,
+          categories,
+          categoryName: parentCat?.name,
+          subcategoryName: currentCat?.name,
+          badge: badge || null,
+          productId: poster.id,
+        },
       });
       if (reqId !== activeReqIdRef.current) return;
       if (data.needs_review) {
@@ -1841,12 +1843,14 @@ function EditPosterModal({
         : null;
       const reqId = ++activeReqIdRef.current;
       const data = await generatePosterMetaFn({
-        imageUrl: currentImageUrl,
-        categories,
-        categoryName: parentCat?.name,
-        subcategoryName: currentCat?.name,
-        badge: badge || null,
-        productId: poster.id,
+        data: {
+          imageUrl: currentImageUrl,
+          categories,
+          categoryName: parentCat?.name,
+          subcategoryName: currentCat?.name,
+          badge: badge || null,
+          productId: poster.id,
+        },
       });
       if (reqId !== activeReqIdRef.current) return;
 

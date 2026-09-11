@@ -13,7 +13,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "rea
 import i18n from "@/lib/i18n";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { logSystemEvent } from "../lib/error-logger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CartProvider } from "@/lib/cart";
@@ -45,6 +45,7 @@ declare global {
       [key: string]: unknown;
     };
     __brwz_tiktok_pixel_loaded?: boolean;
+    __BRWAZ_BUILD_ID__?: string;
   }
 }
 
@@ -103,7 +104,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    logSystemEvent({
+      level: "error",
+      source: "react_error_boundary",
+      category: "tanstack_root_error_component",
+      message: error.message || "Unhandled render error",
+      stack: error.stack,
+    });
   }, [error]);
 
   return (
@@ -269,7 +276,7 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      (window as Record<string, unknown>).__BRWAZ_BUILD_ID__ = __BUILD_ID__;
+      window.__BRWAZ_BUILD_ID__ = __BUILD_ID__;
     }
   }, []);
 

@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 /**
  * Public server function — enhances or restyles a customer photo using
- * the Lovable AI Gateway (Gemini Nano Banana image model). No user auth
- * required (checkout is anonymous) but rate-limited by file size.
+ * Gemini directly (Gemini Nano Banana image model). No user auth required
+ * (checkout is anonymous) but rate-limited by file size.
  */
 
 export type PhotoAiAction =

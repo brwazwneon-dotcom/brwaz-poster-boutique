@@ -146,7 +146,7 @@ i18next-browser-languagedetector 8.2.1 ← كشف اللغة
 | **Google Analytics 4 (gtag.js)** | تحليلات جوجل |
 | **TikTok Pixel** | تتبع إعلانات تيك توك |
 | **ipapi.co** | كشف الموقع الجغرافي للزوار |
-| **Lovable AI Gateway** | بوابة الذكاء الاصطناعي للمساعد الإداري |
+| **OpenRouter** | بوابة الذكاء الاصطناعي للمساعد الإداري (openai/gpt-4o-mini) |
 | **jsPDF + jspdf-autotable** | توليد PDF (التقارير) |
 | **xlsx** | تصدير Excel |
 | **heic2any** | تحويل صور HEIC |
@@ -162,7 +162,7 @@ Vitest 4.1: اختبارات
 jsdom 29.1: بيئة DOM للاختبارات
 @types/node 22.16: أنواع Node
 @vitejs/plugin-react 5.2: React plugin لـ Vite
-@lovable.dev/vite-tanstack-config 2.7.4: تكوين Lovable المخصص
+vite.config.ts: تكوين Vite أصلي (بديل @lovable.dev/vite-tanstack-config، أُزيل 2026-09-12)
 ```
 
 ### 2.8 نظام الصور وتحسينها
@@ -357,7 +357,7 @@ Client-side:
   - window.onerror + unhandledrejection → system_logs
   - In-memory dedup (30s)
   - يهمل أخطاء تحميل الموارد (معالجة في SafeImage)
-  - يرسل لـ Lovable error reporting API
+  - يرسل لـ system_logs عبر src/lib/error-logger.ts (لوحة التحكم → Error Logs)
 
 Server-side:
   - errorMiddleware يلتقط الأخطاء غير المتوقعة
@@ -699,7 +699,7 @@ Validation في صفحة السلة (Checkout):
 - **أدوات مساعدة** — utils (cn, formatCurrency, slugify, etc.)
 
 ### 7.5 الذكاء الاصطناعي والتكاملات
-- **AI Gateway** — Lovable AI Gateway للمساعد الإداري
+- **AI Gateway** — OpenRouter للمساعد الإداري (openai/gpt-4o-mini، عبر src/lib/ai-gateway.server.ts)
 - **Gemini API** — 10 مفاتيح مع priority queue + cooldown + OpenRouter fallback
 - **مساعد إداري** — 20+ أداة (استعلامات، إجراءات، توليد، تشخيص)
 - **تحسين الصور** — 6 إجراءات (enhance/colors/sharpen/blur/print/suit)

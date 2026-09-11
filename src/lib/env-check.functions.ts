@@ -42,7 +42,7 @@ const OPTIONAL_SERVER_SECRETS = [
   "FIREBASE_PROJECT_ID",
   "FIREBASE_CLIENT_EMAIL",
   "FIREBASE_PRIVATE_KEY",
-  "LOVABLE_API_KEY",
+  "OPENROUTER_API_KEY",
 ];
 
 // Substrings that indicate a value is secret and MUST NOT be VITE_ exposed.
@@ -58,7 +58,7 @@ const SECRET_MARKERS = [
   "SK_TEST",
   "FIREBASE_PRIVATE",
   "GEMINI",
-  "LOVABLE_API_KEY",
+  "OPENROUTER_API_KEY",
 ];
 
 function isSecretName(name: string): boolean {

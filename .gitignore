@@ -5,7 +5,6 @@ dist
 .wrangler
 .nitro
 .vercel
-.lovable
 .env*
 *.local
 *.log

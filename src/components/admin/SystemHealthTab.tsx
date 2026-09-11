@@ -322,7 +322,7 @@ export function SystemHealthTab() {
     );
   }
 
-  if (!data) {
+  if (!data || !checks || !health) {
     return (
       <div className="p-8 text-center text-muted-foreground text-sm">
         Could not load system health. Check connection.
@@ -674,9 +674,9 @@ export function SystemHealthTab() {
             sev={data.environment.backup_encryption_key ? "ok" : "warn"}
           />
           <Row
-            label="LOVABLE_API_KEY"
-            value={data.environment.lovable_api_key ? "Set" : "MISSING"}
-            sev={data.environment.lovable_api_key ? "ok" : "warn"}
+            label="OPENROUTER_API_KEY"
+            value={data.environment.openrouter_api_key ? "Set" : "MISSING"}
+            sev={data.environment.openrouter_api_key ? "ok" : "warn"}
           />
         </Card>
 

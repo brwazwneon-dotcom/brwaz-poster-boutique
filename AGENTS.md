@@ -1,10 +1,14 @@
-<!-- LOVABLE:BEGIN -->
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
-<!-- LOVABLE:END -->
+# BRWAZWNEON — Agent Notes
+
+Production e-commerce site (posters/frames/custom printing) at
+https://brwazwneon.com. TanStack Start (React 19, Vite, Nitro SSR) +
+Supabase (Postgres, Auth, Storage). Independent project — not managed by
+any third-party app builder.
+
+- This is a live, revenue-generating business. Treat database migrations,
+  auth changes, and storage changes as production-critical: verify locally,
+  prefer additive/idempotent changes, and never assume a migration file has
+  been applied to the production database just because it exists in
+  `supabase/migrations/`.
+- See [TECHNICAL_CONTEXT.md](TECHNICAL_CONTEXT.md) for the full stack,
+  schema, and business-logic overview.

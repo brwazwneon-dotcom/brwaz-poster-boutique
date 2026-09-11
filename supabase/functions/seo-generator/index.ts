@@ -1,6 +1,7 @@
 // Edge Function: seo-generator
 // Generates poster SEO content using a strict API priority queue:
 //   GEMINI_API_KEY_1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → OPENROUTER_API_KEY (fallback only).
+// (Lovable AI Gateway removed 2026-09-12, Lovable decoupling pass.)
 // Rate-limit / quota / 5xx failures rotate to the next key automatically.
 // Admin-only. Called from the front-end via supabase.functions.invoke("seo-generator").
 
@@ -25,9 +26,6 @@ const OPENROUTER_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
 ];
-
-const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -157,38 +155,6 @@ async function callOpenRouter(
   return content;
 }
 
-async function callLovableGateway(
-  apiKey: string,
-  model: string,
-  system: string,
-  user: string,
-): Promise<string> {
-  const res = await fetch(LOVABLE_GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      "Lovable-API-Key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`LovableAI ${res.status} on ${model}: ${txt.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const content: string = data?.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error(`Empty content from LovableAI:${model}`);
-  return content;
-}
-
 function parseJson(content: string): Partial<SeoResult> {
   try {
     return JSON.parse(content);
@@ -263,8 +229,7 @@ Deno.serve(async (req) => {
     geminiKeys.push({ label: "GEMINI_API_KEY", value: legacy });
   }
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (geminiKeys.length === 0 && !openrouterKey && !lovableKey) {
+  if (geminiKeys.length === 0 && !openrouterKey) {
     return json(500, { error: "AI is not configured on this project." });
   }
 
@@ -329,25 +294,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2) Fallback: Lovable AI Gateway (free, no user key required).
-  if (lovableKey) {
-    for (const m of LOVABLE_MODELS) {
-      try {
-        const content = await callLovableGateway(lovableKey, m, system, user);
-        const parsed = parseJson(content);
-        const result = normalize(parsed, fallbackTitle);
-        if (!result.description || !result.seo_description) {
-          throw new Error(`Missing fields from LovableAI:${m}`);
-        }
-        return json(200, { ...result, model: `LovableAI:${m}`, provider: "lovable", key: m });
-      } catch (e) {
-        lastErr = e;
-        console.error("[seo-generator] lovable", e instanceof Error ? e.message : String(e));
-      }
-    }
-  }
 
-  // 3) Final fallback: OpenRouter (only if configured and all previous attempts failed).
+  // 2) Final fallback: OpenRouter (only if configured and all previous attempts failed).
   if (openrouterKey) {
     for (const m of OPENROUTER_MODELS) {
       try {

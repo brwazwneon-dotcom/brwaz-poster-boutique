@@ -270,7 +270,7 @@ function Photo4x6Page() {
       const suits: string[] = [];
       const selected: Record<string, PicVersion> = {};
       let done = 0;
-      const total = pics.length;
+      const totalPics = pics.length;
 
       for (let i = 0; i < pics.length; i++) {
         const p = pics[i];
@@ -297,7 +297,7 @@ function Photo4x6Page() {
         }
         selected[String(i)] = p.selected;
         done++;
-        setProgress(Math.round((done / total) * 100));
+        setProgress(Math.round((done / totalPics) * 100));
       }
 
       const { data: inserted, error: insErr } = await supabase

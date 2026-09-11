@@ -74,7 +74,7 @@ export type HealthReport = {
     supabase_url: boolean;
     service_role_key: boolean;
     backup_encryption_key: boolean;
-    lovable_api_key: boolean;
+    openrouter_api_key: boolean;
     gemini_api_key: boolean;
   };
   version: {
@@ -154,12 +154,12 @@ export const getSystemHealth = createServerFn({ method: "GET" })
     const checks = {
       postersResult: safePromiseFn(
         admin.from("posters").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:posters",
       ),
       postersHiddenResult: safePromiseFn(
         admin.from("posters").select("*", { count: "exact", head: true }).eq("hidden", true),
-        0,
+        null,
         "count:posters_hidden",
       ),
       postersMissingResult: safePromiseFn(
@@ -167,12 +167,12 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           .from("posters")
           .select("*", { count: "exact", head: true })
           .or("image_url.is.null,image_url.eq."),
-        0,
+        null,
         "count:posters_missing_image",
       ),
       catsResult: safePromiseFn(
         admin.from("categories").select("*", { count: "exact", head: true }).is("parent_id", null),
-        0,
+        null,
         "count:categories",
       ),
       subsResult: safePromiseFn(
@@ -180,67 +180,67 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           .from("categories")
           .select("*", { count: "exact", head: true })
           .not("parent_id", "is", null),
-        0,
+        null,
         "count:subcategories",
       ),
       ordersResult: safePromiseFn(
         admin.from("orders").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:orders",
       ),
       photoResult: safePromiseFn(
         admin.from("photo_orders").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:photo_orders",
       ),
       customResult: safePromiseFn(
         admin.from("custom_design_orders").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:custom_orders",
       ),
       reviewsResult: safePromiseFn(
         admin.from("reviews").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:reviews",
       ),
       reviewsPendingResult: safePromiseFn(
         admin.from("reviews").select("*", { count: "exact", head: true }).eq("approved", false),
-        0,
+        null,
         "count:reviews_pending",
       ),
       wishlistsResult: safePromiseFn(
         admin.from("wishlists").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:wishlists",
       ),
       bestsResult: safePromiseFn(
         admin.from("best_sellers").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:best_sellers",
       ),
       setsResult: safePromiseFn(
         admin.from("sets").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:sets",
       ),
       heroResult: safePromiseFn(
         admin.from("hero_banners").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:hero_banners",
       ),
       sliderResult: safePromiseFn(
         admin.from("slider_images").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:slider_images",
       ),
       baResult: safePromiseFn(
         admin.from("before_after").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:before_after",
       ),
       devicesResult: safePromiseFn(
         admin.from("admin_devices").select("*", { count: "exact", head: true }),
-        0,
+        null,
         "count:admin_devices",
       ),
       ordersNoScreenshotResult: safePromiseFn(
@@ -248,7 +248,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           .from("orders")
           .select("*", { count: "exact", head: true })
           .not("payment_screenshot_url", "is", null),
-        0,
+        null,
         "count:orders_no_screenshot",
       ),
       lastOrderResult: safePromiseFn(
@@ -297,12 +297,12 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           .select("*", { count: "exact", head: true })
           .neq("status", "sent")
           .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
-        { count: 0 },
+        null,
         "count:failed_notifications",
       ),
       storageRpcResult: safePromiseFn(
         asUser.rpc("admin_storage_manifest"),
-        { error: "storage_unavailable" },
+        null,
         "storage_manifest",
       ),
       backupsResult: safePromiseFn(
@@ -311,7 +311,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
           .select("id,created_at,backup_type,size_bytes,status")
           .order("created_at", { ascending: false })
           .limit(50),
-        [],
+        null,
         "backups",
       ),
       marketingResResult: safePromiseFn(
@@ -337,7 +337,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
             "instapay_config",
             "vodafone_config",
           ]),
-        [],
+        null,
         "site_settings",
       ),
       capiEventResult: safePromiseFn(
@@ -353,7 +353,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
       ),
       uniqPhonesResult: safePromiseFn(
         admin.from("orders").select("phone").not("phone", "is", null).limit(10000),
-        [],
+        null,
         "orders_phone",
       ),
     };
@@ -624,7 +624,7 @@ export const getSystemHealth = createServerFn({ method: "GET" })
         supabase_url: Boolean(process.env.SUPABASE_URL),
         service_role_key: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
         backup_encryption_key: Boolean(process.env.BACKUP_ENCRYPTION_KEY),
-        lovable_api_key: Boolean(process.env.LOVABLE_API_KEY),
+        openrouter_api_key: Boolean(process.env.OPENROUTER_API_KEY),
         gemini_api_key: Boolean(process.env.GEMINI_API_KEY),
       },
       version: {

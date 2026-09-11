@@ -1,6 +1,15 @@
 export async function safePromiseFn<T>(
-  fn: Promise<T>,
-  fallback: T,
+  // PromiseLike, not Promise: Supabase query builders (e.g. `.from(...).select(...)`)
+  // are thenables but not nominally `Promise<T>`, and both `await` and
+  // `Promise.race` accept any thenable at runtime — widening the type here
+  // just lets TypeScript accept what already works, with no behavior change.
+  fn: PromiseLike<T>,
+  // `null`, not `T`: every current caller already treats `status !==
+  // "ok"` as its cue to compute its own typed default rather than trust
+  // this value's shape (see callers in system-health.functions.ts), so
+  // requiring `fallback` to match T forced callers to fake a shape they
+  // never actually use. `null` is always valid regardless of T.
+  fallback: T | null,
   name: string,
   timeoutMs = 3000,
 ): Promise<{ value: T | null; status: "ok" | "unavailable"; error?: string }> {

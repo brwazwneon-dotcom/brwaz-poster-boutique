@@ -97,9 +97,9 @@ export const Route = createFileRoute("/api/admin-assistant")({
         }
 
         // ---- AI gateway ----
-        const { createLovableAiGateway } = await import("@/lib/ai-gateway.server");
-        const gateway = createLovableAiGateway();
-        const model = gateway("openai/gpt-5.5");
+        const { createAdminAssistantGateway } = await import("@/lib/ai-gateway.server");
+        const gateway = createAdminAssistantGateway();
+        const model = gateway("openai/gpt-4o-mini");
 
         // ---- Tools ----
         const tools = {
