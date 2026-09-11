@@ -1026,6 +1026,10 @@ export type Database = {
             columns: ["order_id"];
             isOneToOne: false;
             referencedRelation: "real_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       order_posters: {
         Row: {
           created_at: string;
