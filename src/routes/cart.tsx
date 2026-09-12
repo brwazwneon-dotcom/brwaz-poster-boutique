@@ -42,6 +42,16 @@ function asUuid(value: string | null | undefined): string | null {
   return value && UUID_RE.test(value) ? value : null;
 }
 
+// Custom-design cart lines use posterId `custom-${orderUUID}-${idx}` (see
+// custom-design.tsx) instead of a real posters.id, so they can be told
+// apart from regular poster lines when recomputing price after an
+// in-cart frame/size change — those lines must keep the custom design
+// fee baked into the frame price, or editing size/frame here would
+// silently drop it.
+function isCustomDesignPosterId(posterId: string): boolean {
+  return posterId.startsWith("custom-");
+}
+
 type CheckoutDebugInfo = {
   step: string;
   table?: string;
@@ -970,11 +980,13 @@ function CartPage() {
                                 const size = (
                                   allowed.includes(i.size) ? i.size : allowed[0]
                                 ) as SizeId;
-                                update(i.id, {
-                                  frameType,
-                                  size,
-                                  price: priceForFrame(pricing, frameType, size) || i.price,
-                                });
+                                const framePrice = priceForFrame(pricing, frameType, size);
+                                const price = framePrice
+                                  ? isCustomDesignPosterId(i.posterId)
+                                    ? framePrice + pricing.customDesignFee
+                                    : framePrice
+                                  : i.price;
+                                update(i.id, { frameType, size, price });
                               }}
                               className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                             >
@@ -993,10 +1005,13 @@ function CartPage() {
                               value={i.size}
                               onChange={(e) => {
                                 const size = e.target.value as SizeId;
-                                update(i.id, {
-                                  size,
-                                  price: priceForFrame(pricing, i.frameType, size) || i.price,
-                                });
+                                const framePrice = priceForFrame(pricing, i.frameType, size);
+                                const price = framePrice
+                                  ? isCustomDesignPosterId(i.posterId)
+                                    ? framePrice + pricing.customDesignFee
+                                    : framePrice
+                                  : i.price;
+                                update(i.id, { size, price });
                               }}
                               className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                             >

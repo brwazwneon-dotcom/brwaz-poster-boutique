@@ -260,7 +260,16 @@
     "secureCheckout": "Secure Checkout",
     "securePayment": "SSL Encrypted Payments",
     "instapay": "InstaPay & Vodafone Cash",
-    "returnPolicy": "Free Returns & Exchanges"
+    "returnPolicy": "Free Returns & Exchanges",
+    "optionalAddOn": "Optional Add-On",
+    "needDoubleFaceTape": "Need Double-Face Tape?",
+    "doubleFaceTapeDesc": "Double-sided tape makes it easy to mount your frame on the wall — no nails or drilling needed.",
+    "unitPrice": "{{price}} EGP each",
+    "frames_one": "frame",
+    "frames_other": "frames",
+    "yesAddDoubleFaceTape": "Yes, Add Double-Face Tape",
+    "noContinueWithoutIt": "No, Continue Without It",
+    "continueWithoutIt": "Continue Without It"
   },
   "checkout": {
     "title": "Checkout",
@@ -276,6 +285,7 @@
     "cashOnDelivery": "Cash on Delivery",
     "instapay": "Instapay",
     "vodafoneCash": "Vodafone Cash",
+    "instapayVodafoneCash": "InstaPay / Vodafone Cash",
     "uploadScreenshot": "Upload payment screenshot",
     "uploadReceipt": "Upload receipt",
     "placeOrder": "Place Order",
@@ -670,7 +680,10 @@
     "original": "Original",
     "enhanced": "Enhanced",
     "removeBg": "Remove Background",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "printing": "4×6 Photo Printing",
+    "photos": "Photos",
+    "addPhotos": "Add Photos"
   },
   "reviews": {
     "writeReview": "Write a Review",
