@@ -1,4 +1,10 @@
-import { supabase } from "@/integrations/supabase/client";
+import {
+  incrementPosterViewsPublic,
+  incrementPosterUniqueViewsPublic,
+  incrementPosterCartAddsPublic,
+  incrementPosterSalesPublic,
+  addPosterViewSecondsPublic,
+} from "@/lib/db-public.functions";
 import { logPosterEvent, markUniqueView } from "@/lib/analytics";
 
 const SESSION_KEY = "brw-viewed-posters";
@@ -30,7 +36,7 @@ export function trackPosterView(posterId: string): void {
   viewed.add(posterId);
   saveViewed(viewed);
   // Fire and forget — never block UI on analytics.
-  supabase.rpc("increment_poster_views", { p_id: posterId }).then(
+  incrementPosterViewsPublic({ data: { id: posterId } }).then(
     () => {},
     () => {
       // Roll back so a retry can happen next session if it failed.
@@ -40,7 +46,7 @@ export function trackPosterView(posterId: string): void {
   );
   logPosterEvent(posterId, "view");
   if (markUniqueView(posterId)) {
-    void supabase.rpc("increment_poster_unique_views", { p_id: posterId });
+    void incrementPosterUniqueViewsPublic({ data: { id: posterId } });
     logPosterEvent(posterId, "unique_view");
   }
 }
@@ -49,28 +55,19 @@ export function trackPosterView(posterId: string): void {
 export async function trackPosterSales(posterIds: string[], qty: number): Promise<void> {
   const clean = Array.from(new Set(posterIds.filter(Boolean)));
   if (clean.length === 0) return;
-  await supabase.rpc("increment_poster_sales", {
-    p_ids: clean,
-    p_qty: Math.max(1, Math.floor(qty || 1)),
-  });
+  await incrementPosterSalesPublic({ data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) } });
 }
 
 /** Bump cart-add counts for one or more posters and log events. */
 export function trackPosterCartAdd(posterIds: string[], qty = 1): void {
   const clean = Array.from(new Set(posterIds.filter(Boolean)));
   if (clean.length === 0) return;
-  void supabase.rpc("increment_poster_cart_adds", {
-    p_ids: clean,
-    p_qty: Math.max(1, Math.floor(qty || 1)),
-  });
+  void incrementPosterCartAddsPublic({ data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) } });
   for (const id of clean) logPosterEvent(id, "cart_add");
 }
 
 /** Record seconds a visitor spent viewing a poster (debounced). */
 export function trackPosterViewDuration(posterId: string, seconds: number): void {
   if (!posterId || !seconds || seconds < 1) return;
-  void supabase.rpc("add_poster_view_seconds", {
-    p_id: posterId,
-    p_seconds: Math.max(1, Math.round(seconds)),
-  });
+  void addPosterViewSecondsPublic({ data: { id: posterId, seconds: Math.max(1, Math.round(seconds)) } });
 }

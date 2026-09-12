@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { logVisitPublic, logPosterEventPublic, logSearchQueryPublic } from "@/lib/db-public.functions";
 import { isPreviewMode } from "./preview-mode";
 
 const VISITOR_KEY = "brw-visitor-id";
@@ -159,20 +159,22 @@ export function trackVisit(path: string): void {
   const os = detectOS();
   void (async () => {
     const geo = await fetchGeo();
-    await supabase.from("analytics_visits").insert({
-      visitor_id: visitorId(),
-      session_id: sessionId(),
-      path,
-      referrer: referrer.slice(0, 500),
-      source,
-      device,
-      browser,
-      os,
-      country: geo?.country ?? null,
-      country_code: geo?.country_code ?? null,
-      city: geo?.city ?? null,
-      governorate: geo?.governorate ?? null,
-      user_agent: (navigator.userAgent || "").slice(0, 500),
+    await logVisitPublic({
+      data: {
+        visitor_id: visitorId(),
+        session_id: sessionId(),
+        path,
+        referrer: referrer.slice(0, 500),
+        source,
+        device,
+        browser,
+        os,
+        country: geo?.country ?? null,
+        country_code: geo?.country_code ?? null,
+        city: geo?.city ?? null,
+        governorate: geo?.governorate ?? null,
+        user_agent: (navigator.userAgent || "").slice(0, 500),
+      },
     });
   })();
 }
@@ -212,23 +214,28 @@ export function logPosterEvent(
 ): void {
   if (!posterId) return;
   if (isPreviewMode()) return;
-  void supabase.from("analytics_poster_events").insert({
-    poster_id: posterId,
-    visitor_id: visitorId(),
-    session_id: sessionId(),
-    event_type: eventType,
-    duration_seconds: typeof durationSeconds === "number" ? Math.round(durationSeconds) : null,
+  void logPosterEventPublic({
+    data: {
+      poster_id: posterId,
+      visitor_id: visitorId(),
+      session_id: sessionId(),
+      event_type: eventType,
+      duration_seconds: typeof durationSeconds === "number" ? Math.round(durationSeconds) : null,
+    },
   });
 }
 
 /** Log a checkout-started event. Called when the user opens the checkout page. */
 export function logCheckoutStart(): void {
   if (isPreviewMode()) return;
-  void supabase.from("analytics_poster_events").insert({
-    poster_id: null,
-    visitor_id: visitorId(),
-    session_id: sessionId(),
-    event_type: "checkout_start",
+  void logPosterEventPublic({
+    data: {
+      poster_id: null,
+      visitor_id: visitorId(),
+      session_id: sessionId(),
+      event_type: "checkout_start",
+      duration_seconds: null,
+    },
   });
 }
 
@@ -236,9 +243,11 @@ export function logSearchQuery(query: string, resultsCount: number): void {
   const clean = (query || "").trim();
   if (clean.length < 2) return;
   if (isPreviewMode()) return;
-  void supabase.from("search_queries").insert({
-    query: clean.slice(0, 200),
-    results_count: Math.max(0, resultsCount | 0),
-    visitor_id: visitorId(),
+  void logSearchQueryPublic({
+    data: {
+      query: clean.slice(0, 200),
+      results_count: Math.max(0, resultsCount | 0),
+      visitor_id: visitorId(),
+    },
   });
 }

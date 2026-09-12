@@ -9,10 +9,21 @@ import {
   fetchRandomVisiblePostersFromDb,
   fetchRoomTransformationArtworkFromDb,
   fetchSiteSettingsFromDb,
+  incrementPosterViewsInDb,
+  incrementPosterUniqueViewsInDb,
+  incrementPosterCartAddsInDb,
+  incrementPosterSalesInDb,
+  addPosterViewSecondsInDb,
   fetchPosterImagesByIdsFromDb,
   type CategorySortKey,
 } from "@/lib/db-catalog.server";
 import { fetchEnabledHeroBannersFromDb, logSystemEventToDb } from "@/lib/db-content.server";
+import {
+  logVisitToDb,
+  logPosterEventToDb,
+  logSearchQueryToDb,
+  logPerfMetricToDb,
+} from "@/lib/db-analytics.server";
 import type { Category } from "@/lib/use-categories";
 
 export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(async (): Promise<Category[]> => {
@@ -71,6 +82,146 @@ export const getPosterSalesCountPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { id: string }).id)
   .handler(async ({ data: id }) => {
     return fetchPosterSalesCountFromDb(id);
+  });
+
+// Public — poster interaction counters, fired from anonymous storefront
+// browsing (view/cart-add/checkout). Best-effort: failures never throw
+// in a way that could interrupt the shopping flow.
+export const incrementPosterViewsPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    try {
+      await incrementPosterViewsInDb(id);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const incrementPosterUniqueViewsPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    try {
+      await incrementPosterUniqueViewsInDb(id);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const incrementPosterCartAddsPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { ids: string[]; qty: number })
+  .handler(async ({ data }) => {
+    try {
+      await incrementPosterCartAddsInDb(data.ids, data.qty);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const incrementPosterSalesPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { ids: string[]; qty: number })
+  .handler(async ({ data }) => {
+    try {
+      await incrementPosterSalesInDb(data.ids, data.qty);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const addPosterViewSecondsPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { id: string; seconds: number })
+  .handler(async ({ data }) => {
+    try {
+      await addPosterViewSecondsInDb(data.id, data.seconds);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+// Public — lightweight marketing/behavior analytics. Best-effort: never
+// throws in a way that could interrupt browsing or checkout.
+export const logVisitPublic = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        visitor_id: string;
+        session_id: string;
+        path: string;
+        referrer: string;
+        source: string;
+        device: string;
+        browser: string;
+        os: string;
+        country: string | null;
+        country_code: string | null;
+        city: string | null;
+        governorate: string | null;
+        user_agent: string;
+      },
+  )
+  .handler(async ({ data }) => {
+    try {
+      await logVisitToDb(data);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const logPosterEventPublic = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        poster_id: string | null;
+        visitor_id: string;
+        session_id: string;
+        event_type: string;
+        duration_seconds: number | null;
+      },
+  )
+  .handler(async ({ data }) => {
+    try {
+      await logPosterEventToDb(data);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const logSearchQueryPublic = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { query: string; results_count: number; visitor_id: string })
+  .handler(async ({ data }) => {
+    try {
+      await logSearchQueryToDb(data);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
+  });
+
+export const logPerfMetricPublic = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        page_path: string;
+        metric: string;
+        value_ms: number;
+        session_id: string | null;
+        user_agent: string;
+        metadata: unknown;
+      },
+  )
+  .handler(async ({ data }) => {
+    try {
+      await logPerfMetricToDb(data);
+    } catch {
+      /* best-effort */
+    }
+    return { ok: true };
   });
 
 export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })

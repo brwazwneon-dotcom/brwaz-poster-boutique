@@ -234,6 +234,33 @@ export async function fetchRoomTransformationArtworkFromDb(
   return (fallback[0] as RoomArtworkRow) ?? null;
 }
 
+// Poster interaction counters — replaces the old Supabase RPC functions
+// (increment_poster_views, increment_poster_unique_views,
+// increment_poster_cart_adds, increment_poster_sales,
+// add_poster_view_seconds) with plain UPDATE statements against the same
+// columns already on the `posters` table.
+export async function incrementPosterViewsInDb(id: string): Promise<void> {
+  await sql()`update posters set views_count = views_count + 1 where id = ${id}`;
+}
+
+export async function incrementPosterUniqueViewsInDb(id: string): Promise<void> {
+  await sql()`update posters set unique_views_count = unique_views_count + 1 where id = ${id}`;
+}
+
+export async function incrementPosterCartAddsInDb(ids: string[], qty: number): Promise<void> {
+  if (ids.length === 0) return;
+  await sql()`update posters set cart_adds_count = cart_adds_count + ${qty} where id = any(${ids})`;
+}
+
+export async function incrementPosterSalesInDb(ids: string[], qty: number): Promise<void> {
+  if (ids.length === 0) return;
+  await sql()`update posters set sales_count = sales_count + ${qty} where id = any(${ids})`;
+}
+
+export async function addPosterViewSecondsInDb(id: string, seconds: number): Promise<void> {
+  await sql()`update posters set total_view_seconds = total_view_seconds + ${seconds} where id = ${id}`;
+}
+
 export async function fetchRandomVisiblePostersFromDb(
   limit: number,
 ): Promise<Array<{ id: string; title: string; image_url: string }>> {

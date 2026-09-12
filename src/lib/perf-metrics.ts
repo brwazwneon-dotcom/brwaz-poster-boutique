@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { logPerfMetricPublic } from "@/lib/db-public.functions";
 
 type PerfMetric = "LCP" | "FCP" | "TTFB" | "CLS" | "INP" | "page_load_ms" | "upload_ms" | "custom";
 
@@ -54,20 +54,19 @@ export function recordPerfMetric(
     if (shouldSkip(key)) return;
     sessionCount.set(sessionKey, seen + 1);
 
-    void supabase
-      .from("perf_metrics")
-      .insert({
+    void logPerfMetricPublic({
+      data: {
         page_path,
         metric,
         value_ms: Math.round(valueMs),
         session_id: sessionId(),
         user_agent: navigator.userAgent,
-        metadata: (meta ?? {}) as never,
-      })
-      .then(
-        () => {},
-        () => {},
-      );
+        metadata: meta ?? {},
+      },
+    }).then(
+      () => {},
+      () => {},
+    );
   } catch {
     /* ignore */
   }
