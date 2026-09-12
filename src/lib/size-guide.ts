@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export type SizeGuideItem = {
   id: string;
@@ -67,13 +67,8 @@ export function useSizeGuide() {
     queryKey: ["size-guide-config"],
     staleTime: 60_000,
     queryFn: async (): Promise<SizeGuideConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", SIZE_GUIDE_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalize(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [SIZE_GUIDE_KEY] } });
+      return normalize(settings[SIZE_GUIDE_KEY]);
     },
   });
   return q.data ?? DEFAULT_SIZE_GUIDE;

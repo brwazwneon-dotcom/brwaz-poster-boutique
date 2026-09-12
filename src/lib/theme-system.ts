@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
+import { setSiteSetting } from "@/lib/db-admin.functions";
 
 export const ACTIVE_THEME_KEY = "active_theme";
 export const THEME_SETTINGS_KEY = "theme_settings";
@@ -335,14 +336,9 @@ export function clearThemePreview() {
 }
 
 export async function loadActiveTheme(): Promise<SiteTheme> {
-  const { data, error } = await supabase
-    .from("site_settings")
-    .select("key,value")
-    .in("key", [ACTIVE_THEME_KEY, THEME_SETTINGS_KEY]);
-  if (error) throw error;
-  const map = new Map((data ?? []).map((row) => [row.key, row.value as unknown]));
-  const settings = normalizeThemeSettings(map.get(THEME_SETTINGS_KEY));
-  return getTheme(settings?.activeTheme ?? map.get(ACTIVE_THEME_KEY) ?? DEFAULT_THEME_ID);
+  const settings = await getSiteSettingsPublic({ data: { keys: [ACTIVE_THEME_KEY, THEME_SETTINGS_KEY] } });
+  const themeSettings = normalizeThemeSettings(settings[THEME_SETTINGS_KEY]);
+  return getTheme(themeSettings?.activeTheme ?? settings[ACTIVE_THEME_KEY] ?? DEFAULT_THEME_ID);
 }
 
 export async function saveActiveTheme(themeId: ThemeId) {
@@ -353,24 +349,15 @@ export async function saveActiveTheme(themeId: ThemeId) {
     previousTheme: current.id === theme.id ? undefined : current.id,
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase.from("site_settings").upsert([
-    { key: ACTIVE_THEME_KEY, value: theme.id as unknown as never },
-    { key: THEME_SETTINGS_KEY, value: settings as unknown as never },
-  ]);
-  if (error) throw error;
+  await setSiteSetting({ data: { key: ACTIVE_THEME_KEY, value: theme.id } });
+  await setSiteSetting({ data: { key: THEME_SETTINGS_KEY, value: settings } });
   persistThemeLocally(theme);
   applyTheme(theme);
 }
 
 export async function rollbackActiveTheme() {
-  const { data, error } = await supabase
-    .from("site_settings")
-    .select("key,value")
-    .eq("key", THEME_SETTINGS_KEY)
-    .maybeSingle();
-  if (error) throw error;
-
-  const settings = normalizeThemeSettings(data?.value);
+  const raw = await getSiteSettingsPublic({ data: { keys: [THEME_SETTINGS_KEY] } });
+  const settings = normalizeThemeSettings(raw[THEME_SETTINGS_KEY]);
   if (!settings?.previousTheme) return null;
 
   const previous = getTheme(settings.previousTheme);
@@ -379,11 +366,8 @@ export async function rollbackActiveTheme() {
     previousTheme: settings.activeTheme,
     updatedAt: new Date().toISOString(),
   };
-  const { error: saveError } = await supabase.from("site_settings").upsert([
-    { key: ACTIVE_THEME_KEY, value: previous.id as unknown as never },
-    { key: THEME_SETTINGS_KEY, value: nextSettings as unknown as never },
-  ]);
-  if (saveError) throw saveError;
+  await setSiteSetting({ data: { key: ACTIVE_THEME_KEY, value: previous.id } });
+  await setSiteSetting({ data: { key: THEME_SETTINGS_KEY, value: nextSettings } });
   persistThemeLocally(previous);
   applyTheme(previous);
   return previous;

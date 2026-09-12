@@ -203,6 +203,11 @@ export async function fetchPosterImagesByIdsFromDb(ids: string[]): Promise<Recor
   return out;
 }
 
+export async function fetchPosterSalesCountFromDb(id: string): Promise<number> {
+  const rows = await sql()`select sales_count from posters where id = ${id}`;
+  return Number((rows[0] as { sales_count?: number } | undefined)?.sales_count ?? 0);
+}
+
 export async function fetchSiteSettingsFromDb(keys: string[]): Promise<Record<string, Json>> {
   if (keys.length === 0) return {};
   const rows = await sql()`

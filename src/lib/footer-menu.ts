@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export type FooterLink = {
   id: string;
@@ -53,13 +53,8 @@ export function useFooterMenu() {
     queryKey: ["footer-menu"],
     staleTime: 60_000,
     queryFn: async (): Promise<FooterMenuConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", FOOTER_MENU_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalize(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [FOOTER_MENU_KEY] } });
+      return normalize(settings[FOOTER_MENU_KEY]);
     },
   });
   return q.data ?? DEFAULT_FOOTER_MENU;

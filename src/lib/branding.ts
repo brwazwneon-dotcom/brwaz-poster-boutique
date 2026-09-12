@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
+import { setSiteSetting } from "@/lib/db-admin.functions";
 import { LOGO_URL as DEFAULT_LOGO } from "@/lib/site";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -61,13 +62,8 @@ export function useBranding(): BrandingConfig {
     queryKey: ["branding", BRANDING_KEY],
     staleTime: 60_000,
     queryFn: async (): Promise<BrandingConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", BRANDING_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalizeBranding(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [BRANDING_KEY] } });
+      return normalizeBranding(settings[BRANDING_KEY]);
     },
   });
   return q.data ?? DEFAULT_BRANDING;
@@ -94,10 +90,7 @@ export function useSaveBranding() {
   const qc = useQueryClient();
   return async (next: BrandingConfig) => {
     const clean = normalizeBranding(next);
-    const { error } = await supabase
-      .from("site_settings")
-      .upsert({ key: BRANDING_KEY, value: clean as unknown as never }, { onConflict: "key" });
-    if (error) throw error;
+    await setSiteSetting({ data: { key: BRANDING_KEY, value: clean } });
     qc.setQueryData(["branding", BRANDING_KEY], clean);
     await qc.invalidateQueries({ queryKey: ["branding"] });
   };

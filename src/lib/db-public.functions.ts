@@ -5,6 +5,7 @@ import {
   fetchPostersByCategoryFromDb,
   fetchTrendingPostersFromDb,
   fetchBestSellersFromDb,
+  fetchPosterSalesCountFromDb,
   fetchSiteSettingsFromDb,
   fetchPosterImagesByIdsFromDb,
   type CategorySortKey,
@@ -63,6 +64,12 @@ export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(as
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchBestSellersFromDb();
 });
+
+export const getPosterSalesCountPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    return fetchPosterSalesCountFromDb(id);
+  });
 
 // Public — client error capture (window.onerror / unhandledrejection /
 // React error boundaries). Best-effort by design: never throws in a way

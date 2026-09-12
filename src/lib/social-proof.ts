@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic, getPosterSalesCountPublic } from "@/lib/db-public.functions";
 
 export const SOCIAL_PROOF_KEY = "social_proof_config";
 
@@ -141,12 +141,8 @@ export function useSocialProofConfig(): SocialProofConfig {
     queryKey: ["social-proof-config"],
     staleTime: 60_000,
     queryFn: async (): Promise<SocialProofConfig> => {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", SOCIAL_PROOF_KEY)
-        .maybeSingle();
-      const v = (data?.value ?? {}) as Partial<SocialProofConfig>;
+      const settings = await getSiteSettingsPublic({ data: { keys: [SOCIAL_PROOF_KEY] } });
+      const v = (settings[SOCIAL_PROOF_KEY] ?? {}) as Partial<SocialProofConfig>;
       return {
         ...DEFAULT_SOCIAL_PROOF,
         ...v,
@@ -196,14 +192,8 @@ export function useRecentOrdersCount(
     queryKey: ["recent-orders-count", posterId ?? "any"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      // Try posters.sales_count if a specific poster
       if (posterId) {
-        const { data } = await supabase
-          .from("posters")
-          .select("sales_count")
-          .eq("id", posterId)
-          .maybeSingle();
-        const n = Number((data as { sales_count?: number } | null)?.sales_count ?? 0);
+        const n = await getPosterSalesCountPublic({ data: { id: posterId } });
         if (n > 0) return n;
       }
       if (fallbackDemo) return randomInt(12, 68);

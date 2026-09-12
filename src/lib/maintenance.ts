@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export const MAINTENANCE_KEY = "maintenance_mode";
 export const MAINTENANCE_BYPASS_STORAGE = "brwaz_maintenance_bypass";
@@ -69,20 +69,17 @@ export function useMaintenanceConfig() {
     staleTime: 30_000,
     refetchInterval: 60_000,
     queryFn: async (): Promise<MaintenanceConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", MAINTENANCE_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalizeMaintenance(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [MAINTENANCE_KEY] } });
+      return normalizeMaintenance(settings[MAINTENANCE_KEY]);
     },
   });
 }
 
 /**
  * Returns whether the current viewer is allowed to bypass maintenance mode.
- * Bypasses: admin role, whitelisted email, matching localStorage password.
+ * Bypass is password-only now — there's no customer auth system, just the
+ * single Neon-backed admin account, which already bypasses maintenance via
+ * the /admin route check in MaintenanceGate itself.
  */
 export function useMaintenanceBypass(cfg: MaintenanceConfig | undefined) {
   const [bypass, setBypass] = useState<{ ready: boolean; allowed: boolean }>({
@@ -91,56 +88,27 @@ export function useMaintenanceBypass(cfg: MaintenanceConfig | undefined) {
   });
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!cfg) return;
-      // 1) Query param password → persist
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const provided = params.get("preview") ?? params.get("bypass");
-        if (provided) {
-          try {
-            localStorage.setItem(MAINTENANCE_BYPASS_STORAGE, provided);
-          } catch {
-            /* noop */
-          }
+    if (!cfg) return;
+    // Query param password → persist
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const provided = params.get("preview") ?? params.get("bypass");
+      if (provided) {
+        try {
+          localStorage.setItem(MAINTENANCE_BYPASS_STORAGE, provided);
+        } catch {
+          /* noop */
         }
       }
-      // 2) Local password matches
-      let stored: string | null = null;
-      try {
-        stored = localStorage.getItem(MAINTENANCE_BYPASS_STORAGE);
-      } catch {
-        /* noop */
-      }
-      if (cfg.bypassPassword && stored && stored === cfg.bypassPassword) {
-        if (!cancelled) setBypass({ ready: true, allowed: true });
-        return;
-      }
-
-      // 3) Auth-based checks (admin role or whitelisted email)
-      const { data: session } = await supabase.auth.getSession();
-      const user = session.session?.user;
-      if (!user) {
-        if (!cancelled) setBypass({ ready: true, allowed: false });
-        return;
-      }
-      const email = (user.email ?? "").toLowerCase();
-      if (email && cfg.whitelistEmails.some((e) => e.trim().toLowerCase() === email)) {
-        if (!cancelled) setBypass({ ready: true, allowed: true });
-        return;
-      }
-      const { data: role } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (!cancelled) setBypass({ ready: true, allowed: !!role });
-    })();
-    return () => {
-      cancelled = true;
-    };
+    }
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(MAINTENANCE_BYPASS_STORAGE);
+    } catch {
+      /* noop */
+    }
+    const allowed = Boolean(cfg.bypassPassword && stored && stored === cfg.bypassPassword);
+    setBypass({ ready: true, allowed });
   }, [cfg]);
 
   return bypass;
