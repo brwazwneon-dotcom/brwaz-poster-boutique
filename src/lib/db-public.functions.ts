@@ -25,7 +25,11 @@ import {
   fetchPosterImagesByIdsFromDb,
   type CategorySortKey,
 } from "@/lib/db-catalog.server";
-import { fetchEnabledHeroBannersFromDb, logSystemEventToDb } from "@/lib/db-content.server";
+import {
+  fetchEnabledHeroBannersFromDb,
+  fetchEnabledHighlightsFromDb,
+  logSystemEventToDb,
+} from "@/lib/db-content.server";
 import {
   logVisitToDb,
   logPosterEventToDb,
@@ -80,6 +84,10 @@ export const getSiteSettingsPublic = createServerFn({ method: "GET" })
 
 export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledHeroBannersFromDb();
+});
+
+export const getHighlightsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  return fetchEnabledHighlightsFromDb();
 });
 
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {

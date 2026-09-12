@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getHighlightsPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "./SafeImage";
 import {
   Trophy,
@@ -43,13 +43,7 @@ export function Highlights() {
     queryKey: ["highlights"],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("highlights")
-        .select("id,key,title,link,sort_order,image_url,enabled")
-        .eq("enabled", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Highlight[];
+      return getHighlightsPublic() as Promise<Highlight[]>;
     },
   });
 

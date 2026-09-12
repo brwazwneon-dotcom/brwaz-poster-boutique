@@ -32,6 +32,9 @@ import {
   listReviewsAdmin,
   upsertReview,
   deleteReview,
+  listHighlightsAdmin,
+  upsertHighlight,
+  deleteHighlight,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
@@ -1748,6 +1751,178 @@ function HomepageTab() {
             </div>
           ))}
         {banners.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
+      </div>
+
+      <div className="mt-10 border-t border-border pt-8">
+        <HighlightsSection />
+      </div>
+    </div>
+  );
+}
+
+type AdminHighlight = {
+  id: string;
+  key: string;
+  title: string;
+  image_url: string | null;
+  link: string;
+  sort_order: number;
+  enabled: boolean;
+};
+
+function HighlightsSection() {
+  const [items, setItems] = useState<AdminHighlight[] | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminHighlight> | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () => setItems((await listHighlightsAdmin()) as AdminHighlight[]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 800, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing((prev) => ({ ...(prev ?? {}), image_url: url }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!editing?.title) return toast.error("Title is required");
+    if (!editing?.link) return toast.error("Link is required");
+    try {
+      await upsertHighlight({ data: editing });
+      toast.success("Saved");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this highlight?")) return;
+    await deleteHighlight({ data: id });
+    load();
+  };
+
+  const toggleEnabled = async (h: AdminHighlight) => {
+    await upsertHighlight({ data: { ...h, enabled: !h.enabled } });
+    load();
+  };
+
+  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Highlights</h2>
+          <p className="text-xs text-muted-foreground">
+            Round shortcut icons under the hero (e.g. Football, Movies, Custom Design).
+          </p>
+        </div>
+        <button
+          onClick={() => setEditing({})}
+          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+        >
+          + New highlight
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[120px_1fr]">
+          <div>
+            {editing.image_url ? (
+              <img src={editing.image_url} alt="" className="aspect-square w-full rounded-full object-cover" />
+            ) : (
+              <div className="flex aspect-square items-center justify-center rounded-full border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <div className="space-y-3">
+            <input
+              placeholder="Title"
+              value={editing.title ?? ""}
+              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Link (e.g. /category/football)"
+              value={editing.link ?? ""}
+              onChange={(e) => setEditing({ ...editing, link: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editing.enabled !== false}
+                onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+              />
+              Enabled
+            </label>
+            <div className="flex gap-2">
+              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                Save
+              </button>
+              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        {items.map((h) => (
+          <div key={h.id} className="w-24 rounded-sm border border-border p-2 text-center">
+            {h.image_url ? (
+              <img src={h.image_url} alt="" className="mx-auto h-14 w-14 rounded-full object-cover" />
+            ) : (
+              <div className="mx-auto h-14 w-14 rounded-full border border-dashed border-border" />
+            )}
+            <div className="mt-1 truncate text-[10px] font-medium">{h.title}</div>
+            <div className="text-[9px] text-muted-foreground">{h.enabled ? "On" : "Off"}</div>
+            <div className="mt-1 flex justify-center gap-1.5">
+              <button onClick={() => toggleEnabled(h)} className="text-[10px] text-cyan-500 hover:underline">
+                {h.enabled ? "Hide" : "Show"}
+              </button>
+              <button onClick={() => setEditing(h)} className="text-[10px] text-cyan-500 hover:underline">
+                Edit
+              </button>
+              <button onClick={() => remove(h.id)} className="text-[10px] text-red-500 hover:underline">
+                Del
+              </button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">No highlights yet.</p>}
       </div>
     </div>
   );

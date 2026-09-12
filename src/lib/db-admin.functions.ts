@@ -349,6 +349,59 @@ export const setSiteSetting = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Homepage — highlights (round icon/image shortcut row)
+// ---------------------------------------------------------------
+export const listHighlightsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, key, title, image_url, link, sort_order, enabled
+      from highlights
+      order by sort_order asc, created_at asc
+    `;
+  });
+
+export const upsertHighlight = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const key = String(data.key ?? "").trim() || slugify(String(data.title ?? "highlight"));
+    const title = String(data.title ?? "").trim();
+    if (!title) throw new Error("Title is required");
+    const link = String(data.link ?? "").trim();
+    if (!link) throw new Error("Link is required");
+    const imageUrl = typeof data.image_url === "string" && data.image_url ? data.image_url : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update highlights
+        set key = ${key}, title = ${title}, image_url = ${imageUrl}, link = ${link},
+            enabled = ${enabled}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into highlights (key, title, image_url, link, enabled, sort_order)
+      values (${key}, ${title}, ${imageUrl}, ${link}, ${enabled}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteHighlight = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from highlights where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Homepage — hero banners
 // ---------------------------------------------------------------
 export const listHeroBannersAdmin = createServerFn({ method: "GET" })

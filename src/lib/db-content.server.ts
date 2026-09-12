@@ -30,6 +30,35 @@ export async function fetchAllHeroBannersFromDb(): Promise<DbHeroBanner[]> {
   return rows as unknown as DbHeroBanner[];
 }
 
+export type DbHighlight = {
+  id: string;
+  key: string;
+  title: string;
+  image_url: string | null;
+  link: string;
+  sort_order: number;
+  enabled: boolean;
+};
+
+export async function fetchEnabledHighlightsFromDb(): Promise<DbHighlight[]> {
+  const rows = await sql()`
+    select id, key, title, image_url, link, sort_order, enabled
+    from highlights
+    where enabled = true
+    order by sort_order asc
+  `;
+  return rows as unknown as DbHighlight[];
+}
+
+export async function fetchAllHighlightsFromDb(): Promise<DbHighlight[]> {
+  const rows = await sql()`
+    select id, key, title, image_url, link, sort_order, enabled
+    from highlights
+    order by sort_order asc
+  `;
+  return rows as unknown as DbHighlight[];
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;
