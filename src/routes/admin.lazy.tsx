@@ -78,6 +78,16 @@ import {
   parseMockup,
   type FrameMockup,
   type FrameMockups,
+  GRID_DISPLAY_MODE_KEY,
+  GRID_DISPLAY_MODE_DEFAULT,
+  type GridDisplayMode,
+  PHOTO_4X6_KEY,
+  PHOTO_4X6_DEFAULTS,
+  parsePhoto4x6,
+  type Photo4x6Config,
+  type Photo4x6Package,
+  POST_ORDER_MESSAGE_ENABLED_KEY,
+  parsePostOrderMessageEnabled,
 } from "@/lib/use-settings";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -4139,6 +4149,186 @@ function SettingsTab() {
 
       <div className="mt-10 max-w-md border-t border-border pt-8">
         <FeatureFlagsSection />
+      </div>
+
+      <div className="mt-10 max-w-md border-t border-border pt-8">
+        <StorefrontConfigSection />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Storefront config — settings the storefront reads live but that
+// previously had no admin editor at all (grid_display_mode,
+// post_order_success_message_enabled, photo_4x6_config).
+// ---------------------------------------------------------------
+function StorefrontConfigSection() {
+  const [gridMode, setGridMode] = useState<GridDisplayMode>(GRID_DISPLAY_MODE_DEFAULT);
+  const [postOrderMsg, setPostOrderMsg] = useState(true);
+  const [photo4x6, setPhoto4x6] = useState<Photo4x6Config>(PHOTO_4X6_DEFAULTS);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = async () => {
+    const rows = (await getAllSiteSettingsAdmin()) as Array<{ key: string; value: unknown }>;
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const gm = map.get(GRID_DISPLAY_MODE_KEY);
+    setGridMode(
+      typeof gm === "string" && ["black", "white", "wood"].includes(gm)
+        ? (gm as GridDisplayMode)
+        : GRID_DISPLAY_MODE_DEFAULT,
+    );
+    setPostOrderMsg(parsePostOrderMessageEnabled(map.get(POST_ORDER_MESSAGE_ENABLED_KEY)));
+    setPhoto4x6(parsePhoto4x6(map.get(PHOTO_4X6_KEY)));
+    setLoaded(true);
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const saveGridMode = async (mode: GridDisplayMode) => {
+    setGridMode(mode);
+    try {
+      await setSiteSetting({ data: { key: GRID_DISPLAY_MODE_KEY, value: mode } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const savePostOrderMsg = async (enabled: boolean) => {
+    setPostOrderMsg(enabled);
+    try {
+      await setSiteSetting({ data: { key: POST_ORDER_MESSAGE_ENABLED_KEY, value: enabled } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const savePhoto4x6 = async (next: Photo4x6Config) => {
+    setPhoto4x6(next);
+    try {
+      await setSiteSetting({ data: { key: PHOTO_4X6_KEY, value: next } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const updatePackage = (index: number, patch: Partial<Photo4x6Package>) => {
+    const packages = photo4x6.packages.map((p, i) => (i === index ? { ...p, ...patch } : p));
+    savePhoto4x6({ ...photo4x6, packages });
+  };
+
+  const removePackage = (index: number) => {
+    savePhoto4x6({ ...photo4x6, packages: photo4x6.packages.filter((_, i) => i !== index) });
+  };
+
+  const addPackage = () => {
+    savePhoto4x6({
+      ...photo4x6,
+      packages: [...photo4x6.packages, { key: `p${Date.now()}`, photos: 8, price: 80, label: "8 Photos 4×6" }],
+    });
+  };
+
+  if (!loaded) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold">Storefront config</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Settings the storefront reads live that previously had no admin control.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm text-muted-foreground">
+          Default frame color shown in product grids
+        </label>
+        <select
+          value={gridMode}
+          onChange={(e) => saveGridMode(e.target.value as GridDisplayMode)}
+          className="mt-1 rounded-sm border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="black">Black</option>
+          <option value="white">White</option>
+          <option value="wood">Wood</option>
+        </select>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={postOrderMsg} onChange={(e) => savePostOrderMsg(e.target.checked)} />
+        Show the "order received" success message after checkout
+      </label>
+
+      <div>
+        <h3 className="text-sm font-semibold">4×6 Photo Printing</h3>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={photo4x6.enabled}
+            onChange={(e) => savePhoto4x6({ ...photo4x6, enabled: e.target.checked })}
+          />
+          Enabled
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={photo4x6.aiEnhanceEnabled}
+            onChange={(e) => savePhoto4x6({ ...photo4x6, aiEnhanceEnabled: e.target.checked })}
+          />
+          Offer AI enhancement
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={photo4x6.aiSuitEnabled}
+            onChange={(e) => savePhoto4x6({ ...photo4x6, aiSuitEnabled: e.target.checked })}
+          />
+          Offer AI suit conversion
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={photo4x6.upsellEnabled}
+            onChange={(e) => savePhoto4x6({ ...photo4x6, upsellEnabled: e.target.checked })}
+          />
+          Show as an upsell after regular checkout
+        </label>
+
+        <div className="mt-3 space-y-2">
+          {photo4x6.packages.map((p, i) => (
+            <div key={p.key} className="flex items-center gap-2">
+              <input
+                value={p.label}
+                onChange={(e) => updatePackage(i, { label: e.target.value })}
+                placeholder="Label"
+                className="w-40 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
+              <input
+                type="number"
+                min={1}
+                value={p.photos}
+                onChange={(e) => updatePackage(i, { photos: Number(e.target.value) || 1 })}
+                placeholder="Photos"
+                className="w-20 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
+              <input
+                type="number"
+                min={0}
+                value={p.price}
+                onChange={(e) => updatePackage(i, { price: Number(e.target.value) || 0 })}
+                placeholder="Price (EGP)"
+                className="w-24 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
+              <button onClick={() => removePackage(i)} className="text-xs text-red-500 hover:underline">
+                Remove
+              </button>
+            </div>
+          ))}
+          <button onClick={addPackage} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            + Add package
+          </button>
+        </div>
       </div>
     </div>
   );

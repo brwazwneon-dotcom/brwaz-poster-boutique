@@ -388,7 +388,7 @@ export const PHOTO_4X6_DEFAULTS: Photo4x6Config = {
 
 export const PHOTO_4X6_KEY = "photo_4x6_config";
 
-function parsePhoto4x6(raw: unknown): Photo4x6Config {
+export function parsePhoto4x6(raw: unknown): Photo4x6Config {
   if (!raw || typeof raw !== "object") return PHOTO_4X6_DEFAULTS;
   const v = raw as Partial<Photo4x6Config>;
   const packages =
