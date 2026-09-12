@@ -126,6 +126,37 @@ export const upsertPoster = createServerFn({ method: "POST" })
     return { id: (rows[0] as { id: string }).id };
   });
 
+// Applies one or more field changes to many posters at once (the admin
+// Upload Studio's bulk-assign toolbar) — one round trip instead of N.
+export const bulkUpdatePosters = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as {
+        ids: string[];
+        patch: {
+          category_id?: string | null;
+          badge?: string | null;
+          hidden?: boolean;
+          trending?: boolean;
+        };
+      },
+  )
+  .handler(async ({ data }) => {
+    if (data.ids.length === 0) return { ok: true, count: 0 };
+    const { category_id, badge, hidden, trending } = data.patch;
+    await sql()`
+      update posters set
+        category_id = coalesce(${category_id === undefined ? null : category_id}::uuid, category_id),
+        badge = case when ${badge !== undefined} then ${badge} else badge end,
+        hidden = coalesce(${hidden === undefined ? null : hidden}, hidden),
+        trending = coalesce(${trending === undefined ? null : trending}, trending),
+        updated_at = now()
+      where id = any(${data.ids})
+    `;
+    return { ok: true, count: data.ids.length };
+  });
+
 export const deletePoster = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
   .validator((data: unknown) => (data as { id: string }).id)

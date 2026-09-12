@@ -1,5 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   adminLogin,
@@ -15,11 +15,16 @@ import {
   listPostersAdmin,
   upsertPoster,
   deletePoster,
+  bulkUpdatePosters,
   listOrdersAdmin,
   updateOrderStatus,
   getAllSiteSettingsAdmin,
   setSiteSetting,
 } from "@/lib/db-admin.functions";
+import { uploadPosterImage } from "@/lib/image-upload.functions";
+import { generatePosterMeta } from "@/lib/poster-ai.functions";
+import { optimizeImage } from "@/lib/image-optimize";
+import { FramePreview } from "@/components/FramePreview";
 
 export const Route = createLazyFileRoute("/admin")({
   component: AdminPage,
@@ -481,7 +486,7 @@ function CategoriesTab() {
 }
 
 // ---------------------------------------------------------------
-// Products
+// Products — Upload Studio
 // ---------------------------------------------------------------
 type AdminPoster = {
   id: string;
@@ -493,12 +498,63 @@ type AdminPoster = {
   hidden: boolean;
   featured: boolean;
   trending: boolean;
+  tags?: string[];
+};
+
+type QueueStatus = "queued" | "optimizing" | "uploading" | "analyzing" | "creating" | "ready" | "failed";
+type QueueItem = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: QueueStatus;
+  error?: string;
+  productId?: string;
+};
+
+function filenameToTitle(filename: string): string {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const words = base
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1));
+  return words.join(" ") || "Untitled";
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+const QUEUE_STATUS_LABEL: Record<QueueStatus, string> = {
+  queued: "Queued",
+  optimizing: "Optimizing",
+  uploading: "Uploading",
+  analyzing: "AI analyzing",
+  creating: "Creating draft",
+  ready: "Ready",
+  failed: "Failed",
 };
 
 function ProductsTab() {
   const [products, setProducts] = useState<AdminPoster[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [editing, setEditing] = useState<Partial<AdminPoster> | null>(null);
+  const [previewFrame, setPreviewFrame] = useState<"black" | "white" | "wood">("black");
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkBadge, setBulkBadge] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const categoriesRef = useRef<AdminCategory[]>([]);
+  categoriesRef.current = categories;
 
   const load = async () => {
     const [p, c] = await Promise.all([listPostersAdmin({ data: {} }), listCategoriesAdmin()]);
@@ -514,6 +570,138 @@ function ProductsTab() {
     return (id: string | null) => (id ? (map.get(id) ?? "—") : "—");
   }, [categories]);
 
+  // ---- Upload queue: optimize -> upload -> AI-assist (best effort) ->
+  // create as a hidden draft product. Concurrency-limited so 100+ files
+  // don't fire 100 requests at once. ----
+  const updateQueueItem = (id: string, patch: Partial<QueueItem>) =>
+    setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+
+  const processItem = async (item: QueueItem) => {
+    try {
+      updateQueueItem(item.id, { status: "optimizing", error: undefined });
+      const optimized = await optimizeImage(item.file, { maxDim: 2000, quality: 0.85 });
+
+      updateQueueItem(item.id, { status: "uploading" });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: item.file.name } });
+
+      updateQueueItem(item.id, { status: "analyzing" });
+      let meta: Partial<{
+        title: string;
+        badge: string | null;
+        tags: string[];
+        category_id: string | null;
+      }> = {};
+      try {
+        meta = await generatePosterMeta({
+          data: {
+            imageUrl: url,
+            filename: item.file.name,
+            categories: categoriesRef.current.map((c) => ({
+              id: c.id,
+              name: c.name,
+              slug: c.slug,
+              parent_id: null,
+            })),
+          },
+        });
+      } catch {
+        // AI assist is best-effort: a failure here still leaves a usable
+        // draft (filename-derived title, no category), never blocks upload.
+      }
+
+      updateQueueItem(item.id, { status: "creating" });
+      const { id: productId } = await upsertPoster({
+        data: {
+          title: meta.title || filenameToTitle(item.file.name),
+          image_url: url,
+          category_id: meta.category_id ?? null,
+          badge: meta.badge ?? null,
+          tags: meta.tags ?? [],
+          hidden: true, // lands as a draft — admin reviews before publishing
+          trending: false,
+        },
+      });
+      updateQueueItem(item.id, { status: "ready", productId });
+      load();
+    } catch (err) {
+      updateQueueItem(item.id, {
+        status: "failed",
+        error: err instanceof Error ? err.message : "Upload failed",
+      });
+    }
+  };
+
+  const MAX_CONCURRENT = 3;
+  const activeCountRef = useRef(0);
+  const pendingRef = useRef<QueueItem[]>([]);
+  const pump = () => {
+    while (activeCountRef.current < MAX_CONCURRENT && pendingRef.current.length > 0) {
+      const item = pendingRef.current.shift();
+      if (!item) break;
+      activeCountRef.current++;
+      processItem(item).finally(() => {
+        activeCountRef.current--;
+        pump();
+      });
+    }
+  };
+
+  const addFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (incoming.length === 0) return;
+    const items: QueueItem[] = incoming.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      status: "queued",
+    }));
+    setQueue((prev) => [...items, ...prev]);
+    pendingRef.current.push(...items);
+    pump();
+  };
+
+  const retryItem = (item: QueueItem) => {
+    updateQueueItem(item.id, { status: "queued", error: undefined });
+    pendingRef.current.push(item);
+    pump();
+  };
+
+  const clearFinishedQueue = () =>
+    setQueue((prev) => prev.filter((q) => q.status !== "ready"));
+
+  // ---- Selection + bulk actions ----
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
+
+  const applyBulk = async (patch: { category_id?: string; badge?: string | null; hidden?: boolean; trending?: boolean }) => {
+    if (selected.size === 0) return;
+    try {
+      await bulkUpdatePosters({ data: { ids: Array.from(selected), patch } });
+      toast.success(`Updated ${selected.size} product(s)`);
+      clearSelection();
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk update failed");
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} product(s)? This can't be undone.`)) return;
+    for (const id of selected) await deletePoster({ data: id });
+    toast.success("Deleted");
+    clearSelection();
+    load();
+  };
+
+  // ---- Single-product edit ----
   const save = async () => {
     if (!editing?.title) return toast.error("Title is required");
     if (!editing?.image_url) return toast.error("Image URL is required");
@@ -537,87 +725,245 @@ function ProductsTab() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Products</h2>
         <button
           onClick={() => setEditing({})}
-          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+          className="rounded-sm border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
         >
-          + New product
+          + Single product (advanced)
         </button>
       </div>
 
-      {editing && (
-        <div className="mb-6 space-y-3 rounded-sm border border-border bg-card p-4">
-          <input
-            placeholder="Title"
-            value={editing.title ?? ""}
-            onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            placeholder="Image URL"
-            value={editing.image_url ?? ""}
-            onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-          />
+      {/* ---- Drop zone ---- */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          addFiles(e.dataTransfer.files);
+        }}
+        onClick={() => fileInputRef.current?.click()}
+        className={`mb-4 cursor-pointer rounded-sm border-2 border-dashed p-8 text-center transition ${
+          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-foreground/40"
+        }`}
+      >
+        <p className="text-sm font-medium">Drag & drop poster images here, or click to browse</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Multiple files at once · auto-optimized, auto-named, AI-assisted · lands as a draft for review
+        </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => {
+            if (e.target.files) addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {/* ---- Upload queue ---- */}
+      {queue.length > 0 && (
+        <div className="mb-6 rounded-sm border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Upload queue ({queue.filter((q) => q.status === "ready").length}/{queue.length} ready)
+            </span>
+            <button onClick={clearFinishedQueue} className="text-xs text-muted-foreground hover:text-foreground">
+              Clear finished
+            </button>
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {queue.map((q) => (
+              <div key={q.id} className="flex items-center gap-3 border-b border-border px-4 py-2 last:border-0">
+                <img src={q.previewUrl} alt="" className="h-10 w-8 rounded-sm object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs">{q.file.name}</div>
+                  {q.error && <div className="truncate text-xs text-red-500">{q.error}</div>}
+                </div>
+                <span
+                  className={`shrink-0 rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                    q.status === "ready"
+                      ? "bg-emerald-500/15 text-emerald-500"
+                      : q.status === "failed"
+                        ? "bg-red-500/15 text-red-500"
+                        : "bg-accent text-muted-foreground"
+                  }`}
+                >
+                  {QUEUE_STATUS_LABEL[q.status]}
+                </span>
+                {q.status === "failed" && (
+                  <button onClick={() => retryItem(q)} className="shrink-0 text-xs text-cyan-500 hover:underline">
+                    Retry
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---- Bulk action bar ---- */}
+      {selected.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-sm border border-primary/40 bg-primary/5 p-3">
+          <span className="text-xs font-medium">{selected.size} selected</span>
           <select
-            value={editing.category_id ?? ""}
-            onChange={(e) => setEditing({ ...editing, category_id: e.target.value || null })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            value={bulkCategory}
+            onChange={(e) => setBulkCategory(e.target.value)}
+            className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
           >
-            <option value="">No category</option>
+            <option value="">Set category…</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+          <button
+            disabled={!bulkCategory}
+            onClick={() => applyBulk({ category_id: bulkCategory })}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
+          >
+            Apply
+          </button>
           <input
-            placeholder="Badge (e.g. New, Sale) — optional"
-            value={editing.badge ?? ""}
-            onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Set badge…"
+            value={bulkBadge}
+            onChange={(e) => setBulkBadge(e.target.value)}
+            className="w-32 rounded-sm border border-border bg-background px-2 py-1 text-xs"
           />
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={Boolean(editing.hidden)}
-                onChange={(e) => setEditing({ ...editing, hidden: e.target.checked })}
-              />
-              Hidden
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={Boolean(editing.trending)}
-                onChange={(e) => setEditing({ ...editing, trending: e.target.checked })}
-              />
-              Trending
-            </label>
+          <button
+            disabled={!bulkBadge}
+            onClick={() => applyBulk({ badge: bulkBadge })}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
+          >
+            Apply
+          </button>
+          <button onClick={() => applyBulk({ trending: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+            + Trending
+          </button>
+          <button onClick={() => applyBulk({ hidden: false })} className="rounded-sm border border-border px-2 py-1 text-xs">
+            Publish
+          </button>
+          <button onClick={() => applyBulk({ hidden: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+            Hide
+          </button>
+          <button onClick={deleteSelected} className="rounded-sm border border-red-500/40 px-2 py-1 text-xs text-red-500">
+            Delete
+          </button>
+          <button onClick={clearSelection} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+            Clear selection
+          </button>
+        </div>
+      )}
+
+      {/* ---- Single-product advanced edit ---- */}
+      {editing && (
+        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
+          <div>
+            {editing.image_url ? (
+              <>
+                <FramePreview posterUrl={editing.image_url} color={previewFrame} aspectClassName="aspect-[3/4]" />
+                <div className="mt-2 flex gap-1">
+                  {(["black", "white", "wood"] as const).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setPreviewFrame(c)}
+                      className={`flex-1 rounded-sm border px-1 py-1 text-[10px] capitalize ${
+                        previewFrame === c ? "border-primary text-foreground" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex aspect-[3/4] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                Mockup preview
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-              Save
-            </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
-              Cancel
-            </button>
+          <div className="space-y-3">
+            <input
+              placeholder="Title"
+              value={editing.title ?? ""}
+              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Image URL"
+              value={editing.image_url ?? ""}
+              onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <select
+              value={editing.category_id ?? ""}
+              onChange={(e) => setEditing({ ...editing, category_id: e.target.value || null })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">No category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              placeholder="Badge (e.g. New, Sale) — optional"
+              value={editing.badge ?? ""}
+              onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.hidden)}
+                  onChange={(e) => setEditing({ ...editing, hidden: e.target.checked })}
+                />
+                Hidden (draft)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.trending)}
+                  onChange={(e) => setEditing({ ...editing, trending: e.target.checked })}
+                />
+                Trending
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                Save
+              </button>
+              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* ---- Product list ---- */}
       <div className="space-y-2">
         {products.map((p) => (
           <div key={p.id} className="flex items-center justify-between rounded-sm border border-border p-3">
             <div className="flex items-center gap-3">
+              <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelected(p.id)} />
               <img src={p.image_url} alt="" className="h-12 w-9 rounded-sm object-cover" />
               <div>
                 <div className="text-sm font-medium">{p.title}</div>
                 <div className="text-xs text-muted-foreground">
                   {categoryName(p.category_id)}
-                  {p.hidden ? " · hidden" : ""}
+                  {p.hidden ? " · draft" : " · published"}
                   {p.trending ? " · trending" : ""}
                 </div>
               </div>
@@ -632,7 +978,7 @@ function ProductsTab() {
             </div>
           </div>
         ))}
-        {products.length === 0 && <p className="text-sm text-muted-foreground">No products yet.</p>}
+        {products.length === 0 && <p className="text-sm text-muted-foreground">No products yet — drop some images above.</p>}
       </div>
     </div>
   );

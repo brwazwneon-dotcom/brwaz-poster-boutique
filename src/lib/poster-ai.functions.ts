@@ -1,21 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
 
 type CategoryLite = { id: string; name: string; slug: string; parent_id: string | null };
-
-type MaybeRpc = {
-  rpc: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-};
-async function assertAdmin(supabase: unknown, userId: string) {
-  const { data, error } = await (supabase as MaybeRpc).rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (error || !data) throw new Error("Forbidden");
-}
 
 type GenInput = {
   imageUrl: string;
@@ -135,7 +121,7 @@ function checkCategoryHardBlock(
 }
 
 export const generatePosterMeta = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdminSessionNeon])
   .validator((data: unknown): GenInput => {
     const d = data as Record<string, unknown>;
     if (!d) throw new Error("input required");
@@ -152,8 +138,7 @@ export const generatePosterMeta = createServerFn({ method: "POST" })
       productId: typeof d.productId === "string" ? d.productId : undefined,
     };
   })
-  .handler(async ({ data, context }): Promise<GeneratedPosterMeta> => {
-    await assertAdmin(context.supabase, context.userId);
+  .handler(async ({ data }): Promise<GeneratedPosterMeta> => {
     const { geminiGenerate, urlToInlineData, extractText, GEMINI_TEXT_MODEL, getGeminiKey } =
       await import("@/lib/gemini.server");
     if (!getGeminiKey()) throw new Error("GEMINI_API_KEY missing");
