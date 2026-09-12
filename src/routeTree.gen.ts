@@ -23,6 +23,7 @@ import { Route as ProductsFeedMetaDotcsvRouteImport } from './routes/products-fe
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SetsRouteImport } from './routes/sets'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TrackOrderRouteImport } from './routes/track-order'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
@@ -101,6 +102,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrackOrderRoute = TrackOrderRouteImport.update({
+  id: '/track-order',
+  path: '/track-order',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrendingRoute = TrendingRouteImport.update({
   id: '/trending',
   path: '/trending',
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/track-order': typeof TrackOrderRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/track-order': typeof TrackOrderRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/sets': typeof SetsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/track-order': typeof TrackOrderRoute
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/track-order'
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/track-order'
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sets'
     | '/sitemap.xml'
+    | '/track-order'
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
@@ -294,6 +306,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SetsRoute: typeof SetsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TrackOrderRoute: typeof TrackOrderRoute
   TrendingRoute: typeof TrendingRoute
   WishlistRoute: typeof WishlistRoute
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
@@ -403,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/track-order': {
+      id: '/track-order'
+      path: '/track-order'
+      fullPath: '/track-order'
+      preLoaderRoute: typeof TrackOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trending': {
       id: '/trending'
       path: '/trending'
@@ -470,6 +490,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SetsRoute: SetsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TrackOrderRoute: TrackOrderRoute,
   TrendingRoute: TrendingRoute,
   WishlistRoute: WishlistRoute,
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,

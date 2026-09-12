@@ -183,3 +183,50 @@ export const createPhotoOrder = createServerFn({ method: "POST" })
     `;
     return { ok: true as const, order: rows[0] as { id: string; order_number: string }, totalPrice };
   });
+
+export type TrackedOrder = {
+  order_number: string;
+  kind: "order" | "photo_4x6" | "photo_printing";
+  status: string;
+  total_price: number;
+  created_at: string;
+  item_label: string;
+};
+
+// Public, but deliberately requires BOTH the exact order number AND the
+// phone number used at checkout — looking up by phone alone would let
+// anyone who knows a customer's number browse their whole order history.
+export const trackOrderPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => data as { orderNumber: string; phone: string })
+  .handler(async ({ data }) => {
+    const orderNumber = String(data.orderNumber ?? "").trim();
+    const phone = String(data.phone ?? "").trim();
+    if (!orderNumber || !phone) return null;
+
+    const client = sql();
+    const [orders, p4x6, photo] = await Promise.all([
+      client`
+        select order_number, status, total_price, created_at, poster_title as item_label
+        from orders
+        where order_number = ${orderNumber} and phone = ${phone}
+        limit 1
+      `,
+      client`
+        select order_number, status, total_price, created_at, package_key as item_label
+        from photo_4x6_orders
+        where order_number = ${orderNumber} and phone = ${phone}
+        limit 1
+      `,
+      client`
+        select order_number, status, total_price, created_at, size as item_label
+        from photo_orders
+        where order_number = ${orderNumber} and phone = ${phone}
+        limit 1
+      `,
+    ]);
+
+    if (orders[0]) return { ...orders[0], kind: "order" } as TrackedOrder;
+    if (p4x6[0]) return { ...p4x6[0], kind: "photo_4x6" } as TrackedOrder;
+    if (photo[0]) return { ...photo[0], kind: "photo_printing" } as TrackedOrder;
+    return null;
+  });
