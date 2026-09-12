@@ -295,6 +295,7 @@ const ORDER_STATUSES = ["new", "confirmed", "processing", "shipped", "delivered"
 function OrdersTab() {
   const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [filter, setFilter] = useState<string>("");
+  const [exporting, setExporting] = useState(false);
 
   const load = async () => {
     const rows = await listOrdersAdmin({ data: filter ? { status: filter } : {} });
@@ -305,6 +306,37 @@ function OrdersTab() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
+
+  const exportOrders = async () => {
+    if (!orders || orders.length === 0) return;
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const rows = orders.map((o) => ({
+        "Order Number": o.order_number ?? o.id.slice(0, 8),
+        Date: new Date(o.created_at).toLocaleString(),
+        Customer: o.customer_name,
+        Phone: o.phone,
+        Governorate: o.governorate,
+        Address: o.address,
+        Poster: o.poster_title ?? "",
+        "Frame Type": o.frame_type,
+        "Frame Color": o.frame_color,
+        Size: o.size,
+        Quantity: o.quantity,
+        Total: Number(o.total_price ?? 0),
+        "Payment Method": o.payment_method,
+        "Payment Status": o.payment_status,
+        Status: o.status,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Orders");
+      XLSX.writeFile(wb, `brwazwneon-orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const changeStatus = async (id: string, status: string) => {
     try {
@@ -334,6 +366,13 @@ function OrdersTab() {
           ))}
         </select>
         <span className="text-xs text-muted-foreground">{orders.length} orders</span>
+        <button
+          onClick={exportOrders}
+          disabled={exporting || orders.length === 0}
+          className="ml-auto rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {exporting ? "Exporting…" : "Export .xlsx"}
+        </button>
       </div>
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">No orders yet.</p>
