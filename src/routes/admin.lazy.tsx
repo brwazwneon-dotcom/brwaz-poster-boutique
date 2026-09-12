@@ -28,7 +28,7 @@ import {
   updateErrorLogStatus,
   listCustomersAdmin,
 } from "@/lib/db-admin.functions";
-import { uploadPosterImage } from "@/lib/image-upload.functions";
+import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { FramePreview } from "@/components/FramePreview";
@@ -207,7 +207,7 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-type Tab = "products" | "categories" | "orders" | "customers" | "homepage" | "health" | "settings";
+type Tab = "products" | "categories" | "orders" | "customers" | "media" | "homepage" | "health" | "settings";
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("orders");
@@ -222,6 +222,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "products", label: "Products" },
     { id: "categories", label: "Categories" },
     { id: "customers", label: "Customers" },
+    { id: "media", label: "Media Library" },
     { id: "homepage", label: "Homepage" },
     { id: "health", label: "System Health" },
     { id: "settings", label: "Settings" },
@@ -257,6 +258,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {tab === "products" && <ProductsTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "customers" && <CustomersTab />}
+        {tab === "media" && <MediaLibraryTab />}
         {tab === "homepage" && <HomepageTab />}
         {tab === "health" && <SystemHealthTab />}
         {tab === "settings" && <SettingsTab />}
@@ -569,6 +571,128 @@ function CustomersTab() {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Media Library — every uploaded blob, cross-referenced against products
+// so the admin can spot orphaned uploads and safely clean them up.
+// ---------------------------------------------------------------
+type MediaBlob = { url: string; pathname: string; size: number; uploadedAt: string };
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function MediaLibraryTab() {
+  const [blobs, setBlobs] = useState<MediaBlob[] | null>(null);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [usedUrls, setUsedUrls] = useState<Set<string>>(new Set());
+  const [onlyOrphaned, setOnlyOrphaned] = useState(false);
+
+  const loadPage = async (after?: string) => {
+    const res = await listMediaLibraryAdmin({ data: after ? { cursor: after } : {} });
+    setBlobs((prev) => (after ? [...(prev ?? []), ...res.blobs] : res.blobs));
+    setCursor(res.cursor);
+    setHasMore(res.hasMore);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const [products, banners] = await Promise.all([
+        listPostersAdmin({ data: {} }),
+        listHeroBannersAdmin(),
+      ]);
+      const used = new Set<string>();
+      for (const p of products as AdminPoster[]) used.add(p.image_url);
+      for (const b of banners as AdminHeroBanner[]) used.add(b.image_url);
+      setUsedUrls(used);
+      await loadPage();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      await loadPage(cursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const remove = async (url: string) => {
+    if (usedUrls.has(url) && !confirm("This image is used by a product or banner. Delete anyway?")) return;
+    if (!usedUrls.has(url) && !confirm("Delete this image permanently?")) return;
+    await deleteMediaAssetAdmin({ data: { url } });
+    setBlobs((prev) => prev?.filter((b) => b.url !== url) ?? null);
+  };
+
+  const copyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("URL copied");
+    } catch {
+      toast.error("Couldn't copy URL");
+    }
+  };
+
+  if (blobs === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  const visible = onlyOrphaned ? blobs.filter((b) => !usedUrls.has(b.url)) : blobs;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Media library</h2>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={onlyOrphaned} onChange={(e) => setOnlyOrphaned(e.target.checked)} />
+          Unused only
+        </label>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No images found.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+          {visible.map((b) => (
+            <div key={b.url} className="group relative overflow-hidden rounded-sm border border-border">
+              <img src={b.url} alt="" className="aspect-square w-full object-cover" />
+              {!usedUrls.has(b.url) && (
+                <span className="absolute left-1 top-1 rounded-sm bg-amber-500/90 px-1 py-0.5 text-[9px] font-medium text-black">
+                  Unused
+                </span>
+              )}
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/70 p-1 opacity-0 transition group-hover:opacity-100">
+                <button onClick={() => copyUrl(b.url)} className="text-[10px] text-white hover:underline">
+                  Copy
+                </button>
+                <button onClick={() => remove(b.url)} className="text-[10px] text-red-400 hover:underline">
+                  Delete
+                </button>
+              </div>
+              <div className="border-t border-border bg-card px-1.5 py-1 text-[9px] text-muted-foreground">
+                {formatBytes(b.size)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasMore && !onlyOrphaned && (
+        <button
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="mt-4 w-full rounded-sm border border-border py-2 text-xs disabled:opacity-50"
+        >
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
       )}
     </div>
   );

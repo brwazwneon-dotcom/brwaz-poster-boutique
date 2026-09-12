@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { put } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
 
 // Replaces the old Supabase Storage upload (src/lib/storage-url.ts's
@@ -27,4 +27,33 @@ export const uploadPosterImage = createServerFn({ method: "POST" })
       addRandomSuffix: false,
     });
     return { url: blob.url };
+  });
+
+// Media Library — lists every uploaded blob directly from Vercel Blob
+// storage (not derived from `posters`), so it also surfaces orphaned
+// uploads (drafts abandoned mid-upload, replaced images) that no product
+// currently references.
+export const listMediaLibraryAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { cursor?: string } | undefined) ?? {})
+  .handler(async ({ data }) => {
+    const result = await list({ prefix: "posters/", limit: 100, cursor: data.cursor });
+    return {
+      blobs: result.blobs.map((b) => ({
+        url: b.url,
+        pathname: b.pathname,
+        size: b.size,
+        uploadedAt: b.uploadedAt.toISOString(),
+      })),
+      cursor: result.cursor,
+      hasMore: result.hasMore,
+    };
+  });
+
+export const deleteMediaAssetAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { url: string }).url)
+  .handler(async ({ data: url }) => {
+    await del(url);
+    return { ok: true };
   });
