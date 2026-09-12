@@ -234,6 +234,15 @@ export async function fetchRoomTransformationArtworkFromDb(
   return (fallback[0] as RoomArtworkRow) ?? null;
 }
 
+export async function fetchRandomVisiblePostersFromDb(
+  limit: number,
+): Promise<Array<{ id: string; title: string; image_url: string }>> {
+  const rows = await sql()`
+    select id, title, image_url from posters where hidden = false limit ${limit}
+  `;
+  return rows as unknown as Array<{ id: string; title: string; image_url: string }>;
+}
+
 export async function fetchPosterSalesCountFromDb(id: string): Promise<number> {
   const rows = await sql()`select sales_count from posters where id = ${id}`;
   return Number((rows[0] as { sales_count?: number } | undefined)?.sales_count ?? 0);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { X, Eye, Flame } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { getRandomVisiblePostersPublic } from "@/lib/db-public.functions";
 import { useQuery } from "@tanstack/react-query";
 import {
   useSocialProofConfig,
@@ -64,12 +64,7 @@ export function SalesNotifications() {
     enabled: active && cfg.sales.useRealProducts,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Poster[]> => {
-      const { data } = await supabase
-        .from("posters")
-        .select("id,title,image_url")
-        .eq("hidden", false)
-        .limit(40);
-      return (data ?? []) as Poster[];
+      return getRandomVisiblePostersPublic({ data: { limit: 40 } });
     },
   });
 

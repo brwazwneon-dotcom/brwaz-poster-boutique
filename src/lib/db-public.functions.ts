@@ -6,6 +6,7 @@ import {
   fetchTrendingPostersFromDb,
   fetchBestSellersFromDb,
   fetchPosterSalesCountFromDb,
+  fetchRandomVisiblePostersFromDb,
   fetchRoomTransformationArtworkFromDb,
   fetchSiteSettingsFromDb,
   fetchPosterImagesByIdsFromDb,
@@ -70,6 +71,12 @@ export const getPosterSalesCountPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { id: string }).id)
   .handler(async ({ data: id }) => {
     return fetchPosterSalesCountFromDb(id);
+  });
+
+export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
+  .handler(async ({ data }) => {
+    return fetchRandomVisiblePostersFromDb(data.limit ?? 40);
   });
 
 export const getRoomTransformationArtworkPublic = createServerFn({ method: "GET" })
