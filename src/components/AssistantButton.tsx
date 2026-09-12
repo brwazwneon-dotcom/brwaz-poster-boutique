@@ -4,6 +4,7 @@ import { Sparkles, Search as SearchIcon, X, Heart, MessageCircle, Check } from "
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
+import { searchPostersPublic } from "@/lib/db-public.functions";
 import { useWishlist } from "@/lib/wishlist";
 import { whatsappLink } from "@/lib/whatsapp";
 import { sessionId } from "@/lib/analytics";
@@ -109,9 +110,7 @@ export function AssistantButton() {
     enabled: open && term.length >= 1,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("search_posters", { q: term, lim: 24 });
-      if (error) throw error;
-      return (data ?? []) as PosterHit[];
+      return searchPostersPublic({ data: { q: term, limit: 24 } }) as Promise<PosterHit[]>;
     },
   });
 
