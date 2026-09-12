@@ -4,11 +4,9 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "./meta-pixel";
 import { logPosterEvent } from "./analytics";
 
@@ -47,59 +45,13 @@ function writeLocal(ids: string[]) {
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
   const [ids, setIds] = useState<Set<string>>(new Set());
-  const [userId, setUserId] = useState<string | null>(null);
-  const merged = useRef(false);
 
-  // Initial hydrate from localStorage
+  // Initial hydrate from localStorage. There's no customer auth system
+  // (only the single Neon-backed admin account), so the wishlist is
+  // local-only per browser — no cross-device sync.
   useEffect(() => {
     setIds(new Set(readLocal()));
   }, []);
-
-  // Track auth
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setUserId(data.session?.user.id ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user.id ?? null);
-      if (!session) merged.current = false;
-    });
-    return () => {
-      active = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  // When user signs in: merge local → DB and load DB ids.
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!merged.current) {
-          const local = readLocal();
-          if (local.length) {
-            await supabase.from("wishlists").upsert(
-              local.map((poster_id) => ({ user_id: userId, poster_id })),
-              { onConflict: "user_id,poster_id", ignoreDuplicates: true },
-            );
-          }
-          merged.current = true;
-        }
-        const { data } = await supabase.from("wishlists").select("poster_id").eq("user_id", userId);
-        if (cancelled) return;
-        const remote = new Set((data ?? []).map((r) => r.poster_id as string));
-        setIds(remote);
-        writeLocal([...remote]);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
 
   const persist = useCallback((next: Set<string>) => {
     setIds(next);
@@ -129,28 +81,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           /* noop */
         }
       }
-      if (userId) {
-        try {
-          if (adding) {
-            await supabase
-              .from("wishlists")
-              .upsert(
-                { user_id: userId, poster_id: posterId },
-                { onConflict: "user_id,poster_id", ignoreDuplicates: true },
-              );
-          } else {
-            await supabase
-              .from("wishlists")
-              .delete()
-              .eq("user_id", userId)
-              .eq("poster_id", posterId);
-          }
-        } catch {
-          /* keep optimistic state */
-        }
-      }
     },
-    [ids, persist, userId],
+    [ids, persist],
   );
 
   const remove = useCallback(
