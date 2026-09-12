@@ -29,14 +29,11 @@ export const Route = createFileRoute("/sitemap.xml")({
         const entries: Entry[] = [...staticEntries];
 
         try {
-          const { createClient } = await import("@supabase/supabase-js");
-          const supa = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_PUBLISHABLE_KEY!,
-            { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
-          );
-          const { data } = await supa.from("categories").select("slug,updated_at").limit(500);
-          for (const c of data ?? []) {
+          const { sql } = await import("@/lib/neon.server");
+          const categories = await sql()`
+            select slug, updated_at from categories where slug is not null limit 500
+          `;
+          for (const c of categories as Array<{ slug: string; updated_at: string | null }>) {
             if (!c?.slug) continue;
             entries.push({
               path: `/category/${c.slug}`,
@@ -47,20 +44,20 @@ export const Route = createFileRoute("/sitemap.xml")({
           }
 
           // Posters get their own permanent URL via the /poster/$slug route.
-          // Paginate in batches of 1000 rather than a single .limit() — a
+          // Paginate in batches of 1000 rather than a single query — a
           // catalog in the hundreds/thousands of posters would otherwise
           // silently truncate the sitemap.
           let from = 0;
           const pageSize = 1000;
           for (;;) {
-            const { data: posterPage } = await supa
-              .from("posters")
-              .select("slug,updated_at")
-              .eq("hidden", false)
-              .not("slug", "is", null)
-              .range(from, from + pageSize - 1);
+            const posterPage = await sql()(
+              `select slug, updated_at from posters
+               where hidden = false and slug is not null
+               order by created_at desc offset $1 limit $2`,
+              [from, pageSize],
+            );
             if (!posterPage || posterPage.length === 0) break;
-            for (const p of posterPage) {
+            for (const p of posterPage as Array<{ slug: string; updated_at: string | null }>) {
               if (!p?.slug) continue;
               entries.push({
                 path: `/poster/${p.slug}`,

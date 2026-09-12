@@ -1,26 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import {
-  buildMetaFeedCsv,
-  buildMetaRows,
-  fetchAllCatalogData,
-  parseCatalogConfig,
-} from "@/lib/catalog";
+import { buildMetaFeedCsv, buildMetaRows, fetchAllCatalogDataFromNeon } from "@/lib/catalog";
 
 export const Route = createFileRoute("/products-feed-meta.csv")({
   server: {
     handlers: {
       GET: async () => {
         try {
-          const { createClient } = await import("@supabase/supabase-js");
-          const supa = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_PUBLISHABLE_KEY!,
-            { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
-          );
-
-          const data = await fetchAllCatalogData(supa);
-          const config = parseCatalogConfig(data.config);
+          const data = await fetchAllCatalogDataFromNeon();
+          const config = data.config;
 
           // When nothing is selected yet, default to every eligible product.
           const selected = new Set(config.meta.selected);

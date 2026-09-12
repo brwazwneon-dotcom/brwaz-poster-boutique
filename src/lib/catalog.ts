@@ -576,6 +576,66 @@ export async function fetchCatalogData(
   };
 }
 
+/**
+ * Neon-backed equivalent of fetchAllCatalogData, used by the Meta feed
+ * server route now that the catalog lives on Neon instead of Supabase.
+ * No image_variants pipeline exists yet, so variants/metaVariants stay
+ * empty — resolveCatalogImage already falls back to posters.image_url
+ * (a public Vercel Blob URL), which is all this feed needs.
+ */
+export async function fetchAllCatalogDataFromNeon(): Promise<CatalogData> {
+  const { sql } = await import("@/lib/neon.server");
+  const client = sql();
+
+  const [catRows, postRows, settingRows] = await Promise.all([
+    client`select id, name, slug, hidden, status from categories`,
+    client`
+      select id, title, description, seo_description, slug, category_id,
+             image_url, original_url, hidden, review_status, updated_at
+      from posters
+    `,
+    client`select key, value from site_settings where key = any(${[...CATALOG_PRICING_KEYS, CATALOG_CONFIG_KEY]})`,
+  ]);
+
+  const categories = new Map<string, CatalogCategory>();
+  for (const c of catRows as Array<{
+    id: string;
+    name: string;
+    slug: string;
+    hidden: boolean;
+    status: string | null;
+  }>) {
+    categories.set(String(c.id), {
+      id: String(c.id),
+      name: String(c.name ?? ""),
+      slug: String(c.slug ?? ""),
+      hidden: Boolean(c.hidden),
+      status: c.status != null ? String(c.status) : null,
+    });
+  }
+
+  const products = (postRows as Array<Omit<CatalogProduct, "price">>).map((p) => ({
+    ...p,
+    price: null,
+  })) as CatalogProduct[];
+
+  const settingsRows = settingRows as Array<{ key: string; value: unknown }>;
+  const config = parseCatalogConfig(
+    settingsRows.find((r) => r.key === CATALOG_CONFIG_KEY)?.value,
+  );
+
+  return {
+    products,
+    categories,
+    pricing: catalogPricingFromRows(settingsRows),
+    variants: {},
+    metaVariants: {},
+    variantInfo: {},
+    config,
+    totalProducts: products.length,
+  };
+}
+
 /** Fetch ALL catalog data across pages — used by the Meta feed server route. */
 export async function fetchAllCatalogData(supabase: SupabaseClient): Promise<CatalogData> {
   const pageSize = 500;
