@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Search as SearchIcon, Clock, TrendingUp, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { searchPostersPublic, getTrendingSearchesPublic } from "@/lib/db-public.functions";
 import { FramedArtwork } from "@/components/FramedArtwork";
 
 const RECENT_KEY = "brw_recent_searches_v1";
@@ -105,9 +105,7 @@ export function SearchBox({
     enabled: debounced.length >= 1,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("search_posters", { q: debounced, lim: 8 });
-      if (error) throw error;
-      return (data ?? []) as SearchHit[];
+      return searchPostersPublic({ data: { q: debounced, limit: 8 } }) as Promise<SearchHit[]>;
     },
   });
 
@@ -115,9 +113,7 @@ export function SearchBox({
     queryKey: ["trending-searches"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("trending_searches", { lim: 8 });
-      if (error) throw error;
-      return ((data ?? []) as { query: string; count: number }[]).map((r) => r.query);
+      return getTrendingSearchesPublic({ data: { limit: 8 } });
     },
   });
 

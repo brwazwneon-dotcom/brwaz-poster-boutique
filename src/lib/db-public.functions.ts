@@ -8,9 +8,12 @@ import {
   fetchHomeTrendingCandidatesFromDb,
   fetchPosterSalesCountFromDb,
   fetchRandomVisiblePostersFromDb,
+  fetchRelatedPostersFromDb,
   fetchRoomTransformationArtworkFromDb,
+  fetchSearchPostersFromDb,
   fetchShowcaseProductsForCategoriesFromDb,
   fetchSiteSettingsFromDb,
+  fetchTrendingSearchesFromDb,
   fetchWallOfInspirationPostersFromDb,
   incrementPosterViewsInDb,
   incrementPosterUniqueViewsInDb,
@@ -237,6 +240,27 @@ export const getShowcaseProductsForCategoriesPublic = createServerFn({ method: "
   .validator((data: unknown) => (data as { categoryIds: string[] }).categoryIds)
   .handler(async ({ data: categoryIds }) => {
     return fetchShowcaseProductsForCategoriesFromDb(categoryIds);
+  });
+
+export const getRelatedPostersPublic = createServerFn({ method: "GET" })
+  .validator(
+    (data: unknown) =>
+      data as { posterId: string; categoryIds: string[]; tags: string[]; words: string[] },
+  )
+  .handler(async ({ data }) => {
+    return fetchRelatedPostersFromDb(data.posterId, data.categoryIds, data.tags, data.words);
+  });
+
+export const searchPostersPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => data as { q: string; limit: number })
+  .handler(async ({ data }) => {
+    return fetchSearchPostersFromDb(data.q, data.limit);
+  });
+
+export const getTrendingSearchesPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
+  .handler(async ({ data }) => {
+    return fetchTrendingSearchesFromDb(data.limit ?? 8);
   });
 
 export const getWallOfInspirationPostersPublic = createServerFn({ method: "GET" }).handler(

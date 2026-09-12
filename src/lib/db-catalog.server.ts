@@ -418,6 +418,115 @@ export async function fetchWallOfInspirationPostersFromDb(): Promise<WallOfInspi
   }));
 }
 
+export type RelatedPosterRow = {
+  id: string;
+  title: string;
+  image_url: string;
+  category_id: string | null;
+  tags: string[] | null;
+  edit_settings?: Json;
+  badge?: string | null;
+  sales_count?: number | null;
+};
+
+// Backs the "You might also like" rail on poster detail pages: tag
+// overlap, then title-keyword match, then same category/subcategory —
+// same 3-stage fallback as the old Supabase version, run here as three
+// sequential Neon queries instead of three client-side round trips.
+export async function fetchRelatedPostersFromDb(
+  posterId: string,
+  categoryIds: string[],
+  tags: string[],
+  words: string[],
+): Promise<RelatedPosterRow[]> {
+  const results = new Map<string, RelatedPosterRow>();
+  const pushAll = (rows: RelatedPosterRow[]) => {
+    for (const r of rows) {
+      if (r.id === posterId) continue;
+      if (!results.has(r.id)) results.set(r.id, r);
+      if (results.size >= 8) break;
+    }
+  };
+  const cols = "id, title, image_url, category_id, tags, edit_settings, badge, sales_count";
+
+  if (tags.length > 0 && results.size < 8) {
+    const rows = await sql()(
+      `select ${cols} from posters
+       where hidden = false and id <> $1 and tags && $2
+       limit 8`,
+      [posterId, tags],
+    );
+    pushAll(rows as unknown as RelatedPosterRow[]);
+  }
+
+  if (words.length > 0 && results.size < 8) {
+    const patterns = words.slice(0, 4).map((w) => `%${w}%`);
+    const rows = await sql()(
+      `select ${cols} from posters
+       where hidden = false and id <> $1 and title ilike any($2)
+       limit 8`,
+      [posterId, patterns],
+    );
+    pushAll(rows as unknown as RelatedPosterRow[]);
+  }
+
+  if (categoryIds.length > 0 && results.size < 8) {
+    const rows = await sql()(
+      `select ${cols} from posters
+       where hidden = false and id <> $1 and category_id = any($2)
+       order by views_count desc nulls last
+       limit 8`,
+      [posterId, categoryIds],
+    );
+    pushAll(rows as unknown as RelatedPosterRow[]);
+  }
+
+  return Array.from(results.values()).slice(0, 8);
+}
+
+export type SearchHitRow = {
+  id: string;
+  title: string;
+  image_url: string;
+  category_id: string | null;
+  category_slug: string | null;
+  category_name: string | null;
+  tags: string[] | null;
+  badge: string | null;
+};
+
+// Backs the header search dropdown and the /search results page. Simple
+// title ILIKE match — the old Supabase version was a `search_posters` RPC
+// (full-text search), but there's no admin-managed search-ranking config
+// to replicate here, so a straightforward substring match on title
+// (ranked by view count) covers the same "find a poster by name" need.
+export async function fetchSearchPostersFromDb(query: string, limit: number): Promise<SearchHitRow[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = await sql()`
+    select p.id, p.title, p.image_url, p.category_id, c.slug as category_slug,
+           c.name as category_name, p.tags, p.badge
+    from posters p
+    left join categories c on c.id = p.category_id
+    where p.hidden = false and p.title ilike ${"%" + q + "%"}
+    order by p.views_count desc nulls last
+    limit ${limit}
+  `;
+  return rows as unknown as SearchHitRow[];
+}
+
+export async function fetchTrendingSearchesFromDb(limit: number): Promise<string[]> {
+  const rows = await sql()`
+    select query, count(*)::int as cnt
+    from search_queries
+    where created_at > now() - interval '30 days'
+    group by query
+    order by cnt desc
+    limit ${limit}
+  `;
+  return (rows as Array<{ query: string }>).map((r) => r.query);
+}
+
 export async function fetchRandomVisiblePostersFromDb(
   limit: number,
 ): Promise<Array<{ id: string; title: string; image_url: string }>> {

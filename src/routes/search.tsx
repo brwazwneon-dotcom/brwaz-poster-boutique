@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { searchPostersPublic } from "@/lib/db-public.functions";
 import { trackEvent } from "@/lib/meta-pixel";
 import { logSearchQuery } from "@/lib/analytics";
 import { SearchBox, pushRecentSearch } from "@/components/SearchBox";
@@ -79,9 +79,7 @@ function SearchPage() {
     enabled: term.length >= 1,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("search_posters", { q: term, lim: 120 });
-      if (error) throw error;
-      return (data ?? []) as PosterRow[];
+      return searchPostersPublic({ data: { q: term, limit: 120 } }) as Promise<PosterRow[]>;
     },
   });
 

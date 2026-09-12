@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { getRelatedPostersPublic } from "@/lib/db-public.functions";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { useCart } from "@/lib/cart";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
@@ -68,57 +68,9 @@ export function RelatedPosters({
     enabled: !!poster.id,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const results = new Map<string, RelatedPoster>();
-      const pushAll = (rows: RelatedPoster[] | null | undefined) => {
-        for (const r of rows ?? []) {
-          if (r.id === poster.id) continue;
-          if (!results.has(r.id)) results.set(r.id, r);
-          if (results.size >= 8) break;
-        }
-      };
-
-      // 1. Tag overlap (strongest signal)
-      if (tags.length > 0 && results.size < 8) {
-        const { data } = await supabase
-          .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
-          .eq("hidden", false)
-          .neq("id", poster.id)
-          .overlaps("tags", tags)
-          .limit(8);
-        pushAll(data as RelatedPoster[] | null);
-      }
-
-      // 2. Title keyword match
-      if (words.length > 0 && results.size < 8) {
-        const orExpr = words
-          .slice(0, 4)
-          .map((w) => `title.ilike.%${w}%`)
-          .join(",");
-        const { data } = await supabase
-          .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
-          .eq("hidden", false)
-          .neq("id", poster.id)
-          .or(orExpr)
-          .limit(8);
-        pushAll(data as RelatedPoster[] | null);
-      }
-
-      // 3. Same category / subcategories
-      if (catIds.length > 0 && results.size < 8) {
-        const { data } = await supabase
-          .from("posters")
-          .select("id,title,image_url,category_id,tags,edit_settings,badge,sales_count")
-          .eq("hidden", false)
-          .neq("id", poster.id)
-          .in("category_id", catIds)
-          .order("views_count", { ascending: false })
-          .limit(8);
-        pushAll(data as RelatedPoster[] | null);
-      }
-
-      return Array.from(results.values()).slice(0, 8);
+      return getRelatedPostersPublic({
+        data: { posterId: poster.id, categoryIds: catIds, tags, words },
+      }) as Promise<RelatedPoster[]>;
     },
   });
 
