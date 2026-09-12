@@ -183,6 +183,96 @@ export async function fetchAllBeforeAfterFromDb(): Promise<DbBeforeAfter[]> {
   return rows as unknown as DbBeforeAfter[];
 }
 
+export type DbLandingPage = {
+  id: string;
+  audience_key: string;
+  visible: boolean;
+  title_ar: string | null;
+  title_en: string | null;
+  subtitle_ar: string | null;
+  subtitle_en: string | null;
+  hero_image: string | null;
+  whatsapp_message: string | null;
+  cta_text: string | null;
+  source_category_id: string | null;
+  display_mode: "manual" | "category" | "smart_mix";
+  poster_limit: number;
+  manual_poster_ids: string[];
+  seo_title: string | null;
+  meta_description: string | null;
+};
+
+export type DbLandingPoster = {
+  id: string;
+  title: string;
+  image_url: string | null;
+  category_id: string | null;
+  sales_count: number | null;
+  views_count: number | null;
+};
+
+export async function fetchLandingPageAdminFromDb(audience: string): Promise<DbLandingPage | null> {
+  const rows = await sql()`select * from landing_pages where audience_key = ${audience} limit 1`;
+  return (rows[0] as DbLandingPage | undefined) ?? null;
+}
+
+export async function fetchAllLandingPagesFromDb(): Promise<DbLandingPage[]> {
+  const rows = await sql()`select * from landing_pages order by audience_key asc`;
+  return rows as unknown as DbLandingPage[];
+}
+
+export async function fetchLandingBundleFromDb(
+  audience: string,
+): Promise<{ page: DbLandingPage; posters: DbLandingPoster[] } | null> {
+  const page = await fetchLandingPageAdminFromDb(audience);
+  if (!page || !page.visible) return null;
+
+  const limit = Math.max(1, Math.min(200, page.poster_limit || 24));
+
+  let posters: DbLandingPoster[] = [];
+  if (page.display_mode === "manual") {
+    if (page.manual_poster_ids.length > 0) {
+      const rows = await sql()`
+        select id, title, image_url, category_id, sales_count, views_count
+        from posters
+        where id = any(${page.manual_poster_ids}) and hidden = false
+      `;
+      const byId = new Map((rows as unknown as DbLandingPoster[]).map((r) => [r.id, r]));
+      posters = page.manual_poster_ids.map((id) => byId.get(id)).filter((p): p is DbLandingPoster => !!p);
+    }
+  } else if (page.display_mode === "category" && page.source_category_id) {
+    const rows = await sql()`
+      select id, title, image_url, category_id, sales_count, views_count
+      from posters
+      where category_id = ${page.source_category_id} and hidden = false
+      order by sales_count desc nulls last, created_at desc
+      limit ${limit}
+    `;
+    posters = rows as unknown as DbLandingPoster[];
+  } else {
+    const rows = await sql()`
+      select id, title, image_url, category_id, sales_count, views_count
+      from posters
+      where hidden = false and (trending = true or is_best_seller = true)
+      order by sales_count desc nulls last, views_count desc nulls last
+      limit ${limit}
+    `;
+    posters = rows as unknown as DbLandingPoster[];
+    if (posters.length === 0) {
+      const fallback = await sql()`
+        select id, title, image_url, category_id, sales_count, views_count
+        from posters
+        where hidden = false
+        order by created_at desc
+        limit ${limit}
+      `;
+      posters = fallback as unknown as DbLandingPoster[];
+    }
+  }
+
+  return { page, posters };
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;

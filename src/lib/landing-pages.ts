@@ -5,6 +5,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { getLandingBundlePublic } from "@/lib/db-public.functions";
 
 export const AUDIENCE_KEYS = ["movies", "anime", "music", "cars", "decor"] as const;
 export type AudienceKey = (typeof AUDIENCE_KEYS)[number];
@@ -94,12 +95,7 @@ export function useLandingBundle(audience: string) {
   return useQuery({
     queryKey: ["landing-bundle", audience],
     queryFn: async (): Promise<LandingBundle> => {
-      const { data, error } = await supabase.rpc(
-        "landing_page_bundle" as never,
-        { _audience: audience } as never,
-      );
-      if (error) throw error;
-      return (data as LandingBundle) ?? null;
+      return (await getLandingBundlePublic({ data: { audience } })) as unknown as LandingBundle;
     },
     staleTime: 60_000,
   });

@@ -50,6 +50,8 @@ import {
   listPosterImagesAdmin,
   upsertPosterImage,
   deletePosterImage,
+  listLandingPagesAdmin,
+  upsertLandingPage,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
@@ -255,6 +257,7 @@ type Tab =
   | "offers"
   | "sets"
   | "before-after"
+  | "landing-pages"
   | "media"
   | "homepage"
   | "mockups"
@@ -279,6 +282,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "offers", label: "Offers" },
     { id: "sets", label: "Sets" },
     { id: "before-after", label: "Before / After" },
+    { id: "landing-pages", label: "Landing Pages" },
     { id: "media", label: "Media Library" },
     { id: "homepage", label: "Homepage" },
     { id: "mockups", label: "Frame Mockups" },
@@ -321,6 +325,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {tab === "offers" && <CustomOffersTab />}
         {tab === "sets" && <SetsTab />}
         {tab === "before-after" && <BeforeAfterTab />}
+        {tab === "landing-pages" && <LandingPagesTab />}
         {tab === "media" && <MediaLibraryTab />}
         {tab === "homepage" && <HomepageTab />}
         {tab === "mockups" && <FrameMockupsTab />}
@@ -1819,6 +1824,275 @@ function BeforeAfterTab() {
           </div>
         ))}
         {items.length === 0 && <p className="text-sm text-muted-foreground">No before/after pairs yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Landing Pages — ad campaign destinations for /landing/$audience.
+// One fixed row per audience key, seeded by the migration.
+// ---------------------------------------------------------------
+type AdminLandingPage = {
+  id: string;
+  audience_key: string;
+  visible: boolean;
+  title_ar: string | null;
+  title_en: string | null;
+  subtitle_ar: string | null;
+  subtitle_en: string | null;
+  hero_image: string | null;
+  whatsapp_message: string | null;
+  cta_text: string | null;
+  source_category_id: string | null;
+  display_mode: "manual" | "category" | "smart_mix";
+  poster_limit: number;
+  manual_poster_ids: string[];
+  seo_title: string | null;
+  meta_description: string | null;
+};
+
+function LandingPagesTab() {
+  const [pages, setPages] = useState<AdminLandingPage[] | null>(null);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [editing, setEditing] = useState<AdminLandingPage | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () => {
+    const [p, c] = await Promise.all([listLandingPagesAdmin(), listCategoriesAdmin()]);
+    setPages(p as AdminLandingPage[]);
+    setCategories(c as AdminCategory[]);
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleHeroFile = async (file: File) => {
+    if (!editing) return;
+    setUploading(true);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 1920, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing({ ...editing, hero_image: url });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!editing) return;
+    try {
+      await upsertLandingPage({ data: editing });
+      toast.success("Saved");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  if (pages === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold">Landing Pages</h2>
+        <p className="text-xs text-muted-foreground">
+          Ad campaign destinations at /landing/&#123;audience&#125; — used as Meta Ads links. Each
+          page pulls its posters automatically (category or trending/best-seller mix) unless set to
+          manual.
+        </p>
+      </div>
+
+      {editing ? (
+        <div className="mb-6 space-y-4 rounded-sm border border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-widest">{editing.audience_key}</h3>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editing.visible}
+                onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
+              />
+              Visible (live)
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              placeholder="Title (Arabic)"
+              dir="rtl"
+              value={editing.title_ar ?? ""}
+              onChange={(e) => setEditing({ ...editing, title_ar: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Title (English)"
+              value={editing.title_en ?? ""}
+              onChange={(e) => setEditing({ ...editing, title_en: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Subtitle (Arabic)"
+              dir="rtl"
+              value={editing.subtitle_ar ?? ""}
+              onChange={(e) => setEditing({ ...editing, subtitle_ar: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Subtitle (English)"
+              value={editing.subtitle_en ?? ""}
+              onChange={(e) => setEditing({ ...editing, subtitle_en: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Hero image</p>
+            {editing.hero_image ? (
+              <img src={editing.hero_image} alt="" className="aspect-[3/1] w-full rounded-sm object-cover" />
+            ) : (
+              <div className="flex aspect-[3/1] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-2 rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleHeroFile(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          <input
+            placeholder="WhatsApp message (optional)"
+            value={editing.whatsapp_message ?? ""}
+            onChange={(e) => setEditing({ ...editing, whatsapp_message: e.target.value })}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            placeholder="CTA button text (optional)"
+            value={editing.cta_text ?? ""}
+            onChange={(e) => setEditing({ ...editing, cta_text: e.target.value })}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          />
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <select
+              value={editing.display_mode}
+              onChange={(e) =>
+                setEditing({ ...editing, display_mode: e.target.value as AdminLandingPage["display_mode"] })
+              }
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="smart_mix">Smart mix (trending/best-sellers)</option>
+              <option value="category">From a category</option>
+              <option value="manual">Manual poster IDs</option>
+            </select>
+            {editing.display_mode === "category" && (
+              <select
+                value={editing.source_category_id ?? ""}
+                onChange={(e) => setEditing({ ...editing, source_category_id: e.target.value || null })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select category…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <input
+              type="number"
+              min={1}
+              max={200}
+              placeholder="Poster limit"
+              value={editing.poster_limit}
+              onChange={(e) => setEditing({ ...editing, poster_limit: Number(e.target.value) || 24 })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          {editing.display_mode === "manual" && (
+            <textarea
+              placeholder="Poster IDs, one per line (in display order)"
+              value={editing.manual_poster_ids.join("\n")}
+              onChange={(e) =>
+                setEditing({
+                  ...editing,
+                  manual_poster_ids: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })
+              }
+              rows={4}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs"
+            />
+          )}
+
+          <details className="rounded-sm border border-border">
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground">
+              SEO (optional)
+            </summary>
+            <div className="space-y-3 border-t border-border p-3">
+              <input
+                placeholder="SEO title"
+                value={editing.seo_title ?? ""}
+                onChange={(e) => setEditing({ ...editing, seo_title: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <textarea
+                placeholder="Meta description"
+                value={editing.meta_description ?? ""}
+                onChange={(e) => setEditing({ ...editing, meta_description: e.target.value })}
+                rows={2}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+          </details>
+
+          <div className="flex gap-2">
+            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              Save
+            </button>
+            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-2">
+        {pages.map((p) => (
+          <div key={p.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+            <div>
+              <div className="text-sm font-medium">
+                /landing/{p.audience_key} — {p.title_en || p.audience_key}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {p.display_mode}
+                {p.visible ? " · live" : " · hidden"}
+              </div>
+            </div>
+            <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
+              Edit
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

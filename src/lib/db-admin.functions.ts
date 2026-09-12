@@ -600,6 +600,59 @@ export const deletePosterImage = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Landing Pages — ad campaign destinations (/landing/$audience)
+// ---------------------------------------------------------------
+export const listLandingPagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`select * from landing_pages order by audience_key asc`;
+  });
+
+export const upsertLandingPage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const audienceKey = String(data.audience_key ?? "").trim();
+    if (!audienceKey) throw new Error("audience_key is required");
+    const visible = Boolean(data.visible);
+    const titleAr = typeof data.title_ar === "string" && data.title_ar ? data.title_ar : null;
+    const titleEn = typeof data.title_en === "string" && data.title_en ? data.title_en : null;
+    const subtitleAr = typeof data.subtitle_ar === "string" && data.subtitle_ar ? data.subtitle_ar : null;
+    const subtitleEn = typeof data.subtitle_en === "string" && data.subtitle_en ? data.subtitle_en : null;
+    const heroImage = typeof data.hero_image === "string" && data.hero_image ? data.hero_image : null;
+    const whatsappMessage =
+      typeof data.whatsapp_message === "string" && data.whatsapp_message ? data.whatsapp_message : null;
+    const ctaText = typeof data.cta_text === "string" && data.cta_text ? data.cta_text : null;
+    const sourceCategoryId =
+      typeof data.source_category_id === "string" && data.source_category_id
+        ? data.source_category_id
+        : null;
+    const displayMode = ["manual", "category", "smart_mix"].includes(String(data.display_mode))
+      ? (data.display_mode as string)
+      : "smart_mix";
+    const posterLimit = Math.max(1, Math.min(200, Number(data.poster_limit) || 24));
+    const manualPosterIds = Array.isArray(data.manual_poster_ids)
+      ? (data.manual_poster_ids as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "")
+      : [];
+    const seoTitle = typeof data.seo_title === "string" && data.seo_title ? data.seo_title : null;
+    const metaDescription =
+      typeof data.meta_description === "string" && data.meta_description ? data.meta_description : null;
+
+    const rows = await sql()`
+      update landing_pages
+      set visible = ${visible}, title_ar = ${titleAr}, title_en = ${titleEn},
+          subtitle_ar = ${subtitleAr}, subtitle_en = ${subtitleEn}, hero_image = ${heroImage},
+          whatsapp_message = ${whatsappMessage}, cta_text = ${ctaText},
+          source_category_id = ${sourceCategoryId}, display_mode = ${displayMode},
+          poster_limit = ${posterLimit}, manual_poster_ids = ${manualPosterIds},
+          seo_title = ${seoTitle}, meta_description = ${metaDescription}, updated_at = now()
+      where audience_key = ${audienceKey}
+      returning id
+    `;
+    return { id: rows[0]?.id };
+  });
+
+// ---------------------------------------------------------------
 // Offers — admin-curated bundle deals
 // ---------------------------------------------------------------
 export const listCustomOffersAdmin = createServerFn({ method: "GET" })

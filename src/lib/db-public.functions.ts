@@ -33,6 +33,7 @@ import {
   fetchEnabledSliderImagesFromDb,
   fetchEnabledSetsFromDb,
   fetchActiveBeforeAfterFromDb,
+  fetchLandingBundleFromDb,
   logSystemEventToDb,
 } from "@/lib/db-content.server";
 import {
@@ -117,6 +118,12 @@ export const getPosterImagesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { posterId: string }).posterId)
   .handler(async ({ data: posterId }) => {
     return fetchPosterImagesFromDb(posterId);
+  });
+
+export const getLandingBundlePublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { audience: string }).audience)
+  .handler(async ({ data: audience }) => {
+    return fetchLandingBundleFromDb(audience);
   });
 
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
