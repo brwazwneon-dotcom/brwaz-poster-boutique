@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { sql } from "@/lib/neon.server";
+import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
 
 export type OrderRowInput = {
   guest_session_id: string | null;
@@ -64,4 +65,121 @@ export const createOrderRows = createServerFn({ method: "POST" })
     )) as Array<Array<{ id: string; order_number: string }>>;
 
     return { ok: true as const, orders: results.map((r) => r[0]) };
+  });
+
+function computeShippingServer(subtotal: number, fee: number, freeThreshold: number): number {
+  return subtotal >= freeThreshold ? 0 : fee;
+}
+
+type Photo4x6PackageInput = { key: string; photos: number; price: number; label: string };
+
+// Server always recomputes the price from the admin-configured package —
+// the client sends only which package was chosen, never what it costs.
+// Same principle as guard_order_price() on the `orders` table, applied
+// here as authoritative computation instead of a post-hoc guard, since
+// there's no separate catalog table to check a submitted price against.
+export const createPhoto4x6Order = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        customer_name: string;
+        phone: string;
+        governorate: string;
+        address: string;
+        package_key: string;
+        notes: string | null;
+        original_paths: string[];
+        enhanced_paths: string[];
+        suit_paths: string[];
+        selected_versions: Record<string, string>;
+      },
+  )
+  .handler(async ({ data }) => {
+    if (data.original_paths.length === 0) throw new Error("At least one photo is required");
+    if (data.original_paths.length > 50) throw new Error("Too many photos in one order");
+    if (!/^01\d{9}$/.test(data.phone)) throw new Error("Invalid phone number");
+
+    const settings = await fetchSiteSettingsFromDb([
+      "photo_4x6_config",
+      "shipping_fee",
+      "free_shipping_threshold",
+    ]);
+    const config = settings.photo_4x6_config as { packages?: Photo4x6PackageInput[] } | null;
+    const pkg = config?.packages?.find((p) => p.key === data.package_key);
+    if (!pkg) throw new Error("Invalid package selected");
+    if (data.original_paths.length !== pkg.photos) {
+      throw new Error(`This package requires exactly ${pkg.photos} photos`);
+    }
+    const fee = Number(settings.shipping_fee) || 89;
+    const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
+    const shipping = computeShippingServer(pkg.price, fee, freeThreshold);
+    const totalPrice = pkg.price + shipping;
+
+    const rows = await sql()`
+      insert into photo_4x6_orders (
+        customer_name, phone, governorate, address, package_key, photo_count,
+        total_price, notes, original_paths, enhanced_paths, suit_paths, selected_versions
+      ) values (
+        ${data.customer_name}, ${data.phone}, ${data.governorate}, ${data.address},
+        ${data.package_key}, ${pkg.photos}, ${totalPrice}, ${data.notes},
+        ${data.original_paths}, ${data.enhanced_paths}, ${data.suit_paths},
+        ${JSON.stringify(data.selected_versions)}
+      )
+      returning id, order_number
+    `;
+    return { ok: true as const, order: rows[0] as { id: string; order_number: string }, totalPrice };
+  });
+
+const PHOTO_SIZE_SETTING_KEY: Record<string, string> = {
+  "10x15": "photo_10x15",
+  "13x18": "photo_13x18",
+  "15x20": "photo_15x20",
+};
+
+export const createPhotoOrder = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        customer_name: string;
+        phone: string;
+        governorate: string;
+        address: string;
+        size_id: "10x15" | "13x18" | "15x20";
+        size_label: string;
+        quantity: number;
+        photo_urls: string[];
+      },
+  )
+  .handler(async ({ data }) => {
+    if (data.photo_urls.length < 20) throw new Error("Minimum order is 20 photos");
+    if (data.photo_urls.length !== data.quantity) throw new Error("Photo count mismatch");
+    if (!/^01\d{9}$/.test(data.phone)) throw new Error("Invalid phone number");
+    const settingKey = PHOTO_SIZE_SETTING_KEY[data.size_id];
+    if (!settingKey) throw new Error("Invalid size");
+
+    const settings = await fetchSiteSettingsFromDb([
+      settingKey,
+      "shipping_fee",
+      "free_shipping_threshold",
+    ]);
+    const unitPrice = Number(settings[settingKey]);
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error("Pricing unavailable");
+    const fee = Number(settings.shipping_fee) || 89;
+    const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
+    const subtotal = unitPrice * data.quantity;
+    const shipping = computeShippingServer(subtotal, fee, freeThreshold);
+    const totalPrice = subtotal + shipping;
+
+    const rows = await sql()`
+      insert into photo_orders (
+        customer_name, phone, governorate, address, size, quantity,
+        unit_price, total_price, shipping_cost, photo_urls
+      ) values (
+        ${data.customer_name}, ${data.phone}, ${data.governorate}, ${data.address},
+        ${data.size_label}, ${data.quantity}, ${unitPrice}, ${totalPrice}, ${shipping},
+        ${data.photo_urls}
+      )
+      returning id, order_number
+    `;
+    return { ok: true as const, order: rows[0] as { id: string; order_number: string }, totalPrice };
   });

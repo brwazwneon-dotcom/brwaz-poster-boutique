@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
+import { createPhotoOrder } from "@/lib/db-orders.functions";
 import { whatsappLink } from "@/lib/whatsapp";
 import {
   useSiteSettings,
@@ -79,6 +80,15 @@ const GOVERNORATES = [
 
 type Pic = { id: string; file: File; preview: string };
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function PhotoPrintingPage() {
   const pricing = usePricing();
   const SIZES = (["10x15", "13x18", "15x20"] as const).map((id) => ({
@@ -144,8 +154,7 @@ function PhotoPrintingPage() {
     setSubmitting(true);
     setProgress(0);
     try {
-      const orderId = crypto.randomUUID();
-      const urls: string[] = [];
+      const urls: string[] = new Array(pics.length);
       const CONCURRENCY = 5;
       let done = 0;
       let cursor = 0;
@@ -155,33 +164,30 @@ function PhotoPrintingPage() {
         while (cursor < all.length) {
           const i = cursor++;
           const p = all[i];
-          const ext = (p.file.name.split(".").pop() ?? "jpg").toLowerCase();
-          const path = `${orderId}/${String(i).padStart(4, "0")}-${crypto.randomUUID()}.${ext}`;
-          const { error } = await supabase.storage
-            .from("customer-photos")
-            .upload(path, p.file, { contentType: p.file.type });
-          if (error) throw error;
-          urls.push(path);
+          const dataUrl = await fileToDataUrl(p.file);
+          const uploaded = await uploadCustomerPhoto({
+            data: { dataUrl, filename: p.file.name, folder: "photo-printing" },
+          });
+          urls[i] = uploaded.url;
           done++;
           setProgress(Math.round((done / all.length) * 100));
         }
       };
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, all.length) }, worker));
 
-      const { error: insErr } = await supabase.from("photo_orders").insert({
-        id: orderId,
-        customer_name: name.trim(),
-        phone: phone.trim(),
-        governorate,
-        address: address.trim(),
-        size: size.label,
-        quantity: qty,
-        unit_price: size.price,
-        total_price: total,
-        shipping_cost: shipping,
-        photo_urls: urls,
+      const result = await createPhotoOrder({
+        data: {
+          customer_name: name.trim(),
+          phone: phone.trim(),
+          governorate,
+          address: address.trim(),
+          size_id: sizeId,
+          size_label: size.label,
+          quantity: qty,
+          photo_urls: urls,
+        },
       });
-      if (insErr) throw insErr;
+      const orderId = result.order.id;
       try {
         const { gaEvent } = await import("@/lib/ga4");
         gaEvent("photo_printing", {
@@ -209,7 +215,7 @@ function PhotoPrintingPage() {
 
       const msg = [
         "New Photo Printing order",
-        `Order #${orderId.slice(0, 8)}`,
+        `Order ${result.order.order_number}`,
         `Name: ${name}`,
         `Phone: ${phone}`,
         `Governorate: ${governorate}`,

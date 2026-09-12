@@ -234,6 +234,44 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Photo orders (4x6 printing + general photo printing)
+// ---------------------------------------------------------------
+export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    const [p4x6, photo] = await Promise.all([
+      sql()`
+        select id, order_number, 'photo_4x6' as kind, customer_name, phone, governorate, address,
+               package_key as detail, photo_count as quantity, total_price, status, created_at
+        from photo_4x6_orders
+        order by created_at desc limit 200
+      `,
+      sql()`
+        select id, order_number, 'photo_printing' as kind, customer_name, phone, governorate, address,
+               size as detail, quantity, total_price, status, created_at
+        from photo_orders
+        order by created_at desc limit 200
+      `,
+    ]);
+    return [...p4x6, ...photo].sort(
+      (a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime(),
+    );
+  });
+
+export const updatePhotoOrderStatus = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { id: string; kind: "photo_4x6" | "photo_printing"; status: string })
+  .handler(async ({ data }) => {
+    if (!VALID_ORDER_STATUSES.has(data.status)) throw new Error("Invalid status");
+    if (data.kind === "photo_4x6") {
+      await sql()`update photo_4x6_orders set status = ${data.status} where id = ${data.id}`;
+    } else {
+      await sql()`update photo_orders set status = ${data.status} where id = ${data.id}`;
+    }
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Site settings (pricing / shipping)
 // ---------------------------------------------------------------
 export const getAllSiteSettingsAdmin = createServerFn({ method: "GET" })

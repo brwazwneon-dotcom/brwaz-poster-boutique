@@ -13,7 +13,7 @@ import {
   ShoppingBag,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { SizeGuide } from "@/components/SizeGuide";
@@ -90,6 +90,15 @@ type Pic = {
   frameType: FrameTypeId;
   size: SizeId;
 };
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 function isAcceptedFile(f: File): boolean {
   const type = (f.type || "").toLowerCase();
@@ -378,20 +387,15 @@ function CustomDesignPage() {
             img.src = URL.createObjectURL(pic.file);
           });
 
-          // Upload original file unchanged
-          const { error: upErr } = await supabase.storage.from("custom-designs").upload(path, pic.file, {
-            contentType: pic.file.type || "application/octet-stream",
-            upsert: false,
+          // Upload original file unchanged. Vercel Blob URLs are already
+          // public and permanent, so no separate "signed URL" step is
+          // needed the way Supabase Storage required one.
+          const dataUrl = await fileToDataUrl(pic.file);
+          const { url } = await uploadCustomerPhoto({
+            data: { dataUrl, filename: sanitizedName, folder: "custom-designs" },
           });
-          if (upErr) throw upErr;
 
-          // Create a long-lived signed URL for cart display
-          const { data: signed } = await supabase.storage
-            .from("custom-designs")
-            .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
-          const signedUrl = signed?.signedUrl ?? URL.createObjectURL(pic.file);
-
-          uploaded.push({ path, index: i, url: signedUrl, width: dims.width, height: dims.height });
+          uploaded.push({ path, index: i, url, width: dims.width, height: dims.height });
           done++;
           setProgress(Math.round((done / total) * 100));
         }

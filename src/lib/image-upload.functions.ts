@@ -29,6 +29,33 @@ export const uploadPosterImage = createServerFn({ method: "POST" })
     return { url: blob.url };
   });
 
+// Public — customer-submitted order photos (4x6 printing, photo printing,
+// custom design). No admin auth: checkout is anonymous, same as the old
+// Supabase Storage buckets these replace ("photo-4x6", "customer-photos",
+// "custom-designs" all allowed public inserts). Kept to a stricter size
+// cap than the admin upload since these are unmoderated at upload time.
+export const uploadCustomerPhoto = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { dataUrl: string; filename: string; folder: string })
+  .handler(async ({ data }) => {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(data.dataUrl);
+    if (!match) throw new Error("Invalid image data");
+    const [, mime, base64] = match;
+    if (!mime.startsWith("image/")) throw new Error("Only images are allowed");
+    const buffer = Buffer.from(base64, "base64");
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new Error("Image too large (max 10MB)");
+    }
+    const folder = /^[a-z0-9_-]+$/i.test(data.folder) ? data.folder : "customer-uploads";
+    const safeName = data.filename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const path = `${folder}/${crypto.randomUUID()}-${safeName}`;
+    const blob = await put(path, buffer, {
+      access: "public",
+      contentType: mime,
+      addRandomSuffix: false,
+    });
+    return { url: blob.url };
+  });
+
 // Media Library — lists every uploaded blob directly from Vercel Blob
 // storage (not derived from `posters`), so it also surfaces orphaned
 // uploads (drafts abandoned mid-upload, replaced images) that no product

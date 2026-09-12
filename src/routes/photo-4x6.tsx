@@ -13,7 +13,8 @@ import {
   Shirt,
   Check,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
+import { createPhoto4x6Order } from "@/lib/db-orders.functions";
 import { whatsappLink } from "@/lib/whatsapp";
 import {
   useSiteSettings,
@@ -148,15 +149,6 @@ async function fileToCompressedDataUrl(
   return { dataUrl, blob, warnLowRes: short < 600 };
 }
 
-function dataUrlToBlob(dataUrl: string): Blob {
-  const [head, b64] = dataUrl.split(",");
-  const mime = /data:(.*?);base64/.exec(head)?.[1] ?? "image/jpeg";
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
 function Photo4x6Page() {
   const settings = useSiteSettings();
   const config = usePhoto4x6Config();
@@ -264,7 +256,6 @@ function Photo4x6Page() {
     setSubmitting(true);
     setProgress(0);
     try {
-      const orderId = crypto.randomUUID();
       const originals: string[] = [];
       const enhanced: string[] = [];
       const suits: string[] = [];
@@ -274,53 +265,43 @@ function Photo4x6Page() {
 
       for (let i = 0; i < pics.length; i++) {
         const p = pics[i];
-        const prefix = `${orderId}/${String(i).padStart(3, "0")}`;
-        // upload original (from compressed data url = jpg)
-        const origPath = `${prefix}-orig.jpg`;
-        await supabase.storage
-          .from("photo-4x6")
-          .upload(origPath, dataUrlToBlob(p.originalDataUrl), { contentType: "image/jpeg" });
-        originals.push(origPath);
+        const filenamePrefix = String(i).padStart(3, "0");
+        const orig = await uploadCustomerPhoto({
+          data: { dataUrl: p.originalDataUrl, filename: `${filenamePrefix}-orig.jpg`, folder: "photo-4x6" },
+        });
+        originals.push(orig.url);
         if (p.enhancedDataUrl) {
-          const path = `${prefix}-enhanced.jpg`;
-          await supabase.storage
-            .from("photo-4x6")
-            .upload(path, dataUrlToBlob(p.enhancedDataUrl), { contentType: "image/jpeg" });
-          enhanced.push(path);
+          const uploaded = await uploadCustomerPhoto({
+            data: { dataUrl: p.enhancedDataUrl, filename: `${filenamePrefix}-enhanced.jpg`, folder: "photo-4x6" },
+          });
+          enhanced.push(uploaded.url);
         }
         if (p.suitDataUrl) {
-          const path = `${prefix}-suit.jpg`;
-          await supabase.storage
-            .from("photo-4x6")
-            .upload(path, dataUrlToBlob(p.suitDataUrl), { contentType: "image/jpeg" });
-          suits.push(path);
+          const uploaded = await uploadCustomerPhoto({
+            data: { dataUrl: p.suitDataUrl, filename: `${filenamePrefix}-suit.jpg`, folder: "photo-4x6" },
+          });
+          suits.push(uploaded.url);
         }
         selected[String(i)] = p.selected;
         done++;
         setProgress(Math.round((done / totalPics) * 100));
       }
 
-      const { data: inserted, error: insErr } = await supabase
-        .from("photo_4x6_orders")
-        .insert({
-          id: orderId,
+      const result = await createPhoto4x6Order({
+        data: {
           customer_name: name.trim(),
           phone: phone.trim(),
           governorate,
           address: address.trim(),
           package_key: pkg.key,
-          photo_count: pkg.photos,
-          total_price: total,
           notes: notes.trim() || null,
           original_paths: originals,
           enhanced_paths: enhanced,
           suit_paths: suits,
           selected_versions: selected,
-        })
-        .select("order_number")
-        .single();
-      if (insErr) throw insErr;
-      const orderNumber = inserted?.order_number ?? orderId.slice(0, 8);
+        },
+      });
+      const orderNumber = result.order.order_number;
 
       const msg = [
         "New 4×6 Photo Printing order",

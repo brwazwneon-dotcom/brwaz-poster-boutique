@@ -27,6 +27,8 @@ import {
   listErrorLogsAdmin,
   updateErrorLogStatus,
   listCustomersAdmin,
+  listPhotoOrdersAdmin,
+  updatePhotoOrderStatus,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
@@ -207,7 +209,16 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-type Tab = "products" | "categories" | "orders" | "customers" | "media" | "homepage" | "health" | "settings";
+type Tab =
+  | "products"
+  | "categories"
+  | "orders"
+  | "photo-orders"
+  | "customers"
+  | "media"
+  | "homepage"
+  | "health"
+  | "settings";
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("orders");
@@ -219,6 +230,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "orders", label: "Orders" },
+    { id: "photo-orders", label: "Photo Orders" },
     { id: "products", label: "Products" },
     { id: "categories", label: "Categories" },
     { id: "customers", label: "Customers" },
@@ -255,6 +267,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       </div>
       <div className="mx-auto max-w-6xl px-4 py-8">
         {tab === "orders" && <OrdersTab />}
+        {tab === "photo-orders" && <PhotoOrdersTab />}
         {tab === "products" && <ProductsTab />}
         {tab === "categories" && <CategoriesTab />}
         {tab === "customers" && <CustomersTab />}
@@ -410,6 +423,108 @@ function OrdersTab() {
                     <select
                       value={o.status}
                       onChange={(e) => changeStatus(o.id, e.target.value)}
+                      className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                    >
+                      {ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Photo Orders (4x6 printing + general photo printing)
+// ---------------------------------------------------------------
+type AdminPhotoOrder = {
+  id: string;
+  order_number: string | null;
+  kind: "photo_4x6" | "photo_printing";
+  customer_name: string;
+  phone: string;
+  governorate: string;
+  address: string;
+  detail: string;
+  quantity: number;
+  total_price: number;
+  status: string;
+  created_at: string;
+};
+
+const PHOTO_ORDER_KIND_LABEL: Record<AdminPhotoOrder["kind"], string> = {
+  photo_4x6: "4×6 Printing",
+  photo_printing: "Photo Printing",
+};
+
+function PhotoOrdersTab() {
+  const [orders, setOrders] = useState<AdminPhotoOrder[] | null>(null);
+
+  const load = async () => setOrders((await listPhotoOrdersAdmin()) as AdminPhotoOrder[]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const changeStatus = async (o: AdminPhotoOrder, status: string) => {
+    try {
+      await updatePhotoOrderStatus({ data: { id: o.id, kind: o.kind, status } });
+      toast.success("Order updated");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
+  if (orders === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Photo orders</h2>
+        <span className="text-xs text-muted-foreground">{orders.length} orders</span>
+      </div>
+      {orders.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No photo orders yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-sm border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Order</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Customer</th>
+                <th className="px-3 py-2">Detail</th>
+                <th className="px-3 py-2">Total</th>
+                <th className="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={`${o.kind}-${o.id}`} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
+                  <td className="px-3 py-2 text-xs">{PHOTO_ORDER_KIND_LABEL[o.kind]}</td>
+                  <td className="px-3 py-2">
+                    <div>{o.customer_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {o.phone} · {o.governorate}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {o.detail} · qty {o.quantity}
+                  </td>
+                  <td className="px-3 py-2 font-medium">{Number(o.total_price)} EGP</td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={o.status}
+                      onChange={(e) => changeStatus(o, e.target.value)}
                       className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                     >
                       {ORDER_STATUSES.map((s) => (
