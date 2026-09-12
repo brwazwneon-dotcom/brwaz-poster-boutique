@@ -440,7 +440,7 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
                 !complete && "pointer-events-none opacity-50",
               )}
             >
-              {t("whatsapp")}
+              {t("whatsappLabel")}
             </a>
           </div>
           {!complete && (

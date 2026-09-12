@@ -195,7 +195,7 @@ function SetCard({ set }: { set: FrameSet }) {
             rel="noreferrer"
             className="rounded-sm border border-border px-4 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
           >
-            {t("whatsapp")}
+            {t("whatsappLabel")}
           </a>
         </div>
       </div>
