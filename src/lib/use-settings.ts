@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 // Frame mockups are served from /public so they work on every host
 // (Lovable preview, Lovable published, custom domains on Vercel, etc.).
@@ -21,9 +21,10 @@ export function useSiteSettings() {
     queryKey: ["site-settings"],
     staleTime: 60_000,
     queryFn: async (): Promise<SiteSettings> => {
-      const { data, error } = await supabase.from("site_settings").select("key,value");
-      if (error) throw error;
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({
+        data: { keys: ["shipping_fee", "free_shipping_threshold"] },
+      });
+      const map = new Map(Object.entries(settings));
       const num = (k: string, fallback: number) => {
         const v = map.get(k);
         const n = typeof v === "number" ? v : Number(v);
@@ -110,12 +111,8 @@ export function usePricing(): Pricing {
     queryKey: ["pricing"],
     staleTime: 60_000,
     queryFn: async (): Promise<Pricing> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("key,value")
-        .in("key", Object.keys(PRICING_KEYS));
-      if (error) throw error;
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({ data: { keys: Object.keys(PRICING_KEYS) } });
+      const map = new Map(Object.entries(settings));
       const num = (k: keyof typeof PRICING_KEYS, fallback: number) => {
         const v = map.get(k);
         const n = typeof v === "number" ? v : Number(v);
@@ -311,12 +308,8 @@ export function useFrameMockups(): FrameMockups {
     queryKey: ["frame-mockups"],
     staleTime: 60_000,
     queryFn: async (): Promise<FrameMockups> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("key,value")
-        .in("key", Object.values(MOCKUP_KEYS));
-      if (error) throw error;
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({ data: { keys: Object.values(MOCKUP_KEYS) } });
+      const map = new Map(Object.entries(settings));
       return {
         black: parseMockup(map.get(MOCKUP_KEYS.black), MOCKUP_DEFAULTS.black),
         white: parseMockup(map.get(MOCKUP_KEYS.white), MOCKUP_DEFAULTS.white),
@@ -348,13 +341,8 @@ export function useGridDisplayMode(): GridDisplayMode {
     queryKey: ["grid-display-mode"],
     staleTime: 60_000,
     queryFn: async (): Promise<GridDisplayMode> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", GRID_DISPLAY_MODE_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      const v = data?.value as unknown;
+      const settings = await getSiteSettingsPublic({ data: { keys: [GRID_DISPLAY_MODE_KEY] } });
+      const v = settings[GRID_DISPLAY_MODE_KEY];
       const s = typeof v === "string" ? v : "";
       return (["black", "white", "wood"] as GridDisplayMode[]).includes(s as GridDisplayMode)
         ? (s as GridDisplayMode)
@@ -442,13 +430,8 @@ export function usePhoto4x6Config(): Photo4x6Config {
     queryKey: ["photo-4x6-config"],
     staleTime: 60_000,
     queryFn: async (): Promise<Photo4x6Config> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", PHOTO_4X6_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return parsePhoto4x6(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [PHOTO_4X6_KEY] } });
+      return parsePhoto4x6(settings[PHOTO_4X6_KEY]);
     },
   });
   return q.data ?? PHOTO_4X6_DEFAULTS;
@@ -559,13 +542,8 @@ export function usePhotoPrintingMediaConfig(): PhotoPrintingMediaConfig {
     queryKey: ["photo-printing-media"],
     staleTime: 30_000,
     queryFn: async (): Promise<PhotoPrintingMediaConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", PHOTO_PRINTING_MEDIA_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return parsePhotoPrintingMediaConfig(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [PHOTO_PRINTING_MEDIA_KEY] } });
+      return parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY]);
     },
   });
   return q.data ?? PHOTO_PRINTING_MEDIA_DEFAULTS;
@@ -585,17 +563,13 @@ export function parsePostOrderMessageEnabled(v: unknown): boolean {
 
 /**
  * Read the CURRENT value of the post-order message toggle straight from
- * Supabase. Called at the moment of order success so the toast always reflects
- * the setting stored in the database — never a cached value. Defaults to ON.
+ * the database. Called at the moment of order success so the toast always
+ * reflects the setting stored server-side — never a cached value. Defaults
+ * to ON.
  */
 export async function readPostOrderMessageEnabled(): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", POST_ORDER_MESSAGE_ENABLED_KEY)
-    .maybeSingle();
-  if (error) throw error;
-  return parsePostOrderMessageEnabled(data?.value);
+  const settings = await getSiteSettingsPublic({ data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] } });
+  return parsePostOrderMessageEnabled(settings[POST_ORDER_MESSAGE_ENABLED_KEY]);
 }
 
 /**
@@ -608,13 +582,8 @@ export function usePostOrderMessageEnabled(): boolean {
     queryKey: ["post-order-message-enabled"],
     staleTime: 60_000,
     queryFn: async (): Promise<boolean> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", POST_ORDER_MESSAGE_ENABLED_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return parsePostOrderMessageEnabled(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] } });
+      return parsePostOrderMessageEnabled(settings[POST_ORDER_MESSAGE_ENABLED_KEY]);
     },
   });
   return q.data ?? true;
