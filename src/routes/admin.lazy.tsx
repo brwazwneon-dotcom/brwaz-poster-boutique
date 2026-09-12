@@ -894,6 +894,22 @@ function CategoriesTab() {
     }
   };
 
+  // Quick-add: type a name under a main category and press Enter — for
+  // fast one-at-a-time entry (e.g. "Messi", "Ronaldo" under Football)
+  // without opening the full edit form each time.
+  const [newSubName, setNewSubName] = useState<Record<string, string>>({});
+  const addSubcategory = async (parentId: string) => {
+    const name = (newSubName[parentId] ?? "").trim();
+    if (!name) return;
+    try {
+      await upsertCategory({ data: { name, parent_id: parentId } });
+      setNewSubName((prev) => ({ ...prev, [parentId]: "" }));
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
   const remove = async (id: string) => {
     if (!confirm("Delete this category?")) return;
     await deleteCategory({ data: id });
@@ -1068,26 +1084,42 @@ function CategoriesTab() {
                     </button>
                   </div>
                 </div>
-                {subs.length > 0 && (
-                  <div className="ml-6 mt-1 space-y-1 border-l border-border pl-4">
-                    {subs.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-2">
-                        <div className="text-xs">
-                          {s.name}
-                          {s.hidden ? " · hidden" : ""}
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
-                            Edit
-                          </button>
-                          <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
-                            Delete
-                          </button>
-                        </div>
+                <div className="ml-6 mt-1 space-y-1 border-l border-border pl-4">
+                  {subs.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-2">
+                      <div className="text-xs">
+                        {s.name}
+                        {s.hidden ? " · hidden" : ""}
                       </div>
-                    ))}
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+                          Edit
+                        </button>
+                        <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <input
+                      value={newSubName[main.id] ?? ""}
+                      onChange={(e) => setNewSubName((prev) => ({ ...prev, [main.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addSubcategory(main.id);
+                      }}
+                      placeholder={`+ Add subcategory under ${main.name} (e.g. Messi)`}
+                      className="w-full rounded-sm border border-dashed border-border bg-background px-2 py-1.5 text-xs"
+                    />
+                    <button
+                      onClick={() => addSubcategory(main.id)}
+                      disabled={!newSubName[main.id]?.trim()}
+                      className="shrink-0 rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-40"
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
@@ -2814,7 +2846,10 @@ function ProductsTab() {
     }
   };
 
-  const MAX_CONCURRENT = 3;
+  // 9 rotating Gemini keys are configured, so a higher concurrency spreads
+  // load across them instead of one key eating the whole rate limit —
+  // was 3, which made a 1000-image batch take much longer than it needs to.
+  const MAX_CONCURRENT = 8;
   const activeCountRef = useRef(0);
   const pendingRef = useRef<QueueItem[]>([]);
   const pump = () => {
