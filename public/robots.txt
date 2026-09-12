@@ -3,6 +3,7 @@ Allow: /
 Disallow: /admin
 Disallow: /auth
 Disallow: /cart
+Disallow: /track-order
 Disallow: /api/
 
 Sitemap: https://brwazwneon.com/sitemap.xml
