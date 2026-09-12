@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 import { isPreviewMode } from "@/lib/preview-mode";
 
 export type HomeSectionKey =
@@ -228,20 +228,11 @@ export function useHomeSections() {
     staleTime: 60_000,
     queryFn: async (): Promise<HomeSectionConfig[]> => {
       if (preview) {
-        const { data: draft } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", HOME_SECTIONS_DRAFT_KEY)
-          .maybeSingle();
-        if (draft?.value) return normalizeHomeSections(draft.value);
+        const draft = await getSiteSettingsPublic({ data: { keys: [HOME_SECTIONS_DRAFT_KEY] } });
+        if (draft[HOME_SECTIONS_DRAFT_KEY]) return normalizeHomeSections(draft[HOME_SECTIONS_DRAFT_KEY]);
       }
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", HOME_SECTIONS_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalizeHomeSections(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [HOME_SECTIONS_KEY] } });
+      return normalizeHomeSections(settings[HOME_SECTIONS_KEY]);
     },
   });
   return q.data ?? normalizeHomeSections(DEFAULT_HOME_SECTIONS);
@@ -286,13 +277,8 @@ export function useBestSellersConfig() {
     queryKey: ["best-sellers-config"],
     staleTime: 60_000,
     queryFn: async (): Promise<BestSellersConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", BEST_SELLERS_CONFIG_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      const v = (data?.value ?? {}) as Partial<BestSellersConfig>;
+      const settings = await getSiteSettingsPublic({ data: { keys: [BEST_SELLERS_CONFIG_KEY] } });
+      const v = (settings[BEST_SELLERS_CONFIG_KEY] ?? {}) as Partial<BestSellersConfig>;
       const allowed = [8, 12, 16, 24] as const;
       const max = allowed.includes(v.max as (typeof allowed)[number])
         ? (v.max as BestSellersConfig["max"])
