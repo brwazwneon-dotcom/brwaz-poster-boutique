@@ -4,6 +4,7 @@ import {
   fetchPosterBySlugFromDb,
   fetchPostersByCategoryFromDb,
   fetchTrendingPostersFromDb,
+  fetchBestSellersFromDb,
   fetchSiteSettingsFromDb,
   fetchPosterImagesByIdsFromDb,
   type CategorySortKey,
@@ -57,6 +58,10 @@ export const getSiteSettingsPublic = createServerFn({ method: "GET" })
 
 export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledHeroBannersFromDb();
+});
+
+export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
+  return fetchBestSellersFromDb();
 });
 
 // Public — client error capture (window.onerror / unhandledrejection /

@@ -89,6 +89,27 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
     `;
   });
 
+// Customers — derived from orders grouped by phone (no separate table:
+// the phone number given at checkout is the only stable customer
+// identity this store currently collects).
+export const listCustomersAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select phone,
+             max(customer_name) as customer_name,
+             max(governorate) as governorate,
+             count(*)::int as order_count,
+             coalesce(sum(total_price), 0)::numeric as total_spent,
+             max(created_at) as last_order_at
+      from orders
+      where is_test = false
+      group by phone
+      order by last_order_at desc
+      limit 500
+    `;
+  });
+
 export const upsertPoster = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
   .validator((data: unknown) => data as Record<string, unknown>)
@@ -106,21 +127,22 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const hidden = Boolean(data.hidden);
     const featured = Boolean(data.featured);
     const trending = Boolean(data.trending);
+    const isBestSeller = Boolean(data.is_best_seller);
 
     if (id) {
       const rows = await sql()`
         update posters
         set title = ${title}, slug = ${slug}, description = ${description}, image_url = ${imageUrl},
             category_id = ${categoryId}, tags = ${tags}, badge = ${badge}, hidden = ${hidden},
-            featured = ${featured}, trending = ${trending}, updated_at = now()
+            featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller}, updated_at = now()
         where id = ${id}
         returning id
       `;
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into posters (title, slug, description, image_url, category_id, tags, badge, hidden, featured, trending)
-      values (${title}, ${slug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden}, ${featured}, ${trending})
+      insert into posters (title, slug, description, image_url, category_id, tags, badge, hidden, featured, trending, is_best_seller)
+      values (${title}, ${slug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden}, ${featured}, ${trending}, ${isBestSeller})
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };
@@ -139,18 +161,20 @@ export const bulkUpdatePosters = createServerFn({ method: "POST" })
           badge?: string | null;
           hidden?: boolean;
           trending?: boolean;
+          is_best_seller?: boolean;
         };
       },
   )
   .handler(async ({ data }) => {
     if (data.ids.length === 0) return { ok: true, count: 0 };
-    const { category_id, badge, hidden, trending } = data.patch;
+    const { category_id, badge, hidden, trending, is_best_seller } = data.patch;
     await sql()`
       update posters set
         category_id = coalesce(${category_id === undefined ? null : category_id}::uuid, category_id),
         badge = case when ${badge !== undefined} then ${badge} else badge end,
         hidden = coalesce(${hidden === undefined ? null : hidden}, hidden),
         trending = coalesce(${trending === undefined ? null : trending}, trending),
+        is_best_seller = coalesce(${is_best_seller === undefined ? null : is_best_seller}, is_best_seller),
         updated_at = now()
       where id = any(${data.ids})
     `;

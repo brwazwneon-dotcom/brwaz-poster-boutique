@@ -106,6 +106,73 @@ export async function fetchPostersByCategoryFromDb(
   return rows as unknown as DbPoster[];
 }
 
+export type DbBestSellerRow = {
+  id: string;
+  poster_id: string;
+  position: number;
+  posters: {
+    id: string;
+    title: string;
+    image_url: string;
+    badge: string | null;
+    category_id: string | null;
+    hidden: boolean;
+    sales_count: number | null;
+    views_count: number | null;
+    created_at: string;
+    categories: { name: string; slug: string } | null;
+  } | null;
+};
+
+// Best Sellers reuses the existing `posters.is_best_seller` flag rather
+// than the old system's separate pinned/scheduled bundle table — simpler,
+// and the admin bulk-toggle is enough for how this store actually curates
+// this list. Shaped like the old curated-table rows (`posters` nested
+// object) so the storefront route didn't need a rewrite.
+export async function fetchBestSellersFromDb(): Promise<DbBestSellerRow[]> {
+  const rows = await sql()`
+    select p.id, p.title, p.image_url, p.badge, p.category_id, p.hidden,
+           p.sales_count, p.views_count, p.created_at,
+           c.name as category_name, c.slug as category_slug
+    from posters p
+    left join categories c on c.id = p.category_id
+    where p.is_best_seller = true and p.hidden = false
+    order by p.sales_count desc nulls last, p.created_at desc
+    limit 200
+  `;
+  return (
+    rows as unknown as Array<{
+      id: string;
+      title: string;
+      image_url: string;
+      badge: string | null;
+      category_id: string | null;
+      hidden: boolean;
+      sales_count: number | null;
+      views_count: number | null;
+      created_at: string;
+      category_name: string | null;
+      category_slug: string | null;
+    }>
+  ).map((r, i) => ({
+    id: r.id,
+    poster_id: r.id,
+    position: i,
+    posters: {
+      id: r.id,
+      title: r.title,
+      image_url: r.image_url,
+      badge: r.badge,
+      category_id: r.category_id,
+      hidden: r.hidden,
+      sales_count: r.sales_count,
+      views_count: r.views_count,
+      created_at: r.created_at,
+      categories: r.category_slug ? { name: r.category_name ?? "", slug: r.category_slug } : null,
+    },
+  }));
+}
+
 export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
   const rows = await sql()`
     select id, title, slug, description, image_url, category_id, tags, badge,

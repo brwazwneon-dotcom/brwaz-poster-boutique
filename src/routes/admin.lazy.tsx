@@ -26,6 +26,7 @@ import {
   getSystemHealthAdmin,
   listErrorLogsAdmin,
   updateErrorLogStatus,
+  listCustomersAdmin,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
@@ -206,7 +207,7 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-type Tab = "products" | "categories" | "orders" | "homepage" | "health" | "settings";
+type Tab = "products" | "categories" | "orders" | "customers" | "homepage" | "health" | "settings";
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("orders");
@@ -220,6 +221,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "orders", label: "Orders" },
     { id: "products", label: "Products" },
     { id: "categories", label: "Categories" },
+    { id: "customers", label: "Customers" },
     { id: "homepage", label: "Homepage" },
     { id: "health", label: "System Health" },
     { id: "settings", label: "Settings" },
@@ -254,6 +256,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {tab === "orders" && <OrdersTab />}
         {tab === "products" && <ProductsTab />}
         {tab === "categories" && <CategoriesTab />}
+        {tab === "customers" && <CustomersTab />}
         {tab === "homepage" && <HomepageTab />}
         {tab === "health" && <SystemHealthTab />}
         {tab === "settings" && <SettingsTab />}
@@ -496,6 +499,82 @@ function CategoriesTab() {
 }
 
 // ---------------------------------------------------------------
+// Customers — derived from orders grouped by phone
+// ---------------------------------------------------------------
+type AdminCustomer = {
+  phone: string;
+  customer_name: string;
+  governorate: string;
+  order_count: number;
+  total_spent: number;
+  last_order_at: string;
+};
+
+function CustomersTab() {
+  const [customers, setCustomers] = useState<AdminCustomer[] | null>(null);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    (async () => setCustomers((await listCustomersAdmin()) as AdminCustomer[]))();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!customers) return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return customers;
+    return customers.filter(
+      (c) => c.phone.includes(needle) || c.customer_name.toLowerCase().includes(needle),
+    );
+  }, [customers, q]);
+
+  if (customers === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Customers</h2>
+        <input
+          placeholder="Search name or phone…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="w-64 rounded-sm border border-border bg-background px-3 py-1.5 text-sm"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No customers yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-sm border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Customer</th>
+                <th className="px-3 py-2">Phone</th>
+                <th className="px-3 py-2">Governorate</th>
+                <th className="px-3 py-2">Orders</th>
+                <th className="px-3 py-2">Total spent</th>
+                <th className="px-3 py-2">Last order</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.phone} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2">{c.customer_name}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{c.phone}</td>
+                  <td className="px-3 py-2 text-xs">{c.governorate}</td>
+                  <td className="px-3 py-2">{c.order_count}</td>
+                  <td className="px-3 py-2 font-medium">{Number(c.total_spent)} EGP</td>
+                  <td className="px-3 py-2 text-xs">{new Date(c.last_order_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
 // Products — Upload Studio
 // ---------------------------------------------------------------
 type AdminPoster = {
@@ -508,6 +587,7 @@ type AdminPoster = {
   hidden: boolean;
   featured: boolean;
   trending: boolean;
+  is_best_seller: boolean;
   tags?: string[];
 };
 
@@ -690,7 +770,13 @@ function ProductsTab() {
     });
   const clearSelection = () => setSelected(new Set());
 
-  const applyBulk = async (patch: { category_id?: string; badge?: string | null; hidden?: boolean; trending?: boolean }) => {
+  const applyBulk = async (patch: {
+    category_id?: string;
+    badge?: string | null;
+    hidden?: boolean;
+    trending?: boolean;
+    is_best_seller?: boolean;
+  }) => {
     if (selected.size === 0) return;
     try {
       await bulkUpdatePosters({ data: { ids: Array.from(selected), patch } });
@@ -859,6 +945,12 @@ function ProductsTab() {
           <button onClick={() => applyBulk({ trending: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
             + Trending
           </button>
+          <button onClick={() => applyBulk({ is_best_seller: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+            + Best Seller
+          </button>
+          <button onClick={() => applyBulk({ is_best_seller: false })} className="rounded-sm border border-border px-2 py-1 text-xs">
+            − Best Seller
+          </button>
           <button onClick={() => applyBulk({ hidden: false })} className="rounded-sm border border-border px-2 py-1 text-xs">
             Publish
           </button>
@@ -949,6 +1041,14 @@ function ProductsTab() {
                 />
                 Trending
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.is_best_seller)}
+                  onChange={(e) => setEditing({ ...editing, is_best_seller: e.target.checked })}
+                />
+                Best Seller
+              </label>
             </div>
             <div className="flex gap-2">
               <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
@@ -975,6 +1075,7 @@ function ProductsTab() {
                   {categoryName(p.category_id)}
                   {p.hidden ? " · draft" : " · published"}
                   {p.trending ? " · trending" : ""}
+                  {p.is_best_seller ? " · best seller" : ""}
                 </div>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { useCategories } from "@/lib/use-categories";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { useBestSellersConfig } from "@/lib/homepage-sections";
 import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
+import { getBestSellersPublic } from "@/lib/db-public.functions";
 
 export const Route = createFileRoute("/best-sellers")({
   loader: async ({ context }) => {
@@ -43,11 +44,6 @@ type Row = {
   id: string;
   poster_id: string;
   position: number;
-  pinned: boolean;
-  featured: boolean;
-  badge_disabled: boolean;
-  start_date: string | null;
-  end_date: string | null;
   posters: {
     id: string;
     title: string;
@@ -64,12 +60,8 @@ type Row = {
 
 const BEST_SELLERS_QUERY_KEY = ["best-sellers-page"];
 
-// TEMPORARY (Phase 1): the curated best_sellers table (admin-picked,
-// pinned/scheduled) isn't part of the new database yet — that curation
-// workflow is Phase 4. Returns empty rather than erroring so this route
-// renders its existing empty state instead of crashing.
 async function fetchBestSellers(): Promise<Row[]> {
-  return [];
+  return (await getBestSellersPublic()) as Row[];
 }
 
 type SortKey = "featured" | "newest" | "popular" | "price_asc" | "price_desc";
@@ -184,11 +176,7 @@ function BestSellersPage() {
             {filtered.map((r) => {
               const p = r.posters!;
               const image = images[p.id];
-              const badgeText = !r.badge_disabled
-                ? p.badge && p.badge.length > 0
-                  ? p.badge
-                  : t("bestSellers.badge")
-                : null;
+              const badgeText = p.badge && p.badge.length > 0 ? p.badge : t("bestSellers.badge");
               return (
                 <article key={r.id} className="group relative">
                   <div className="relative overflow-hidden rounded-sm border border-border bg-muted">
