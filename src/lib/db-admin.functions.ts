@@ -42,6 +42,10 @@ export const upsertCategory = createServerFn({ method: "POST" })
     const showInHeader = data.show_in_header === undefined ? true : Boolean(data.show_in_header);
     const showInCollections =
       data.show_in_collections === undefined ? true : Boolean(data.show_in_collections);
+    const parentId =
+      typeof data.parent_id === "string" && data.parent_id && data.parent_id !== id
+        ? data.parent_id
+        : null;
 
     if (id) {
       const rows = await sql()`
@@ -49,7 +53,7 @@ export const upsertCategory = createServerFn({ method: "POST" })
         set name = ${name}, name_ar = ${nameAr}, slug = ${slug}, description = ${description},
             image = ${image}, hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder},
             show_in_header = ${showInHeader}, show_in_collections = ${showInCollections},
-            updated_at = now()
+            parent_id = ${parentId}, updated_at = now()
         where id = ${id}
         returning id
       `;
@@ -58,15 +62,48 @@ export const upsertCategory = createServerFn({ method: "POST" })
     const rows = await sql()`
       insert into categories (
         name, name_ar, slug, description, image, hidden, featured, sort_order,
-        show_in_header, show_in_collections
+        show_in_header, show_in_collections, parent_id
       )
       values (
         ${name}, ${nameAr}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder},
-        ${showInHeader}, ${showInCollections}
+        ${showInHeader}, ${showInCollections}, ${parentId}
       )
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };
+  });
+
+// Look up a category by exact name (case-insensitive), optionally scoped to
+// a parent — used by the upload flow to resolve/auto-create AI-suggested
+// categories and subcategories without duplicating existing ones.
+export const findOrCreateCategory = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { name: string; parentId: string | null })
+  .handler(async ({ data }) => {
+    const name = String(data.name ?? "").trim();
+    if (!name) throw new Error("Category name is required");
+    const parentId = data.parentId ?? null;
+
+    const existing = parentId
+      ? await sql()`
+          select id from categories
+          where lower(name) = lower(${name}) and parent_id = ${parentId}
+          limit 1
+        `
+      : await sql()`
+          select id from categories
+          where lower(name) = lower(${name}) and parent_id is null
+          limit 1
+        `;
+    if (existing[0]) return { id: (existing[0] as { id: string }).id, created: false };
+
+    const slug = slugify(name);
+    const rows = await sql()`
+      insert into categories (name, slug, parent_id, hidden, show_in_header, show_in_collections)
+      values (${name}, ${slug}, ${parentId}, false, ${parentId === null}, ${parentId === null})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id, created: true };
   });
 
 export const deleteCategory = createServerFn({ method: "POST" })

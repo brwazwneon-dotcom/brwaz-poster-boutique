@@ -12,6 +12,7 @@ import {
   listCategoriesAdmin,
   upsertCategory,
   deleteCategory,
+  findOrCreateCategory,
   listPostersAdmin,
   upsertPoster,
   deletePoster,
@@ -853,6 +854,7 @@ type AdminCategory = {
   sort_order: number;
   show_in_header?: boolean;
   show_in_collections?: boolean;
+  parent_id?: string | null;
 };
 
 function CategoriesTab() {
@@ -963,6 +965,29 @@ function CategoriesTab() {
               rows={2}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                Parent category (leave empty for a main category)
+              </label>
+              <select
+                value={editing.parent_id ?? ""}
+                onChange={(e) => setEditing({ ...editing, parent_id: e.target.value || null })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— None (main category) —</option>
+                {categories
+                  .filter((c) => !c.parent_id && c.id !== editing.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Subcategories show as filter chips on their parent's category page (e.g. "Messi"
+                under "Football") — they don't appear in the header nav or homepage grid.
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1019,22 +1044,53 @@ function CategoriesTab() {
       )}
 
       <div className="space-y-2">
-        {categories.map((c) => (
-          <div key={c.id} className="flex items-center justify-between rounded-sm border border-border p-3">
-            <div>
-              <div className="text-sm font-medium">{c.name}</div>
-              <div className="text-xs text-muted-foreground">/{c.slug}{c.hidden ? " · hidden" : ""}</div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setEditing(c)} className="text-xs text-cyan-500 hover:underline">
-                Edit
-              </button>
-              <button onClick={() => remove(c.id)} className="text-xs text-red-500 hover:underline">
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+        {categories
+          .filter((c) => !c.parent_id)
+          .map((main) => {
+            const subs = categories.filter((c) => c.parent_id === main.id);
+            return (
+              <div key={main.id}>
+                <div className="flex items-center justify-between rounded-sm border border-border p-3">
+                  <div>
+                    <div className="text-sm font-medium">{main.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      /{main.slug}
+                      {main.hidden ? " · hidden" : ""}
+                      {subs.length > 0 ? ` · ${subs.length} subcategories` : ""}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditing(main)} className="text-xs text-cyan-500 hover:underline">
+                      Edit
+                    </button>
+                    <button onClick={() => remove(main.id)} className="text-xs text-red-500 hover:underline">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                {subs.length > 0 && (
+                  <div className="ml-6 mt-1 space-y-1 border-l border-border pl-4">
+                    {subs.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-2">
+                        <div className="text-xs">
+                          {s.name}
+                          {s.hidden ? " · hidden" : ""}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+                            Edit
+                          </button>
+                          <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         {categories.length === 0 && <p className="text-sm text-muted-foreground">No categories yet.</p>}
       </div>
     </div>
@@ -2660,6 +2716,13 @@ function ProductsTab() {
         badge: string | null;
         tags: string[];
         category_id: string | null;
+        subcategory_id: string | null;
+        suggested_category_name: string | null;
+        suggested_subcategory_name: string | null;
+        seo_title: string;
+        seo_description: string;
+        alt_text: string;
+        description: string;
       }> = {};
       try {
         meta = await generatePosterMeta({
@@ -2670,7 +2733,7 @@ function ProductsTab() {
               id: c.id,
               name: c.name,
               slug: c.slug,
-              parent_id: null,
+              parent_id: c.parent_id ?? null,
             })),
           },
         });
@@ -2679,14 +2742,64 @@ function ProductsTab() {
         // draft (filename-derived title, no category), never blocks upload.
       }
 
+      // Resolve the most specific category possible: an existing/matched
+      // subcategory wins, then fall back to auto-creating whatever the AI
+      // suggested (a new subcategory under an existing main, or an
+      // entirely new main category — checking-then-inserting by name so
+      // repeated subjects across the batch reuse the same row instead of
+      // duplicating it). Newly created categories are pushed into
+      // categoriesRef so later items in this same batch see them too.
+      let resolvedCategoryId: string | null = meta.subcategory_id ?? null;
+      if (!resolvedCategoryId) {
+        let mainId = meta.category_id ?? null;
+        if (!mainId && meta.suggested_category_name) {
+          try {
+            const { id, created } = await findOrCreateCategory({
+              data: { name: meta.suggested_category_name, parentId: null },
+            });
+            mainId = id;
+            if (created) {
+              categoriesRef.current = [
+                ...categoriesRef.current,
+                { id, name: meta.suggested_category_name, slug: id, parent_id: null } as AdminCategory,
+              ];
+            }
+          } catch {
+            /* best-effort — leave uncategorized rather than block the upload */
+          }
+        }
+        if (mainId && meta.suggested_subcategory_name) {
+          try {
+            const { id, created } = await findOrCreateCategory({
+              data: { name: meta.suggested_subcategory_name, parentId: mainId },
+            });
+            resolvedCategoryId = id;
+            if (created) {
+              categoriesRef.current = [
+                ...categoriesRef.current,
+                { id, name: meta.suggested_subcategory_name, slug: id, parent_id: mainId } as AdminCategory,
+              ];
+            }
+          } catch {
+            resolvedCategoryId = mainId;
+          }
+        } else {
+          resolvedCategoryId = mainId;
+        }
+      }
+
       updateQueueItem(item.id, { status: "creating" });
       const { id: productId } = await upsertPoster({
         data: {
           title: meta.title || filenameToTitle(item.file.name),
           image_url: url,
-          category_id: meta.category_id ?? null,
+          category_id: resolvedCategoryId,
           badge: meta.badge ?? null,
           tags: meta.tags ?? [],
+          seo_title: meta.seo_title || null,
+          seo_description: meta.seo_description || null,
+          alt_text: meta.alt_text || null,
+          description: meta.description || null,
           hidden: true, // lands as a draft — admin reviews before publishing
           trending: false,
         },
@@ -2895,11 +3008,21 @@ function ProductsTab() {
             className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
           >
             <option value="">Set category…</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {categories
+              .filter((c) => !c.parent_id)
+              .map((main) => {
+                const subs = categories.filter((c) => c.parent_id === main.id);
+                return (
+                  <optgroup key={main.id} label={main.name}>
+                    <option value={main.id}>{main.name}</option>
+                    {subs.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        — {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
           </select>
           <button
             disabled={!bulkCategory}
@@ -2991,11 +3114,21 @@ function ProductsTab() {
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="">No category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {categories
+                .filter((c) => !c.parent_id)
+                .map((main) => {
+                  const subs = categories.filter((c) => c.parent_id === main.id);
+                  return (
+                    <optgroup key={main.id} label={main.name}>
+                      <option value={main.id}>{main.name}</option>
+                      {subs.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          — {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
             </select>
             <input
               placeholder="Badge (e.g. New, Sale) — optional"
