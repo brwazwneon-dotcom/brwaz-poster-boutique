@@ -36,19 +36,6 @@
   --bottom-sheet-open: 0;
 }
 
-.frame-opening {
-  position: relative;
-  overflow: hidden;
-}
-
-.frame-artwork {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
 /*
  * Design system definition.
  *
