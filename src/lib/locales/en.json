@@ -483,6 +483,7 @@
     "expired": "Offer expired",
     "shopDeal": "Shop This Deal",
     "bundle": "Bundle",
+    "framesBundle": "{{count}} Frames Bundle",
     "bundleOffer": "Bundle Offer",
     "bundleDescription": "Buy more, save more with our curated bundles",
     "selected": "Selected",
@@ -764,7 +765,11 @@
     "justNow": "just now",
     "minutesAgo": "minutes ago",
     "soldToday": "sold today",
-    "trending": "Trending now"
+    "trending": "Trending now",
+    "checkingOffer": "{{count}} customers are checking this offer now",
+    "viewingPoster": "{{count}} people are viewing this poster now",
+    "soldRecently": "{{count}} sold in the last 7 days",
+    "from": "from"
   },
   "announcement": {
     "freeShipping": "Free shipping on orders over 500 EGP",

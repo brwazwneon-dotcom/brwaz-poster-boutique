@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { X, Eye, Flame } from "lucide-react";
 import { getRandomVisiblePostersPublic } from "@/lib/db-public.functions";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ function useIsMobileMedia(): boolean {
 
 /** Global floating sales-notification popup. Mount once at root. */
 export function SalesNotifications() {
+  const { t } = useTranslation();
   const cfg = useSocialProofConfig();
   const isMobile = useIsMobileMedia();
   const isAdmin = useIsAdminSession();
@@ -128,7 +130,10 @@ export function SalesNotifications() {
       <div className="relative rounded-xl border border-white/10 bg-black/80 px-3.5 py-2.5 pr-8 text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-semibold leading-tight">
-            {notice.name} <span className="font-normal text-white/60">from {notice.city}</span>
+            {notice.name}{" "}
+            <span className="font-normal text-white/60">
+              {t("socialProof.from")} {notice.city}
+            </span>
           </div>
           <div className="truncate text-[12px] leading-snug text-white/80">{notice.message}</div>
           <div className="mt-1 text-[10px] uppercase tracking-widest text-white/50">
@@ -149,6 +154,7 @@ export function SalesNotifications() {
 
 /** Inline "N people viewing" badge. */
 export function LiveVisitors({ variant = "product" }: { variant?: "product" | "offer" }) {
+  const { t } = useTranslation();
   const cfg = useSocialProofConfig();
   const show =
     cfg.visitors.enabled &&
@@ -160,8 +166,8 @@ export function LiveVisitors({ variant = "product" }: { variant?: "product" | "o
   if (!show || !mounted) return null;
   const label =
     variant === "offer"
-      ? `${count} customers are checking this offer now`
-      : `${count} people are viewing this poster now`;
+      ? t("socialProof.checkingOffer", { count })
+      : t("socialProof.viewingPoster", { count });
   const Icon = variant === "offer" ? Flame : Eye;
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground transition-opacity">
@@ -181,6 +187,7 @@ export function RecentOrdersBadge({
   posterId?: string | null;
   surface?: "product" | "offer" | "checkout";
 }) {
+  const { t } = useTranslation();
   const cfg = useSocialProofConfig();
   const enabled =
     cfg.orders.enabled &&
@@ -192,7 +199,7 @@ export function RecentOrdersBadge({
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
       <Flame className="h-3.5 w-3.5" />
-      {n} sold in the last 7 days
+      {t("socialProof.soldRecently", { count: n })}
     </div>
   );
 }

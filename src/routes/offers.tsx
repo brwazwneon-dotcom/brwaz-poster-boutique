@@ -73,11 +73,12 @@ type CustomOffer = {
 };
 
 function useBundles(): Bundle[] {
+  const { t } = useTranslation();
   const pricing = usePricing();
   const defaults: Bundle[] = [
     {
       key: "bundle-6-20x30",
-      title: "6 Frames Bundle",
+      title: t("offers.framesBundle", { count: 6 }),
       sizeLabel: "20 × 30 cm",
       size: "20x30",
       count: 6,
@@ -85,7 +86,7 @@ function useBundles(): Bundle[] {
     },
     {
       key: "bundle-4-30x40",
-      title: "4 Frames Bundle",
+      title: t("offers.framesBundle", { count: 4 }),
       sizeLabel: "30 × 40 cm",
       size: "30x40",
       count: 4,
@@ -166,7 +167,7 @@ function OffersPage() {
                 </div>
               )}
               <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                {t("offers.bundle")} · {b.count} frames
+                {t("offers.bundle")} · {b.count} {t("cart.frames", { count: b.count })}
               </div>
               <div className="text-display text-5xl">{b.title}</div>
               <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>

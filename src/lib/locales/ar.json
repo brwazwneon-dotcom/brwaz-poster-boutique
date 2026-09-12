@@ -519,6 +519,7 @@
     "expired": "انتهى العرض",
     "shopDeal": "تسوق هذا العرض",
     "bundle": "مجموعة",
+    "framesBundle": "مجموعة {{count}} براويز",
     "bundleOffer": "عرض مجموعة",
     "bundleDescription": "اشتري أكثر، وفر أكثر مع مجموعاتنا المختارة",
     "pickBundle": "اختر عرضاً، ثم اختر مجموعة البوسترات التي تريدها. امزج أي أقسام — ادفع سعراً واحداً.",
@@ -964,7 +965,11 @@
     "justNow": "الآن",
     "minutesAgo": "دقائق مضت",
     "soldToday": "بيع اليوم",
-    "trending": "رائج الآن"
+    "trending": "رائج الآن",
+    "checkingOffer": "{{count}} عميل بيشوف العرض ده دلوقتي",
+    "viewingPoster": "{{count}} بيشوفوا البوستر ده دلوقتي",
+    "soldRecently": "اتباع {{count}} في آخر 7 أيام",
+    "from": "من"
   },
   "announcement": {
     "freeShipping": "توصيل مجاني للطلبات فوق ٥٠٠ جنيه",
