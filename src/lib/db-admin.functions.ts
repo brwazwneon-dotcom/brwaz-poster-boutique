@@ -19,7 +19,7 @@ export const listCategoriesAdmin = createServerFn({ method: "GET" })
   .handler(async () => {
     return sql()`
       select id, name, name_ar, slug, description, image, hidden, featured,
-             sort_order, parent_id, status
+             sort_order, parent_id, status, show_in_header, show_in_collections
       from categories
       order by sort_order asc, name asc
     `;
@@ -39,12 +39,16 @@ export const upsertCategory = createServerFn({ method: "POST" })
     const hidden = Boolean(data.hidden);
     const featured = Boolean(data.featured);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+    const showInHeader = data.show_in_header === undefined ? true : Boolean(data.show_in_header);
+    const showInCollections =
+      data.show_in_collections === undefined ? true : Boolean(data.show_in_collections);
 
     if (id) {
       const rows = await sql()`
         update categories
         set name = ${name}, name_ar = ${nameAr}, slug = ${slug}, description = ${description},
             image = ${image}, hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder},
+            show_in_header = ${showInHeader}, show_in_collections = ${showInCollections},
             updated_at = now()
         where id = ${id}
         returning id
@@ -52,8 +56,14 @@ export const upsertCategory = createServerFn({ method: "POST" })
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into categories (name, name_ar, slug, description, image, hidden, featured, sort_order)
-      values (${name}, ${nameAr}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder})
+      insert into categories (
+        name, name_ar, slug, description, image, hidden, featured, sort_order,
+        show_in_header, show_in_collections
+      )
+      values (
+        ${name}, ${nameAr}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder},
+        ${showInHeader}, ${showInCollections}
+      )
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };

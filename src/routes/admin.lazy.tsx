@@ -727,6 +727,8 @@ type AdminCategory = {
   hidden: boolean;
   featured: boolean;
   sort_order: number;
+  show_in_header?: boolean;
+  show_in_collections?: boolean;
 };
 
 function CategoriesTab() {
@@ -853,6 +855,22 @@ function CategoriesTab() {
                   onChange={(e) => setEditing({ ...editing, featured: e.target.checked })}
                 />
                 Featured
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editing.show_in_header !== false}
+                  onChange={(e) => setEditing({ ...editing, show_in_header: e.target.checked })}
+                />
+                Show in header nav
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editing.show_in_collections !== false}
+                  onChange={(e) => setEditing({ ...editing, show_in_collections: e.target.checked })}
+                />
+                Show in collections grid
               </label>
               <label className="flex items-center gap-2 text-sm">
                 Sort order
