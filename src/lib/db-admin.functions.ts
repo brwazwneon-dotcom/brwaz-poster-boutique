@@ -74,15 +74,17 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     if (data.categoryId) {
       return sql()`
-        select id, title, slug, image_url, category_id, tags, badge, hidden, featured,
-               trending, is_best_seller, sales_count, views_count, created_at
+        select id, title, slug, description, image_url, category_id, tags, badge, hidden, featured,
+               trending, is_best_seller, sales_count, views_count, created_at,
+               seo_title, seo_description, alt_text
         from posters where category_id = ${data.categoryId}
         order by created_at desc
       `;
     }
     return sql()`
-      select id, title, slug, image_url, category_id, tags, badge, hidden, featured,
-             trending, is_best_seller, sales_count, views_count, created_at
+      select id, title, slug, description, image_url, category_id, tags, badge, hidden, featured,
+             trending, is_best_seller, sales_count, views_count, created_at,
+             seo_title, seo_description, alt_text
       from posters
       order by created_at desc
       limit 500
@@ -128,21 +130,33 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const featured = Boolean(data.featured);
     const trending = Boolean(data.trending);
     const isBestSeller = Boolean(data.is_best_seller);
+    const seoTitle = typeof data.seo_title === "string" && data.seo_title ? data.seo_title : null;
+    const seoDescription =
+      typeof data.seo_description === "string" && data.seo_description ? data.seo_description : null;
+    const altText = typeof data.alt_text === "string" && data.alt_text ? data.alt_text : null;
 
     if (id) {
       const rows = await sql()`
         update posters
         set title = ${title}, slug = ${slug}, description = ${description}, image_url = ${imageUrl},
             category_id = ${categoryId}, tags = ${tags}, badge = ${badge}, hidden = ${hidden},
-            featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller}, updated_at = now()
+            featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller},
+            seo_title = ${seoTitle}, seo_description = ${seoDescription}, alt_text = ${altText},
+            updated_at = now()
         where id = ${id}
         returning id
       `;
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into posters (title, slug, description, image_url, category_id, tags, badge, hidden, featured, trending, is_best_seller)
-      values (${title}, ${slug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden}, ${featured}, ${trending}, ${isBestSeller})
+      insert into posters (
+        title, slug, description, image_url, category_id, tags, badge, hidden, featured,
+        trending, is_best_seller, seo_title, seo_description, alt_text
+      )
+      values (
+        ${title}, ${slug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
+        ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText}
+      )
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };

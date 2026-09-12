@@ -1260,6 +1260,7 @@ type AdminPoster = {
   id: string;
   title: string;
   slug: string;
+  description?: string | null;
   image_url: string;
   category_id: string | null;
   badge: string | null;
@@ -1268,6 +1269,9 @@ type AdminPoster = {
   trending: boolean;
   is_best_seller: boolean;
   tags?: string[];
+  seo_title?: string | null;
+  seo_description?: string | null;
+  alt_text?: string | null;
 };
 
 type QueueStatus = "queued" | "optimizing" | "uploading" | "analyzing" | "creating" | "ready" | "failed";
@@ -1703,6 +1707,32 @@ function ProductsTab() {
               onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
+            <details className="rounded-sm border border-border">
+              <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground">
+                SEO (optional)
+              </summary>
+              <div className="space-y-3 border-t border-border p-3">
+                <input
+                  placeholder="SEO title (falls back to product title)"
+                  value={editing.seo_title ?? ""}
+                  onChange={(e) => setEditing({ ...editing, seo_title: e.target.value })}
+                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                />
+                <textarea
+                  placeholder="SEO description (falls back to a default)"
+                  value={editing.seo_description ?? ""}
+                  onChange={(e) => setEditing({ ...editing, seo_description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  placeholder="Image alt text"
+                  value={editing.alt_text ?? ""}
+                  onChange={(e) => setEditing({ ...editing, alt_text: e.target.value })}
+                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </details>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input
