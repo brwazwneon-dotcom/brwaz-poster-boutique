@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getPosterImagesPublic } from "@/lib/db-public.functions";
 import { FramePreview } from "@/components/FramePreview";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { cn } from "@/lib/utils";
@@ -39,14 +39,9 @@ export function PosterGallery({
 }: Props) {
   const { data: extras = [] } = useQuery({
     queryKey: ["poster_images", posterId],
+    staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("poster_images")
-        .select("id,poster_id,image_url,label,kind,sort_order,is_default")
-        .eq("poster_id", posterId)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ExtraImage[];
+      return (await getPosterImagesPublic({ data: { posterId } })) as unknown as ExtraImage[];
     },
   });
 

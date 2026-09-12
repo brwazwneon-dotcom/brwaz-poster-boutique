@@ -491,6 +491,115 @@ export const deleteSet = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Before / After showcase pairs
+// ---------------------------------------------------------------
+export const listBeforeAfterAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, title, description, before_url, after_url, location, sort_order, active
+      from before_after
+      order by location asc, sort_order asc, created_at desc
+    `;
+  });
+
+export const upsertBeforeAfter = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const beforeUrl = typeof data.before_url === "string" ? data.before_url.trim() : "";
+    const afterUrl = typeof data.after_url === "string" ? data.after_url.trim() : "";
+    if (!beforeUrl || !afterUrl) throw new Error("Both before and after images are required");
+    const location =
+      typeof data.location === "string" && data.location.trim() ? data.location.trim() : "homepage";
+    const title = typeof data.title === "string" && data.title ? data.title : null;
+    const description = typeof data.description === "string" && data.description ? data.description : null;
+    const active = data.active === undefined ? true : Boolean(data.active);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update before_after
+        set title = ${title}, description = ${description}, before_url = ${beforeUrl},
+            after_url = ${afterUrl}, location = ${location}, active = ${active}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into before_after (title, description, before_url, after_url, location, active, sort_order)
+      values (${title}, ${description}, ${beforeUrl}, ${afterUrl}, ${location}, ${active}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteBeforeAfter = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from before_after where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
+// Poster Images — extra angle photos per product
+// ---------------------------------------------------------------
+export const listPosterImagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { posterId: string }).posterId)
+  .handler(async ({ data: posterId }) => {
+    return sql()`
+      select id, poster_id, image_url, label, kind, sort_order, is_default
+      from poster_images
+      where poster_id = ${posterId}
+      order by sort_order asc, created_at asc
+    `;
+  });
+
+export const upsertPosterImage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const posterId = typeof data.poster_id === "string" ? data.poster_id : "";
+    if (!posterId) throw new Error("poster_id is required");
+    const imageUrl = typeof data.image_url === "string" ? data.image_url.trim() : "";
+    if (!imageUrl) throw new Error("image_url is required");
+    const label = typeof data.label === "string" && data.label ? data.label : null;
+    const kind = typeof data.kind === "string" && data.kind ? data.kind : null;
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+    const isDefault = Boolean(data.is_default);
+
+    if (id) {
+      const rows = await sql()`
+        update poster_images
+        set image_url = ${imageUrl}, label = ${label}, kind = ${kind},
+            sort_order = ${sortOrder}, is_default = ${isDefault}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into poster_images (poster_id, image_url, label, kind, sort_order, is_default)
+      values (${posterId}, ${imageUrl}, ${label}, ${kind}, ${sortOrder}, ${isDefault})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deletePosterImage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from poster_images where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Offers — admin-curated bundle deals
 // ---------------------------------------------------------------
 export const listCustomOffersAdmin = createServerFn({ method: "GET" })

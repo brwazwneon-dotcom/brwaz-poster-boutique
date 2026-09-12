@@ -44,6 +44,12 @@ import {
   listCustomOffersAdmin,
   upsertCustomOffer,
   deleteCustomOffer,
+  listBeforeAfterAdmin,
+  upsertBeforeAfter,
+  deleteBeforeAfter,
+  listPosterImagesAdmin,
+  upsertPosterImage,
+  deletePosterImage,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
@@ -248,6 +254,7 @@ type Tab =
   | "reviews"
   | "offers"
   | "sets"
+  | "before-after"
   | "media"
   | "homepage"
   | "mockups"
@@ -271,6 +278,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "reviews", label: "Reviews" },
     { id: "offers", label: "Offers" },
     { id: "sets", label: "Sets" },
+    { id: "before-after", label: "Before / After" },
     { id: "media", label: "Media Library" },
     { id: "homepage", label: "Homepage" },
     { id: "mockups", label: "Frame Mockups" },
@@ -312,6 +320,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {tab === "reviews" && <ReviewsTab />}
         {tab === "offers" && <CustomOffersTab />}
         {tab === "sets" && <SetsTab />}
+        {tab === "before-after" && <BeforeAfterTab />}
         {tab === "media" && <MediaLibraryTab />}
         {tab === "homepage" && <HomepageTab />}
         {tab === "mockups" && <FrameMockupsTab />}
@@ -1608,6 +1617,214 @@ function SetsTab() {
 }
 
 // ---------------------------------------------------------------
+// Before / After — showcase pairs shown on homepage, product pages,
+// photo-printing, and custom-design.
+// ---------------------------------------------------------------
+type AdminBeforeAfter = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  before_url: string;
+  after_url: string;
+  location: string;
+  sort_order: number;
+  active: boolean;
+};
+
+const BEFORE_AFTER_LOCATIONS = ["homepage", "product", "photo-printing", "custom-design"] as const;
+
+function BeforeAfterTab() {
+  const [items, setItems] = useState<AdminBeforeAfter[] | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminBeforeAfter> | null>(null);
+  const [uploadingSide, setUploadingSide] = useState<"before" | "after" | null>(null);
+  const beforeFileRef = useRef<HTMLInputElement | null>(null);
+  const afterFileRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () => setItems((await listBeforeAfterAdmin()) as AdminBeforeAfter[]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleFile = async (file: File, side: "before" | "after") => {
+    setUploadingSide(side);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 1600, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing((prev) => ({
+        ...(prev ?? {}),
+        [side === "before" ? "before_url" : "after_url"]: url,
+      }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingSide(null);
+    }
+  };
+
+  const save = async () => {
+    if (!editing?.before_url || !editing?.after_url) return toast.error("Both images are required");
+    try {
+      await upsertBeforeAfter({ data: editing });
+      toast.success("Saved");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this pair?")) return;
+    await deleteBeforeAfter({ data: id });
+    load();
+  };
+
+  const toggleActive = async (item: AdminBeforeAfter) => {
+    await upsertBeforeAfter({ data: { ...item, active: !item.active } });
+    load();
+  };
+
+  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Before / After</h2>
+          <p className="text-xs text-muted-foreground">
+            Shown on the homepage, product pages, photo printing, and custom design — filtered by
+            location.
+          </p>
+        </div>
+        <button
+          onClick={() => setEditing({ location: "homepage" })}
+          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+        >
+          + New pair
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mb-6 space-y-4 rounded-sm border border-border bg-card p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["before", "after"] as const).map((side) => (
+              <div key={side}>
+                <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">
+                  {side === "before" ? "Before image" : "After image"}
+                </p>
+                {editing[side === "before" ? "before_url" : "after_url"] ? (
+                  <img
+                    src={editing[side === "before" ? "before_url" : "after_url"] as string}
+                    alt=""
+                    className="aspect-[4/3] w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-[4/3] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                    No image
+                  </div>
+                )}
+                <button
+                  onClick={() => (side === "before" ? beforeFileRef : afterFileRef).current?.click()}
+                  disabled={uploadingSide !== null}
+                  className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+                >
+                  {uploadingSide === side ? "Uploading…" : "Upload"}
+                </button>
+                <input
+                  ref={side === "before" ? beforeFileRef : afterFileRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFile(e.target.files[0], side);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <input
+            placeholder="Title (optional)"
+            value={editing.title ?? ""}
+            onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={editing.description ?? ""}
+            onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+            rows={2}
+            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-4">
+            <select
+              value={editing.location ?? "homepage"}
+              onChange={(e) => setEditing({ ...editing, location: e.target.value })}
+              className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            >
+              {BEFORE_AFTER_LOCATIONS.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editing.active !== false}
+                onChange={(e) => setEditing({ ...editing, active: e.target.checked })}
+              />
+              Active
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              Save
+            </button>
+            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {items.map((it) => (
+          <div key={it.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1">
+                <img src={it.before_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
+                <img src={it.after_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">{it.title || "Untitled pair"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {it.location}
+                  {it.active ? "" : " · inactive"}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => toggleActive(it)} className="text-xs text-cyan-500 hover:underline">
+                {it.active ? "Disable" : "Enable"}
+              </button>
+              <button onClick={() => setEditing(it)} className="text-xs text-cyan-500 hover:underline">
+                Edit
+              </button>
+              <button onClick={() => remove(it.id)} className="text-xs text-red-500 hover:underline">
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">No before/after pairs yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
 // Media Library — every uploaded blob, cross-referenced against products
 // so the admin can spot orphaned uploads and safely clean them up.
 // ---------------------------------------------------------------
@@ -1790,6 +2007,102 @@ const QUEUE_STATUS_LABEL: Record<QueueStatus, string> = {
   ready: "Ready",
   failed: "Failed",
 };
+
+type AdminPosterImage = {
+  id: string;
+  poster_id: string;
+  image_url: string;
+  label: string | null;
+  kind: string | null;
+  sort_order: number;
+  is_default: boolean;
+};
+
+function PosterGalleryImagesEditor({ posterId }: { posterId: string }) {
+  const [images, setImages] = useState<AdminPosterImage[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () =>
+    setImages((await listPosterImagesAdmin({ data: { posterId } })) as AdminPosterImage[]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posterId]);
+
+  const addFiles = async (files: FileList) => {
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const optimized = await optimizeImage(file, { maxDim: 1600, quality: 0.85 });
+        const dataUrl = await fileToDataUrl(optimized);
+        const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+        await upsertPosterImage({
+          data: { poster_id: posterId, image_url: url, sort_order: images?.length ?? 0 },
+        });
+      }
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    await deletePosterImage({ data: id });
+    load();
+  };
+
+  return (
+    <details className="rounded-sm border border-border">
+      <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground">
+        Gallery images (optional)
+      </summary>
+      <div className="space-y-3 border-t border-border p-3">
+        <p className="text-xs text-muted-foreground">
+          Extra angle/detail photos shown as a thumbnail strip on the product page, alongside the
+          main frame preview.
+        </p>
+        {images === null ? (
+          <p className="text-xs text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+            {images.map((img) => (
+              <div key={img.id} className="group relative aspect-square overflow-hidden rounded-sm border border-border">
+                <img src={img.image_url} alt="" className="h-full w-full object-cover" />
+                <button
+                  onClick={() => remove(img.id)}
+                  className="absolute inset-0 flex items-center justify-center bg-background/80 text-xs opacity-0 transition group-hover:opacity-100"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+        >
+          {uploading ? "Uploading…" : "+ Add images"}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => {
+            if (e.target.files?.length) addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+    </details>
+  );
+}
 
 function ProductsTab() {
   const [products, setProducts] = useState<AdminPoster[] | null>(null);
@@ -2209,6 +2522,7 @@ function ProductsTab() {
                 />
               </div>
             </details>
+            {editing.id && <PosterGalleryImagesEditor posterId={editing.id} />}
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input

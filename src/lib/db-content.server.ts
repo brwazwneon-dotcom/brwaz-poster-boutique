@@ -153,6 +153,36 @@ export async function fetchAllSetsFromDb(): Promise<DbFrameSet[]> {
   return rows as unknown as DbFrameSet[];
 }
 
+export type DbBeforeAfter = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  before_url: string;
+  after_url: string;
+  location: string;
+  sort_order: number;
+  active: boolean;
+};
+
+export async function fetchActiveBeforeAfterFromDb(location: string): Promise<DbBeforeAfter[]> {
+  const rows = await sql()`
+    select id, title, description, before_url, after_url, location, sort_order, active
+    from before_after
+    where active = true and location = ${location}
+    order by sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbBeforeAfter[];
+}
+
+export async function fetchAllBeforeAfterFromDb(): Promise<DbBeforeAfter[]> {
+  const rows = await sql()`
+    select id, title, description, before_url, after_url, location, sort_order, active
+    from before_after
+    order by location asc, sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbBeforeAfter[];
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;

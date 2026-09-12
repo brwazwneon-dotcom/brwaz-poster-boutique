@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getBeforeAfterPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -23,15 +23,9 @@ export function BeforeAfter({
   const { t } = useTranslation();
   const { data: items = [] } = useQuery({
     queryKey: ["before_after", location],
+    staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("before_after")
-        .select("id,title,description,before_url,after_url,location,sort_order")
-        .eq("active", true)
-        .eq("location", location)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Item[];
+      return (await getBeforeAfterPublic({ data: { location } })) as unknown as Item[];
     },
   });
 

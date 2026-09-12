@@ -17,6 +17,7 @@ import {
   fetchSiteSettingsFromDb,
   fetchTrendingSearchesFromDb,
   fetchWallOfInspirationPostersFromDb,
+  fetchPosterImagesFromDb,
   incrementPosterViewsInDb,
   incrementPosterUniqueViewsInDb,
   incrementPosterCartAddsInDb,
@@ -31,6 +32,7 @@ import {
   fetchEnabledCustomOffersFromDb,
   fetchEnabledSliderImagesFromDb,
   fetchEnabledSetsFromDb,
+  fetchActiveBeforeAfterFromDb,
   logSystemEventToDb,
 } from "@/lib/db-content.server";
 import {
@@ -104,6 +106,18 @@ export const getSetsPublic = createServerFn({ method: "GET" }).handler(async () 
 export const getCustomOffersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledCustomOffersFromDb();
 });
+
+export const getBeforeAfterPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { location: string }).location)
+  .handler(async ({ data: location }) => {
+    return fetchActiveBeforeAfterFromDb(location);
+  });
+
+export const getPosterImagesPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { posterId: string }).posterId)
+  .handler(async ({ data: posterId }) => {
+    return fetchPosterImagesFromDb(posterId);
+  });
 
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchBestSellersFromDb();

@@ -223,6 +223,26 @@ export async function fetchPosterImagesByIdsFromDb(ids: string[]): Promise<Recor
   return out;
 }
 
+export type PosterImageRow = {
+  id: string;
+  poster_id: string;
+  image_url: string;
+  label: string | null;
+  kind: string | null;
+  sort_order: number;
+  is_default: boolean;
+};
+
+export async function fetchPosterImagesFromDb(posterId: string): Promise<PosterImageRow[]> {
+  const rows = await sql()`
+    select id, poster_id, image_url, label, kind, sort_order, is_default
+    from poster_images
+    where poster_id = ${posterId}
+    order by sort_order asc, created_at asc
+  `;
+  return rows as unknown as PosterImageRow[];
+}
+
 export type RoomArtworkRow = { id: string; title: string; image_url: string };
 
 // Simplified vs. the old Supabase version (which ranked candidates from a
