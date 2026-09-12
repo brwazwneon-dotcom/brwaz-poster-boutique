@@ -41,6 +41,13 @@ import {
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
+import {
+  STOREFRONT_CONTENT_KEY,
+  normalizeStorefrontContent,
+  type StorefrontContent,
+  type TrustPoint,
+  type FAQItem,
+} from "@/lib/storefront-content";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { FramePreview } from "@/components/FramePreview";
@@ -2079,6 +2086,10 @@ function HomepageTab() {
       <div className="mt-10 border-t border-border pt-8">
         <HighlightsSection />
       </div>
+
+      <div className="mt-10 border-t border-border pt-8">
+        <TrustFaqSection />
+      </div>
     </div>
   );
 }
@@ -2246,6 +2257,129 @@ function HighlightsSection() {
           </div>
         ))}
         {items.length === 0 && <p className="text-sm text-muted-foreground">No highlights yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+// Trust points ("Why choose us") + FAQ shown on the homepage. Both are a
+// FIXED set of items (ids like "print-quality", "delivery-time") with a
+// built-in EN/AR default — this editor only lets the admin enable/hide
+// each one and override its title text, matching normalizeStorefrontContent's
+// merge semantics (nothing here supports adding/removing items).
+function TrustFaqSection() {
+  const [content, setContent] = useState<StorefrontContent | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    const settings = await getAllSiteSettingsAdmin();
+    const row = (settings as Array<{ key: string; value: unknown }>).find(
+      (r) => r.key === STOREFRONT_CONTENT_KEY,
+    );
+    setContent(normalizeStorefrontContent(row?.value));
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async (next: StorefrontContent) => {
+    setContent(next);
+    setSaving(true);
+    try {
+      await setSiteSetting({ data: { key: STOREFRONT_CONTENT_KEY, value: next } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (content === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  const updatePoint = (id: string, patch: Partial<TrustPoint>) => {
+    save({
+      ...content,
+      trust: {
+        ...content.trust,
+        points: content.trust.points.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      },
+    });
+  };
+
+  const updateFaq = (id: string, patch: Partial<FAQItem>) => {
+    save({
+      ...content,
+      faq: { ...content.faq, items: content.faq.items.map((f) => (f.id === id ? { ...f, ...patch } : f)) },
+    });
+  };
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold">Trust points & FAQ</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Enable/hide items and edit their title text. Every item has a built-in EN/AR default.
+      </p>
+
+      <h3 className="mt-5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Why choose us
+      </h3>
+      <div className="mt-2 space-y-2">
+        {content.trust.points.map((p) => (
+          <div key={p.id} className="rounded-sm border border-border p-2.5">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={p.enabled}
+                disabled={saving}
+                onChange={(e) => updatePoint(p.id, { enabled: e.target.checked })}
+              />
+              <span className="w-40 shrink-0 text-xs text-muted-foreground">{p.id}</span>
+              <input
+                value={p.en}
+                disabled={saving}
+                onChange={(e) => updatePoint(p.id, { en: e.target.value })}
+                className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+              />
+              <input
+                value={p.ar}
+                dir="rtl"
+                disabled={saving}
+                onChange={(e) => updatePoint(p.id, { ar: e.target.value })}
+                className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-widest text-muted-foreground">FAQ</h3>
+      <div className="mt-2 space-y-2">
+        {content.faq.items.map((f) => (
+          <div key={f.id} className="rounded-sm border border-border p-2.5">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={f.enabled}
+                disabled={saving}
+                onChange={(e) => updateFaq(f.id, { enabled: e.target.checked })}
+              />
+              <span className="w-40 shrink-0 text-xs text-muted-foreground">{f.id}</span>
+              <input
+                value={f.en}
+                disabled={saving}
+                onChange={(e) => updateFaq(f.id, { en: e.target.value })}
+                className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+              />
+              <input
+                value={f.ar}
+                dir="rtl"
+                disabled={saving}
+                onChange={(e) => updateFaq(f.id, { ar: e.target.value })}
+                className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
