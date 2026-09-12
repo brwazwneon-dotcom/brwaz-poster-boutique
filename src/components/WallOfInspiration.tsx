@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { FramedArtwork } from "@/components/FramedArtwork";
-import { supabase } from "@/integrations/supabase/client";
+import { getWallOfInspirationPostersPublic } from "@/lib/db-public.functions";
 import { useInView } from "@/hooks/use-in-view";
 import { usePosterResponsiveImages, type ResponsivePosterImage } from "@/lib/public-images";
 import { cn } from "@/lib/utils";
@@ -138,21 +138,7 @@ export function WallOfInspiration() {
     queryKey: ["wall-of-inspiration-posters"],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<PosterRow[]> => {
-      const { data, error } = await supabase
-        .from("posters")
-        .select(
-          "id,title,category_id,featured,trending,sales_count,views_count,created_at,categories(name,slug)",
-        )
-        .eq("hidden", false)
-        .not("category_id", "is", null)
-        .order("featured", { ascending: false })
-        .order("trending", { ascending: false })
-        .order("sales_count", { ascending: false, nullsFirst: false })
-        .order("views_count", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(72);
-      if (error) throw error;
-      return (data ?? []) as unknown as PosterRow[];
+      return (await getWallOfInspirationPostersPublic()) as unknown as PosterRow[];
     },
   });
 

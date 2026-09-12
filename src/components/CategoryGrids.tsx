@@ -5,7 +5,7 @@ import {
   type Category,
 } from "@/lib/use-categories";
 import { FramePreview } from "@/components/FramePreview";
-import { supabase } from "@/integrations/supabase/client";
+import { getShowcaseProductsForCategoriesPublic } from "@/lib/db-public.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -451,57 +451,22 @@ async function fetchCollectionRails(
     new Set(Array.from(categoryDescendants.values()).flat()),
   );
 
-  const [settingsRes, selectedRes, productsRes] = await Promise.all([
-    supabase.from("collection_showcase_settings").select("*").in("category_id", categoryIds),
-    supabase
-      .from("collection_showcase_images")
-      .select("*")
-      .in("category_id", categoryIds)
-      .eq("enabled", true)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("posters")
-      .select(
-        "id,title,category_id,image_url,original_url,orientation,featured,is_best_seller,pinned,views_count,cart_adds_count,sales_count,created_at",
-      )
-      .in("category_id", allProductCategoryIds)
-      .eq("hidden", false)
-      .limit(2500),
-  ]);
+  // Manual per-collection cover overrides (collection_showcase_settings/
+  // collection_showcase_images) and the image_variants responsive-srcset
+  // pipeline never existed on Neon — no admin UI was ever built to manage
+  // them — so this always runs the "auto" path below, ranking visible
+  // posters per category and using image_url directly.
+  const productsRows = await getShowcaseProductsForCategoriesPublic({
+    data: { categoryIds: allProductCategoryIds },
+  });
 
-  if (productsRes.error) throw productsRes.error;
-
-  const settingsRows = settingsRes.error ? [] : (settingsRes.data ?? []);
-  const selectedRows = selectedRes.error ? [] : (selectedRes.data ?? []);
-
-  const products = ((productsRes.data ?? []) as ProductRow[]).filter((product) =>
+  const products = (productsRows as ProductRow[]).filter((product) =>
     isValidImageUrl(product.image_url),
   );
-  const productIds = products.map((product) => product.id);
-  const variants: VariantRow[] = [];
-  for (let i = 0; i < productIds.length; i += 80) {
-    const ids = productIds.slice(i, i + 80);
-    const { data, error } = await supabase
-      .from("image_variants")
-      .select("source_id,url,width,height,variant,original_path,bucket")
-      .eq("source_table", "posters")
-      .eq("status", "done")
-      .in("source_id", ids)
-      .in("variant", IMAGE_VARIANTS);
-    if (error) throw error;
-    variants.push(...((data ?? []) as VariantRow[]));
-  }
-
-  const variantsByProduct = buildVariantMap(variants);
+  const variantsByProduct = buildVariantMap([]);
   const productById = new Map(products.map((product) => [product.id, product]));
   const selectedByCategory = new Map<string, ShowcaseImage[]>();
-  for (const image of selectedRows as ShowcaseImage[]) {
-    if (!selectedByCategory.has(image.category_id)) selectedByCategory.set(image.category_id, []);
-    selectedByCategory.get(image.category_id)!.push(image);
-  }
-  const settingsByCategory = new Map(
-    (settingsRows as ShowcaseSettings[]).map((settings) => [settings.category_id, settings]),
-  );
+  const settingsByCategory = new Map<string, ShowcaseSettings>();
   const validationCache = new Map<string, Promise<ArtworkValidation>>();
 
   const rails: CollectionRail[] = [];

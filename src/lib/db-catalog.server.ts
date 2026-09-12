@@ -334,6 +334,8 @@ export type ShowcaseProductRow = {
   title: string;
   category_id: string | null;
   image_url: string | null;
+  original_url: string | null;
+  orientation: string | null;
   featured: boolean | null;
   is_best_seller: boolean | null;
   pinned: boolean | null;
@@ -343,24 +345,77 @@ export type ShowcaseProductRow = {
   created_at: string | null;
 };
 
-// Backs the homepage "Shop by Collection" auto cover-image selection.
-// The old Supabase version also supported an admin-curated manual
-// override (collection_showcase_settings/collection_showcase_images
-// tables) and an image_variants-based responsive srcset — neither exists
-// on Neon (no admin UI was ever built to manage per-collection covers),
-// so this always runs the "auto" path: rank visible posters in the given
-// categories and let the caller pick top N, using image_url directly.
+// Backs the homepage "Shop by Collection" AND "Category grids" sections'
+// auto cover-image selection. The old Supabase version also supported an
+// admin-curated manual override (collection_showcase_settings/
+// collection_showcase_images tables) and an image_variants-based
+// responsive srcset — neither exists on Neon (no admin UI was ever built
+// to manage per-collection covers), so this always runs the "auto" path:
+// rank visible posters in the given categories and let the caller pick
+// top N, using image_url directly.
 export async function fetchShowcaseProductsForCategoriesFromDb(
   categoryIds: string[],
 ): Promise<ShowcaseProductRow[]> {
   if (categoryIds.length === 0) return [];
   const rows = await sql()`
-    select id, title, category_id, image_url, featured, is_best_seller, pinned,
-           views_count, cart_adds_count, sales_count, created_at
+    select id, title, category_id, image_url, original_url, orientation,
+           featured, is_best_seller, pinned, views_count, cart_adds_count,
+           sales_count, created_at
     from posters
     where category_id = any(${categoryIds}) and hidden = false
+    limit 2500
   `;
   return rows as unknown as ShowcaseProductRow[];
+}
+
+export type WallOfInspirationRow = {
+  id: string;
+  title: string;
+  category_id: string | null;
+  featured: boolean | null;
+  trending: boolean | null;
+  sales_count: number | null;
+  views_count: number | null;
+  created_at: string;
+  categories: { name: string; slug: string } | null;
+};
+
+// Backs the homepage "Wall of Inspiration" gallery.
+export async function fetchWallOfInspirationPostersFromDb(): Promise<WallOfInspirationRow[]> {
+  const rows = await sql()`
+    select p.id, p.title, p.category_id, p.featured, p.trending, p.sales_count,
+           p.views_count, p.created_at, c.name as category_name, c.slug as category_slug
+    from posters p
+    join categories c on c.id = p.category_id
+    where p.hidden = false and p.category_id is not null
+    order by p.featured desc, p.trending desc, p.sales_count desc nulls last,
+             p.views_count desc nulls last, p.created_at desc
+    limit 72
+  `;
+  return (
+    rows as unknown as Array<{
+      id: string;
+      title: string;
+      category_id: string | null;
+      featured: boolean | null;
+      trending: boolean | null;
+      sales_count: number | null;
+      views_count: number | null;
+      created_at: string;
+      category_name: string;
+      category_slug: string;
+    }>
+  ).map((r) => ({
+    id: r.id,
+    title: r.title,
+    category_id: r.category_id,
+    featured: r.featured,
+    trending: r.trending,
+    sales_count: r.sales_count,
+    views_count: r.views_count,
+    created_at: r.created_at,
+    categories: { name: r.category_name, slug: r.category_slug },
+  }));
 }
 
 export async function fetchRandomVisiblePostersFromDb(

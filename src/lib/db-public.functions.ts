@@ -11,6 +11,7 @@ import {
   fetchRoomTransformationArtworkFromDb,
   fetchShowcaseProductsForCategoriesFromDb,
   fetchSiteSettingsFromDb,
+  fetchWallOfInspirationPostersFromDb,
   incrementPosterViewsInDb,
   incrementPosterUniqueViewsInDb,
   incrementPosterCartAddsInDb,
@@ -237,6 +238,10 @@ export const getShowcaseProductsForCategoriesPublic = createServerFn({ method: "
   .handler(async ({ data: categoryIds }) => {
     return fetchShowcaseProductsForCategoriesFromDb(categoryIds);
   });
+
+export const getWallOfInspirationPostersPublic = createServerFn({ method: "GET" }).handler(
+  async () => fetchWallOfInspirationPostersFromDb(),
+);
 
 export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
