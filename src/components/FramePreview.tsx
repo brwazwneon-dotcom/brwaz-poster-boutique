@@ -91,6 +91,21 @@ export const FramePreview = memo(function FramePreview({
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
   const borderRadius = `${m.borderRadius ?? 0}%`;
+  // Combines the configured tilt/skew/scale/flip into one transform so
+  // the artwork actually follows the mockup's perspective instead of
+  // always sitting flat inside the frame opening. Flip is folded into
+  // scale (negative = mirrored) rather than a separate transform, so it
+  // composes correctly with the rest instead of fighting it.
+  const artworkTransform = [
+    rotateX ? `rotateX(${rotateX}deg)` : "",
+    rotateY ? `rotateY(${rotateY}deg)` : "",
+    m.rotate ? `rotate(${m.rotate}deg)` : "",
+    skewX ? `skewX(${skewX}deg)` : "",
+    skewY ? `skewY(${skewY}deg)` : "",
+    `scale(${(m.scale ?? 1) * (m.flipX ? -1 : 1)}, ${(m.scale ?? 1) * (m.flipY ? -1 : 1)})`,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
@@ -144,8 +159,8 @@ export const FramePreview = memo(function FramePreview({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center",
-              transform: "none",
-              scale: "1",
+              transform: artworkTransform,
+              transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
             }}
             onLoad={() => { if (posterUrl) setPosterLoaded(true); }}

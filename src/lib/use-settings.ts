@@ -268,7 +268,7 @@ const MOCKUP_KEYS: Record<keyof FrameMockups, string> = {
   wood: "frame_mockup_wood",
 };
 
-function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
+export function parseMockup(raw: unknown, fallback: FrameMockup): FrameMockup {
   if (!raw || typeof raw !== "object") return fallback;
   const v = raw as Partial<FrameMockup>;
   const numOr = (x: unknown, fb: number) => {
