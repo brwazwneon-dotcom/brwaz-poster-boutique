@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Flame, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { PosterBadge } from "@/components/PosterBadge";
@@ -65,24 +64,12 @@ type Row = {
 
 const BEST_SELLERS_QUERY_KEY = ["best-sellers-page"];
 
+// TEMPORARY (Phase 1): the curated best_sellers table (admin-picked,
+// pinned/scheduled) isn't part of the new database yet — that curation
+// workflow is Phase 4. Returns empty rather than erroring so this route
+// renders its existing empty state instead of crashing.
 async function fetchBestSellers(): Promise<Row[]> {
-  const { data, error } = await supabase
-    .from("best_sellers")
-    .select(
-      "id,poster_id,position,pinned,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,sales_count,views_count,created_at,categories(name,slug))",
-    )
-    .eq("hidden", false)
-    .order("pinned", { ascending: false })
-    .order("position", { ascending: true })
-    .limit(100);
-  if (error) throw error;
-  const now = Date.now();
-  return (data as unknown as Row[]).filter((r) => {
-    if (!r.posters || r.posters.hidden) return false;
-    if (r.start_date && new Date(r.start_date).getTime() > now) return false;
-    if (r.end_date && new Date(r.end_date).getTime() < now) return false;
-    return true;
-  });
+  return [];
 }
 
 type SortKey = "featured" | "newest" | "popular" | "price_asc" | "price_desc";

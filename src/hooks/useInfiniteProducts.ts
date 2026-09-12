@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getPostersByCategoryPublic } from "@/lib/db-public.functions";
+import type { CategorySortKey } from "@/lib/db-catalog.server";
 
 export type NormalizedProduct = {
   id: string;
@@ -14,11 +15,8 @@ export type NormalizedProduct = {
   image_url?: string | null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type QueryBuilder = any;
-
 export type SortConfig = {
-  query: (qb: QueryBuilder) => QueryBuilder;
+  sort: CategorySortKey;
 };
 
 export type RequestState = "idle" | "loading" | "error" | "end";
@@ -29,36 +27,7 @@ export function getBatchSize(): number {
   return 12;
 }
 
-async function fetchThumbnails(ids: string[]): Promise<Record<string, string>> {
-  if (ids.length === 0) return {};
-  const variantTypes = ["thumb_avif", "thumb_webp", "thumb"];
-  const result: Record<string, string> = {};
-  for (let i = 0; i < ids.length; i += 80) {
-    const batch = ids.slice(i, i + 80);
-    const { data } = await supabase
-      .from("image_variants")
-      .select("source_id,url,variant")
-      .eq("source_table", "posters")
-      .in("variant", variantTypes)
-      .eq("status", "done")
-      .in("source_id", batch);
-    const best: Record<string, { url: string; rank: number }> = {};
-    for (const row of data ?? []) {
-      const sid = String(row.source_id ?? "");
-      if (!sid || !row.url) continue;
-      const rank = row.variant === "thumb_avif" ? 0 : row.variant === "thumb_webp" ? 1 : 2;
-      if (!best[sid] || rank < best[sid].rank) best[sid] = { url: row.url, rank };
-    }
-    for (const id of batch) if (best[id]) result[id] = best[id].url;
-  }
-  return result;
-}
-
-export function useInfiniteProducts(
-  categoryIds: string[],
-  sortConfig: SortConfig,
-  queryKey: string,
-) {
+export function useInfiniteProducts(categoryIds: string[], sortConfig: SortConfig, queryKey: string) {
   const [products, setProducts] = useState<NormalizedProduct[]>([]);
   const [state, setState] = useState<RequestState>("idle");
   const [error, setError] = useState<Error | null>(null);
@@ -68,24 +37,9 @@ export function useInfiniteProducts(
   const stateRef = useRef<RequestState>("idle");
   const categoryIdsRef = useRef(categoryIds);
   const sortConfigRef = useRef(sortConfig);
-  const buildCache = useRef<((offset: number, batchSize: number) => { q: QueryBuilder; from: number; to: number }) | null>(null);
 
   categoryIdsRef.current = categoryIds;
   sortConfigRef.current = sortConfig;
-
-  function buildQuery(offset: number, batchSize: number) {
-    const from = offset;
-    const to = offset + batchSize - 1;
-    let q = supabase
-      .from("posters")
-      .select(
-        "id,title,category_id,tags,badge,sales_count,views_count,is_best_seller,pinned,sort_order,trending,image_url,created_at",
-      )
-      .in("category_id", categoryIdsRef.current)
-      .eq("hidden", false);
-    q = sortConfigRef.current.query(q);
-    return { q, from, to };
-  }
 
   const loadOneBatch = useCallback(async (offset: number) => {
     if (loadingRef.current) return;
@@ -96,22 +50,14 @@ export function useInfiniteProducts(
 
     try {
       const batchSize = getBatchSize();
-      const { q, from, to } = buildQuery(offset, batchSize);
-      const { data, error: dbError } = await q.range(from, to);
-      if (dbError) throw dbError;
-
-      const rows = (data ?? []) as Array<{
-        id: string;
-        title: string;
-        category_id: string | null;
-        tags?: string[] | null;
-        badge?: string | null;
-        sales_count?: number | null;
-        views_count?: number | null;
-        is_best_seller?: boolean | null;
-        image_url?: string | null;
-        created_at: string;
-      }>;
+      const rows = await getPostersByCategoryPublic({
+        data: {
+          categoryIds: categoryIdsRef.current,
+          offset,
+          limit: batchSize,
+          sort: sortConfigRef.current.sort,
+        },
+      });
 
       if (rows.length === 0) {
         stateRef.current = "end";
@@ -121,13 +67,13 @@ export function useInfiniteProducts(
 
       rawOffsetRef.current = offset + rows.length;
 
-      const ids = rows.map((r) => r.id);
-      const thumbs = await fetchThumbnails(ids);
-
       const normalized: NormalizedProduct[] = rows.map((r) => ({
         id: r.id,
         title: r.title,
-        cardArtworkUrl: thumbs[r.id] ?? r.image_url ?? "",
+        // No image_variants pipeline yet on the new database (Phase 4) —
+        // every card falls back to the original image_url directly, same
+        // as this hook already did when no thumbnail variant existed.
+        cardArtworkUrl: r.image_url ?? "",
         fallbackArtworkUrl: r.image_url ?? "",
         categoryId: r.category_id,
         badge: r.badge,
@@ -193,6 +139,7 @@ export function useInfiniteProducts(
     stateRef.current = "idle";
     setState("idle");
     loadOneBatch(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
 
   return { products, state, error, loadMore, retry };

@@ -1,9 +1,7 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import {
   useCategories,
   descendantIds,
@@ -139,21 +137,13 @@ export const Route = createFileRoute("/category/$slug")({
 function CategoryPage() {
   const { slug } = Route.useParams();
   const isCustomSlug = slug === "custom";
-  const { data: categories = [] } = useCategories();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
 
-  const { data: category, isLoading: catLoading } = useQuery({
-    queryKey: ["category", slug],
-    enabled: !isCustomSlug,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id,name,slug,image,sort_order,parent_id,description,sort_mode")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Category | null;
-    },
-  });
+  // Resolved from the already-fetched categories list rather than its own
+  // query — same data, one less round trip, and it was the last direct
+  // supabase.from("categories") call left in this file.
+  const category = isCustomSlug ? undefined : categories.find((c) => c.slug === slug);
+  const catLoading = categoriesLoading;
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Default the sort selector to what the admin configured for this category.
@@ -212,37 +202,13 @@ function CategoryPage() {
     setActiveSubId("");
   }, [category?.id]);
 
-  const sortQuery = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (q: any) => {
-      if (sort === "manual") {
-        return q
-          .order("pinned", { ascending: false })
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: false });
-      }
-      if (sort === "trending") {
-        return q.order("trending", { ascending: false }).order("views_count", { ascending: false });
-      }
-      if (sort === "random") {
-        return q.order("id", { ascending: false });
-      }
-      if (sort === "ai") {
-        return q.order("sales_count", { ascending: false }).order("views_count", { ascending: false });
-      }
-      const sortDef = SORTS.find((s) => s.id === sort) ?? SORTS[0];
-      return q.order("pinned", { ascending: false }).order(sortDef.col, { ascending: sortDef.asc });
-    },
-    [sort],
-  );
-
   const {
     products,
     state: paginationState,
     error: paginationError,
     loadMore,
     retry,
-  } = useInfiniteProducts(includedCategoryIds, { query: sortQuery }, `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`);
+  } = useInfiniteProducts(includedCategoryIds, { sort }, `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`);
 
   const selectedPosters: Poster[] = useMemo(
     () =>

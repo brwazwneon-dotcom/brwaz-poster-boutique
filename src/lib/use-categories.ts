@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 export type Category = {
   id: string;
@@ -26,15 +25,8 @@ export type Category = {
 export const CATEGORIES_QUERY_KEY = ["categories"];
 
 export async function fetchCategories(): Promise<Category[]> {
-  const { data, error } = await supabase
-    .from("categories")
-    .select(
-      "id,name,slug,image,sort_order,parent_id,description,icon,hidden,featured,status,name_ar,show_in_header,show_in_homepage,show_in_collections,show_in_search,default_mockup_style,poster_display_mode,sort_mode",
-    )
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as Category[];
+  const { getCategoriesPublic } = await import("@/lib/db-public.functions");
+  return getCategoriesPublic();
 }
 
 export function useCategories(enabled = true) {

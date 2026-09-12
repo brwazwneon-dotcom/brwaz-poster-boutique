@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
 import { useCart } from "@/lib/cart";
 import { toast } from "sonner";
@@ -51,15 +50,10 @@ type FrameSet = {
 
 const SETS_QUERY_KEY = ["sets", "public"];
 
+// TEMPORARY (Phase 1): frame sets/bundles are a Phase 4 feature — the
+// `sets` table isn't part of the new database yet.
 async function fetchSets(): Promise<FrameSet[]> {
-  const { data, error } = await supabase
-    .from("sets")
-    .select("id,name,image_url,price,description,frames_count,sort_order")
-    .eq("enabled", true)
-    .order("featured", { ascending: false })
-    .order("sort_order", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as FrameSet[];
+  return [];
 }
 
 function SetsPage() {

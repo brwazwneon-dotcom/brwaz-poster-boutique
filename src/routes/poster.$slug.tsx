@@ -12,7 +12,7 @@
 // they still work exactly as before via /category/$slug.
 
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { getPosterBySlugPublic } from "@/lib/db-public.functions";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { RelatedPosters } from "@/components/RelatedPosters";
@@ -31,47 +31,13 @@ import { Customizer, type Poster } from "@/routes/category.$slug";
 
 const BASE_URL = "https://brwazwneon.com";
 
-async function fetchPosterBySlug(slug: string) {
-  const { data, error } = await supabase
-    .from("posters")
-    .select(
-      "id,title,image_url,category_id,tags,edit_settings,badge,sales_count,views_count,is_best_seller,slug,description,seo_title,seo_description,alt_text",
-    )
-    .eq("slug", slug)
-    .eq("hidden", false)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-// head() has no React hooks available (it runs from loaderData, outside
-// the component tree), so it can't call usePosterPreviews() the way the
-// on-page render does below. Resolve one public display variant here
-// instead of ever using poster.image_url directly for anything
-// user-facing — image_url may be the private print-quality original, not
-// meant for public serving (size/bandwidth, possibly pre-crop). This
-// mirrors usePosterImageVariants' own priority order for the "medium" size.
-async function fetchOgImage(posterId: string): Promise<string | undefined> {
-  const { data } = await supabase
-    .from("image_variants")
-    .select("url,variant")
-    .eq("source_table", "posters")
-    .eq("source_id", posterId)
-    .eq("status", "done")
-    .in("variant", ["medium_webp", "medium_avif", "medium", "small_webp", "small_avif", "small"]);
-  const priority = ["medium_webp", "medium_avif", "medium", "small_webp", "small_avif", "small"];
-  for (const v of priority) {
-    const hit = (data ?? []).find((r) => r.variant === v);
-    if (hit?.url) return hit.url;
-  }
-  return undefined;
-}
-
 export const Route = createFileRoute("/poster/$slug")({
   loader: async ({ params }) => {
-    const poster = await fetchPosterBySlug(params.slug);
+    const poster = await getPosterBySlugPublic({ data: { slug: params.slug } });
     if (!poster) throw notFound();
-    const ogImage = await fetchOgImage(poster.id);
+    // No image_variants pipeline yet on the new database (Phase 4) — the
+    // original image_url doubles as the OG image for now.
+    const ogImage = poster.image_url ?? undefined;
     return { poster, ogImage };
   },
   head: ({ loaderData, params }) => {

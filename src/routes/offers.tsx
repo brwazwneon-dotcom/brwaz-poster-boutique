@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -215,19 +215,13 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
     [categoryId, categories],
   );
 
-  const sortQuery = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (q: any) => q.order("created_at", { ascending: false }),
-    [],
-  );
-
   const {
     products,
     state: paginationState,
     error: paginationError,
     loadMore,
     retry,
-  } = useInfiniteProducts(categoryIds, { query: sortQuery }, `offers-${categoryId}`);
+  } = useInfiniteProducts(categoryIds, { sort: "newest" }, `offers-${categoryId}`);
 
   // Keep a separate map so we can still show selections after switching filters.
   const { data: selectionMeta = [] } = useQuery<PosterSelectionMeta[]>({

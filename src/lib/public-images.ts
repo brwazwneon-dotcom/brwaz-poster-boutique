@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getPosterImagesByIdsPublic } from "@/lib/db-public.functions";
 
 type Variant = "thumb" | "small" | "medium" | "large";
 type Format = "avif" | "webp";
@@ -15,6 +15,17 @@ export type ResponsivePosterImage = {
 export type VariantMap = Record<string, string>;
 export type ResponsiveMap = Record<string, ResponsivePosterImage>;
 
+// Stable (referentially-identical-across-renders) empty fallbacks for the
+// `data = {}` destructuring default below. A fresh `{}` literal there would
+// get a NEW object identity on every render while the query is still
+// loading (data === undefined), which breaks any useMemo/useEffect that
+// takes the returned map as a dependency — the dependency "changes" every
+// render, the effect re-runs, and if that effect also calls setState you
+// get a render loop (`Maximum update depth exceeded`). See WallOfInspiration
+// and HeroBannerSlider fixes from the same audit for a hit of this pattern.
+const EMPTY_VARIANT_MAP: VariantMap = {};
+const EMPTY_RESPONSIVE_MAP: ResponsiveMap = {};
+
 export function resolveProductArtwork(
   product: { id: string; image_url?: string | null },
   variants?: VariantMap | ResponsiveMap,
@@ -25,23 +36,16 @@ export function resolveProductArtwork(
   return product.image_url ?? "";
 }
 
-const WIDTHS: Record<Variant, number> = {
-  thumb: 240,
-  small: 320,
-  medium: 640,
-  large: 1200,
-};
-
-const VARIANTS: Variant[] = ["thumb", "small", "medium", "large"];
-
-function keysFor(variant: Variant) {
-  return [`${variant}_avif`, `${variant}_webp`, variant];
-}
 
 /**
  * Public storefront image rule: use generated display variants only.
- * Uses generated display variants only. It intentionally does not fall back to
- * posters.image_url because that may be the private print-quality original.
+ *
+ * TEMPORARY (Phase 1, no image_variants pipeline yet on the new database):
+ * returns each poster's plain image_url directly, ignoring variant/format —
+ * there is only one image per poster today, uploaded as a URL by the admin.
+ * Once Phase 4 adds real AVIF/WebP variant generation, only the queryFn
+ * body below needs to change back to a real variant lookup — every caller
+ * of this hook stays the same.
  */
 export function usePosterImageVariants(
   ids: string[],
@@ -50,56 +54,13 @@ export function usePosterImageVariants(
 ) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   const key = uniqueIds.join(",");
-  const { data = {} } = useQuery({
+  const { data = EMPTY_VARIANT_MAP } = useQuery({
     queryKey: ["public-poster-image-variants", variant, format, key],
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<Record<string, string>> => {
-      const out: Record<string, string> = {};
-      const priority: Record<string, number> = {
-        [`${variant}_${format}`]: 0,
-        [`${variant}_avif`]: format === "avif" ? 1 : 2,
-        [`${variant}_webp`]: format === "webp" ? 1 : 2,
-        [variant]: 3,
-        medium_webp: 4,
-        medium_avif: 5,
-        medium: 6,
-        small_webp: 7,
-        small_avif: 8,
-        small: 9,
-        thumb_webp: 10,
-        thumb_avif: 11,
-        thumb: 12,
-      };
-      const best: Record<string, { url: string; rank: number }> = {};
-      const variantTypes = [
-        `${variant}_${format}`,
-        ...keysFor(variant),
-        ...keysFor("medium"),
-        ...keysFor("small"),
-        ...keysFor("thumb"),
-      ];
-      for (let i = 0; i < uniqueIds.length; i += 80) {
-        const batch = uniqueIds.slice(i, i + 80);
-        const { data: variantRows } = await supabase
-          .from("image_variants")
-          .select("source_id,url,variant")
-          .eq("source_table", "posters")
-          .in("variant", variantTypes)
-          .eq("status", "done")
-          .in("source_id", batch)
-          .limit(10000);
-        for (const row of variantRows ?? []) {
-          const id = String(row.source_id ?? "");
-          const url = String(row.url ?? "");
-          if (!id || !url) continue;
-          const rank = priority[String(row.variant)] ?? 9;
-          if (!best[id] || rank < best[id].rank) best[id] = { url, rank };
-        }
-      }
-      for (const id of uniqueIds) if (best[id]) out[id] = best[id].url;
-      return out;
+      return getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
     },
   });
   return data;
@@ -109,78 +70,26 @@ export const usePosterThumbs = (ids: string[]) => usePosterImageVariants(ids, "t
 export const usePosterSmalls = (ids: string[]) => usePosterImageVariants(ids, "small");
 export const usePosterPreviews = (ids: string[]) => usePosterImageVariants(ids, "medium");
 
-async function fetchVariantsBatch(ids: string[]) {
-  const rows: Array<{ source_id: string | null; url: string | null; variant: string }> = [];
-  for (let i = 0; i < ids.length; i += 80) {
-    const batch = ids.slice(i, i + 80);
-    const { data } = await supabase
-      .from("image_variants")
-      .select("source_id,url,variant")
-      .eq("source_table", "posters")
-      .in("variant", VARIANTS.flatMap((v) => [`${v}_avif`, `${v}_webp`, v]))
-      .eq("status", "done")
-      .in("source_id", batch)
-      .limit(10000);
-    rows.push(...(data ?? []));
-  }
-  return rows;
-}
-
+/**
+ * TEMPORARY (Phase 1, see usePosterImageVariants above): no srcset yet,
+ * every poster resolves to a single plain image_url as `src`.
+ */
 export function usePosterResponsiveImages(
   ids: string[],
   sizes = "(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw",
 ) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   const key = uniqueIds.join(",");
-  const { data = {} } = useQuery({
+  const { data = EMPTY_RESPONSIVE_MAP } = useQuery({
     queryKey: ["public-poster-responsive-images", key, sizes],
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<Record<string, ResponsivePosterImage>> => {
-      const rows = await fetchVariantsBatch(uniqueIds);
-
-      const byId: Record<string, Partial<Record<`${Variant}_${Format}` | Variant, string>>> = {};
-      for (const row of rows) {
-        const id = String(row.source_id ?? "");
-        const variant = String(row.variant ?? "") as `${Variant}_${Format}` | Variant;
-        const url = String(row.url ?? "");
-        if (!id || !url) continue;
-        byId[id] = byId[id] ?? {};
-        byId[id][variant] = url;
-      }
-
+      const urls = await getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
       const out: Record<string, ResponsivePosterImage> = {};
       for (const id of uniqueIds) {
-        const found = byId[id];
-        if (!found) continue;
-        const src =
-          found.medium_webp ??
-          found.medium_avif ??
-          found.medium ??
-          found.small_webp ??
-          found.small_avif ??
-          found.small ??
-          found.thumb_webp ??
-          found.thumb_avif ??
-          found.thumb;
-        if (!src) continue;
-        const avifSrcSet = VARIANTS.map((v) =>
-          found[`${v}_avif`] ? `${found[`${v}_avif`]} ${WIDTHS[v]}w` : "",
-        )
-          .filter(Boolean)
-          .join(", ");
-        const webpSrcSet = VARIANTS.map((v) =>
-          (found[`${v}_webp`] ?? found[v]) ? `${found[`${v}_webp`] ?? found[v]} ${WIDTHS[v]}w` : "",
-        )
-          .filter(Boolean)
-          .join(", ");
-        out[id] = {
-          src,
-          avifSrcSet: avifSrcSet || undefined,
-          webpSrcSet: webpSrcSet || undefined,
-          sizes,
-        };
+        if (urls[id]) out[id] = { src: urls[id], sizes };
       }
       return out;
     },

@@ -545,45 +545,12 @@ function CartPage() {
       });
     }
     try {
-      let screenshotPath: string | null = null;
-      if (paymentMethod === "instapay" && screenshot) {
-        const folder = crypto.randomUUID();
-        const rawExt =
-          (screenshot.name.split(".").pop() ?? "jpg")
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "")
-            .slice(0, 5) || "jpg";
-        const path = `${folder}/receipt.${rawExt}`;
-        const storagePayload = {
-          bucket: "payment-screenshots",
-          path,
-          file: { name: screenshot.name, type: screenshot.type, size: screenshot.size },
-        };
-        logCheckoutStep({
-          step: "payment_screenshot_upload",
-          table: "storage.objects",
-          operation: "upload",
-          payload: storagePayload,
-        });
-        const { error: upErr } = await supabase.storage
-          .from("payment-screenshots")
-          .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
-        if (upErr)
-          throwCheckoutError({
-            step: "payment_screenshot_upload",
-            table: "storage.objects",
-            operation: "upload",
-            payload: storagePayload,
-            error: upErr,
-          });
-        screenshotPath = path;
-        logCheckoutStep({
-          step: "payment_screenshot_upload_complete",
-          table: "storage.objects",
-          operation: "upload",
-          result: { path: screenshotPath },
-        });
-      }
+      // TEMPORARY (Phase 1): payment-screenshot upload is disabled until
+      // object storage is wired up on the new infrastructure (Phase 4).
+      // Instapay orders still go through — the admin follows up over
+      // WhatsApp for proof of payment in the meantime, same as any order
+      // where a customer doesn't attach a screenshot today.
+      const screenshotPath: string | null = null;
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
@@ -666,10 +633,13 @@ function CartPage() {
         operation: "insert",
         payload: orderPayloadDebug,
       });
-      const { error } = await supabase
-        .from("orders")
-        // is_test flag isn't in generated types yet — safe cast.
-        .insert(rows as unknown as never);
+      const { createOrderRows } = await import("@/lib/db-orders.functions");
+      let error: unknown = null;
+      try {
+        await createOrderRows({ data: { rows } });
+      } catch (e) {
+        error = e instanceof Error ? e : new Error(String(e));
+      }
       if (error) {
         throwCheckoutError({
           step: "orders_insert",

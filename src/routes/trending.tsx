@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Flame, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "@/components/FramePreview";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { useCategories } from "@/lib/use-categories";
@@ -59,18 +58,11 @@ type Poster = {
 const TRENDING_QUERY_KEY = ["trending-page"];
 
 async function fetchTrendingPosters(): Promise<Poster[]> {
-  const { data, error } = await supabase
-    .from("posters")
-    .select(
-      "id,title,image_url,category_id,hidden,sales_count,views_count,created_at,trending_order,categories(name,slug)",
-    )
-    .eq("trending", true)
-    .eq("hidden", false)
-    .not("image_url", "is", null)
-    .order("trending_order", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as Poster[];
+  const { getTrendingPostersPublic } = await import("@/lib/db-public.functions");
+  const rows = await getTrendingPostersPublic();
+  // categories(name,slug) join not resolved here yet (Phase 1) — category
+  // filter/name display on this page degrades gracefully without it.
+  return rows.map((r) => ({ ...r, categories: null })) as unknown as Poster[];
 }
 
 type SortKey = "curated" | "newest" | "popular";
