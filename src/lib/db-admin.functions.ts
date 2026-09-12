@@ -402,6 +402,64 @@ export const deleteHighlight = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Offers — admin-curated bundle deals
+// ---------------------------------------------------------------
+export const listCustomOffersAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, title, subtitle, size, count, price, image_url, badge, sort_order, enabled
+      from custom_offers
+      order by sort_order asc, created_at desc
+    `;
+  });
+
+export const upsertCustomOffer = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const title = String(data.title ?? "").trim();
+    if (!title) throw new Error("Title is required");
+    const subtitle = typeof data.subtitle === "string" && data.subtitle ? data.subtitle : null;
+    const size = String(data.size ?? "").trim();
+    if (!size) throw new Error("Size is required");
+    const count = Math.max(1, Math.round(Number(data.count) || 1));
+    const price = Number(data.price);
+    if (!Number.isFinite(price) || price <= 0) throw new Error("Valid price is required");
+    const imageUrl = typeof data.image_url === "string" && data.image_url ? data.image_url : null;
+    const badge = typeof data.badge === "string" && data.badge ? data.badge : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update custom_offers
+        set title = ${title}, subtitle = ${subtitle}, size = ${size}, count = ${count},
+            price = ${price}, image_url = ${imageUrl}, badge = ${badge},
+            enabled = ${enabled}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into custom_offers (title, subtitle, size, count, price, image_url, badge, enabled, sort_order)
+      values (${title}, ${subtitle}, ${size}, ${count}, ${price}, ${imageUrl}, ${badge}, ${enabled}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteCustomOffer = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from custom_offers where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Homepage — hero banners
 // ---------------------------------------------------------------
 export const listHeroBannersAdmin = createServerFn({ method: "GET" })

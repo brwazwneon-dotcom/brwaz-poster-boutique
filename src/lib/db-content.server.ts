@@ -59,6 +59,38 @@ export async function fetchAllHighlightsFromDb(): Promise<DbHighlight[]> {
   return rows as unknown as DbHighlight[];
 }
 
+export type DbCustomOffer = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  size: string;
+  count: number;
+  price: number;
+  image_url: string | null;
+  badge: string | null;
+  sort_order: number;
+  enabled: boolean;
+};
+
+export async function fetchEnabledCustomOffersFromDb(): Promise<DbCustomOffer[]> {
+  const rows = await sql()`
+    select id, title, subtitle, size, count, price, image_url, badge, sort_order, enabled
+    from custom_offers
+    where enabled = true
+    order by sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbCustomOffer[];
+}
+
+export async function fetchAllCustomOffersFromDb(): Promise<DbCustomOffer[]> {
+  const rows = await sql()`
+    select id, title, subtitle, size, count, price, image_url, badge, sort_order, enabled
+    from custom_offers
+    order by sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbCustomOffer[];
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;

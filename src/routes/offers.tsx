@@ -5,8 +5,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { getPostersByIdsPublic } from "@/lib/db-public.functions";
+import { getPostersByIdsPublic, getCustomOffersPublic } from "@/lib/db-public.functions";
 import { useCart } from "@/lib/cart";
 import { useCategories } from "@/lib/use-categories";
 import {
@@ -97,14 +96,7 @@ function useBundles(): Bundle[] {
     queryKey: ["custom-offers"],
     staleTime: 60_000,
     queryFn: async (): Promise<CustomOffer[]> => {
-      const { data, error } = await supabase
-        .from("custom_offers")
-        .select("id,title,subtitle,size,count,price,image_url,badge,sort_order,created_at,enabled")
-        .eq("enabled", true)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      return getCustomOffersPublic() as Promise<CustomOffer[]>;
     },
   });
   const customBundles: Bundle[] = custom.map((o) => {
