@@ -556,6 +556,43 @@ export async function fetchRandomVisiblePostersFromDb(
   return rows as unknown as Array<{ id: string; title: string; image_url: string }>;
 }
 
+export type ReviewRow = {
+  id: string;
+  customer_name: string;
+  governorate: string | null;
+  rating: number;
+  review_text: string | null;
+  photo_url: string | null;
+  poster_id: string | null;
+  featured: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export async function fetchApprovedReviewsFromDb(
+  posterId: string | null,
+  limit: number,
+): Promise<ReviewRow[]> {
+  if (posterId) {
+    return (await sql()`
+      select id, customer_name, governorate, rating, review_text, photo_url, poster_id,
+             featured, sort_order, created_at
+      from reviews
+      where approved = true and poster_id = ${posterId}
+      order by featured desc, sort_order desc, created_at desc
+      limit ${limit}
+    `) as unknown as ReviewRow[];
+  }
+  return (await sql()`
+    select id, customer_name, governorate, rating, review_text, photo_url, poster_id,
+           featured, sort_order, created_at
+    from reviews
+    where approved = true
+    order by featured desc, sort_order desc, created_at desc
+    limit ${limit}
+  `) as unknown as ReviewRow[];
+}
+
 export async function fetchPosterSalesCountFromDb(id: string): Promise<number> {
   const rows = await sql()`select sales_count from posters where id = ${id}`;
   return Number((rows[0] as { sales_count?: number } | undefined)?.sales_count ?? 0);

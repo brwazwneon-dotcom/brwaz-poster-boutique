@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getApprovedReviewsPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "@/components/SafeImage";
 import { Star, BadgeCheck, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,20 +37,9 @@ export function CustomerReviews({
   const { data: reviews = [], isLoading } = useQuery({
     queryKey: ["reviews", "approved", posterId ?? "all", limit],
     queryFn: async () => {
-      let q = supabase
-        .from("reviews")
-        .select(
-          "id,customer_name,governorate,rating,review_text,photo_url,poster_id,featured,sort_order,created_at",
-        )
-        .eq("approved", true)
-        .order("featured", { ascending: false })
-        .order("sort_order", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (posterId) q = q.eq("poster_id", posterId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as Review[];
+      return getApprovedReviewsPublic({
+        data: { posterId: posterId ?? null, limit },
+      }) as Promise<Review[]>;
     },
   });
 

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
+  fetchApprovedReviewsFromDb,
   fetchCategoriesFromDb,
   fetchPosterBySlugFromDb,
   fetchPostersByCategoryFromDb,
@@ -84,6 +85,14 @@ export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(as
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchBestSellersFromDb();
 });
+
+export const getApprovedReviewsPublic = createServerFn({ method: "GET" })
+  .validator(
+    (data: unknown) => (data as { posterId?: string | null; limit?: number } | undefined) ?? {},
+  )
+  .handler(async ({ data }) => {
+    return fetchApprovedReviewsFromDb(data.posterId ?? null, data.limit ?? 20);
+  });
 
 export const getPostersByIdsPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { ids: string[] }).ids)

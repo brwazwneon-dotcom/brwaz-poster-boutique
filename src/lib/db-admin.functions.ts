@@ -272,6 +272,63 @@ export const updatePhotoOrderStatus = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------
+export const listReviewsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, customer_name, governorate, rating, review_text, photo_url, poster_id,
+             approved, featured, sort_order, created_at
+      from reviews
+      order by created_at desc
+    `;
+  });
+
+export const upsertReview = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const customerName = String(data.customer_name ?? "").trim();
+    if (!customerName) throw new Error("Customer name is required");
+    const governorate = typeof data.governorate === "string" && data.governorate ? data.governorate : null;
+    const rating = Math.min(5, Math.max(1, Math.round(Number(data.rating) || 5)));
+    const reviewText = typeof data.review_text === "string" && data.review_text ? data.review_text : null;
+    const photoUrl = typeof data.photo_url === "string" && data.photo_url ? data.photo_url : null;
+    const posterId = typeof data.poster_id === "string" && data.poster_id ? data.poster_id : null;
+    const approved = data.approved === undefined ? true : Boolean(data.approved);
+    const featured = Boolean(data.featured);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update reviews
+        set customer_name = ${customerName}, governorate = ${governorate}, rating = ${rating},
+            review_text = ${reviewText}, photo_url = ${photoUrl}, poster_id = ${posterId},
+            approved = ${approved}, featured = ${featured}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into reviews (customer_name, governorate, rating, review_text, photo_url, poster_id, approved, featured, sort_order)
+      values (${customerName}, ${governorate}, ${rating}, ${reviewText}, ${photoUrl}, ${posterId}, ${approved}, ${featured}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteReview = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from reviews where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Site settings (pricing / shipping)
 // ---------------------------------------------------------------
 export const getAllSiteSettingsAdmin = createServerFn({ method: "GET" })
