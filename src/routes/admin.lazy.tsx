@@ -52,8 +52,10 @@ import {
   deletePosterImage,
   listLandingPagesAdmin,
   upsertLandingPage,
+  deleteLandingPage,
   listAllPosterImageUrlsAdmin,
 } from "@/lib/db-admin.functions";
+import { landingUtmUrl } from "@/lib/landing-pages";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 
 // Build a wa.me link to a CUSTOMER's own number (not the business line —
@@ -1993,17 +1995,89 @@ function LandingPagesTab() {
     }
   };
 
+  const remove = async (p: AdminLandingPage) => {
+    if (!confirm(`Delete the "${p.audience_key}" landing page? This can't be undone.`)) return;
+    await deleteLandingPage({ data: { id: p.id } });
+    toast.success("Deleted");
+    load();
+  };
+
+  const copyLink = async (audienceKey: string) => {
+    const url = landingUtmUrl(window.location.origin, audienceKey);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Ad link copied — paste it into Meta Ads");
+    } catch {
+      toast.error(url);
+    }
+  };
+
+  const usedKeys = new Set(pages?.map((p) => p.audience_key) ?? []);
+  // "General" is a campaign page not tied to any one category — smart-mix
+  // across the whole catalog, for an overall/umbrella ad rather than a
+  // per-category one.
+  const availableCategories = categories.filter((c) => !usedKeys.has(c.slug));
+  const hasGeneral = usedKeys.has("general");
+
+  const createFor = (opts: { audienceKey: string; categoryId: string | null; titleEn: string; titleAr: string }) => {
+    setEditing({
+      id: "",
+      audience_key: opts.audienceKey,
+      visible: false,
+      title_ar: opts.titleAr,
+      title_en: opts.titleEn,
+      subtitle_ar: null,
+      subtitle_en: null,
+      hero_image: null,
+      whatsapp_message: null,
+      cta_text: null,
+      source_category_id: opts.categoryId,
+      display_mode: opts.categoryId ? "category" : "smart_mix",
+      poster_limit: 24,
+      manual_poster_ids: [],
+      seo_title: null,
+      meta_description: null,
+    });
+  };
+
   if (pages === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold">Landing Pages</h2>
-        <p className="text-xs text-muted-foreground">
-          Ad campaign destinations at /landing/&#123;audience&#125; — used as Meta Ads links. Each
-          page pulls its posters automatically (category or trending/best-seller mix) unless set to
-          manual.
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Landing Pages</h2>
+          <p className="text-xs text-muted-foreground">
+            Ad campaign destinations at /landing/&#123;audience&#125; — used as Meta Ads links. Each
+            page pulls its posters automatically (category or trending/best-seller mix) unless set to
+            manual. Make one per category for targeted ads, plus one "General" page for an umbrella
+            campaign across everything.
+          </p>
+        </div>
+        {(availableCategories.length > 0 || !hasGeneral) && (
+          <select
+            value=""
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return;
+              if (v === "__general__") {
+                createFor({ audienceKey: "general", categoryId: null, titleEn: "All Posters", titleAr: "كل البوسترات" });
+              } else {
+                const cat = categories.find((c) => c.id === v);
+                if (cat) createFor({ audienceKey: cat.slug, categoryId: cat.id, titleEn: cat.name, titleAr: cat.name_ar || cat.name });
+              }
+            }}
+            className="rounded-sm border border-border bg-background px-3 py-1.5 text-xs"
+          >
+            <option value="">+ New landing page…</option>
+            {!hasGeneral && <option value="__general__">General (all categories)</option>}
+            {availableCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {editing ? (
@@ -2186,11 +2260,25 @@ function LandingPagesTab() {
                 {p.visible ? " · live" : " · hidden"}
               </div>
             </div>
-            <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
-              Edit
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => copyLink(p.audience_key)} className="text-xs text-cyan-500 hover:underline">
+                Copy ad link
+              </button>
+              <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
+                Edit
+              </button>
+              <button onClick={() => remove(p)} className="text-xs text-red-500 hover:underline">
+                Delete
+              </button>
+            </div>
           </div>
         ))}
+        {pages.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No landing pages yet — use "+ New landing page" above to create one per category, plus a
+            general one.
+          </p>
+        )}
       </div>
     </div>
   );

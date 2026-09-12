@@ -1,31 +1,45 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { PosterBadge } from "@/components/PosterBadge";
-import {
-  AUDIENCE_KEYS,
-  AUDIENCE_LABEL,
-  useLandingBundle,
-  persistAudienceAttribution,
-  type AudienceKey,
-} from "@/lib/landing-pages";
+import { useLandingBundle, persistAudienceAttribution } from "@/lib/landing-pages";
+import { getLandingBundlePublic } from "@/lib/db-public.functions";
 import { whatsappLink } from "@/lib/whatsapp";
 import { trackEvent, trackCustom } from "@/lib/meta-pixel";
+import { usePricing } from "@/lib/use-settings";
 import { cn } from "@/lib/utils";
-import { MessageCircle, ShieldCheck, Truck, Star } from "lucide-react";
+import { MessageCircle, ShieldCheck, Truck, Star, Sparkles } from "lucide-react";
 import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
 
-const KNOWN = new Set<string>(AUDIENCE_KEYS);
+const BASE_URL = "https://brwazwneon.com";
+
+function prettifySlug(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export const Route = createFileRoute("/landing/$audience")({
-  beforeLoad: ({ params }) => {
-    if (!KNOWN.has(params.audience)) throw notFound();
+  // No fixed allow-list — any category slug (or a dedicated audience key
+  // like "general") works as long as a landing_pages row for it exists
+  // and is marked visible. An unvisible/nonexistent one still renders a
+  // friendly in-page message rather than a hard 404, since ad traffic
+  // can hit these before the campaign is flipped live.
+  loader: async ({ params }) => {
+    const bundle = await getLandingBundlePublic({ data: { audience: params.audience } }).catch(
+      () => null,
+    );
+    return { bundle };
   },
-  head: ({ params }) => {
-    const label = AUDIENCE_LABEL[params.audience as AudienceKey]?.en ?? params.audience;
-    const title = `${label} Posters — BRWAZWNEON`;
-    const description = `Shop premium framed ${label.toLowerCase()} posters. Fast delivery across Egypt.`;
+  head: ({ loaderData, params }) => {
+    const page = loaderData?.bundle?.page;
+    const label = page?.title_en || prettifySlug(params.audience);
+    const title = page?.seo_title || `${label} Posters — BRWAZWNEON`;
+    const description =
+      page?.meta_description ||
+      `Shop premium framed ${label.toLowerCase()} posters. Fast delivery across Egypt.`;
     return {
       meta: [
         { title },
@@ -33,6 +47,7 @@ export const Route = createFileRoute("/landing/$audience")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:type", content: "website" },
+        { property: "og:url", content: `${BASE_URL}/landing/${params.audience}` },
       ],
     };
   },
@@ -42,9 +57,9 @@ export const Route = createFileRoute("/landing/$audience")({
 function LandingPage() {
   const { audience } = Route.useParams();
   const { data, isLoading } = useLandingBundle(audience);
+  const pricing = usePricing();
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Attribution + Meta Pixel events on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -95,94 +110,82 @@ function LandingPage() {
     );
   }
 
-  const titleAr = page.title_ar || AUDIENCE_LABEL[audience as AudienceKey]?.ar;
-  const titleEn = page.title_en || AUDIENCE_LABEL[audience as AudienceKey]?.en;
+  const fallbackLabel = prettifySlug(audience);
+  const titleAr = page.title_ar || fallbackLabel;
+  const titleEn = page.title_en || fallbackLabel;
   const subtitleAr = page.subtitle_ar || "";
   const subtitleEn = page.subtitle_en || "";
   const cta = page.cta_text || "اطلب عبر واتساب";
-  const wa = whatsappLink(page.whatsapp_message || `أهلًا، مهتم ببوسترات ${titleAr || audience}.`);
+  const wa = whatsappLink(page.whatsapp_message || `أهلًا، مهتم ببوسترات ${titleAr}.`);
+  const fromPrice = pricing.frame.pvc["20x30"] ?? 0;
 
   const onWaClick = () => {
     try {
-      trackEvent("Contact", {
-        method: "whatsapp",
-        audience_type: audience,
-        landing_page: `/landing/${audience}`,
-      });
-      trackEvent("Lead", {
-        method: "whatsapp",
-        audience_type: audience,
-        landing_page: `/landing/${audience}`,
-      });
-      trackCustom("WhatsAppClick", {
-        audience_type: audience,
-        landing_page: `/landing/${audience}`,
-      });
+      trackEvent("Contact", { method: "whatsapp", audience_type: audience, landing_page: `/landing/${audience}` });
+      trackEvent("Lead", { method: "whatsapp", audience_type: audience, landing_page: `/landing/${audience}` });
+      trackCustom("WhatsAppClick", { audience_type: audience, landing_page: `/landing/${audience}` });
     } catch {
       /* noop */
     }
   };
 
   return (
-    <div>
+    <div className="pb-20 sm:pb-0">
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
         {page.hero_image && (
-          <div className="absolute inset-0 opacity-30">
-            <img
-              src={page.hero_image}
-              alt=""
-              loading="eager"
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/40" />
+          <div className="absolute inset-0">
+            <img src={page.hero_image} alt="" loading="eager" className="h-full w-full object-cover opacity-25" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/85 to-background/50" />
           </div>
         )}
-        <div className="container-page relative py-14 md:py-20 text-center">
+        <div className="container-page relative py-16 text-center md:py-24">
+          {fromPrice > 0 && (
+            <div className="mx-auto mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-primary">
+              <Sparkles className="h-3 w-3" />
+              يبدأ من {fromPrice} جنيه
+            </div>
+          )}
           <div className="text-xs uppercase tracking-[0.4em] text-primary">{titleEn}</div>
-          <h1 className="mt-3 text-display text-4xl md:text-6xl" dir="rtl">
+          <h1 className="mt-3 text-display text-5xl leading-[1.05] md:text-7xl" dir="rtl">
             {titleAr}
           </h1>
           {subtitleAr && (
-            <p className="mt-4 text-muted-foreground max-w-2xl mx-auto" dir="rtl">
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground" dir="rtl">
               {subtitleAr}
             </p>
           )}
           {subtitleEn && (
-            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-              {subtitleEn}
-            </p>
+            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{subtitleEn}</p>
           )}
           <a
             href={wa}
             target="_blank"
             rel="noopener noreferrer"
             onClick={onWaClick}
-            className="mt-8 inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-[1.02] transition"
+            className="mt-8 inline-flex items-center gap-2 rounded-sm bg-[#25D366] px-8 py-4 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition hover:scale-[1.02]"
           >
-            <MessageCircle className="h-4 w-4" /> {cta}
+            <MessageCircle className="h-5 w-5" /> {cta}
           </a>
 
-          <div className="mt-6 flex flex-wrap justify-center gap-4 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[10px] uppercase tracking-widest text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3" /> ضمان الجودة
+              <ShieldCheck className="h-3.5 w-3.5" /> ضمان الجودة
             </span>
             <span className="inline-flex items-center gap-1">
-              <Truck className="h-3 w-3" /> شحن لكل مصر
+              <Truck className="h-3.5 w-3.5" /> شحن لكل مصر
             </span>
             <span className="inline-flex items-center gap-1">
-              <Star className="h-3 w-3" /> تقييمات عملاء ممتازة
+              <Star className="h-3.5 w-3.5" /> تقييمات عملاء ممتازة
             </span>
           </div>
         </div>
       </section>
 
       {/* Posters Grid */}
-      <section className="container-page py-10">
+      <section className="container-page py-12">
         {posters.length === 0 ? (
-          <div className="text-center text-muted-foreground py-20">
-            لا توجد صور مضافة لهذه الصفحة بعد.
-          </div>
+          <div className="py-20 text-center text-muted-foreground">لا توجد صور مضافة لهذه الصفحة بعد.</div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -193,7 +196,7 @@ function LandingPage() {
                     key={p.id}
                     to="/category/$slug"
                     params={{ slug: audience }}
-                    className="group relative overflow-hidden rounded-sm border border-border bg-card"
+                    className="group relative overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary/40"
                     onClick={() => {
                       try {
                         trackEvent("ViewContent", {
@@ -230,6 +233,11 @@ function LandingPage() {
                     </div>
                     <div className="p-3">
                       <div className="truncate text-sm">{p.title}</div>
+                      {fromPrice > 0 && (
+                        <div className="mt-0.5 text-xs text-muted-foreground" dir="rtl">
+                          يبدأ من {fromPrice} جنيه
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
@@ -246,12 +254,22 @@ function LandingPage() {
                 </button>
               </div>
             )}
+
+            <div className="mt-6 text-center">
+              <Link
+                to="/category/$slug"
+                params={{ slug: audience }}
+                className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                تصفح كل المجموعة ←
+              </Link>
+            </div>
           </>
         )}
       </section>
 
       {/* Bottom WhatsApp CTA */}
-      <section className="container-page pb-16 pt-2">
+      <section className="container-page hidden pb-16 pt-2 sm:block">
         <div className="rounded-sm border border-border bg-accent/30 p-6 text-center">
           <div className="text-display text-2xl" dir="rtl">
             جاهز تطلب؟
@@ -270,6 +288,21 @@ function LandingPage() {
           </a>
         </div>
       </section>
+
+      {/* Sticky mobile CTA — ad landing pages convert far better when the
+          action is always one tap away instead of requiring a scroll back
+          up to the hero. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
+        <a
+          href={wa}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onWaClick}
+          className="flex w-full items-center justify-center gap-2 rounded-sm bg-[#25D366] px-4 py-3.5 text-sm font-semibold text-white"
+        >
+          <MessageCircle className="h-5 w-5" /> {cta}
+        </a>
+      </div>
     </div>
   );
 }

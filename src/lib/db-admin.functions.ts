@@ -698,17 +698,35 @@ export const upsertLandingPage = createServerFn({ method: "POST" })
       typeof data.meta_description === "string" && data.meta_description ? data.meta_description : null;
 
     const rows = await sql()`
-      update landing_pages
-      set visible = ${visible}, title_ar = ${titleAr}, title_en = ${titleEn},
-          subtitle_ar = ${subtitleAr}, subtitle_en = ${subtitleEn}, hero_image = ${heroImage},
-          whatsapp_message = ${whatsappMessage}, cta_text = ${ctaText},
-          source_category_id = ${sourceCategoryId}, display_mode = ${displayMode},
-          poster_limit = ${posterLimit}, manual_poster_ids = ${manualPosterIds},
-          seo_title = ${seoTitle}, meta_description = ${metaDescription}, updated_at = now()
-      where audience_key = ${audienceKey}
+      insert into landing_pages (
+        audience_key, visible, title_ar, title_en, subtitle_ar, subtitle_en, hero_image,
+        whatsapp_message, cta_text, source_category_id, display_mode, poster_limit,
+        manual_poster_ids, seo_title, meta_description
+      )
+      values (
+        ${audienceKey}, ${visible}, ${titleAr}, ${titleEn}, ${subtitleAr}, ${subtitleEn}, ${heroImage},
+        ${whatsappMessage}, ${ctaText}, ${sourceCategoryId}, ${displayMode}, ${posterLimit},
+        ${manualPosterIds}, ${seoTitle}, ${metaDescription}
+      )
+      on conflict (audience_key) do update
+      set visible = excluded.visible, title_ar = excluded.title_ar, title_en = excluded.title_en,
+          subtitle_ar = excluded.subtitle_ar, subtitle_en = excluded.subtitle_en,
+          hero_image = excluded.hero_image, whatsapp_message = excluded.whatsapp_message,
+          cta_text = excluded.cta_text, source_category_id = excluded.source_category_id,
+          display_mode = excluded.display_mode, poster_limit = excluded.poster_limit,
+          manual_poster_ids = excluded.manual_poster_ids, seo_title = excluded.seo_title,
+          meta_description = excluded.meta_description, updated_at = now()
       returning id
     `;
-    return { id: rows[0]?.id };
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteLandingPage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from landing_pages where id = ${id}`;
+    return { ok: true };
   });
 
 // ---------------------------------------------------------------

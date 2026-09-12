@@ -50,11 +50,11 @@ export type LandingPoster = {
 
 export type LandingBundle = { page: LandingPage; posters: LandingPoster[] } | null;
 
-export function landingPath(audience: AudienceKey) {
+export function landingPath(audience: string) {
   return `/landing/${audience}`;
 }
 
-export function landingUtmUrl(origin: string, audience: AudienceKey) {
+export function landingUtmUrl(origin: string, audience: string) {
   return `${origin}/landing/${audience}?utm_source=meta&utm_medium=messages&utm_campaign=${audience}_ads`;
 }
 
