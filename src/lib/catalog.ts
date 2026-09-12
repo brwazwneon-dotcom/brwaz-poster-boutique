@@ -354,7 +354,15 @@ export function metaRowFor(p: CatalogProduct, data: CatalogData): CatalogFeedRow
     availability: "in stock",
     condition: "new",
     price: `${price.toFixed(2)} ${CATALOG_CURRENCY}`,
-    link: cat?.slug ? `${CATALOG_BASE_URL}/category/${cat.slug}` : CATALOG_BASE_URL,
+    // Prefer the product's own /poster/$slug page — Meta's dynamic product
+    // ads and retargeting need each catalog item to land on ITS product,
+    // not a shared category listing. Falls back to the category (or the
+    // homepage) only for the rare poster with no slug yet.
+    link: p.slug
+      ? `${CATALOG_BASE_URL}/poster/${p.slug}`
+      : cat?.slug
+        ? `${CATALOG_BASE_URL}/category/${cat.slug}`
+        : CATALOG_BASE_URL,
     image_link: image,
     additional_image_link: additional,
     brand: CATALOG_BRAND,
