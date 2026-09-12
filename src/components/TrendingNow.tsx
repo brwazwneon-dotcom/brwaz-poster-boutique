@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getHomeTrendingCandidatesPublic } from "@/lib/db-public.functions";
 import { FramePreview } from "./FramePreview";
 import { Flame, ArrowRight } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
@@ -138,28 +138,13 @@ export function TrendingNow({
     queryKey: ["trending-now-home", useManual ? manualPosterIds.join(",") : "auto", displayCount],
     staleTime: 60_000,
     queryFn: async (): Promise<TrendingPoster[]> => {
-      const sourceFilter = useManual
-        ? `id.in.(${manualPosterIds.join(",")}),trending.eq.true,is_best_seller.eq.true,featured.eq.true`
-        : "trending.eq.true,is_best_seller.eq.true,featured.eq.true";
-      const { data, error } = await supabase
-        .from("posters")
-        .select(
-          "id,title,image_url,category_id,trending,trending_order,featured,is_best_seller,review_status,views_count,created_at,categories(name,slug)",
-        )
-        .or(sourceFilter)
-        .eq("hidden", false)
-        .not("image_url", "is", null)
-        .neq("image_url", "")
-        .neq("review_status", "draft")
-        .neq("review_status", "needs_replace")
-        .order("trending", { ascending: false })
-        .order("trending_order", { ascending: true, nullsFirst: false })
-        .order("views_count", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(Math.max(displayCount * 6, MAX_QUERY_CANDIDATES));
-      if (error) throw error;
-      const posters = (data ?? []) as TrendingPoster[];
-      const sorted = sortTrendingCandidates(posters, manualOrder, useManual);
+      const posters = await getHomeTrendingCandidatesPublic({
+        data: {
+          manualIds: manualPosterIds,
+          limit: Math.max(displayCount * 6, MAX_QUERY_CANDIDATES),
+        },
+      });
+      const sorted = sortTrendingCandidates(posters as TrendingPoster[], manualOrder, useManual);
       return dedupePosters(sorted, displayCount);
     },
   });

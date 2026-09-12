@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getSiteSettingsPublic,
+  getShowcaseProductsForCategoriesPublic,
+} from "@/lib/db-public.functions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useCategories,
@@ -11,6 +14,11 @@ import { usePerformanceFlags } from "@/lib/performance-flags";
 import { FramePreview } from "@/components/FramePreview";
 
 export type CoverSource = { key: string; categoryId: string };
+// Admin-curated manual cover selection (collection_showcase_settings /
+// collection_showcase_images) never existed on Neon — no admin UI was
+// ever built to manage it — so `selection_mode` is always "auto" now.
+// The type is kept so downstream consumers (CollectionCover) don't need
+// to change, just always fed these fixed defaults.
 type ShowcaseSettings = {
   category_id: string;
   selection_mode: "auto" | "manual";
@@ -70,15 +78,6 @@ type CollectionProductMatch = {
   relationship: string;
   fallbackReason?: ShowcaseFallbackReason;
 };
-type DbError = { code?: string; message: string };
-type DbResult<T> = { data: T | null; error: DbError | null };
-type DbQuery<T> = PromiseLike<DbResult<T>> & {
-  select(columns?: string): DbQuery<T>;
-  in(column: string, values: readonly string[]): DbQuery<T>;
-  eq(column: string, value: string | number | boolean | null): DbQuery<T>;
-  order(column: string, options?: { ascending?: boolean }): DbQuery<T>;
-};
-type ShowcaseDb = { from<T>(table: string): DbQuery<T> };
 
 function isValidImageUrl(url: string) {
   if (!url || url.startsWith("data:")) return false;
@@ -107,10 +106,6 @@ function normalizeImageUrl(raw: unknown) {
   if (!isValidImageUrl(url)) return null;
   if (/^https?:\/\//i.test(url) || url.startsWith("/")) return url;
   return `/${url.replace(/^\/+/, "")}`;
-}
-
-function db() {
-  return supabase as unknown as ShowcaseDb;
 }
 
 const DEFAULT_SHOWCASE_SETTINGS = (categoryId: string): ShowcaseSettings => ({
@@ -147,77 +142,6 @@ function rankingScore(poster: {
   );
 }
 
-function bestVariants(
-  rows: Array<{
-    source_id: string | null;
-    url: string | null;
-    width: number | null;
-    height: number | null;
-    variant: string;
-  }>,
-) {
-  const priority: Record<string, number> = {
-    thumb_avif: 0,
-    thumb_webp: 1,
-    thumb: 2,
-    small_avif: 3,
-    small_webp: 4,
-    small: 5,
-    medium_avif: 6,
-    medium_webp: 7,
-    medium: 8,
-  };
-  const best = new Map<
-    string,
-    { url: string; width: number | null; height: number | null; rank: number }
-  >();
-  for (const row of rows) {
-    const id = String(row.source_id ?? "");
-    const url = String(row.url ?? "");
-    const rank = priority[row.variant] ?? 99;
-    const resolvedUrl = normalizeImageUrl(url);
-    if (!id || !resolvedUrl || (best.get(id)?.rank ?? 100) <= rank) continue;
-    best.set(id, { url: resolvedUrl, width: row.width, height: row.height, rank });
-  }
-  return best;
-}
-
-const SHOWCASE_VARIANTS = [
-  "thumb_avif",
-  "thumb_webp",
-  "thumb",
-  "small_avif",
-  "small_webp",
-  "small",
-  "medium_avif",
-  "medium_webp",
-  "medium",
-];
-
-async function fetchBestVariantsForPosters(posterIds: string[]) {
-  const rows: Array<{
-    source_id: string | null;
-    url: string | null;
-    width: number | null;
-    height: number | null;
-    variant: string;
-  }> = [];
-  const uniqueIds = Array.from(new Set(posterIds.filter(Boolean)));
-  for (let i = 0; i < uniqueIds.length; i += 80) {
-    const ids = uniqueIds.slice(i, i + 80);
-    const { data, error } = await supabase
-      .from("image_variants")
-      .select("source_id,url,width,height,variant")
-      .eq("source_table", "posters")
-      .eq("status", "done")
-      .in("source_id", ids)
-      .in("variant", SHOWCASE_VARIANTS);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-  }
-  return bestVariants(rows);
-}
-
 function getProductsForCollection(
   collection: Category,
   categories: Category[],
@@ -251,14 +175,11 @@ function getProductsForCollection(
   };
 }
 
-function resolveProductDisplayImage(
-  product: ShowcaseProduct,
-  variants: Map<string, { url: string; width: number | null; height: number | null; rank: number }>,
-) {
-  const optimized = variants.get(product.id);
-  if (optimized?.url) return optimized;
+// No image_variants pipeline exists on Neon, so the display image is
+// always the poster's own image_url (a public Vercel Blob URL).
+function resolveProductDisplayImage(product: ShowcaseProduct) {
   const fallback = normalizeImageUrl(product.image_url);
-  return fallback ? { url: fallback, width: null, height: null, rank: 99 } : null;
+  return fallback ? { url: fallback, width: null, height: null } : null;
 }
 
 function selectShowcaseProducts(products: ShowcaseProduct[]) {
@@ -274,23 +195,9 @@ function selectShowcaseProducts(products: ShowcaseProduct[]) {
 }
 
 async function fetchVisibleProductsForCategories(categoryIds: string[]) {
-  const products: ShowcaseProduct[] = [];
-  const pageSize = 1000;
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
-      .from("posters")
-      .select(
-        "id,title,category_id,image_url,featured,is_best_seller,pinned,views_count,cart_adds_count,sales_count,created_at",
-      )
-      .in("category_id", categoryIds)
-      .eq("hidden", false)
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    const rows = (data ?? []) as ShowcaseProduct[];
-    products.push(...rows);
-    if (rows.length < pageSize) break;
-  }
-  return products;
+  return getShowcaseProductsForCategoriesPublic({ data: { categoryIds } }) as Promise<
+    ShowcaseProduct[]
+  >;
 }
 
 export function findCategoryForCard(card: CollectionCard, categories: Category[]) {
@@ -345,58 +252,12 @@ export function useCollectionShowcases(
     staleTime: 60_000,
     queryFn: async (): Promise<Record<string, ShowcaseCover>> => {
       const audits: ShowcaseAudit[] = [];
-      const [settingsRes, imagesRes] = await Promise.all([
-        db()
-          .from<ShowcaseSettings[]>("collection_showcase_settings")
-          .select("*")
-          .in("category_id", categoryIds),
-        db()
-          .from<ShowcaseImage[]>("collection_showcase_images")
-          .select("id,category_id,source_type,poster_id,image_url,width,height,sort_order,enabled")
-          .in("category_id", categoryIds)
-          .eq("enabled", true)
-          .order("sort_order", { ascending: true }),
-      ]);
-      // Storefront artwork must still auto-select from posters while the optional
-      // admin showcase tables have not yet been deployed to this Supabase project.
-      const settingsByCategory = new Map<string, ShowcaseSettings>(
-        (settingsRes.error ? [] : (settingsRes.data ?? [])).map((row: ShowcaseSettings) => [
-          row.category_id,
-          row,
-        ]),
-      );
-      const manualImages = (imagesRes.error ? [] : (imagesRes.data ?? [])).filter(
-        (image) => image.source_type === "product",
-      );
-      const manualPosterIds = manualImages
-        .filter((image) => image.source_type === "product" && image.poster_id)
-        .map((image) => image.poster_id!);
-      const manualVariants = manualPosterIds.length
-        ? await fetchBestVariantsForPosters(manualPosterIds)
-        : new Map<
-            string,
-            { url: string; width: number | null; height: number | null; rank: number }
-          >();
-      const manualBest = manualVariants;
-      const imagesByCategory = new Map<string, ShowcaseImage[]>();
-      for (const image of manualImages) {
-        const optimized = image.poster_id ? manualBest.get(image.poster_id) : undefined;
-        const resolved = optimized
-          ? { ...image, image_url: optimized.url, width: optimized.width, height: optimized.height }
-          : image;
-        if (!isValidImageUrl(resolved.image_url)) continue;
-        if (!imagesByCategory.has(resolved.category_id))
-          imagesByCategory.set(resolved.category_id, []);
-        imagesByCategory.get(resolved.category_id)!.push(resolved);
-      }
+      // Auto-only: no admin UI exists to manage per-collection manual
+      // covers on Neon, so every category always uses the ranked-posters
+      // selection below.
       const autoCategoryIds = categoryIds.filter((categoryId) => {
-        const settings = settingsByCategory.get(categoryId);
-        const manualImagesForCategory = imagesByCategory.get(categoryId) ?? [];
         const card = cardsByCategoryId.get(categoryId);
-        if (card && isSpecialDedicatedCard(card, categoryById.get(categoryId))) return false;
-        return (
-          (settings?.selection_mode ?? "auto") === "auto" || manualImagesForCategory.length === 0
-        );
+        return !(card && isSpecialDedicatedCard(card, categoryById.get(categoryId)));
       });
       const autoImagesByCategory = new Map<string, ShowcaseImage[]>();
       if (autoCategoryIds.length > 0) {
@@ -406,14 +267,6 @@ export function useCollectionShowcases(
         const posters = allRelevantCategoryIds.length
           ? await fetchVisibleProductsForCategories(allRelevantCategoryIds)
           : [];
-        const posterIds = posters.map((poster) => poster.id);
-        let bestByPoster = new Map<
-          string,
-          { url: string; width: number | null; height: number | null; rank: number }
-        >();
-        if (posterIds.length > 0) {
-          bestByPoster = await fetchBestVariantsForPosters(posterIds);
-        }
         for (const categoryId of autoCategoryIds) {
           const category = categoryById.get(categoryId);
           if (!category) continue;
@@ -422,7 +275,7 @@ export function useCollectionShowcases(
           const usedUrls = new Set<string>();
           const list: ShowcaseImage[] = [];
           for (const poster of selected) {
-            const picked = resolveProductDisplayImage(poster, bestByPoster);
+            const picked = resolveProductDisplayImage(poster);
             if (!picked?.url || usedUrls.has(picked.url)) continue;
             if (list.length >= 5) break;
             list.push({
@@ -431,8 +284,8 @@ export function useCollectionShowcases(
               source_type: "product",
               poster_id: poster.id,
               image_url: picked.url,
-              width: picked?.width ?? null,
-              height: picked?.height ?? null,
+              width: picked.width,
+              height: picked.height,
               sort_order: list.length,
               enabled: true,
             });
@@ -460,38 +313,8 @@ export function useCollectionShowcases(
 
       const out: Record<string, ShowcaseCover> = {};
       for (const [categoryId, source] of sourceByCategoryId) {
-        const settings =
-          settingsByCategory.get(categoryId) ?? DEFAULT_SHOWCASE_SETTINGS(categoryId);
-        const manual = imagesByCategory.get(categoryId) ?? [];
-        const automatic = autoImagesByCategory.get(categoryId) ?? [];
-        const images =
-          settings.selection_mode === "manual" && manual.length > 0 ? manual : automatic;
-        const category = categoryById.get(categoryId);
-        const card = cardsByCategoryId.get(categoryId);
-        if (category && !audits.some((audit) => audit.collectionId === categoryId)) {
-          audits.push({
-            collectionId: category.id,
-            slug: category.slug,
-            name: category.name,
-            matchedProductCount: manual.length,
-            relationship: manual.length
-              ? "admin manual collection_showcase_images.poster_id"
-              : "manual empty -> auto fallback",
-            resolvedImageCount: images.length,
-            selectedProductIds: images
-              .map((image) => image.poster_id)
-              .filter(Boolean)
-              .join(", "),
-            selectedImageUrls: images.map((image) => image.image_url).join(" | "),
-            fallbackReason: images.length
-              ? ""
-              : card && isSpecialDedicatedCard(card, category)
-                ? "SPECIAL_DEDICATED_VISUAL"
-                : card?.link.startsWith("/category/")
-                  ? "NO_MATCHED_PRODUCTS"
-                  : "COLLECTION_RELATIONSHIP_MISSING",
-          });
-        }
+        const settings = DEFAULT_SHOWCASE_SETTINGS(categoryId);
+        const images = autoImagesByCategory.get(categoryId) ?? [];
         if (images.length === 0) continue;
         out[source.key] = {
           settings,
@@ -556,12 +379,10 @@ export function useHomeCollections() {
     staleTime: 60_000,
     initialData: { visible: true, cards: DEFAULT_COLLECTIONS },
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("key,value")
-        .in("key", ["home_collections", "home_collections_visible"]);
-      if (error) throw error;
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({
+        data: { keys: ["home_collections", "home_collections_visible"] },
+      });
+      const map = new Map(Object.entries(settings));
       const raw = map.get("home_collections");
       const visibleRaw = map.get("home_collections_visible");
       const visible = visibleRaw === undefined ? true : !!visibleRaw;

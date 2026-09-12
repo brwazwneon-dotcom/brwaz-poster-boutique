@@ -261,6 +261,108 @@ export async function addPosterViewSecondsInDb(id: string, seconds: number): Pro
   await sql()`update posters set total_view_seconds = total_view_seconds + ${seconds} where id = ${id}`;
 }
 
+export type HomeTrendingCandidate = {
+  id: string;
+  title: string;
+  image_url: string;
+  category_id: string | null;
+  trending: boolean | null;
+  trending_order: number | null;
+  featured: boolean | null;
+  is_best_seller: boolean | null;
+  review_status: string | null;
+  views_count: number | null;
+  created_at: string | null;
+  categories: { name: string | null; slug: string | null } | null;
+};
+
+// Backs the homepage "Trending Now" carousel — candidates are trending,
+// best-seller, or featured posters (plus any admin-pinned manual IDs),
+// deduped/ranked client-side by the existing pure sort logic in
+// TrendingNow.tsx. review_status/pinned/badge columns from the old
+// Supabase catalog were never carried into Neon's simpler posters
+// table, so those checks are dropped — hidden is the only gate here.
+export async function fetchHomeTrendingCandidatesFromDb(
+  manualIds: string[],
+  limit: number,
+): Promise<HomeTrendingCandidate[]> {
+  const rows = await sql()(
+    `select p.id, p.title, p.image_url, p.category_id, p.trending, p.trending_order,
+            p.featured, p.is_best_seller, p.views_count, p.created_at,
+            c.name as category_name, c.slug as category_slug
+     from posters p
+     left join categories c on c.id = p.category_id
+     where p.hidden = false and p.image_url is not null and p.image_url <> ''
+       and (p.trending = true or p.is_best_seller = true or p.featured = true or p.id = any($1))
+     order by p.trending desc, p.trending_order asc nulls last, p.views_count desc nulls last, p.created_at desc
+     limit $2`,
+    [manualIds, limit],
+  );
+  return (
+    rows as unknown as Array<{
+      id: string;
+      title: string;
+      image_url: string;
+      category_id: string | null;
+      trending: boolean | null;
+      trending_order: number | null;
+      featured: boolean | null;
+      is_best_seller: boolean | null;
+      views_count: number | null;
+      created_at: string | null;
+      category_name: string | null;
+      category_slug: string | null;
+    }>
+  ).map((r) => ({
+    id: r.id,
+    title: r.title,
+    image_url: r.image_url,
+    category_id: r.category_id,
+    trending: r.trending,
+    trending_order: r.trending_order,
+    featured: r.featured,
+    is_best_seller: r.is_best_seller,
+    review_status: "ready",
+    views_count: r.views_count,
+    created_at: r.created_at,
+    categories: r.category_slug ? { name: r.category_name, slug: r.category_slug } : null,
+  }));
+}
+
+export type ShowcaseProductRow = {
+  id: string;
+  title: string;
+  category_id: string | null;
+  image_url: string | null;
+  featured: boolean | null;
+  is_best_seller: boolean | null;
+  pinned: boolean | null;
+  views_count: number | null;
+  cart_adds_count: number | null;
+  sales_count: number | null;
+  created_at: string | null;
+};
+
+// Backs the homepage "Shop by Collection" auto cover-image selection.
+// The old Supabase version also supported an admin-curated manual
+// override (collection_showcase_settings/collection_showcase_images
+// tables) and an image_variants-based responsive srcset — neither exists
+// on Neon (no admin UI was ever built to manage per-collection covers),
+// so this always runs the "auto" path: rank visible posters in the given
+// categories and let the caller pick top N, using image_url directly.
+export async function fetchShowcaseProductsForCategoriesFromDb(
+  categoryIds: string[],
+): Promise<ShowcaseProductRow[]> {
+  if (categoryIds.length === 0) return [];
+  const rows = await sql()`
+    select id, title, category_id, image_url, featured, is_best_seller, pinned,
+           views_count, cart_adds_count, sales_count, created_at
+    from posters
+    where category_id = any(${categoryIds}) and hidden = false
+  `;
+  return rows as unknown as ShowcaseProductRow[];
+}
+
 export async function fetchRandomVisiblePostersFromDb(
   limit: number,
 ): Promise<Array<{ id: string; title: string; image_url: string }>> {

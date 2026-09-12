@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getBestSellersPublic } from "@/lib/db-public.functions";
 import { FramePreview } from "./FramePreview";
 import { WishlistHeart } from "./WishlistHeart";
 import { PosterBadge } from "./PosterBadge";
@@ -18,12 +18,6 @@ type BSRow = {
   id: string;
   poster_id: string;
   position: number;
-  pinned: boolean;
-  hidden: boolean;
-  featured: boolean;
-  badge_disabled: boolean;
-  start_date: string | null;
-  end_date: string | null;
   posters: {
     id: string;
     title: string;
@@ -47,23 +41,8 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
     queryKey: ["best-sellers", count],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("best_sellers")
-        .select(
-          "id,poster_id,position,pinned,hidden,featured,badge_disabled,start_date,end_date,posters!inner(id,title,image_url,badge,category_id,hidden,categories(name,slug))",
-        )
-        .eq("hidden", false)
-        .order("pinned", { ascending: false })
-        .order("position", { ascending: true })
-        .limit(count);
-      if (error) throw error;
-      const now = Date.now();
-      return (data as unknown as BSRow[]).filter((r) => {
-        if (!r.posters || r.posters.hidden) return false;
-        if (r.start_date && new Date(r.start_date).getTime() > now) return false;
-        if (r.end_date && new Date(r.end_date).getTime() < now) return false;
-        return true;
-      });
+      const rows = (await getBestSellersPublic()) as BSRow[];
+      return rows.filter((r) => r.posters && !r.posters.hidden).slice(0, count);
     },
   });
   const images = usePosterResponsiveImages(
@@ -167,11 +146,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
           {data.map((r) => {
             const p = r.posters!;
             const price = priceForFrame(pricing, "pvc", "30x40");
-            const badgeText = !r.badge_disabled
-              ? p.badge && p.badge.length > 0
-                ? p.badge
-                : "best-seller"
-              : null;
+            const badgeText = p.badge && p.badge.length > 0 ? p.badge : "best-seller";
             return (
               <article
                 key={r.id}
@@ -179,11 +154,6 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
               >
                 <div className="relative overflow-hidden rounded-sm border border-border bg-muted">
                   {cfg.show_badges && badgeText ? <PosterBadge badge={badgeText} /> : null}
-                  {cfg.show_badges && r.featured ? (
-                    <span className="absolute right-10 top-2 z-10 rounded-sm border border-border bg-background/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-widest">
-                      Featured
-                    </span>
-                  ) : null}
                   {cfg.show_wishlist ? <WishlistHeart posterId={p.id} /> : null}
                   <FramePreview
                     posterUrl={images[p.id]?.src || p.image_url || ""}

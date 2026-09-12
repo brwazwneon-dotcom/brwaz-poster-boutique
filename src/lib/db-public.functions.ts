@@ -5,9 +5,11 @@ import {
   fetchPostersByCategoryFromDb,
   fetchTrendingPostersFromDb,
   fetchBestSellersFromDb,
+  fetchHomeTrendingCandidatesFromDb,
   fetchPosterSalesCountFromDb,
   fetchRandomVisiblePostersFromDb,
   fetchRoomTransformationArtworkFromDb,
+  fetchShowcaseProductsForCategoriesFromDb,
   fetchSiteSettingsFromDb,
   incrementPosterViewsInDb,
   incrementPosterUniqueViewsInDb,
@@ -222,6 +224,18 @@ export const logPerfMetricPublic = createServerFn({ method: "POST" })
       /* best-effort */
     }
     return { ok: true };
+  });
+
+export const getHomeTrendingCandidatesPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => data as { manualIds: string[]; limit: number })
+  .handler(async ({ data }) => {
+    return fetchHomeTrendingCandidatesFromDb(data.manualIds, data.limit);
+  });
+
+export const getShowcaseProductsForCategoriesPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { categoryIds: string[] }).categoryIds)
+  .handler(async ({ data: categoryIds }) => {
+    return fetchShowcaseProductsForCategoriesFromDb(categoryIds);
   });
 
 export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })
