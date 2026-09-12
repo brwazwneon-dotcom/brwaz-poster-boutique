@@ -7,6 +7,7 @@ import {
   fetchBestSellersFromDb,
   fetchHomeTrendingCandidatesFromDb,
   fetchPosterSalesCountFromDb,
+  fetchPostersByIdsFromDb,
   fetchRandomVisiblePostersFromDb,
   fetchRelatedPostersFromDb,
   fetchRoomTransformationArtworkFromDb,
@@ -83,6 +84,12 @@ export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(as
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchBestSellersFromDb();
 });
+
+export const getPostersByIdsPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { ids: string[] }).ids)
+  .handler(async ({ data: ids }) => {
+    return fetchPostersByIdsFromDb(ids);
+  });
 
 export const getPosterSalesCountPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { id: string }).id)

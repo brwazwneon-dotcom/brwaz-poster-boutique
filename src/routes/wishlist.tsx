@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Heart, Trash2, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { getPostersByIdsPublic } from "@/lib/db-public.functions";
 import { useWishlist } from "@/lib/wishlist";
 import { useCart } from "@/lib/cart";
 import { useCategories } from "@/lib/use-categories";
@@ -46,12 +46,7 @@ function WishlistPage() {
     queryKey: ["wishlist-posters", idList.sort().join(",")],
     enabled: idList.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("posters")
-        .select("id,title,image_url,category_id,edit_settings")
-        .in("id", idList);
-      if (error) throw error;
-      return (data ?? []) as WPoster[];
+      return getPostersByIdsPublic({ data: { ids: idList } }) as Promise<WPoster[]>;
     },
   });
   const images = usePosterResponsiveImages(

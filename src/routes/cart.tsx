@@ -17,7 +17,6 @@ import {
   type SizeId,
   type FrameColorId,
 } from "@/lib/poster-options";
-import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import {
   useSiteSettings,

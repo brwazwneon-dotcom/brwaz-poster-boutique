@@ -191,6 +191,26 @@ export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
 // each poster's own image_url, used everywhere the old system looked up a
 // generated thumbnail/medium/large variant instead. See the comment on
 // usePosterImageVariants in src/lib/public-images.ts.
+export type PosterByIdRow = {
+  id: string;
+  title: string;
+  image_url: string;
+  category_id: string | null;
+  edit_settings: Json;
+};
+
+// Backs the wishlist page — full poster rows for a set of ids, in no
+// particular order (the caller re-sorts/maps as needed).
+export async function fetchPostersByIdsFromDb(ids: string[]): Promise<PosterByIdRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await sql()`
+    select id, title, image_url, category_id, edit_settings
+    from posters
+    where id = any(${ids}) and hidden = false
+  `;
+  return rows as unknown as PosterByIdRow[];
+}
+
 export async function fetchPosterImagesByIdsFromDb(ids: string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
   const rows = await sql()`

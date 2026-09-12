@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getPostersByIdsPublic } from "@/lib/db-public.functions";
 import { useCart } from "@/lib/cart";
 import { useCategories } from "@/lib/use-categories";
 import {
@@ -228,12 +229,8 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
     queryKey: ["offers-selected", selectedIds],
     enabled: selectedIds.length > 0,
     queryFn: async (): Promise<PosterSelectionMeta[]> => {
-      const { data, error } = await supabase
-        .from("posters")
-        .select("id,title,image_url")
-        .in("id", selectedIds);
-      if (error) throw error;
-      return data ?? [];
+      const rows = await getPostersByIdsPublic({ data: { ids: selectedIds } });
+      return rows.map((r) => ({ id: r.id, title: r.title, image_url: r.image_url }));
     },
   });
 
