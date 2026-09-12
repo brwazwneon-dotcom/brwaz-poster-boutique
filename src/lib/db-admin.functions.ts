@@ -226,7 +226,8 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
       return sql()`
         select id, order_number, customer_name, phone, governorate, address, frame_type,
                frame_color, size, quantity, poster_title, poster_image, total_price, status,
-               payment_method, payment_status, created_at
+               payment_method, payment_status, payment_screenshot, payment_reference, notes,
+               created_at
         from orders where status = ${data.status} and is_test = false
         order by created_at desc limit 300
       `;
@@ -234,7 +235,8 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
     return sql()`
       select id, order_number, customer_name, phone, governorate, address, frame_type,
              frame_color, size, quantity, poster_title, poster_image, total_price, status,
-             payment_method, payment_status, created_at
+             payment_method, payment_status, payment_screenshot, payment_reference, notes,
+             created_at
       from orders where is_test = false
       order by created_at desc limit 300
     `;
@@ -268,19 +270,67 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
     const [p4x6, photo] = await Promise.all([
       sql()`
         select id, order_number, 'photo_4x6' as kind, customer_name, phone, governorate, address,
-               package_key as detail, photo_count as quantity, total_price, status, created_at
+               package_key as detail, photo_count as quantity, total_price, status, created_at,
+               original_paths, enhanced_paths, suit_paths, selected_versions
         from photo_4x6_orders
         order by created_at desc limit 200
       `,
       sql()`
         select id, order_number, 'photo_printing' as kind, customer_name, phone, governorate, address,
-               size as detail, quantity, total_price, status, created_at
+               size as detail, quantity, total_price, status, created_at, photo_urls
         from photo_orders
         order by created_at desc limit 200
       `,
     ]);
-    return [...p4x6, ...photo].sort(
-      (a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime(),
+
+    // Both tables store customer photos differently (photo_4x6_orders has
+    // separate original/enhanced/suit arrays + a per-photo selection map;
+    // photo_orders is just a flat url array) — resolve both into one
+    // uniform `photos: string[]` here so the admin UI doesn't need to know
+    // about either table's shape.
+    type BaseRow = {
+      id: string;
+      order_number: string | null;
+      kind: "photo_4x6" | "photo_printing";
+      customer_name: string;
+      phone: string;
+      governorate: string;
+      address: string;
+      detail: string;
+      quantity: number;
+      total_price: number;
+      status: string;
+      created_at: string;
+    };
+
+    const p4x6Rows = (
+      p4x6 as Array<
+        BaseRow & {
+          original_paths: string[];
+          enhanced_paths: string[];
+          suit_paths: string[];
+          selected_versions: Record<string, string> | null;
+        }
+      >
+    ).map((row) => {
+      const versions = row.selected_versions ?? {};
+      const photos = row.original_paths.map((original, i) => {
+        const choice = versions[String(i)];
+        if (choice === "enhanced" && row.enhanced_paths[i]) return row.enhanced_paths[i];
+        if (choice === "suit" && row.suit_paths[i]) return row.suit_paths[i];
+        return original;
+      });
+      const base: BaseRow = row;
+      return { ...base, photos };
+    });
+
+    const photoRows = (photo as Array<BaseRow & { photo_urls: string[] }>).map((row) => {
+      const { photo_urls, ...base } = row;
+      return { ...base, photos: photo_urls };
+    });
+
+    return [...p4x6Rows, ...photoRows].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
   });
 

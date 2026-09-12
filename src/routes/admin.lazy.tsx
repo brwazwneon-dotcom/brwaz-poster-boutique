@@ -54,6 +54,15 @@ import {
   upsertLandingPage,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
+
+// Build a wa.me link to a CUSTOMER's own number (not the business line —
+// see src/lib/whatsapp.ts's whatsappLink, which always targets the
+// business number and is unrelated to this admin-side use).
+function customerWhatsappLink(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const intl = digits.startsWith("0") ? `2${digits}` : digits.startsWith("20") ? digits : `20${digits}`;
+  return `https://wa.me/${intl}`;
+}
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
 import {
   STOREFRONT_CONTENT_KEY,
@@ -356,6 +365,9 @@ type AdminOrder = {
   status: string;
   payment_method: string;
   payment_status: string;
+  payment_screenshot: string | null;
+  payment_reference: string | null;
+  notes: string | null;
   created_at: string;
 };
 
@@ -497,8 +509,8 @@ function OrdersTab() {
                   />
                 </th>
                 <th className="px-3 py-2">Order</th>
-                <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Item</th>
+                <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Payment</th>
                 <th className="px-3 py-2">Status</th>
@@ -512,18 +524,56 @@ function OrdersTab() {
                     <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelected(o.id)} />
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
-                  <td className="px-3 py-2">
-                    <div>{o.customer_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {o.phone} · {o.governorate}
+                  <td className="px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      {o.poster_image ? (
+                        <a href={o.poster_image} target="_blank" rel="noreferrer">
+                          <img
+                            src={o.poster_image}
+                            alt=""
+                            className="h-10 w-10 shrink-0 rounded-sm border border-border object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded-sm border border-dashed border-border" />
+                      )}
+                      <span>
+                        {o.poster_title} · {o.size} · {o.frame_type}
+                      </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-xs">
-                    {o.poster_title} · {o.size} · {o.frame_type}
+                  <td className="px-3 py-2">
+                    <div>{o.customer_name}</div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span>
+                        {o.phone} · {o.governorate}
+                      </span>
+                      <a
+                        href={customerWhatsappLink(o.phone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-500 hover:underline"
+                        title="Message on WhatsApp"
+                      >
+                        WA
+                      </a>
+                    </div>
                   </td>
                   <td className="px-3 py-2 font-medium">{o.total_price} EGP</td>
                   <td className="px-3 py-2 text-xs">
-                    {o.payment_method} / {o.payment_status}
+                    <div>
+                      {o.payment_method} / {o.payment_status}
+                    </div>
+                    {o.payment_screenshot && (
+                      <a
+                        href={o.payment_screenshot}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-500 hover:underline"
+                      >
+                        View payment proof
+                      </a>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <select
@@ -601,6 +651,13 @@ function OrderPackingSlips({ orders }: { orders: AdminOrder[] }) {
             </tbody>
           </table>
           <hr style={{ margin: "12px 0" }} />
+          {o.poster_image && (
+            <img
+              src={o.poster_image}
+              alt=""
+              style={{ maxWidth: 240, maxHeight: 240, objectFit: "contain", marginBottom: 12 }}
+            />
+          )}
           <table style={{ width: "100%", fontSize: 14 }}>
             <tbody>
               <tr>
@@ -650,6 +707,7 @@ type AdminPhotoOrder = {
   quantity: number;
   total_price: number;
   status: string;
+  photos: string[];
   created_at: string;
 };
 
@@ -695,6 +753,7 @@ function PhotoOrdersTab() {
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Detail</th>
+                <th className="px-3 py-2">Photos</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
@@ -706,12 +765,40 @@ function PhotoOrdersTab() {
                   <td className="px-3 py-2 text-xs">{PHOTO_ORDER_KIND_LABEL[o.kind]}</td>
                   <td className="px-3 py-2">
                     <div>{o.customer_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {o.phone} · {o.governorate}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span>
+                        {o.phone} · {o.governorate}
+                      </span>
+                      <a
+                        href={customerWhatsappLink(o.phone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-500 hover:underline"
+                        title="Message on WhatsApp"
+                      >
+                        WA
+                      </a>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {o.detail} · qty {o.quantity}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {o.photos.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        o.photos.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noreferrer">
+                            <img
+                              src={url}
+                              alt=""
+                              className="h-10 w-10 rounded-sm border border-border object-cover"
+                            />
+                          </a>
+                        ))
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2 font-medium">{Number(o.total_price)} EGP</td>
                   <td className="px-3 py-2">
