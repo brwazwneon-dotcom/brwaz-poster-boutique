@@ -24,6 +24,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useCart } from "@/lib/cart";
+import { whatsappLink } from "@/lib/whatsapp";
 import { SearchBox } from "@/components/SearchBox";
 import { useWishlist } from "@/lib/wishlist";
 import { useLogoSize } from "@/lib/branding";
@@ -187,7 +188,7 @@ export function SiteHeader() {
       label: mobileT("mobileMenu.groups.information", "Information", "معلومات"),
       links: [
         { label: t("nav.aboutUs"), href: "/#home-trusted-quality" },
-        { label: t("nav.contactUs"), href: "https://wa.me/201009101391" },
+        { label: t("nav.contactUs"), href: whatsappLink(t("whatsapp.defaultMessage")) },
         { label: t("nav.shippingInfo"), href: "/#home-faq" },
         {
           label: mobileT("mobileMenu.returnsRefunds", "Returns and Refunds", "الإرجاع والاسترداد"),
