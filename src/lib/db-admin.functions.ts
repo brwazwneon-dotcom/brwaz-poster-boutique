@@ -486,6 +486,57 @@ export const deleteCustomOffer = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Homepage — full-width slider (separate section from hero banners)
+// ---------------------------------------------------------------
+export const listSliderImagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, image_url, title, link_url, sort_order, enabled
+      from slider_images
+      order by sort_order asc, created_at asc
+    `;
+  });
+
+export const upsertSliderImage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const imageUrl = String(data.image_url ?? "").trim();
+    if (!imageUrl) throw new Error("Slide image is required");
+    const title = typeof data.title === "string" && data.title ? data.title : null;
+    const linkUrl = typeof data.link_url === "string" && data.link_url ? data.link_url : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update slider_images
+        set image_url = ${imageUrl}, title = ${title}, link_url = ${linkUrl},
+            enabled = ${enabled}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into slider_images (image_url, title, link_url, enabled, sort_order)
+      values (${imageUrl}, ${title}, ${linkUrl}, ${enabled}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteSliderImage = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from slider_images where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Homepage — hero banners
 // ---------------------------------------------------------------
 export const listHeroBannersAdmin = createServerFn({ method: "GET" })

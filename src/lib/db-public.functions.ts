@@ -29,6 +29,7 @@ import {
   fetchEnabledHeroBannersFromDb,
   fetchEnabledHighlightsFromDb,
   fetchEnabledCustomOffersFromDb,
+  fetchEnabledSliderImagesFromDb,
   logSystemEventToDb,
 } from "@/lib/db-content.server";
 import {
@@ -89,6 +90,10 @@ export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(as
 
 export const getHighlightsPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledHighlightsFromDb();
+});
+
+export const getSliderImagesPublic = createServerFn({ method: "GET" }).handler(async () => {
+  return fetchEnabledSliderImagesFromDb();
 });
 
 export const getCustomOffersPublic = createServerFn({ method: "GET" }).handler(async () => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSliderImagesPublic } from "@/lib/db-public.functions";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Slide = { id: string; image_url: string; title: string | null; link_url: string | null };
@@ -11,13 +11,7 @@ export function HomepageSlider() {
     queryKey: ["homepage-slider"],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("slider_images")
-        .select("id,image_url,title,link_url")
-        .eq("enabled", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Slide[];
+      return getSliderImagesPublic() as Promise<Slide[]>;
     },
   });
 

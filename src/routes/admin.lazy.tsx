@@ -35,6 +35,9 @@ import {
   listHighlightsAdmin,
   upsertHighlight,
   deleteHighlight,
+  listSliderImagesAdmin,
+  upsertSliderImage,
+  deleteSliderImage,
   listCustomOffersAdmin,
   upsertCustomOffer,
   deleteCustomOffer,
@@ -2249,11 +2252,184 @@ function HomepageTab() {
       </div>
 
       <div className="mt-10 border-t border-border pt-8">
+        <SliderImagesSection />
+      </div>
+
+      <div className="mt-10 border-t border-border pt-8">
         <HighlightsSection />
       </div>
 
       <div className="mt-10 border-t border-border pt-8">
         <TrustFaqSection />
+      </div>
+    </div>
+  );
+}
+
+type AdminSliderImage = {
+  id: string;
+  image_url: string;
+  title: string | null;
+  link_url: string | null;
+  sort_order: number;
+  enabled: boolean;
+};
+
+function SliderImagesSection() {
+  const [items, setItems] = useState<AdminSliderImage[] | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminSliderImage> | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () => setItems((await listSliderImagesAdmin()) as AdminSliderImage[]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 2400, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing((prev) => ({ ...(prev ?? {}), image_url: url }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!editing?.image_url) return toast.error("Slide image is required");
+    try {
+      await upsertSliderImage({ data: editing });
+      toast.success("Saved");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this slide?")) return;
+    await deleteSliderImage({ data: id });
+    load();
+  };
+
+  const toggleEnabled = async (s: AdminSliderImage) => {
+    await upsertSliderImage({ data: { ...s, enabled: !s.enabled } });
+    load();
+  };
+
+  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Homepage slider</h2>
+          <p className="text-xs text-muted-foreground">
+            Full-width slider section, separate from the hero banners above.
+          </p>
+        </div>
+        <button
+          onClick={() => setEditing({})}
+          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+        >
+          + New slide
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
+          <div>
+            {editing.image_url ? (
+              <img src={editing.image_url} alt="" className="aspect-[16/7] w-full rounded-sm object-cover" />
+            ) : (
+              <div className="flex aspect-[16/7] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload image"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <div className="space-y-3">
+            <input
+              placeholder="Title (optional)"
+              value={editing.title ?? ""}
+              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Link (optional, e.g. /category/football)"
+              value={editing.link_url ?? ""}
+              onChange={(e) => setEditing({ ...editing, link_url: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editing.enabled !== false}
+                onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+              />
+              Enabled
+            </label>
+            <div className="flex gap-2">
+              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                Save
+              </button>
+              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {items
+          .slice()
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((s) => (
+            <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+              <div className="flex items-center gap-3">
+                <img src={s.image_url} alt="" className="h-12 w-20 rounded-sm object-cover" />
+                <div>
+                  <div className="text-sm font-medium">{s.title || "(no title)"}</div>
+                  <div className="text-xs text-muted-foreground">{s.enabled ? "Enabled" : "Disabled"}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => toggleEnabled(s)} className="text-xs text-cyan-500 hover:underline">
+                  {s.enabled ? "Disable" : "Enable"}
+                </button>
+                <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+                  Edit
+                </button>
+                <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">No slides yet.</p>}
       </div>
     </div>
   );

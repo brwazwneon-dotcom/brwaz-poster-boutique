@@ -91,6 +91,34 @@ export async function fetchAllCustomOffersFromDb(): Promise<DbCustomOffer[]> {
   return rows as unknown as DbCustomOffer[];
 }
 
+export type DbSliderImage = {
+  id: string;
+  image_url: string;
+  title: string | null;
+  link_url: string | null;
+  sort_order: number;
+  enabled: boolean;
+};
+
+export async function fetchEnabledSliderImagesFromDb(): Promise<DbSliderImage[]> {
+  const rows = await sql()`
+    select id, image_url, title, link_url, sort_order, enabled
+    from slider_images
+    where enabled = true
+    order by sort_order asc
+  `;
+  return rows as unknown as DbSliderImage[];
+}
+
+export async function fetchAllSliderImagesFromDb(): Promise<DbSliderImage[]> {
+  const rows = await sql()`
+    select id, image_url, title, link_url, sort_order, enabled
+    from slider_images
+    order by sort_order asc
+  `;
+  return rows as unknown as DbSliderImage[];
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;
