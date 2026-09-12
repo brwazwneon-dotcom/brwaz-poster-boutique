@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { whatsappLink } from "@/lib/whatsapp";
 import { useState } from "react";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
+import { getSetsPublic } from "@/lib/db-public.functions";
 
 export const Route = createFileRoute("/sets")({
   loader: async ({ context }) => {
@@ -50,10 +51,8 @@ type FrameSet = {
 
 const SETS_QUERY_KEY = ["sets", "public"];
 
-// TEMPORARY (Phase 1): frame sets/bundles are a Phase 4 feature — the
-// `sets` table isn't part of the new database yet.
 async function fetchSets(): Promise<FrameSet[]> {
-  return [];
+  return getSetsPublic() as Promise<FrameSet[]>;
 }
 
 function SetsPage() {
@@ -106,7 +105,12 @@ function SetCard({ set }: { set: FrameSet }) {
 
   const addToCart = () => {
     add({
-      posterId: set.id,
+      // Prefixed, deliberately not UUID-shaped: a set is its own catalog
+      // (the `sets` table, not `posters`), so its cart line must never be
+      // treated as a real posters.id — cart.tsx's asUuid() guard already
+      // nulls out selected_poster for any non-UUID posterId, same
+      // mechanism custom-design.tsx relies on for its own line items.
+      posterId: `set-${set.id}`,
       title: `${set.name} (Set of ${set.frames_count})`,
       image: set.image_url ?? "",
       categoryId: null,

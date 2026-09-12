@@ -119,6 +119,40 @@ export async function fetchAllSliderImagesFromDb(): Promise<DbSliderImage[]> {
   return rows as unknown as DbSliderImage[];
 }
 
+export type DbFrameSet = {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  frames_count: number;
+  price: number;
+  old_price: number | null;
+  enabled: boolean;
+  featured: boolean;
+  sort_order: number;
+};
+
+export async function fetchEnabledSetsFromDb(): Promise<DbFrameSet[]> {
+  const rows = await sql()`
+    select id, name, description, image_url, frames_count, price, old_price,
+           enabled, featured, sort_order
+    from sets
+    where enabled = true
+    order by sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbFrameSet[];
+}
+
+export async function fetchAllSetsFromDb(): Promise<DbFrameSet[]> {
+  const rows = await sql()`
+    select id, name, description, image_url, frames_count, price, old_price,
+           enabled, featured, sort_order
+    from sets
+    order by sort_order asc, created_at desc
+  `;
+  return rows as unknown as DbFrameSet[];
+}
+
 export async function logSystemEventToDb(input: {
   level: string;
   source?: string | null;

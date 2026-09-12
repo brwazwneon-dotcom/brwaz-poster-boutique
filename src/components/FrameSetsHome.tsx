@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { getSetsPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "@/components/SafeImage";
 import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
@@ -19,14 +19,8 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
     queryKey: ["home-frame-sets"],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sets")
-        .select("id,name,image_url,sort_order")
-        .eq("enabled", true)
-        .not("image_url", "is", null)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as SetRow[];
+      const rows = (await getSetsPublic()) as Array<SetRow & { image_url: string | null }>;
+      return rows.filter((r) => r.image_url) as SetRow[];
     },
   });
 

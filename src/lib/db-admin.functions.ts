@@ -428,6 +428,69 @@ export const deleteHighlight = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------
+// Sets — curated frame-set bundles (own table, NOT linked to posters —
+// a set's cart line item must never carry a real-looking posters.id,
+// see the "set-" prefix used client-side to keep selected_poster null).
+// ---------------------------------------------------------------
+export const listSetsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, name, description, image_url, frames_count, price, old_price,
+             enabled, featured, sort_order
+      from sets
+      order by sort_order asc, created_at desc
+    `;
+  });
+
+export const upsertSet = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const name = String(data.name ?? "").trim();
+    if (!name) throw new Error("Set name is required");
+    const description = typeof data.description === "string" && data.description ? data.description : null;
+    const imageUrl = typeof data.image_url === "string" && data.image_url ? data.image_url : null;
+    const framesCount = Math.max(1, Math.round(Number(data.frames_count) || 1));
+    const price = Number(data.price);
+    if (!Number.isFinite(price) || price <= 0) throw new Error("Valid price is required");
+    const oldPrice =
+      data.old_price !== undefined && data.old_price !== null && data.old_price !== ""
+        ? Number(data.old_price)
+        : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const featured = Boolean(data.featured);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update sets
+        set name = ${name}, description = ${description}, image_url = ${imageUrl},
+            frames_count = ${framesCount}, price = ${price}, old_price = ${oldPrice},
+            enabled = ${enabled}, featured = ${featured}, sort_order = ${sortOrder}
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into sets (name, description, image_url, frames_count, price, old_price, enabled, featured, sort_order)
+      values (${name}, ${description}, ${imageUrl}, ${framesCount}, ${price}, ${oldPrice}, ${enabled}, ${featured}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteSet = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from sets where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Offers — admin-curated bundle deals
 // ---------------------------------------------------------------
 export const listCustomOffersAdmin = createServerFn({ method: "GET" })
