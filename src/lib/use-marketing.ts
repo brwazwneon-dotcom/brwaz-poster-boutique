@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export type MarketingConfig = {
   pixelId: string;
@@ -33,12 +33,8 @@ export function useMarketingConfig(): MarketingConfig {
     queryKey: ["marketing-config"],
     staleTime: 60_000,
     queryFn: async (): Promise<MarketingConfig> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("key,value")
-        .in("key", KEYS);
-      if (error) throw error;
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({ data: { keys: KEYS } });
+      const map = new Map(Object.entries(settings));
       const bool = (k: string) => map.get(k) === true || map.get(k) === "true";
       const pixelId = String(map.get("meta_pixel_id") ?? "").trim();
       const ga4Id = String(map.get("ga4_measurement_id") ?? "").trim();

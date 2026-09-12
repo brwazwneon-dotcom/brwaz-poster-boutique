@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
+import { setSiteSetting } from "@/lib/db-admin.functions";
 
 /**
  * Global stability + performance flags stored as a single JSON row in
@@ -117,13 +118,8 @@ export function usePerformanceFlags(): PerformanceFlags {
     queryKey: ["performance-flags"],
     staleTime: 30_000,
     queryFn: async (): Promise<PerformanceFlags> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", PERFORMANCE_FLAGS_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return parseFlags(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [PERFORMANCE_FLAGS_KEY] } });
+      return parseFlags(settings[PERFORMANCE_FLAGS_KEY]);
     },
   });
   return q.data ?? PERFORMANCE_DEFAULTS;
@@ -140,8 +136,5 @@ export function readPerfFlagsSync(): PerformanceFlags {
 }
 
 export async function saveFlags(flags: PerformanceFlags): Promise<void> {
-  const { error } = await supabase
-    .from("site_settings")
-    .upsert({ key: PERFORMANCE_FLAGS_KEY, value: flags as never });
-  if (error) throw error;
+  await setSiteSetting({ data: { key: PERFORMANCE_FLAGS_KEY, value: flags } });
 }
