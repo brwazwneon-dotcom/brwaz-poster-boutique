@@ -566,7 +566,9 @@ function PhotoOrdersTab() {
 type AdminCategory = {
   id: string;
   name: string;
+  name_ar?: string | null;
   slug: string;
+  description?: string | null;
   image: string | null;
   hidden: boolean;
   featured: boolean;
@@ -576,11 +578,27 @@ type AdminCategory = {
 function CategoriesTab() {
   const [categories, setCategories] = useState<AdminCategory[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminCategory> | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => setCategories((await listCategoriesAdmin()) as AdminCategory[]);
   useEffect(() => {
     load();
   }, []);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 1600, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing((prev) => ({ ...(prev ?? {}), image: url }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = async () => {
     if (!editing?.name) return toast.error("Name is required");
@@ -615,34 +633,91 @@ function CategoriesTab() {
       </div>
 
       {editing && (
-        <div className="mb-6 space-y-3 rounded-sm border border-border bg-card p-4">
-          <input
-            placeholder="Name"
-            value={editing.name ?? ""}
-            onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            placeholder="Image URL"
-            value={editing.image ?? ""}
-            onChange={(e) => setEditing({ ...editing, image: e.target.value })}
-            className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-          />
-          <label className="flex items-center gap-2 text-sm">
+        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[140px_1fr]">
+          <div>
+            {editing.image ? (
+              <img src={editing.image} alt="" className="aspect-square w-full rounded-sm object-cover" />
+            ) : (
+              <div className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
             <input
-              type="checkbox"
-              checked={Boolean(editing.hidden)}
-              onChange={(e) => setEditing({ ...editing, hidden: e.target.checked })}
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                e.target.value = "";
+              }}
             />
-            Hidden
-          </label>
-          <div className="flex gap-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-              Save
-            </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
-              Cancel
-            </button>
+          </div>
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                placeholder="Name (English)"
+                value={editing.name ?? ""}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="الاسم بالعربي"
+                dir="rtl"
+                value={editing.name_ar ?? ""}
+                onChange={(e) => setEditing({ ...editing, name_ar: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <textarea
+              placeholder="Description (optional)"
+              value={editing.description ?? ""}
+              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+              rows={2}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.hidden)}
+                  onChange={(e) => setEditing({ ...editing, hidden: e.target.checked })}
+                />
+                Hidden
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.featured)}
+                  onChange={(e) => setEditing({ ...editing, featured: e.target.checked })}
+                />
+                Featured
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                Sort order
+                <input
+                  type="number"
+                  value={editing.sort_order ?? 0}
+                  onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })}
+                  className="w-20 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+                />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                Save
+              </button>
+              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

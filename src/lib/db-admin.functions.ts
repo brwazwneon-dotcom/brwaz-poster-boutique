@@ -33,6 +33,7 @@ export const upsertCategory = createServerFn({ method: "POST" })
     const name = String(data.name ?? "").trim();
     if (!name) throw new Error("Category name is required");
     const slug = typeof data.slug === "string" && data.slug.trim() ? slugify(data.slug) : slugify(name);
+    const nameAr = typeof data.name_ar === "string" && data.name_ar ? data.name_ar : null;
     const description = typeof data.description === "string" ? data.description : null;
     const image = typeof data.image === "string" ? data.image : null;
     const hidden = Boolean(data.hidden);
@@ -42,16 +43,17 @@ export const upsertCategory = createServerFn({ method: "POST" })
     if (id) {
       const rows = await sql()`
         update categories
-        set name = ${name}, slug = ${slug}, description = ${description}, image = ${image},
-            hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder}, updated_at = now()
+        set name = ${name}, name_ar = ${nameAr}, slug = ${slug}, description = ${description},
+            image = ${image}, hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder},
+            updated_at = now()
         where id = ${id}
         returning id
       `;
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into categories (name, slug, description, image, hidden, featured, sort_order)
-      values (${name}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder})
+      insert into categories (name, name_ar, slug, description, image, hidden, featured, sort_order)
+      values (${name}, ${nameAr}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder})
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };
