@@ -6,6 +6,7 @@ import {
   fetchTrendingPostersFromDb,
   fetchBestSellersFromDb,
   fetchPosterSalesCountFromDb,
+  fetchRoomTransformationArtworkFromDb,
   fetchSiteSettingsFromDb,
   fetchPosterImagesByIdsFromDb,
   type CategorySortKey,
@@ -69,6 +70,12 @@ export const getPosterSalesCountPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { id: string }).id)
   .handler(async ({ data: id }) => {
     return fetchPosterSalesCountFromDb(id);
+  });
+
+export const getRoomTransformationArtworkPublic = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null })
+  .handler(async ({ data }) => {
+    return fetchRoomTransformationArtworkFromDb(data.posterId);
   });
 
 // Public — client error capture (window.onerror / unhandledrejection /

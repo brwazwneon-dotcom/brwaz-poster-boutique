@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export const STOREFRONT_CONTENT_KEY = "storefront_trust_faq_content";
 
@@ -265,13 +265,8 @@ export function useStorefrontContent() {
     queryKey: ["storefront-content"],
     staleTime: 60_000,
     queryFn: async (): Promise<StorefrontContent> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", STOREFRONT_CONTENT_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalizeStorefrontContent(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [STOREFRONT_CONTENT_KEY] } });
+      return normalizeStorefrontContent(settings[STOREFRONT_CONTENT_KEY]);
     },
   });
   return query.data ?? DEFAULT_STOREFRONT_CONTENT;

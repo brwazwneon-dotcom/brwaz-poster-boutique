@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export const PHOTO_ENHANCEMENT_KEY = "homepage_photo_enhancement";
 
@@ -111,13 +111,8 @@ export function usePhotoEnhancementSettings() {
     queryKey: ["photo-enhancement-settings"],
     staleTime: 60_000,
     queryFn: async (): Promise<PhotoEnhancementSettings> => {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", PHOTO_ENHANCEMENT_KEY)
-        .maybeSingle();
-      if (error) throw error;
-      return normalizePhotoEnhancementSettings(data?.value);
+      const settings = await getSiteSettingsPublic({ data: { keys: [PHOTO_ENHANCEMENT_KEY] } });
+      return normalizePhotoEnhancementSettings(settings[PHOTO_ENHANCEMENT_KEY]);
     },
   });
   return query.data ?? DEFAULT_PHOTO_ENHANCEMENT;

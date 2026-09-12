@@ -203,6 +203,37 @@ export async function fetchPosterImagesByIdsFromDb(ids: string[]): Promise<Recor
   return out;
 }
 
+export type RoomArtworkRow = { id: string; title: string; image_url: string };
+
+// Simplified vs. the old Supabase version (which ranked candidates from a
+// separate best_sellers table + image_variants for responsive srcsets):
+// no best_sellers table or variants pipeline exist on Neon yet, so this
+// just picks a best-seller/trending poster with an image, falling back to
+// any visible poster. Good enough for a homepage decorative widget.
+export async function fetchRoomTransformationArtworkFromDb(
+  posterId: string | null,
+): Promise<RoomArtworkRow | null> {
+  if (posterId) {
+    const rows = await sql()`
+      select id, title, image_url from posters where id = ${posterId} and hidden = false limit 1
+    `;
+    const row = rows[0] as RoomArtworkRow | undefined;
+    if (row) return row;
+  }
+  const preferred = await sql()`
+    select id, title, image_url from posters
+    where hidden = false and (is_best_seller = true or trending = true) and image_url is not null
+    order by sales_count desc nulls last limit 1
+  `;
+  if (preferred[0]) return preferred[0] as RoomArtworkRow;
+  const fallback = await sql()`
+    select id, title, image_url from posters
+    where hidden = false and image_url is not null
+    order by created_at desc limit 1
+  `;
+  return (fallback[0] as RoomArtworkRow) ?? null;
+}
+
 export async function fetchPosterSalesCountFromDb(id: string): Promise<number> {
   const rows = await sql()`select sales_count from posters where id = ${id}`;
   return Number((rows[0] as { sales_count?: number } | undefined)?.sales_count ?? 0);
