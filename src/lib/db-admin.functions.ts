@@ -228,3 +228,103 @@ export const setSiteSetting = createServerFn({ method: "POST" })
     `;
     return { ok: true };
   });
+
+// ---------------------------------------------------------------
+// Homepage — hero banners
+// ---------------------------------------------------------------
+export const listHeroBannersAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order
+      from hero_banners
+      order by sort_order asc, created_at asc
+    `;
+  });
+
+export const upsertHeroBanner = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const imageUrl = String(data.image_url ?? "").trim();
+    if (!imageUrl) throw new Error("Banner image is required");
+    const title = typeof data.title === "string" && data.title ? data.title : null;
+    const subtitle = typeof data.subtitle === "string" && data.subtitle ? data.subtitle : null;
+    const buttonText = typeof data.button_text === "string" && data.button_text ? data.button_text : null;
+    const buttonLink = typeof data.button_link === "string" && data.button_link ? data.button_link : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update hero_banners
+        set image_url = ${imageUrl}, title = ${title}, subtitle = ${subtitle},
+            button_text = ${buttonText}, button_link = ${buttonLink},
+            enabled = ${enabled}, sort_order = ${sortOrder}, updated_at = now()
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into hero_banners (image_url, title, subtitle, button_text, button_link, enabled, sort_order)
+      values (${imageUrl}, ${title}, ${subtitle}, ${buttonText}, ${buttonLink}, ${enabled}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteHeroBanner = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from hero_banners where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
+// System health / error logs
+// ---------------------------------------------------------------
+export const getSystemHealthAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    const [posters, categories, orders, openErrors] = await Promise.all([
+      sql()`select count(*)::int as count from posters`,
+      sql()`select count(*)::int as count from categories`,
+      sql()`select count(*)::int as count from orders where is_test = false`,
+      sql()`select count(*)::int as count from system_logs where status = 'open'`,
+    ]);
+    return {
+      posterCount: (posters[0] as { count: number }).count,
+      categoryCount: (categories[0] as { count: number }).count,
+      orderCount: (orders[0] as { count: number }).count,
+      openErrorCount: (openErrors[0] as { count: number }).count,
+    };
+  });
+
+export const listErrorLogsAdmin = createServerFn({ method: "GET" })
+  .validator((data: unknown) => (data as { status?: string } | undefined) ?? {})
+  .middleware([requireAdminSessionNeon])
+  .handler(async ({ data }) => {
+    if (data.status) {
+      return sql()`
+        select id, level, source, category, message, stack, url, status, created_at
+        from system_logs where status = ${data.status}
+        order by created_at desc limit 200
+      `;
+    }
+    return sql()`
+      select id, level, source, category, message, stack, url, status, created_at
+      from system_logs
+      order by created_at desc limit 200
+    `;
+  });
+
+export const updateErrorLogStatus = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { id: string; status: "open" | "resolved" })
+  .handler(async ({ data }) => {
+    await sql()`update system_logs set status = ${data.status} where id = ${data.id}`;
+    return { ok: true };
+  });

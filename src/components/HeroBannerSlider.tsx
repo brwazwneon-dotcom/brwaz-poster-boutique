@@ -3,6 +3,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero-banners";
 import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
+// Stable fallback so `banners` keeps the same identity across renders while
+// the query is loading (data === undefined). A fresh `[]` literal there
+// would get a new array reference every render, which made the effect
+// below (keyed on [banners]) re-fire every render, calling setState each
+// time and producing "Maximum update depth exceeded" — reproduced live in
+// the local preview on 2026-09-11.
+const EMPTY_BANNERS: HeroBanner[] = [];
+
 async function logHeroImageFailure(banner: HeroBanner, url: string) {
   let status: number | "network_error" | "unknown" = "unknown";
   try {
@@ -37,7 +45,7 @@ async function logHeroImageFailure(banner: HeroBanner, url: string) {
  * Renders nothing when no banners are configured (parent falls back to default hero bg).
  */
 export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
-  const { data: banners = [] } = useHeroBanners();
+  const { data: banners = EMPTY_BANNERS } = useHeroBanners();
   const { data: cfg } = useHeroBannerConfig();
   const autoplay = cfg?.autoplay_ms ?? 5000;
   const overlay = cfg?.overlay_opacity ?? 0.55;

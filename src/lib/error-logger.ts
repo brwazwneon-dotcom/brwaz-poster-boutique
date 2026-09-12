@@ -1,11 +1,11 @@
 /**
  * Lightweight, non-blocking client-side error logger.
- * Writes to `system_logs` (RLS allows anon INSERT), which the admin dashboard
- * surfaces in the Notification Center under Maintenance alerts.
+ * Writes to `system_logs` via a public server function, surfaced in the
+ * admin System Health tab.
  *
  * All calls are best-effort: failures never throw and never block the UI.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { logClientErrorPublic } from "@/lib/db-public.functions";
 
 type Level = "info" | "warning" | "error" | "critical";
 
@@ -45,22 +45,19 @@ export function logSystemEvent(input: LogInput): void {
     const payload = {
       level: input.level ?? "error",
       source: input.source ?? "client",
-      category: input.category ?? null,
+      category: input.category ?? undefined,
       message: input.message.slice(0, 1000),
-      stack: input.stack?.slice(0, 4000) ?? null,
-      url: input.url ?? (typeof window !== "undefined" ? window.location.href : null),
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      metadata: (input.metadata ?? {}) as never,
+      stack: input.stack?.slice(0, 4000) ?? undefined,
+      url: input.url ?? (typeof window !== "undefined" ? window.location.href : undefined),
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+      metadata: input.metadata ?? {},
     };
 
     // Fire and forget; ignore rejection.
-    void supabase
-      .from("system_logs")
-      .insert(payload)
-      .then(
-        () => {},
-        () => {},
-      );
+    void logClientErrorPublic({ data: payload }).then(
+      () => {},
+      () => {},
+    );
   } catch {
     /* noop */
   }

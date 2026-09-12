@@ -20,6 +20,12 @@ import {
   updateOrderStatus,
   getAllSiteSettingsAdmin,
   setSiteSetting,
+  listHeroBannersAdmin,
+  upsertHeroBanner,
+  deleteHeroBanner,
+  getSystemHealthAdmin,
+  listErrorLogsAdmin,
+  updateErrorLogStatus,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
@@ -200,7 +206,7 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-type Tab = "products" | "categories" | "orders" | "settings";
+type Tab = "products" | "categories" | "orders" | "homepage" | "health" | "settings";
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("orders");
@@ -214,6 +220,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "orders", label: "Orders" },
     { id: "products", label: "Products" },
     { id: "categories", label: "Categories" },
+    { id: "homepage", label: "Homepage" },
+    { id: "health", label: "System Health" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -246,6 +254,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         {tab === "orders" && <OrdersTab />}
         {tab === "products" && <ProductsTab />}
         {tab === "categories" && <CategoriesTab />}
+        {tab === "homepage" && <HomepageTab />}
+        {tab === "health" && <SystemHealthTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>
@@ -980,6 +990,334 @@ function ProductsTab() {
         ))}
         {products.length === 0 && <p className="text-sm text-muted-foreground">No products yet — drop some images above.</p>}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Homepage — hero banners
+// ---------------------------------------------------------------
+type AdminHeroBanner = {
+  id: string;
+  image_url: string;
+  title: string | null;
+  subtitle: string | null;
+  button_text: string | null;
+  button_link: string | null;
+  enabled: boolean;
+  sort_order: number;
+};
+
+function HomepageTab() {
+  const [banners, setBanners] = useState<AdminHeroBanner[] | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminHeroBanner> | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const load = async () => setBanners((await listHeroBannersAdmin()) as AdminHeroBanner[]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const optimized = await optimizeImage(file, { maxDim: 2400, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
+      setEditing((prev) => ({ ...(prev ?? {}), image_url: url }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!editing?.image_url) return toast.error("Banner image is required");
+    try {
+      await upsertHeroBanner({ data: editing });
+      toast.success("Saved");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this banner?")) return;
+    await deleteHeroBanner({ data: id });
+    load();
+  };
+
+  const toggleEnabled = async (b: AdminHeroBanner) => {
+    await upsertHeroBanner({ data: { ...b, enabled: !b.enabled } });
+    load();
+  };
+
+  const move = async (b: AdminHeroBanner, dir: -1 | 1) => {
+    if (!banners) return;
+    const sorted = [...banners].sort((a, c) => a.sort_order - c.sort_order);
+    const idx = sorted.findIndex((x) => x.id === b.id);
+    const swapWith = sorted[idx + dir];
+    if (!swapWith) return;
+    await Promise.all([
+      upsertHeroBanner({ data: { ...b, sort_order: swapWith.sort_order } }),
+      upsertHeroBanner({ data: { ...swapWith, sort_order: b.sort_order } }),
+    ]);
+    load();
+  };
+
+  if (banners === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex justify-between">
+        <h2 className="text-lg font-semibold">Homepage banners</h2>
+        <button
+          onClick={() => setEditing({})}
+          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+        >
+          + New banner
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
+          <div>
+            {editing.image_url ? (
+              <img src={editing.image_url} alt="" className="aspect-[16/7] w-full rounded-sm object-cover" />
+            ) : (
+              <div className="flex aspect-[16/7] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload image"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <div className="space-y-3">
+            <input
+              placeholder="Title (optional)"
+              value={editing.title ?? ""}
+              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Subtitle (optional)"
+              value={editing.subtitle ?? ""}
+              onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Button text (optional)"
+              value={editing.button_text ?? ""}
+              onChange={(e) => setEditing({ ...editing, button_text: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              placeholder="Button link (optional, e.g. /category/football)"
+              value={editing.button_link ?? ""}
+              onChange={(e) => setEditing({ ...editing, button_link: e.target.value })}
+              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editing.enabled !== false}
+                onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+              />
+              Enabled
+            </label>
+            <div className="flex gap-2">
+              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                Save
+              </button>
+              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {banners
+          .slice()
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((b) => (
+            <div key={b.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+              <div className="flex items-center gap-3">
+                <img src={b.image_url} alt="" className="h-12 w-20 rounded-sm object-cover" />
+                <div>
+                  <div className="text-sm font-medium">{b.title || "(no title)"}</div>
+                  <div className="text-xs text-muted-foreground">{b.enabled ? "Enabled" : "Disabled"}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => move(b, -1)} className="text-xs text-muted-foreground hover:text-foreground">
+                  ↑
+                </button>
+                <button onClick={() => move(b, 1)} className="text-xs text-muted-foreground hover:text-foreground">
+                  ↓
+                </button>
+                <button onClick={() => toggleEnabled(b)} className="text-xs text-cyan-500 hover:underline">
+                  {b.enabled ? "Disable" : "Enable"}
+                </button>
+                <button onClick={() => setEditing(b)} className="text-xs text-cyan-500 hover:underline">
+                  Edit
+                </button>
+                <button onClick={() => remove(b.id)} className="text-xs text-red-500 hover:underline">
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        {banners.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// System health / error logs
+// ---------------------------------------------------------------
+type AdminErrorLog = {
+  id: string;
+  level: string;
+  source: string | null;
+  category: string | null;
+  message: string;
+  stack: string | null;
+  url: string | null;
+  status: string;
+  created_at: string;
+};
+
+function SystemHealthTab() {
+  const [stats, setStats] = useState<{
+    posterCount: number;
+    categoryCount: number;
+    orderCount: number;
+    openErrorCount: number;
+  } | null>(null);
+  const [logs, setLogs] = useState<AdminErrorLog[] | null>(null);
+  const [filter, setFilter] = useState<"open" | "resolved" | "">("open");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const load = async () => {
+    const [h, l] = await Promise.all([
+      getSystemHealthAdmin(),
+      listErrorLogsAdmin({ data: filter ? { status: filter } : {} }),
+    ]);
+    setStats(h);
+    setLogs(l as AdminErrorLog[]);
+  };
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  const resolve = async (id: string) => {
+    await updateErrorLogStatus({ data: { id, status: "resolved" } });
+    load();
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-lg font-semibold">System health</h2>
+      {stats && (
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Products", value: stats.posterCount },
+            { label: "Categories", value: stats.categoryCount },
+            { label: "Orders", value: stats.orderCount },
+            { label: "Open errors", value: stats.openErrorCount },
+          ].map((s) => (
+            <div key={s.label} className="rounded-sm border border-border p-4">
+              <div className="text-2xl font-semibold">{s.value}</div>
+              <div className="text-xs text-muted-foreground">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Error logs</h3>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as "open" | "resolved" | "")}
+          className="rounded-sm border border-border bg-background px-3 py-1.5 text-xs"
+        >
+          <option value="open">Open</option>
+          <option value="resolved">Resolved</option>
+          <option value="">All</option>
+        </select>
+      </div>
+
+      {logs === null ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : logs.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No errors logged.</p>
+      ) : (
+        <div className="space-y-2">
+          {logs.map((log) => (
+            <div key={log.id} className="rounded-sm border border-border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                        log.level === "critical" || log.level === "error"
+                          ? "bg-red-500/15 text-red-500"
+                          : "bg-accent text-muted-foreground"
+                      }`}
+                    >
+                      {log.level}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{log.source ?? "unknown"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setExpanded(expanded === log.id ? null : log.id)}
+                    className="mt-1 text-left text-sm hover:underline"
+                  >
+                    {log.message}
+                  </button>
+                  {expanded === log.id && (
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {log.url && <div>URL: {log.url}</div>}
+                      {log.stack && <pre className="overflow-x-auto whitespace-pre-wrap">{log.stack}</pre>}
+                    </div>
+                  )}
+                </div>
+                {log.status === "open" && (
+                  <button onClick={() => resolve(log.id)} className="shrink-0 text-xs text-cyan-500 hover:underline">
+                    Mark resolved
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

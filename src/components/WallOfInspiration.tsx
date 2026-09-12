@@ -37,6 +37,14 @@ type WallSlot = {
   tone: "black" | "walnut" | "brass" | "charcoal";
 };
 
+// Stable fallback so `rows` keeps the same identity across renders while
+// the query is loading. A fresh `[]` literal there would flow into the
+// `items`/`itemById` useMemos and then into the useEffect keyed on
+// [itemById, items] below, re-firing it (and its setState) every render —
+// the same "Maximum update depth exceeded" pattern found and fixed in
+// HeroBannerSlider.tsx and src/lib/public-images.ts on 2026-09-11.
+const EMPTY_ROWS: PosterRow[] = [];
+
 type WallFrame = {
   slot: WallSlot;
   item: GalleryItem;
@@ -126,7 +134,7 @@ export function WallOfInspiration() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sectionRef, autoplayActive] = useActiveAutoplay<HTMLElement>();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = EMPTY_ROWS, isLoading } = useQuery({
     queryKey: ["wall-of-inspiration-posters"],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<PosterRow[]> => {
