@@ -40,6 +40,7 @@ import {
   deleteCustomOffer,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
+import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { FramePreview } from "@/components/FramePreview";
@@ -2282,6 +2283,20 @@ const SETTING_FIELDS: { key: string; label: string }[] = [
   { key: "frame_pvc_40x50", label: "PVC 40×50 (EGP)" },
   { key: "frame_wood_20x30", label: "Wood 20×30 (EGP)" },
   { key: "frame_wood_30x40", label: "Wood 30×40 (EGP)" },
+  { key: "frame_wood_40x50", label: "Wood 40×50 (EGP)" },
+  { key: "frame_wood_40x60", label: "Wood 40×60 (EGP)" },
+  { key: "frame_wood_50x60", label: "Wood 50×60 (EGP)" },
+  { key: "frame_wood_50x70", label: "Wood 50×70 (EGP)" },
+  { key: "frame_wood_60x90", label: "Wood 60×90 (EGP)" },
+  { key: "frame_wood_100x60", label: "Wood 100×60 (EGP)" },
+  { key: "photo_10x15", label: "Photo 10×15 (EGP)" },
+  { key: "photo_13x18", label: "Photo 13×18 (EGP)" },
+  { key: "photo_15x20", label: "Photo 15×20 (EGP)" },
+  { key: "custom_design_fee", label: "Custom design fee (EGP)" },
+  { key: "packaging_fee", label: "Packaging fee (EGP)" },
+  { key: "offer_6_20x30", label: "Bundle: 6× 20×30 (EGP)" },
+  { key: "offer_4_30x40", label: "Bundle: 4× 30×40 (EGP)" },
+  { key: "double_face_tape_price", label: "Double-face tape (EGP)" },
   { key: "shipping_fee", label: "Shipping fee (EGP)" },
   { key: "free_shipping_threshold", label: "Free shipping over (EGP)" },
 ];
@@ -2313,21 +2328,111 @@ function SettingsTab() {
   if (values === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
 
   return (
-    <div className="max-w-md space-y-4">
-      <h2 className="text-lg font-semibold">Pricing & shipping</h2>
-      {SETTING_FIELDS.map((f) => (
-        <div key={f.key} className="flex items-center gap-2">
-          <label className="w-56 text-sm text-muted-foreground">{f.label}</label>
-          <input
-            value={values[f.key] ?? ""}
-            onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-            className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
-          />
-          <button onClick={() => save(f.key)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
-            Save
-          </button>
-        </div>
-      ))}
+    <div>
+      <div className="max-w-md space-y-4">
+        <h2 className="text-lg font-semibold">Pricing & shipping</h2>
+        {SETTING_FIELDS.map((f) => (
+          <div key={f.key} className="flex items-center gap-2">
+            <label className="w-56 text-sm text-muted-foreground">{f.label}</label>
+            <input
+              value={values[f.key] ?? ""}
+              onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+              className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
+            />
+            <button onClick={() => save(f.key)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              Save
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-10 max-w-md border-t border-border pt-8">
+        <FeatureFlagsSection />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Feature / performance flags — the "emergency lever" to stabilise the
+// site without a code deploy (src/lib/performance-flags.ts).
+// ---------------------------------------------------------------
+const FLAG_TOGGLES: { key: keyof PerformanceFlags; label: string; hint?: string }[] = [
+  { key: "safe_mode", label: "Safe mode", hint: "Forces conservative defaults across the whole site" },
+  { key: "emergency_fast_mode", label: "Emergency fast mode", hint: "Smallest public payload, no slow personal rails" },
+  { key: "pause_heavy_jobs", label: "Pause heavy jobs", hint: "Blocks bulk AI SEO / image-variant jobs" },
+  { key: "disable_preloader", label: "Disable preloader" },
+  { key: "disable_social_proof", label: "Disable social proof popups" },
+  { key: "disable_floating_offer", label: "Disable floating offer bubble" },
+  { key: "whatsapp_enabled", label: "WhatsApp button" },
+  { key: "assistant_enabled", label: "AI assistant button" },
+  { key: "offers_enabled", label: "Today's Offers bubble" },
+  { key: "collapse_tools_mobile", label: "Collapse tools on mobile" },
+];
+
+// Raw parse (no SAFE_MODE_OVERRIDES/EMERGENCY_FAST_OVERRIDES applied) so
+// each toggle in this editor reflects and edits exactly what's stored —
+// the storefront-facing usePerformanceFlags() is the one that applies
+// those overrides at read time.
+function parsePerfFlagsRaw(raw: unknown): PerformanceFlags {
+  const base = { ...PERFORMANCE_DEFAULTS };
+  if (raw && typeof raw === "object") {
+    Object.assign(base, raw as Partial<PerformanceFlags>);
+  }
+  return base;
+}
+
+function FeatureFlagsSection() {
+  const [flags, setFlags] = useState<PerformanceFlags | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    const settings = await getAllSiteSettingsAdmin();
+    const row = (settings as Array<{ key: string; value: unknown }>).find(
+      (r) => r.key === "performance_flags",
+    );
+    setFlags(parsePerfFlagsRaw(row?.value));
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async (next: PerformanceFlags) => {
+    setFlags(next);
+    setSaving(true);
+    try {
+      await setSiteSetting({ data: { key: "performance_flags", value: next } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (flags === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold">Feature flags</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Emergency levers to stabilise the site without a code deploy.
+      </p>
+      <div className="mt-4 space-y-2">
+        {FLAG_TOGGLES.map((f) => (
+          <label key={f.key} className="flex items-center justify-between gap-3 rounded-sm border border-border p-2.5">
+            <span>
+              <span className="block text-sm">{f.label}</span>
+              {f.hint && <span className="block text-xs text-muted-foreground">{f.hint}</span>}
+            </span>
+            <input
+              type="checkbox"
+              checked={Boolean(flags[f.key])}
+              disabled={saving}
+              onChange={(e) => save({ ...flags, [f.key]: e.target.checked })}
+            />
+          </label>
+        ))}
+      </div>
     </div>
   );
 }
