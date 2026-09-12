@@ -419,7 +419,7 @@
     "selected": "Selected",
     "customize": "Customize",
     "fromPrice": "From {price} EGP",
-    "addToCart": "Add {count} to Cart"
+    "addToCart": "Add {{count}} to Cart"
   },
   "offers": {
     "title": "Special Offers",

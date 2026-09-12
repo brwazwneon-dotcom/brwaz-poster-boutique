@@ -261,7 +261,7 @@
     "moreIn": "المزيد في",
     "previousPoster": "البوستر السابق",
     "nextPoster": "البوستر التالي",
-    "addToCart": "أضف {count} إلى السلة",
+    "addToCart": "أضف {{count}} إلى السلة",
     "fromPrice": "من {price} جنيه",
     "customize": "تخصيص",
     "bestSeller": "الأكثر مبيعاً"
