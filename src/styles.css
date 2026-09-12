@@ -916,6 +916,23 @@ svg {
   transition: filter 420ms ease;
 }
 
+/* Sparse-catalog fallback: hugs its actual content instead of reserving
+   space for a full 9+ frame band. See WallOfInspiration.tsx. */
+.wall-inspiration-compact-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(1.25rem, 2.5vw, 2.5rem);
+  padding-block: clamp(1rem, 2vw, 2rem);
+}
+
+.wall-inspiration-frame.is-compact {
+  grid-column: unset;
+  grid-row: unset;
+  width: clamp(160px, 22vw, 230px);
+  aspect-ratio: 2 / 3;
+}
+
 .wall-inspiration-frame {
   --wall-col: 2;
   --wall-row: 4;

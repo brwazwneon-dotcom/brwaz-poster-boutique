@@ -249,9 +249,31 @@ export function WallOfInspiration() {
           className="wall-inspiration-rail mt-14 sm:mt-20"
           data-active={selectedId ? "true" : "false"}
         >
-          {isLoading && bands.length === 0 ? (
+          {isLoading && frames.length === 0 ? (
             <WallSkeleton />
-          ) : bands.length > 0 ? (
+          ) : frames.length === 0 ? (
+            <div className="wall-inspiration-empty">
+              The gallery is preparing its next collection wall.
+            </div>
+          ) : frames.length < BAND_SIZE ? (
+            // Too few real products yet for the full multi-band gallery
+            // (which reserves ~400-600px per band and expects it to fill
+            // with 9+ frames) — a sparse catalog would otherwise render
+            // as one tiny frame in a mostly-empty void. This compact
+            // layout hugs its actual content instead.
+            <div className="wall-inspiration-compact-grid">
+              {frames.map((frame, index) => (
+                <WallFrameCard
+                  key={frame.item.id}
+                  frame={frame}
+                  localIndex={index}
+                  selected={selectedId === frame.item.id}
+                  onSelect={handleSelect}
+                  compact
+                />
+              ))}
+            </div>
+          ) : (
             bands.map((band, index) => (
               <VirtualWallBand
                 key={index}
@@ -261,10 +283,6 @@ export function WallOfInspiration() {
                 onSelect={handleSelect}
               />
             ))
-          ) : (
-            <div className="wall-inspiration-empty">
-              The gallery is preparing its next collection wall.
-            </div>
           )}
         </div>
       </div>
@@ -315,17 +333,19 @@ function WallFrameCard({
   localIndex,
   selected,
   onSelect,
+  compact,
 }: {
   frame: WallFrame;
   localIndex: number;
   selected: boolean;
   onSelect: (item: GalleryItem) => void;
+  compact?: boolean;
 }) {
   const { item, slot } = frame;
   const style = {
     "--wall-col": slot.colSpan,
     "--wall-row": slot.rowSpan,
-    "--wall-tilt": `${slot.tilt}deg`,
+    "--wall-tilt": `${compact ? 0 : slot.tilt}deg`,
     "--frame-delay": `${localIndex * 72}ms`,
   } as CSSProperties;
 
@@ -335,6 +355,7 @@ function WallFrameCard({
       className={cn(
         "wall-inspiration-frame",
         `wall-inspiration-frame-${slot.tone}`,
+        compact && "is-compact",
         selected && "is-selected",
       )}
       style={style}
