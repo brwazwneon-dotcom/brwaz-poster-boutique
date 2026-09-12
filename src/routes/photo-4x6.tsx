@@ -1,6 +1,8 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import i18n from "@/lib/i18n";
 import {
   Upload,
   X,
@@ -116,7 +118,7 @@ async function fileToCompressedDataUrl(
       const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 });
       workingFile = Array.isArray(out) ? out[0] : out;
     } catch {
-      throw new Error("Could not read HEIC file. Please convert to JPG.");
+      throw new Error(i18n.t("photo4x6.heicReadError"));
     }
   }
 
@@ -150,6 +152,7 @@ async function fileToCompressedDataUrl(
 }
 
 function Photo4x6Page() {
+  const { t } = useTranslation();
   const settings = useSiteSettings();
   const config = usePhoto4x6Config();
   const search = useSearch({ from: "/photo-4x6" });
@@ -181,11 +184,11 @@ function Photo4x6Page() {
     const next: Pic[] = [];
     for (const f of Array.from(files)) {
       if (f.size > MAX_FILE_MB * 1024 * 1024) {
-        toast.error(`${f.name} exceeds ${MAX_FILE_MB}MB`);
+        toast.error(t("photo4x6.fileTooLarge", { name: f.name, max: MAX_FILE_MB }));
         continue;
       }
       if (!/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name) && !f.type.startsWith("image/")) {
-        toast.error(`${f.name}: unsupported format`);
+        toast.error(t("photo4x6.unsupportedFormat", { name: f.name }));
         continue;
       }
       try {
@@ -198,7 +201,7 @@ function Photo4x6Page() {
           warnLowRes,
         });
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to read image");
+        toast.error(e instanceof Error ? e.message : t("photo4x6.failedToReadImage"));
       }
     }
     if (next.length) setPics((prev) => [...prev, ...next]);
@@ -226,30 +229,35 @@ function Photo4x6Page() {
               : p,
           ),
         );
-        toast.success(action === "suit" ? "Suit version ready" : "Photo enhanced");
+        toast.success(
+          action === "suit" ? t("photo4x6.suitVersionReady") : t("photo4x6.photoEnhanced"),
+        );
       } else if (result.error === "no_person") {
         setPics((prev) => prev.map((p) => (p.id === id ? { ...p, processing: null } : p)));
-        toast.error("Suit option works best with clear personal photos.");
+        toast.error(t("photo4x6.suitWorksBest"));
       } else {
         setPics((prev) => prev.map((p) => (p.id === id ? { ...p, processing: null } : p)));
-        toast.error("Our designer will enhance your photo manually before printing.");
+        toast.error(t("photo4x6.designerWillEnhance"));
       }
     } catch {
       setPics((prev) => prev.map((p) => (p.id === id ? { ...p, processing: null } : p)));
-      toast.error("Our designer will enhance your photo manually before printing.");
+      toast.error(t("photo4x6.designerWillEnhance"));
     }
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pics.length < pkg.photos)
-      return toast.error(`Please upload ${pkg.photos} photos for this package`);
+      return toast.error(t("photo4x6.uploadPhotosCount", { total: pkg.photos }));
     if (pics.length > pkg.photos)
       return toast.error(
-        `This package includes ${pkg.photos} photos. Remove ${pics.length - pkg.photos}.`,
+        t("photo4x6.removeExtraPhotos", {
+          total: pkg.photos,
+          extra: pics.length - pkg.photos,
+        }),
       );
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
-      return toast.error("Please fill in all delivery details");
+      return toast.error(t("cart.fillDeliveryFields"));
     if (!/^01\d{9}$/.test(phone.trim()))
       return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
 
@@ -316,7 +324,7 @@ function Photo4x6Page() {
       ].join("\n");
 
       if (await readPostOrderMessageEnabled().catch(() => true)) {
-        toast.success("Order submitted! Opening WhatsApp…");
+        toast.success(t("photo4x6.orderSubmitted"));
       }
       setPics([]);
       setName("");
@@ -326,7 +334,7 @@ function Photo4x6Page() {
       setNotes("");
       window.location.href = whatsappLink(msg);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Submission failed");
+      toast.error(err instanceof Error ? err.message : t("photo4x6.submissionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -335,8 +343,8 @@ function Photo4x6Page() {
   if (!config.enabled) {
     return (
       <div className="container-page py-24 text-center">
-        <h1 className="text-display text-4xl">4×6 Photo Printing</h1>
-        <p className="mt-4 text-muted-foreground">This service is temporarily unavailable.</p>
+        <h1 className="text-display text-4xl">{t("photo4x6.printing")}</h1>
+        <p className="mt-4 text-muted-foreground">{t("photo4x6.serviceUnavailable")}</p>
       </div>
     );
   }
@@ -349,16 +357,13 @@ function Photo4x6Page() {
       <section className="border-b border-border bg-card">
         <div className="container-page py-16 sm:py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            AI-Enhanced Personal Prints
+            {t("photo4x6.aiEnhancedPrints")}
           </p>
-          <h1 className="text-display mt-3 text-5xl sm:text-7xl">4×6 Photo Printing</h1>
-          <p className="mt-4 max-w-xl text-muted-foreground">
-            Upload your personal photos, enhance them with AI, and receive premium 4×6 prints at
-            your door. Cash on delivery across Egypt.
-          </p>
+          <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("photo4x6.printing")}</h1>
+          <p className="mt-4 max-w-xl text-muted-foreground">{t("photo4x6.description")}</p>
           {search.from === "checkout" && (
             <div className="mt-4 inline-block rounded-sm border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] uppercase tracking-widest">
-              Added from your checkout
+              {t("photo4x6.addedFromCheckout")}
             </div>
           )}
         </div>
@@ -367,7 +372,7 @@ function Photo4x6Page() {
       {/* PACKAGES */}
       <section className="border-b border-border">
         <div className="container-page py-14">
-          <h2 className="text-display text-3xl sm:text-4xl">Choose your package</h2>
+          <h2 className="text-display text-3xl sm:text-4xl">{t("photo4x6.choosePackage")}</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {config.packages.map((p) => {
               const active = p.key === pkg.key;
@@ -379,17 +384,17 @@ function Photo4x6Page() {
                   className={`rounded-sm border-2 bg-background p-8 text-left transition ${active ? "border-primary" : "border-border hover:border-foreground/40"}`}
                 >
                   <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
-                    {active ? "Selected" : "Choose"}
+                    {active ? t("photo4x6.selected") : t("photo4x6.choose")}
                   </div>
                   <div className="text-display mt-3 text-3xl">{p.label}</div>
                   <div className="mt-4 flex items-end gap-2">
                     <span className="text-display text-5xl">{p.price}</span>
                     <span className="pb-2 text-xs uppercase tracking-widest text-muted-foreground">
-                      EGP
+                      {t("egp")}
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {p.photos} photos · 4×6 size · premium print
+                    {t("photo4x6.packageDescription", { photos: p.photos })}
                   </p>
                 </button>
               );
@@ -403,13 +408,16 @@ function Photo4x6Page() {
         <div className="container-page py-14">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
             <div>
-              <h2 className="text-display text-3xl sm:text-4xl">Upload your photos</h2>
+              <h2 className="text-display text-3xl sm:text-4xl">{t("photo4x6.uploadImages")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {remaining > 0
-                  ? `Add ${remaining} more photo${remaining === 1 ? "" : "s"} to complete your package (${pkg.photos} total).`
+                  ? t("photo4x6.morePhotosNeeded", { count: remaining, total: pkg.photos })
                   : over
-                    ? `You've added ${pics.length}. Remove ${pics.length - pkg.photos} to fit this package.`
-                    : "All photos ready. Enhance any of them below."}
+                    ? t("photo4x6.tooManyPhotos", {
+                        count: pics.length,
+                        extra: pics.length - pkg.photos,
+                      })
+                    : t("photo4x6.allPhotosReady")}
               </p>
 
               <label
@@ -417,8 +425,10 @@ function Photo4x6Page() {
                 className="mt-6 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground hover:border-foreground/40"
               >
                 <Upload className="h-6 w-6" />
-                <span className="text-foreground">Click to upload</span>
-                <span className="text-xs">JPG · PNG · WEBP · HEIC · Max {MAX_FILE_MB}MB each</span>
+                <span className="text-foreground">{t("photo4x6.clickToUpload")}</span>
+                <span className="text-xs">
+                  {t("photo4x6.uploadFormats", { max: MAX_FILE_MB })}
+                </span>
                 <input
                   ref={inputRef}
                   id="p4x6-files"
@@ -451,7 +461,7 @@ function Photo4x6Page() {
                             type="button"
                             onClick={() => removePic(p.id)}
                             className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white hover:bg-black"
-                            aria-label="Remove"
+                            aria-label={t("common.remove")}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -476,7 +486,7 @@ function Photo4x6Page() {
                         {(p.enhancedDataUrl || p.suitDataUrl) && (
                           <div className="mt-3 grid grid-cols-3 gap-1 text-[10px] uppercase tracking-widest">
                             <VersionPill
-                              label="Original"
+                              label={t("photo4x6.original")}
                               active={p.selected === "original"}
                               onClick={() =>
                                 setPics((prev) =>
@@ -487,7 +497,7 @@ function Photo4x6Page() {
                               }
                             />
                             <VersionPill
-                              label="Enhanced"
+                              label={t("photo4x6.enhanced")}
                               active={p.selected === "enhanced"}
                               disabled={!p.enhancedDataUrl}
                               onClick={() =>
@@ -499,7 +509,7 @@ function Photo4x6Page() {
                               }
                             />
                             <VersionPill
-                              label="Suit"
+                              label={t("photo4x6.suit")}
                               active={p.selected === "suit"}
                               disabled={!p.suitDataUrl}
                               onClick={() =>
@@ -517,31 +527,31 @@ function Photo4x6Page() {
                             <>
                               <ActionBtn
                                 icon={<Sparkles className="h-3 w-3" />}
-                                label="Enhance"
+                                label={t("photo4x6.enhance")}
                                 onClick={() => runAction(p.id, "enhance")}
                                 disabled={!!p.processing}
                               />
                               <ActionBtn
                                 icon={<Palette className="h-3 w-3" />}
-                                label="Colors"
+                                label={t("photo4x6.colors")}
                                 onClick={() => runAction(p.id, "colors")}
                                 disabled={!!p.processing}
                               />
                               <ActionBtn
                                 icon={<ScanFace className="h-3 w-3" />}
-                                label="Sharpen Face"
+                                label={t("photo4x6.sharpenFace")}
                                 onClick={() => runAction(p.id, "sharpen_face")}
                                 disabled={!!p.processing}
                               />
                               <ActionBtn
                                 icon={<Focus className="h-3 w-3" />}
-                                label="Remove Blur"
+                                label={t("photo4x6.removeBlur")}
                                 onClick={() => runAction(p.id, "remove_blur")}
                                 disabled={!!p.processing}
                               />
                               <ActionBtn
                                 icon={<Printer className="h-3 w-3" />}
-                                label="Prepare for Print"
+                                label={t("photo4x6.prepareForPrint")}
                                 onClick={() => runAction(p.id, "prepare_print")}
                                 disabled={!!p.processing}
                               />
@@ -550,7 +560,7 @@ function Photo4x6Page() {
                           {config.aiSuitEnabled && (
                             <ActionBtn
                               icon={<Shirt className="h-3 w-3" />}
-                              label="Wear a Suit"
+                              label={t("photo4x6.wearSuit")}
                               subLabel="خلي الصورة ببدلة"
                               onClick={() => runAction(p.id, "suit")}
                               disabled={!!p.processing}
@@ -563,7 +573,7 @@ function Photo4x6Page() {
                               onClick={() => setBeforeAfterId(p.id)}
                               className="rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-widest hover:bg-accent"
                             >
-                              Before / After
+                              {t("photo4x6.beforeAfter")}
                             </button>
                           )}
                         </div>
@@ -622,9 +632,9 @@ function Photo4x6Page() {
             {/* Checkout */}
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <form onSubmit={submit} className="rounded-sm border border-border bg-card p-6">
-                <h3 className="text-display text-2xl">Checkout</h3>
+                <h3 className="text-display text-2xl">{t("checkout.title")}</h3>
                 <div className="mt-4 space-y-3">
-                  <Input label="Full name" value={name} onChange={setName} />
+                  <Input label={t("photo4x6.fullName")} value={name} onChange={setName} />
                   <label className="block">
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">
                       Phone · رقم الموبايل
@@ -646,14 +656,14 @@ function Photo4x6Page() {
                   </label>
                   <label className="block">
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Governorate
+                      {t("photo4x6.governorate")}
                     </span>
                     <select
                       value={governorate}
                       onChange={(e) => setGovernorate(e.target.value)}
                       className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                     >
-                      <option value="">Select…</option>
+                      <option value="">{t("photo4x6.selectGovernorate")}</option>
                       {GOVERNORATES.map((g) => (
                         <option key={g} value={g}>
                           {g}
@@ -661,17 +671,25 @@ function Photo4x6Page() {
                       ))}
                     </select>
                   </label>
-                  <Input label="Address" value={address} onChange={setAddress} textarea />
+                  <Input label={t("photo4x6.address")} value={address} onChange={setAddress} textarea />
                 </div>
 
                 <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
-                  <Row label={`Package (${pkg.label})`} value={`${pkg.price} EGP`} />
-                  <Row label="Shipping" value={shipping === 0 ? "FREE" : `${shipping} EGP`} />
+                  <Row
+                    label={t("photo4x6.package", { label: pkg.label })}
+                    value={`${pkg.price} ${t("egp")}`}
+                  />
+                  <Row
+                    label={t("photo4x6.shipping")}
+                    value={shipping === 0 ? t("photo4x6.free") : `${shipping} ${t("egp")}`}
+                  />
                   <div className="flex items-baseline justify-between pt-2 text-base">
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Total
+                      {t("photo4x6.total")}
                     </span>
-                    <span className="text-display text-2xl">{total} EGP</span>
+                    <span className="text-display text-2xl">
+                      {total} {t("egp")}
+                    </span>
                   </div>
                 </div>
 
@@ -684,7 +702,7 @@ function Photo4x6Page() {
                       />
                     </div>
                     <p className="mt-2 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Uploading photos… {progress}%
+                      {t("photo4x6.uploading", { progress })}
                     </p>
                   </div>
                 )}
@@ -694,10 +712,10 @@ function Photo4x6Page() {
                   disabled={submitting}
                   className="mt-6 w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50 hover:opacity-90"
                 >
-                  {submitting ? "Placing order…" : "Place order — Cash on delivery"}
+                  {submitting ? t("photo4x6.placingOrder") : t("photo4x6.placeOrderCod")}
                 </button>
                 <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                  Original + enhanced files are sent to our print team.
+                  {t("photo4x6.originalEnhancedSent")}
                 </p>
               </form>
             </aside>
@@ -721,14 +739,18 @@ function Photo4x6Page() {
                   ? beforeAfterPic.suitDataUrl
                   : (beforeAfterPic.enhancedDataUrl ?? beforeAfterPic.originalDataUrl)
               }
-              title={beforeAfterPic.selected === "suit" ? "Suit version" : "Enhanced version"}
+              title={
+                beforeAfterPic.selected === "suit"
+                  ? t("photo4x6.suitVersion")
+                  : t("photo4x6.enhancedVersion")
+              }
             />
             <div className="mt-3 flex justify-center">
               <button
                 onClick={() => setBeforeAfterId(null)}
                 className="rounded-sm border border-white/40 px-4 py-2 text-[11px] uppercase tracking-widest text-white hover:bg-white/10"
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
           </div>

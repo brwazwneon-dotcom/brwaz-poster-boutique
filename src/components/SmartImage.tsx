@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { X, Download, ZoomIn, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { useImageVariant } from "@/lib/image-variants";
 import { cn } from "@/lib/utils";
@@ -163,6 +164,7 @@ function Lightbox({
   showDownload: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [loaded, setLoaded] = useState(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -190,7 +192,7 @@ function Lightbox({
         type="button"
         onClick={onClose}
         className="absolute end-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-        aria-label="Close"
+        aria-label={t("common.close")}
       >
         <X className="h-5 w-5" />
       </button>
@@ -239,7 +241,7 @@ function Lightbox({
                   className="inline-flex items-center gap-1.5 rounded bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Download Original
+                  {t("common.downloadOriginal")}
                 </a>
               )}
             </div>

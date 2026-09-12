@@ -49,7 +49,12 @@
     "to": "to",
     "on": "on",
     "off": "off",
-    "clearAll": "Clear All"
+    "clearAll": "Clear All",
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right",
+    "poster": "Poster",
+    "view": "View",
+    "downloadOriginal": "Download Original"
   },
   "nav": {
     "home": "Home",
@@ -88,7 +93,8 @@
     "switchToEnglish": "Switch to English",
     "whatsapp": "WhatsApp",
     "whatsappOrder": "Order via WhatsApp",
-    "orGrabBundle": "Or grab a bundle deal ←"
+    "orGrabBundle": "Or grab a bundle deal ←",
+    "collectionsQuickBar": "Collections quick bar"
   },
   "header": {
     "search": "Search",
@@ -184,7 +190,14 @@
     "fastDelivery": "Fast Delivery",
     "fastDeliveryDesc": "2-5 business days across Egypt",
     "collection": "Collection",
-    "previewBeforePrinting": "Preview before printing"
+    "previewBeforePrinting": "Preview before printing",
+    "justForYou": "Just for you",
+    "continueWhereLeftOff": "Continue where you left off",
+    "continueSubtitle": "Still interested? Grab it before it's gone.",
+    "popularInTag": "Popular in {{tag}}",
+    "becauseYouLikedCategory": "Because you liked {{category}}",
+    "curatedCollectionsKicker": "Curated · Collections",
+    "exploreCollection": "Explore the collection"
   },
   "product": {
     "addToCart": "Add to Cart",
@@ -220,6 +233,9 @@
     "bestSeller": "Best Seller",
     "trending": "Trending",
     "guaranteedQuality": "Guaranteed Quality",
+    "quickView": "Quick View",
+    "sold": "sold",
+    "purchased": "purchased",
     "frame_pvc": "High Quality PVC",
     "frame_wood": "Wooden Portrait",
     "color_black": "Black",
@@ -293,7 +309,8 @@
     "numberCopied": "Number copied",
     "copy": "Copy",
     "screenshotUpload": "Upload payment screenshot",
-    "screenshotHint": "Drag and drop or tap · JPG, PNG, WEBP, PDF · Max 10MB"
+    "screenshotHint": "Drag and drop or tap · JPG, PNG, WEBP, PDF · Max 10MB",
+    "itemAddedToCart": "{{title}} added to cart"
   },
   "checkout": {
     "title": "Checkout",
@@ -428,7 +445,13 @@
     "shipped": "Shipped",
     "delivered": "Delivered",
     "cancelled": "Cancelled",
-    "refunded": "Refunded"
+    "refunded": "Refunded",
+    "previewModeBanner": "Preview Mode — visible only to admin",
+    "backToAdmin": "Back to admin",
+    "testModeBanner": "Test Mode · orders won't count",
+    "turnOffTestMode": "Turn off test mode",
+    "themePreviewLabel": "Theme preview: {{name}}",
+    "exitPreview": "Exit preview"
   },
   "category": {
     "title": "Category",
@@ -514,7 +537,8 @@
     "newest": "Newest",
     "mostPopular": "Most Popular",
     "noResults": "No results match your search yet.",
-    "badge": "Best Seller"
+    "badge": "Best Seller",
+    "viewAll": "View All Best Sellers"
   },
   "sets": {
     "curatedBundles": "Curated bundles",
@@ -524,7 +548,9 @@
     "featured": "Featured",
     "viewDetails": "View details",
     "hideDetails": "Hide details",
-    "addToCart": "Add to cart"
+    "addToCart": "Add to cart",
+    "browseAriaLabel": "Browse frame sets",
+    "showSetAria": "Show set {{index}}"
   },
   "customDesign": {
     "metaTitle": "Custom Design — BRWAZWNEON",
@@ -675,7 +701,41 @@
     "feature2Desc": "Various sizes to fit your albums and frames",
     "feature3": "Doorstep Delivery",
     "feature3Desc": "Delivered within 3–5 business days after confirmation — cash on delivery",
-    "cta": "Print Your Photos"
+    "cta": "Print Your Photos",
+    "premiumFujiQuality": "Premium FUJIFILM Quality",
+    "description": "Upload your photos, pick a size, and we deliver high-resolution FUJIFILM prints to your door. Cash on delivery across Egypt.",
+    "shippingInfo": "🚚 Shipping Across Egypt: {{fee}} EGP · 🎉 Free over {{free}} EGP",
+    "multipleUpload": "Multiple Photo Upload",
+    "highResolution": "High Resolution",
+    "livePriceCalc": "Live Price Calculation",
+    "pricing": "Pricing",
+    "minimumOrder": "Minimum order: {{qty}} photos.",
+    "choose": "Choose",
+    "selected": "selected",
+    "perPhoto": "EGP / photo",
+    "uploadYourPhotos": "Upload Your Photos",
+    "addAsMany": "Add as many photos as you like — minimum {{qty}}.",
+    "clickToAdd": "Click to add photos",
+    "orDropHere": "or drop them here",
+    "formats": "JPG · PNG · HEIC",
+    "photosReady_one": "{{count}} photo ready",
+    "photosReady_other": "{{count}} photos ready",
+    "removePhoto": "Remove photo",
+    "perLabel": "{{qty}} × {{size}} @ {{price}} EGP",
+    "addMoreToReachMin_one": "Add {{count}} more photo to reach the {{min}}-photo minimum.",
+    "addMoreToReachMin_other": "Add {{count}} more photos to reach the {{min}}-photo minimum.",
+    "fullName": "Full name",
+    "phoneNumber": "Phone number",
+    "select": "Select…",
+    "placeOrderCod": "Place order · Cash on delivery",
+    "confirmOnWhatsapp": "We'll confirm your order on WhatsApp",
+    "backToHome": "← Back to home",
+    "minOrderError": "Minimum order is {{min}} photos",
+    "orderSubmitted": "Order submitted! Opening WhatsApp…",
+    "submissionFailed": "Submission failed",
+    "bannerAlt": "Photo printing banner",
+    "primaryImageAlt": "Premium photo print sample",
+    "secondaryImageAlt": "Photo print detail"
   },
   "howItWorks": {
     "label": "How It Works",
@@ -729,7 +789,54 @@
     "processing": "Processing...",
     "printing": "4×6 Photo Printing",
     "photos": "Photos",
-    "addPhotos": "Add Photos"
+    "addPhotos": "Add Photos",
+    "serviceUnavailable": "This service is temporarily unavailable.",
+    "aiEnhancedPrints": "AI-Enhanced Personal Prints",
+    "description": "Upload your personal photos, enhance them with AI, and receive premium 4×6 prints at your door. Cash on delivery across Egypt.",
+    "addedFromCheckout": "Added from your checkout",
+    "choosePackage": "Choose your package",
+    "choose": "Choose",
+    "packageDescription": "{{photos}} photos · 4×6 size · premium print",
+    "morePhotosNeeded_one": "Add {{count}} more photo to complete your package ({{total}} total).",
+    "morePhotosNeeded_other": "Add {{count}} more photos to complete your package ({{total}} total).",
+    "tooManyPhotos": "You've added {{count}}. Remove {{extra}} to fit this package.",
+    "allPhotosReady": "All photos ready. Enhance any of them below.",
+    "clickToUpload": "Click to upload",
+    "uploadFormats": "JPG · PNG · WEBP · HEIC · Max {{max}}MB each",
+    "suit": "Suit",
+    "enhance": "Enhance",
+    "colors": "Colors",
+    "sharpenFace": "Sharpen Face",
+    "removeBlur": "Remove Blur",
+    "prepareForPrint": "Prepare for Print",
+    "wearSuit": "Wear a Suit",
+    "beforeAfter": "Before / After",
+    "fullName": "Full name",
+    "governorate": "Governorate",
+    "selectGovernorate": "Select…",
+    "address": "Address",
+    "package": "Package ({{label}})",
+    "shipping": "Shipping",
+    "free": "FREE",
+    "total": "Total",
+    "uploading": "Uploading photos… {{progress}}%",
+    "placingOrder": "Placing order…",
+    "placeOrderCod": "Place order — Cash on delivery",
+    "originalEnhancedSent": "Original + enhanced files are sent to our print team.",
+    "suitVersion": "Suit version",
+    "enhancedVersion": "Enhanced version",
+    "photoEnhanced": "Photo enhanced",
+    "suitVersionReady": "Suit version ready",
+    "suitWorksBest": "Suit option works best with clear personal photos.",
+    "designerWillEnhance": "Our designer will enhance your photo manually before printing.",
+    "uploadPhotosCount": "Please upload {{total}} photos for this package",
+    "removeExtraPhotos": "This package includes {{total}} photos. Remove {{extra}}.",
+    "orderSubmitted": "Order submitted! Opening WhatsApp…",
+    "submissionFailed": "Submission failed",
+    "fileTooLarge": "{{name}} exceeds {{max}}MB",
+    "unsupportedFormat": "{{name}}: unsupported format",
+    "failedToReadImage": "Failed to read image",
+    "heicReadError": "Could not read HEIC file. Please convert to JPG."
   },
   "reviews": {
     "writeReview": "Write a Review",
@@ -745,7 +852,18 @@
     "report": "Report",
     "sortNewest": "Most Recent",
     "sortHighest": "Highest Rated",
-    "sortLowest": "Lowest Rated"
+    "sortLowest": "Lowest Rated",
+    "kicker": "Reviews",
+    "defaultTitle": "Trusted by Thousands of Customers",
+    "defaultSubtitle": "Real customer experiences from all over Egypt.",
+    "swipeHint": "Swipe →",
+    "purchasedProduct": "Purchased: {{product}}",
+    "customerPhotoAlt": "{{name}} photo",
+    "productFootball": "Football Poster",
+    "productMovie": "Movie Poster",
+    "productCustomFrame": "Custom Frame",
+    "productWoodenPortrait": "Wooden Portrait",
+    "productFamilyPhotoFrame": "Family Photo Frame"
   },
   "errors": {
     "pageNotFound": "Page not found",
@@ -774,7 +892,8 @@
   "announcement": {
     "freeShipping": "Free shipping on orders over 500 EGP",
     "cashOnDelivery": "Cash on delivery across Egypt",
-    "newArrivals": "New posters added weekly"
+    "newArrivals": "New posters added weekly",
+    "ariaLabel": "Site announcement"
   },
   "floatingTools": {
     "moreTools": "Additional tools",
@@ -807,5 +926,106 @@
     "install": "Install",
     "later": "Later",
     "offlineReady": "You can now browse offline"
+  },
+  "frameComparison": {
+    "kicker": "Compare",
+    "heading": "Choose your finish",
+    "description": "Every BRWAZWNEON design ships in your choice of premium finish. Pick the one that fits your room.",
+    "pvcTag": "Bestseller",
+    "pvcTitle": "High Quality PVC Frame",
+    "pvcFeature1": "Premium PVC Frame",
+    "pvcFeature2": "Available in Black & White",
+    "pvcFeature3": "Modern framed appearance",
+    "pvcFeature4": "Glass-like finish",
+    "pvcFeature5": "Scratch resistant",
+    "woodTag": "Premium",
+    "woodTitle": "Wooden Portrait",
+    "woodFeature1": "Printed directly on premium wood",
+    "woodFeature2": "No glass",
+    "woodFeature3": "No frame color selection",
+    "woodFeature4": "Elegant matte finish",
+    "woodFeature5": "Long-lasting print",
+    "photoTag": "FUJIFILM",
+    "photoTitle": "Photo Printing",
+    "photoFeature1": "Premium FUJIFILM printing",
+    "photoFeature2": "Multiple print sizes",
+    "photoFeature3": "High color accuracy",
+    "photoFeature4": "Minimum order 20 photos"
+  },
+  "frameEditor": {
+    "dragScrollHint": "Drag · scroll to zoom",
+    "fit": "Fit",
+    "fill": "Fill",
+    "zoom": "Zoom",
+    "rotate": "Rotate",
+    "rotateLeft": "Rotate left",
+    "rotateRight": "Rotate right",
+    "stretchH": "Stretch H",
+    "stretchV": "Stretch V",
+    "reset": "Reset"
+  },
+  "posterGallery": {
+    "framePreview": "Frame Preview",
+    "image": "Image",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "zoomImage": "Zoom image",
+    "closeZoom": "Close zoom",
+    "scrollHint": "Scroll or double-tap to zoom"
+  },
+  "sizeGuide": {
+    "compareSizes": "Compare Sizes",
+    "roomPreview": "Room Preview",
+    "sideBySide": "Side by Side",
+    "disclaimer": "Sizes are approximate. The preview is for visualization only.",
+    "sizeA": "Size A",
+    "sizeB": "Size B",
+    "vs": "vs",
+    "roomImageNotSet": "Room preview image not set"
+  },
+  "heroBanner": {
+    "previousBanner": "Previous banner",
+    "nextBanner": "Next banner",
+    "goToBanner": "Go to banner {{index}}"
+  },
+  "homeSlider": {
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide",
+    "goToSlide": "Go to slide {{index}}"
+  },
+  "maintenance": {
+    "location": "Alexandria, Egypt",
+    "days": "Days",
+    "hours": "Hours",
+    "minutes": "Min",
+    "seconds": "Sec"
+  },
+  "wallOfInspiration": {
+    "kicker": "Private Gallery Wall",
+    "heading": "The Wall of Inspiration",
+    "description": "A cinematic wall of real BRWAZWNEON collections, framed like museum pieces and quietly refreshed as you move through the gallery.",
+    "empty": "The gallery is preparing its next collection wall.",
+    "featuredArtwork": "Featured artwork",
+    "openCollectionAria": "Open {{title}} collection",
+    "featuredCollectionFallback": "Featured Collection"
+  },
+  "trackOrder": {
+    "kicker": "Track Your Order",
+    "title": "Where's my order?",
+    "description": "Enter your order number and the phone number you used at checkout to check its status.",
+    "orderNumber": "Order Number",
+    "phone": "Phone Number",
+    "search": "Track Order",
+    "searching": "Searching...",
+    "notFound": "We couldn't find an order with that number and phone. Double-check both and try again, or contact us on WhatsApp.",
+    "status": {
+      "new": "Order received",
+      "confirmed": "Confirmed",
+      "processing": "Being prepared",
+      "shipped": "On its way",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "returned": "Returned"
+    }
   }
 }

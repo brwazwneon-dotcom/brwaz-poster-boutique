@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getApprovedReviewsPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "@/components/SafeImage";
 import { Star, BadgeCheck, Quote } from "lucide-react";
@@ -25,8 +26,8 @@ type Review = {
 
 export function CustomerReviews({
   posterId,
-  title = "Trusted by Thousands of Customers",
-  subtitle = "Real customer experiences from all over Egypt.",
+  title,
+  subtitle,
   limit = 12,
 }: {
   posterId?: string;
@@ -34,6 +35,9 @@ export function CustomerReviews({
   subtitle?: string;
   limit?: number;
 }) {
+  const { t } = useTranslation();
+  const displayTitle = title ?? t("reviews.defaultTitle");
+  const displaySubtitle = subtitle ?? t("reviews.defaultSubtitle");
   const { data: reviews = [], isLoading } = useQuery({
     queryKey: ["reviews", "approved", posterId ?? "all", limit],
     queryFn: async () => {
@@ -98,7 +102,7 @@ export function CustomerReviews({
             )}
           >
             <span className="h-px w-6 bg-primary/60" />
-            Reviews
+            {t("reviews.kicker")}
             <span className="h-px w-6 bg-primary/60" />
           </div>
           <h2
@@ -107,7 +111,7 @@ export function CustomerReviews({
               inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
             )}
           >
-            {title}
+            {displayTitle}
           </h2>
           <div className="mt-4 flex items-center justify-center gap-1">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -122,7 +126,7 @@ export function CustomerReviews({
               />
             ))}
           </div>
-          <p className="mt-3 text-sm text-muted-foreground sm:text-base">{subtitle}</p>
+          <p className="mt-3 text-sm text-muted-foreground sm:text-base">{displaySubtitle}</p>
         </div>
 
         {/* Desktop / tablet grid */}
@@ -140,6 +144,7 @@ export function CustomerReviews({
 }
 
 function MobileCarousel({ reviews }: { reviews: Review[] }) {
+  const { t } = useTranslation();
   const trackRef = useRef<HTMLDivElement | null>(null);
   return (
     <div className="mt-10 sm:hidden">
@@ -154,20 +159,21 @@ function MobileCarousel({ reviews }: { reviews: Review[] }) {
         ))}
       </div>
       <div className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-        Swipe →
+        {t("reviews.swipeHint")}
       </div>
     </div>
   );
 }
 
 // Rotating placeholder products for cards that don't carry an explicit label.
-const PRODUCT_ROTATION = [
-  "Football Poster",
-  "Movie Poster",
-  "Custom Frame",
-  "Wooden Portrait",
-  "Family Photo Frame",
-];
+// Values are i18n key suffixes under "reviews.*", translated at render time.
+const PRODUCT_ROTATION_KEYS = [
+  "productFootball",
+  "productMovie",
+  "productCustomFrame",
+  "productWoodenPortrait",
+  "productFamilyPhotoFrame",
+] as const;
 
 function ReviewCard({
   review,
@@ -180,8 +186,11 @@ function ReviewCard({
   parentInView: boolean;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const verified = !review.__sample;
-  const product = review.purchased_product ?? PRODUCT_ROTATION[index % PRODUCT_ROTATION.length];
+  const product =
+    review.purchased_product ??
+    t(`reviews.${PRODUCT_ROTATION_KEYS[index % PRODUCT_ROTATION_KEYS.length]}`);
   const delayMs = Math.min(index, 5) * 80;
 
   return (
@@ -208,7 +217,7 @@ function ReviewCard({
 
       {review.featured && (
         <div className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-widest text-primary ring-1 ring-primary/40">
-          ★ Featured
+          ★ {t("common.featured")}
         </div>
       )}
 
@@ -233,7 +242,7 @@ function ReviewCard({
         <div className="aspect-[4/3] overflow-hidden rounded-md bg-muted ring-1 ring-border">
           <SafeImage
             src={review.photo_url}
-            alt={`${review.customer_name} photo`}
+            alt={t("reviews.customerPhotoAlt", { name: review.customer_name })}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
           />
@@ -269,11 +278,11 @@ function ReviewCard({
         <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
           {verified && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary ring-1 ring-primary/30">
-              <BadgeCheck className="h-3 w-3" /> Verified Purchase
+              <BadgeCheck className="h-3 w-3" /> {t("reviews.verifiedPurchase")}
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-            Purchased: {product}
+            {t("reviews.purchasedProduct", { product })}
           </span>
         </div>
       </div>

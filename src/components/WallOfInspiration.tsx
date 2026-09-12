@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { getWallOfInspirationPostersPublic } from "@/lib/db-public.functions";
 import { useInView } from "@/hooks/use-in-view";
@@ -73,10 +75,10 @@ const WALL_SLOTS: WallSlot[] = Array.from({ length: FRAME_COUNT }, (_, index) =>
   ...SLOT_PATTERN[index % SLOT_PATTERN.length],
 }));
 
-function collectionOf(row: PosterRow) {
+function collectionOf(row: PosterRow, t: TFunction) {
   const category = Array.isArray(row.categories) ? row.categories[0] : row.categories;
   return {
-    title: category?.name || "Featured Collection",
+    title: category?.name || t("wallOfInspiration.featuredCollectionFallback"),
     slug: category?.slug || "movies",
   };
 }
@@ -128,6 +130,7 @@ function chunkFrames(frames: WallFrame[]) {
 }
 
 export function WallOfInspiration() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const timerRef = useRef<number | null>(null);
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
@@ -153,7 +156,7 @@ export function WallOfInspiration() {
     for (const row of rows) {
       const image = variantImages[row.id];
       if (!image || seen.has(row.id)) continue;
-      const collection = collectionOf(row);
+      const collection = collectionOf(row, t);
       out.push({
         id: row.id,
         title: row.title,
@@ -165,7 +168,7 @@ export function WallOfInspiration() {
       seen.add(row.id);
     }
     return out;
-  }, [rows, variantImages]);
+  }, [rows, variantImages, t]);
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
@@ -234,14 +237,13 @@ export function WallOfInspiration() {
       <div className="container-page relative z-10 py-20 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[10px] uppercase tracking-[0.55em] text-primary/70">
-            Private Gallery Wall
+            {t("wallOfInspiration.kicker")}
           </p>
           <h2 id="wall-inspiration-title" className="text-display mt-4 text-5xl sm:text-7xl">
-            The Wall of Inspiration
+            {t("wallOfInspiration.heading")}
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/58 sm:text-base">
-            A cinematic wall of real BRWAZWNEON collections, framed like museum pieces and quietly
-            refreshed as you move through the gallery.
+            {t("wallOfInspiration.description")}
           </p>
         </div>
 
@@ -252,9 +254,7 @@ export function WallOfInspiration() {
           {isLoading && frames.length === 0 ? (
             <WallSkeleton />
           ) : frames.length === 0 ? (
-            <div className="wall-inspiration-empty">
-              The gallery is preparing its next collection wall.
-            </div>
+            <div className="wall-inspiration-empty">{t("wallOfInspiration.empty")}</div>
           ) : frames.length < BAND_SIZE ? (
             // Too few real products yet for the full multi-band gallery
             // (which reserves ~400-600px per band and expects it to fill
@@ -341,6 +341,7 @@ function WallFrameCard({
   onSelect: (item: GalleryItem) => void;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const { item, slot } = frame;
   const style = {
     "--wall-col": slot.colSpan,
@@ -360,7 +361,7 @@ function WallFrameCard({
       )}
       style={style}
       onClick={() => onSelect(item)}
-      aria-label={`Open ${item.collectionTitle} collection`}
+      aria-label={t("wallOfInspiration.openCollectionAria", { title: item.collectionTitle })}
     >
       <span className="wall-inspiration-wire" aria-hidden="true" />
       <span className="wall-inspiration-nail" aria-hidden="true" />
@@ -377,7 +378,7 @@ function WallFrameCard({
       </span>
       <span className="wall-inspiration-caption">
         <span>{item.collectionTitle}</span>
-        <strong>{item.featured ? "Featured artwork" : item.title}</strong>
+        <strong>{item.featured ? t("wallOfInspiration.featuredArtwork") : item.title}</strong>
       </span>
     </button>
   );

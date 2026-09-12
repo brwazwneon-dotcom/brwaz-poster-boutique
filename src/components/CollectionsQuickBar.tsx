@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { useQuickBar } from "@/lib/quickbar";
 
 export function CollectionsQuickBar() {
+  const { t } = useTranslation();
   const cfg = useQuickBar();
   if (!cfg.enabled) return null;
   const chips = cfg.chips.filter((c) => c.enabled);
@@ -11,7 +13,7 @@ export function CollectionsQuickBar() {
 
   return (
     <nav
-      aria-label="Collections quick bar"
+      aria-label={t("nav.collectionsQuickBar")}
       className="border-b border-border bg-background/95 backdrop-blur"
     >
       <div className="container-page">

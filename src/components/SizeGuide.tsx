@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Ruler, Sofa, GitCompare } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useSizeGuide, type SizeGuideItem } from "@/lib/size-guide";
 
@@ -7,6 +8,7 @@ type Tab = "compare-all" | "room" | "compare-two";
 
 /** Collapsible size guide with three tabs: visual comparison, room preview, compare mode. */
 export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }) {
+  const { t } = useTranslation();
   const cfg = useSizeGuide();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("compare-all");
@@ -38,7 +40,7 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
         className="flex w-full items-center justify-between rounded-sm border border-border px-4 py-3 text-xs uppercase tracking-[0.25em] hover:bg-accent"
       >
         <span className="inline-flex items-center gap-2">
-          <Ruler className="h-4 w-4" /> Size Guide
+          <Ruler className="h-4 w-4" /> {t("nav.sizeGuide")}
         </span>
         <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
       </button>
@@ -47,15 +49,15 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
         <div className="mt-4 rounded-sm border border-border bg-card p-4">
           <div className="flex flex-wrap gap-2 border-b border-border pb-3">
             <TabBtn active={tab === "compare-all"} onClick={() => setTab("compare-all")}>
-              <Ruler className="h-3.5 w-3.5" /> Compare Sizes
+              <Ruler className="h-3.5 w-3.5" /> {t("sizeGuide.compareSizes")}
             </TabBtn>
             {cfg.roomEnabled && (
               <TabBtn active={tab === "room"} onClick={() => setTab("room")}>
-                <Sofa className="h-3.5 w-3.5" /> Room Preview
+                <Sofa className="h-3.5 w-3.5" /> {t("sizeGuide.roomPreview")}
               </TabBtn>
             )}
             <TabBtn active={tab === "compare-two"} onClick={() => setTab("compare-two")}>
-              <GitCompare className="h-3.5 w-3.5" /> Side by Side
+              <GitCompare className="h-3.5 w-3.5" /> {t("sizeGuide.sideBySide")}
             </TabBtn>
           </div>
 
@@ -76,7 +78,7 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
           </div>
 
           <p className="mt-4 text-[10px] uppercase tracking-widest text-muted-foreground">
-            Sizes are approximate. The preview is for visualization only.
+            {t("sizeGuide.disclaimer")}
           </p>
         </div>
       )}
@@ -158,18 +160,21 @@ function CompareTwo({
   onA: (id: string) => void;
   onB: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const maxDim = Math.max(a.width, a.height, b.width, b.height);
   const boxMax = 200;
   const scale = boxMax / maxDim;
   return (
     <div>
       <div className="grid grid-cols-2 gap-3">
-        <SizeSelect value={a.id} onChange={onA} sizes={sizes} label="Size A" />
-        <SizeSelect value={b.id} onChange={onB} sizes={sizes} label="Size B" />
+        <SizeSelect value={a.id} onChange={onA} sizes={sizes} label={t("sizeGuide.sizeA")} />
+        <SizeSelect value={b.id} onChange={onB} sizes={sizes} label={t("sizeGuide.sizeB")} />
       </div>
       <div className="mt-4 flex items-end justify-center gap-8" style={{ minHeight: boxMax + 20 }}>
         <RectPreview item={a} scale={scale} tone="a" />
-        <div className="pb-6 text-[10px] uppercase tracking-widest text-muted-foreground">vs</div>
+        <div className="pb-6 text-[10px] uppercase tracking-widest text-muted-foreground">
+          {t("sizeGuide.vs")}
+        </div>
         <RectPreview item={b} scale={scale} tone="b" />
       </div>
     </div>
@@ -253,6 +258,7 @@ function RoomPreview({
   roomImageUrl: string;
   wallWidthCm: number;
 }) {
+  const { t } = useTranslation();
   // Compute frame footprint as % of the room image width/height.
   const widthPct = Math.min(90, (active.width / wallWidthCm) * 100);
   const heightPct = widthPct * (active.height / active.width); // relative to image width
@@ -263,13 +269,13 @@ function RoomPreview({
           {roomImageUrl ? (
             <img
               src={roomImageUrl}
-              alt="Room preview"
+              alt={t("sizeGuide.roomPreview")}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-neutral-800 to-neutral-950 text-xs text-muted-foreground">
-              Room preview image not set
+              {t("sizeGuide.roomImageNotSet")}
             </div>
           )}
           <div

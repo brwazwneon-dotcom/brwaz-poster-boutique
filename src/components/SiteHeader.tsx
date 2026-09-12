@@ -178,7 +178,7 @@ export function SiteHeader() {
         { label: t("nav.wishlist"), href: "/wishlist", badge: wishCount },
         { label: t("nav.cart"), href: "/cart", badge: count },
         { label: t("nav.myAccount"), href: "/auth", icon: User },
-        { label: t("nav.trackOrder"), href: "/cart" },
+        { label: t("nav.trackOrder"), href: "/track-order" },
         { label: mobileT("mobileMenu.reviews", "Reviews", "آراء العملاء"), href: "/#home-reviews" },
         { label: t("nav.admin"), href: "/admin" },
       ],

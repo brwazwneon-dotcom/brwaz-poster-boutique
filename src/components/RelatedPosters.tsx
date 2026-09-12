@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { getRelatedPostersPublic } from "@/lib/db-public.functions";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { useCart } from "@/lib/cart";
@@ -55,6 +56,7 @@ export function RelatedPosters({
   categorySlug?: string;
   categoryName?: string;
 }) {
+  const { t } = useTranslation();
   const { data: categories = [] } = useCategories();
   const cart = useCart();
   const pricing = usePricing();
@@ -87,9 +89,9 @@ export function RelatedPosters({
       <div className="container-page py-16">
         <div className="mb-8">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            You may also like
+            {t("product.youMayAlsoLike")}
           </p>
-          <h2 className="text-display mt-3 text-3xl sm:text-5xl">Related Posters</h2>
+          <h2 className="text-display mt-3 text-3xl sm:text-5xl">{t("product.relatedProducts")}</h2>
         </div>
 
         <div
@@ -123,11 +125,11 @@ export function RelatedPosters({
                 </Link>
                 <div className="mt-3 space-y-1">
                   <div className="text-xs text-muted-foreground">
-                    From <span className="text-foreground">{unit}</span> EGP
+                    {t("common.from")} <span className="text-foreground">{unit}</span> {t("egp")}
                   </div>
                   {p.sales_count != null && p.sales_count > 0 && (
                     <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                      ✔ {formatCount(p.sales_count)} purchased
+                      ✔ {formatCount(p.sales_count)} {t("product.purchased")}
                     </div>
                   )}
                 </div>
@@ -137,7 +139,7 @@ export function RelatedPosters({
                     params={categorySlug ? { slug: categorySlug } : undefined}
                     className="flex-1 rounded-sm border border-border px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
                   >
-                    View
+                    {t("common.view")}
                   </Link>
                   <button
                     type="button"
@@ -147,17 +149,17 @@ export function RelatedPosters({
                         title: p.title,
                         image: resolveProductArtwork(p, images),
                         categoryId: p.category_id,
-                        categoryName: categoryName ?? "Poster",
+                        categoryName: categoryName ?? t("common.poster"),
                         frameType: "pvc",
                         size: "20x30",
                         color: "black",
                         price: unit,
                       });
-                      toast.success(`${p.title} added to cart`);
+                      toast.success(t("cart.itemAddedToCart", { title: p.title }));
                     }}
                     className="flex-1 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
                   >
-                    Add
+                    {t("common.add")}
                   </button>
                 </div>
               </article>

@@ -58,7 +58,12 @@
     "clearAll": "مسح الكل",
     "viewDetails": "عرض التفاصيل",
     "hideDetails": "إخفاء التفاصيل",
-    "featuredOrder": "الترتيب المميز"
+    "featuredOrder": "الترتيب المميز",
+    "scrollLeft": "التمرير لليسار",
+    "scrollRight": "التمرير لليمين",
+    "poster": "بوستر",
+    "view": "عرض",
+    "downloadOriginal": "تحميل الأصلية"
   },
   "nav": {
     "home": "الرئيسية",
@@ -99,7 +104,8 @@
     "whatsappOrder": "طلب عبر واتساب",
     "orGrabBundle": "أو اختر عرض مجموعة ←",
     "facebook": "فيسبوك",
-    "instagram": "إنستغرام"
+    "instagram": "إنستغرام",
+    "collectionsQuickBar": "شريط المجموعات السريع"
   },
   "header": {
     "search": "بحث",
@@ -219,7 +225,14 @@
     "order": "اطلب",
     "time": "محدود",
     "frames": "براويز",
-    "limitedTime": "لفترة محدودة"
+    "limitedTime": "لفترة محدودة",
+    "justForYou": "خصيصاً لك",
+    "continueWhereLeftOff": "أكمل من حيث توقفت",
+    "continueSubtitle": "لا يزال يثير اهتمامك؟ اقتنِه قبل نفاده.",
+    "popularInTag": "الأكثر رواجاً في {{tag}}",
+    "becauseYouLikedCategory": "لأنك أعجبت بـ {{category}}",
+    "curatedCollectionsKicker": "منسّقة · المجموعات",
+    "exploreCollection": "استكشف المجموعة"
   },
   "category": {
     "title": "القسم",
@@ -301,6 +314,8 @@
     "decreaseQty": "تقليل الكمية",
     "increaseQty": "زيادة الكمية",
     "sold": "مباع",
+    "purchased": "تم شراؤه",
+    "quickView": "عرض سريع",
     "views": "مشاهدة",
     "pressToZoom": "اضغط مع الاستمرار للتكبير {title}",
     "frame_pvc": "PVC عالي الجودة",
@@ -409,7 +424,8 @@
     "frames_other": "براويز",
     "yesAddDoubleFaceTape": "نعم، أضف الشريط اللاصق",
     "noContinueWithoutIt": "لا، استمر بدونه",
-    "continueWithoutIt": "استمر بدونها"
+    "continueWithoutIt": "استمر بدونها",
+    "itemAddedToCart": "تمت إضافة {{title}} إلى السلة"
   },
   "checkout": {
     "title": "إتمام الطلب",
@@ -683,14 +699,14 @@
     "printSpecs": "ورق لامع فاخر • ألوان زاهية • مقاومة للبهتان",
     "premiumFujiQuality": "جودة FUJIFILM الاحترافية",
     "sectionPrefix": "جودة FUJIFILM الاحترافية",
-    "description": "ارفع صورك، واختر المقاس، واستلم مطبوعات عالية الجودة. الدفع عند الاستلام متاح وفقًا لسياسة تأكيد الطلب.",
-    "shippingInfo": "شحن لجميع مصر: {fee} جنيه · مجاني للطلبات فوق {free} جنيه",
+    "description": "ارفع صورك، اختر المقاس، ونوصّل لك مطبوعات FUJIFILM عالية الدقة حتى باب بيتك. الدفع عند الاستلام في جميع أنحاء مصر.",
+    "shippingInfo": "🚚 شحن لجميع مصر: {{fee}} جنيه · 🎉 مجاني للطلبات فوق {{free}} جنيه",
     "premiumQuality": "جودة FUJIFILM الاحترافية",
     "multipleUpload": "رفع صور متعددة",
     "highResolution": "دقة عالية",
     "livePriceCalc": "حساب السعر مباشر",
     "pricing": "الأسعار",
-    "minimumOrder": "الحد الأدنى للطلب: {qty} صور.",
+    "minimumOrder": "الحد الأدنى للطلب: {{qty}} صور.",
     "choose": "اختر",
     "selected": "المختار",
     "perPhoto": "جنيه / صورة",
@@ -703,25 +719,30 @@
     "feature3Desc": "يصل طلبك خلال 3 إلى 5 أيام عمل بعد تأكيده — الدفع عند الاستلام",
     "cta": "اطبع صورك",
     "uploadYourPhotos": "ارفع صورك",
-    "addAsMany": "أضف أي عدد من الصور — الحد الأدنى {qty}.",
+    "addAsMany": "أضف أي عدد من الصور — الحد الأدنى {{qty}}.",
     "clickToAdd": "اضغط لإضافة صور",
     "orDropHere": "أو أسقطها هنا",
     "formats": "JPG · PNG · HEIC",
-    "photosReady": "{count} صور جاهزة",
+    "photosReady_one": "{{count}} صورة جاهزة",
+    "photosReady_other": "{{count}} صور جاهزة",
     "clearAll": "مسح الكل",
     "removePhoto": "إزالة الصورة",
-    "perLabel": "{qty} × {size} بسعر {price} جنيه",
-    "addMoreToReachMin": "أضف {remaining} صور إضافية للوصول للحد الأدنى {min} صورة.",
+    "perLabel": "{{qty}} × {{size}} بسعر {{price}} جنيه",
+    "addMoreToReachMin_one": "أضف {{count}} صورة إضافية للوصول للحد الأدنى {{min}} صورة.",
+    "addMoreToReachMin_other": "أضف {{count}} صور إضافية للوصول للحد الأدنى {{min}} صورة.",
     "fullName": "الاسم بالكامل",
     "phoneNumber": "رقم الهاتف",
     "select": "اختر...",
     "placeOrderCod": "تقديم الطلب · الدفع عند الاستلام",
     "confirmOnWhatsapp": "سنؤكد طلبك عبر واتساب",
     "backToHome": "← العودة للرئيسية",
-    "minOrderError": "الحد الأدنى للطلب {min} صورة",
+    "minOrderError": "الحد الأدنى للطلب {{min}} صورة",
     "fillDetails": "يرجى ملء جميع بيانات التوصيل",
     "orderSubmitted": "تم تقديم الطلب! جارٍ فتح واتساب...",
-    "submissionFailed": "فشل الإرسال"
+    "submissionFailed": "فشل الإرسال",
+    "bannerAlt": "بانر طباعة الصور",
+    "primaryImageAlt": "نموذج طباعة صور فاخر",
+    "secondaryImageAlt": "تفاصيل طباعة الصور"
   },
   "howItWorks": {
     "label": "ازاي بنشتغل",
@@ -783,13 +804,17 @@
     "description": "ارفع صورك الشخصية، حسّنها بالذكاء الاصطناعي، واستلم مطبوعات ٤×٦ فاخرة على باب بيتك. الدفع عند الاستلام في جميع أنحاء مصر.",
     "addedFromCheckout": "أضيف من طلبك",
     "choosePackage": "اختر باقتك",
-    "packageDescription": "{photos} صور · مقاس ٤×٦ · طباعة فاخرة",
+    "choose": "اختر",
+    "packageDescription": "{{photos}} صور · مقاس ٤×٦ · طباعة فاخرة",
     "photosRemaining": "أضف {remaining} صور إضافية لإكمال باقتك ({total} صورة).",
-    "tooManyPhotos": "لقد أضفت {count} صورة. احذف {extra} لتتناسب مع هذه الباقة.",
+    "morePhotosNeeded_one": "أضف {{count}} صورة إضافية لإكمال باقتك ({{total}} صورة).",
+    "morePhotosNeeded_other": "أضف {{count}} صور إضافية لإكمال باقتك ({{total}} صورة).",
+    "tooManyPhotos": "لقد أضفت {{count}} صورة. احذف {{extra}} لتتناسب مع هذه الباقة.",
     "allPhotosReady": "كل الصور جاهزة. حسّن أي منها أدناه.",
     "clickToUpload": "اضغط للرفع",
-    "uploadFormats": "JPG · PNG · WEBP · HEIC · حد أقصى {max} ميجابايت لكل صورة",
+    "uploadFormats": "JPG · PNG · WEBP · HEIC · حد أقصى {{max}} ميجابايت لكل صورة",
     "lowResWarning": "دقة منخفضة — الجودة قد تتأثر",
+    "suit": "بدلة",
     "enhance": "تحسين",
     "colors": "ألوان",
     "sharpenFace": "توضيح الوجه",
@@ -805,11 +830,11 @@
     "governorate": "المحافظة",
     "selectGovernorate": "اختر...",
     "address": "العنوان",
-    "package": "الباقة ({label})",
+    "package": "الباقة ({{label}})",
     "shipping": "الشحن",
     "free": "مجاني",
     "total": "الإجمالي",
-    "uploading": "جارٍ رفع الصور... {progress}%",
+    "uploading": "جارٍ رفع الصور... {{progress}}%",
     "placingOrder": "جارٍ تقديم الطلب...",
     "placeOrderCod": "تقديم الطلب — الدفع عند الاستلام",
     "originalEnhancedSent": "الملفات الأصلية والمُحسّنة تُرسل لفريق الطباعة.",
@@ -820,13 +845,15 @@
     "suitVersionReady": "نسخة البدلة جاهزة",
     "suitWorksBest": "خيار البدلة يعمل أفضل مع الصور الشخصية الواضحة.",
     "designerWillEnhance": "مصممنا سيحسّن صورتك يدوياً قبل الطباعة.",
-    "uploadPhotosCount": "يرجى رفع {total} صور لهذه الباقة",
-    "removeExtraPhotos": "هذه الباقة تتضمن {total} صور. احذف {extra}.",
+    "uploadPhotosCount": "يرجى رفع {{total}} صور لهذه الباقة",
+    "removeExtraPhotos": "هذه الباقة تتضمن {{total}} صور. احذف {{extra}}.",
     "fillDeliveryDetails": "يرجى ملء جميع بيانات التوصيل",
     "orderSubmitted": "تم تقديم الطلب! جارٍ فتح واتساب...",
     "submissionFailed": "فشل الإرسال",
-    "fileTooLarge": "{name} يتجاوز {max} ميجابايت",
-    "unsupportedFormat": "{name}: صيغة غير مدعومة"
+    "fileTooLarge": "{{name}} يتجاوز {{max}} ميجابايت",
+    "unsupportedFormat": "{{name}}: صيغة غير مدعومة",
+    "failedToReadImage": "تعذر قراءة الصورة",
+    "heicReadError": "تعذر قراءة ملف HEIC. يرجى التحويل إلى JPG."
   },
   "bestSellers": {
     "title": "الأكثر مبيعاً",
@@ -843,7 +870,8 @@
     "emptyState": "لا توجد نتائج تطابق بحثك بعد.",
     "noResults": "لا توجد نتائج تطابق بحثك بعد.",
     "badge": "الأكثر مبيعاً",
-    "egp": "جنيه"
+    "egp": "جنيه",
+    "viewAll": "عرض كل الأكثر مبيعاً"
   },
   "trending": {
     "label": "رائج",
@@ -880,7 +908,9 @@
     "addToCart": "أضف إلى السلة",
     "whatsapp": "واتساب",
     "setAddedToCart": "تمت إضافة المجموعة إلى السلة",
-    "egp": "جنيه"
+    "egp": "جنيه",
+    "browseAriaLabel": "تصفح مجموعات البراويز",
+    "showSetAria": "عرض المجموعة {{index}}"
   },
   "landing": {
     "loading": "جارٍ التحميل...",
@@ -945,7 +975,13 @@
     "shipped": "تم الشحن",
     "delivered": "تم التوصيل",
     "cancelled": "ملغي",
-    "refunded": "تم الاسترداد"
+    "refunded": "تم الاسترداد",
+    "previewModeBanner": "وضع المعاينة — مرئي للمشرف فقط",
+    "backToAdmin": "العودة للوحة التحكم",
+    "testModeBanner": "وضع الاختبار · الطلبات لن تُحتسب",
+    "turnOffTestMode": "إيقاف وضع الاختبار",
+    "themePreviewLabel": "معاينة الثيم: {{name}}",
+    "exitPreview": "الخروج من المعاينة"
   },
   "errors": {
     "pageNotFound": "الصفحة غير موجودة",
@@ -974,7 +1010,8 @@
   "announcement": {
     "freeShipping": "توصيل مجاني للطلبات فوق ٥٠٠ جنيه",
     "cashOnDelivery": "الدفع عند الاستلام في جميع أنحاء مصر",
-    "newArrivals": "بوسترات جديدة تضاف أسبوعياً"
+    "newArrivals": "بوسترات جديدة تضاف أسبوعياً",
+    "ariaLabel": "شريط إعلانات الموقع"
   },
   "floatingTools": {
     "moreTools": "أدوات إضافية",
@@ -1022,6 +1059,118 @@
     "report": "إبلاغ",
     "sortNewest": "الأحدث",
     "sortHighest": "الأعلى تقييماً",
-    "sortLowest": "الأقل تقييماً"
+    "sortLowest": "الأقل تقييماً",
+    "kicker": "التقييمات",
+    "defaultTitle": "موثوق من آلاف العملاء",
+    "defaultSubtitle": "تجارب حقيقية من عملاء في جميع أنحاء مصر.",
+    "swipeHint": "اسحب ←",
+    "purchasedProduct": "تم الشراء: {{product}}",
+    "customerPhotoAlt": "صورة {{name}}",
+    "productFootball": "بوستر كرة قدم",
+    "productMovie": "بوستر أفلام",
+    "productCustomFrame": "برواز مخصص",
+    "productWoodenPortrait": "بورتريه خشبي",
+    "productFamilyPhotoFrame": "برواز صورة عائلية"
+  },
+  "frameComparison": {
+    "kicker": "قارن",
+    "heading": "اختر لمستك النهائية",
+    "description": "كل تصميم من برواز نيون متاح باللمسة الفاخرة التي تختارها. اختر ما يناسب غرفتك.",
+    "pvcTag": "الأكثر مبيعاً",
+    "pvcTitle": "برواز PVC عالي الجودة",
+    "pvcFeature1": "برواز PVC فاخر",
+    "pvcFeature2": "متوفر باللونين الأسود والأبيض",
+    "pvcFeature3": "مظهر أنيق بإطار عصري",
+    "pvcFeature4": "لمسة نهائية شبيهة بالزجاج",
+    "pvcFeature5": "مقاوم للخدوش",
+    "woodTag": "فاخر",
+    "woodTitle": "بورتريه خشبي",
+    "woodFeature1": "طباعة مباشرة على خشب فاخر",
+    "woodFeature2": "بدون زجاج",
+    "woodFeature3": "بدون اختيار لون البرواز",
+    "woodFeature4": "لمسة مطفية أنيقة",
+    "woodFeature5": "طباعة تدوم طويلاً",
+    "photoTag": "FUJIFILM",
+    "photoTitle": "طباعة الصور",
+    "photoFeature1": "طباعة FUJIFILM فاخرة",
+    "photoFeature2": "مقاسات طباعة متعددة",
+    "photoFeature3": "دقة ألوان عالية",
+    "photoFeature4": "الحد الأدنى للطلب 20 صورة"
+  },
+  "frameEditor": {
+    "dragScrollHint": "اسحب · مرر للتكبير",
+    "fit": "احتواء",
+    "fill": "ملء",
+    "zoom": "التكبير",
+    "rotate": "التدوير",
+    "rotateLeft": "تدوير لليسار",
+    "rotateRight": "تدوير لليمين",
+    "stretchH": "تمدد أفقي",
+    "stretchV": "تمدد رأسي",
+    "reset": "إعادة تعيين"
+  },
+  "posterGallery": {
+    "framePreview": "معاينة البرواز",
+    "image": "صورة",
+    "previousImage": "الصورة السابقة",
+    "nextImage": "الصورة التالية",
+    "zoomImage": "تكبير الصورة",
+    "closeZoom": "إغلاق التكبير",
+    "scrollHint": "مرر أو اضغط مرتين للتكبير"
+  },
+  "sizeGuide": {
+    "compareSizes": "مقارنة المقاسات",
+    "roomPreview": "معاينة الغرفة",
+    "sideBySide": "مقارنة جنباً إلى جنب",
+    "disclaimer": "المقاسات تقريبية، والمعاينة لأغراض التوضيح فقط.",
+    "sizeA": "المقاس أ",
+    "sizeB": "المقاس ب",
+    "vs": "مقابل",
+    "roomImageNotSet": "لم يتم تحديد صورة معاينة الغرفة"
+  },
+  "heroBanner": {
+    "previousBanner": "الشعار السابق",
+    "nextBanner": "الشعار التالي",
+    "goToBanner": "الانتقال إلى الشعار {{index}}"
+  },
+  "homeSlider": {
+    "previousSlide": "الشريحة السابقة",
+    "nextSlide": "الشريحة التالية",
+    "goToSlide": "الانتقال إلى الشريحة {{index}}"
+  },
+  "maintenance": {
+    "location": "الإسكندرية، مصر",
+    "days": "أيام",
+    "hours": "ساعات",
+    "minutes": "دقيقة",
+    "seconds": "ثانية"
+  },
+  "wallOfInspiration": {
+    "kicker": "جدار المعرض الخاص",
+    "heading": "جدار الإلهام",
+    "description": "جدار سينمائي من مجموعات برواز نيون الحقيقية، مؤطرة كقطع متحفية ومتجددة بهدوء أثناء تصفحك للمعرض.",
+    "empty": "المعرض يجهّز جدار مجموعته القادمة.",
+    "featuredArtwork": "عمل فني مميز",
+    "openCollectionAria": "فتح مجموعة {{title}}",
+    "featuredCollectionFallback": "مجموعة مميزة"
+  },
+  "trackOrder": {
+    "kicker": "تتبع طلبك",
+    "title": "فين طلبي؟",
+    "description": "أدخل رقم الطلب ورقم الموبايل اللي استخدمته وقت الشراء عشان تعرف حالة الطلب.",
+    "orderNumber": "رقم الطلب",
+    "phone": "رقم الموبايل",
+    "search": "تتبع الطلب",
+    "searching": "جارٍ البحث...",
+    "notFound": "معلش، مالقيناش طلب بالرقم ده والموبايل ده. تأكد من الاتنين وجرب تاني، أو تواصل معنا على واتساب.",
+    "status": {
+      "new": "تم استلام الطلب",
+      "confirmed": "تم تأكيد الطلب",
+      "processing": "جارٍ التجهيز",
+      "shipped": "في الطريق إليك",
+      "delivered": "تم التسليم",
+      "cancelled": "ملغي",
+      "returned": "مرتجع"
+    }
   }
 }

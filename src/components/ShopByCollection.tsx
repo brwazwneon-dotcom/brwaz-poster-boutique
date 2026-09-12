@@ -4,6 +4,7 @@ import {
   getShowcaseProductsForCategoriesPublic,
 } from "@/lib/db-public.functions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useCategories,
   isCategoryVisible,
@@ -746,6 +747,7 @@ export function CollectionCover({
 }
 
 export function ShopByCollection() {
+  const { t } = useTranslation();
   const perf = usePerformanceFlags();
   const { data } = useHomeCollections();
   const { data: categories = [] } = useCategories();
@@ -771,7 +773,7 @@ export function ShopByCollection() {
     .map((c) => ({
       id: c.id,
       title: c.name,
-      subtitle: c.description ?? "Explore the collection",
+      subtitle: c.description ?? t("home.exploreCollection"),
       image: c.image ?? "",
       link: `/category/${c.slug}`,
       enabled: true,
@@ -814,9 +816,11 @@ export function ShopByCollection() {
         <div className="mb-10 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-              Curated · Collections
+              {t("home.curatedCollectionsKicker")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">Shop By Collection</h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">
+              {t("home.shopByCollection")}
+            </h2>
           </div>
         </div>
 
@@ -840,7 +844,7 @@ export function ShopByCollection() {
                 <p className="text-[10px] uppercase tracking-[0.4em] text-white/60">{c.subtitle}</p>
                 <h3 className="text-display mt-2 text-3xl text-white sm:text-4xl">{c.title}</h3>
                 <span className="mt-4 inline-flex rounded-sm border border-white/40 bg-white/0 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-white backdrop-blur transition group-hover:bg-white group-hover:text-black">
-                  Shop now →
+                  {t("home.shopNow")} →
                 </span>
               </div>
             </a>

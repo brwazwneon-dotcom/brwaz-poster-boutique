@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero-banners";
 import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
@@ -45,6 +46,7 @@ async function logHeroImageFailure(banner: HeroBanner, url: string) {
  * Renders nothing when no banners are configured (parent falls back to default hero bg).
  */
 export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
+  const { t } = useTranslation();
   const { data: banners = EMPTY_BANNERS } = useHeroBanners();
   const { data: cfg } = useHeroBannerConfig();
   const autoplay = cfg?.autoplay_ms ?? 5000;
@@ -191,7 +193,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
           <button
             type="button"
             onClick={() => go(idx - 1)}
-            aria-label="Previous banner"
+            aria-label={t("heroBanner.previousBanner")}
             className="absolute left-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white opacity-70 backdrop-blur transition hover:opacity-100"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -199,7 +201,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
           <button
             type="button"
             onClick={() => go(idx + 1)}
-            aria-label="Next banner"
+            aria-label={t("heroBanner.nextBanner")}
             className="absolute right-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white opacity-70 backdrop-blur transition hover:opacity-100"
           >
             <ChevronRight className="h-4 w-4" />
@@ -210,7 +212,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
                 key={i}
                 type="button"
                 onClick={() => setIdx(i)}
-                aria-label={`Go to banner ${i + 1}`}
+                aria-label={t("heroBanner.goToBanner", { index: i + 1 })}
                 className={`h-1.5 rounded-full transition-all ${
                   i === idx ? "w-6 bg-white" : "w-1.5 bg-white/40"
                 }`}

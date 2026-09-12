@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   clearThemePreview,
   getTheme,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/theme-system";
 
 export function ThemePreviewBanner() {
+  const { t } = useTranslation();
   const [themeId, setThemeId] = useState<ThemeId | null>(null);
 
   useEffect(() => {
@@ -34,14 +36,16 @@ export function ThemePreviewBanner() {
       aria-live="polite"
     >
       <Eye className="h-4 w-4 text-primary" aria-hidden />
-      <span className="uppercase tracking-widest">Theme preview: {theme.name}</span>
+      <span className="uppercase tracking-widest">
+        {t("admin.themePreviewLabel", { name: theme.name })}
+      </span>
       <button
         type="button"
         onClick={closePreview}
         className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary-foreground transition hover:brightness-110"
       >
         <X className="h-3 w-3" aria-hidden />
-        Exit preview
+        {t("admin.exitPreview")}
       </button>
     </div>
   );

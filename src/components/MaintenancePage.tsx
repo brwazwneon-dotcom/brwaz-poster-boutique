@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Instagram, Facebook, MessageCircle, Mail, MapPin, Phone } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { SOCIAL } from "@/lib/site";
 import { useLogoSize } from "@/lib/branding";
 import type { MaintenanceConfig } from "@/lib/maintenance";
@@ -34,6 +35,7 @@ function Unit({ v, label }: { v: number; label: string }) {
 }
 
 export function MaintenancePage({ cfg }: { cfg: MaintenanceConfig }) {
+  const { t } = useTranslation();
   const cd = useCountdown(cfg.endTime);
   const logo = useLogoSize("maintenance");
 
@@ -97,20 +99,20 @@ export function MaintenancePage({ cfg }: { cfg: MaintenanceConfig }) {
 
         {cd && !cd.done && (
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            <Unit v={cd.days} label="Days" />
-            <Unit v={cd.hours} label="Hours" />
-            <Unit v={cd.minutes} label="Min" />
-            <Unit v={cd.seconds} label="Sec" />
+            <Unit v={cd.days} label={t("maintenance.days")} />
+            <Unit v={cd.hours} label={t("maintenance.hours")} />
+            <Unit v={cd.minutes} label={t("maintenance.minutes")} />
+            <Unit v={cd.seconds} label={t("maintenance.seconds")} />
           </div>
         )}
 
         {/* Contact */}
         <div className="mt-10 grid gap-2 text-sm text-white/80">
           <div className="flex items-center justify-center gap-2">
-            <MapPin className="h-4 w-4" /> Alexandria, Egypt
+            <MapPin className="h-4 w-4" /> {t("maintenance.location")}
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Phone className="h-4 w-4" /> WhatsApp {SOCIAL.whatsapp}
+            <Phone className="h-4 w-4" /> {t("whatsappLabel")} {SOCIAL.whatsapp}
           </div>
         </div>
 

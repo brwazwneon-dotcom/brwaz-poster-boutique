@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getSliderImagesPublic } from "@/lib/db-public.functions";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Slide = { id: string; image_url: string; title: string | null; link_url: string | null };
 
 export function HomepageSlider() {
+  const { t } = useTranslation();
   const { data: slides = [] } = useQuery({
     queryKey: ["homepage-slider"],
     staleTime: 60_000,
@@ -80,14 +82,14 @@ export function HomepageSlider() {
           <>
             <button
               onClick={() => go(idx - 1)}
-              aria-label="Previous slide"
+              aria-label={t("homeSlider.previousSlide")}
               className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/70 backdrop-blur hover:bg-background"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => go(idx + 1)}
-              aria-label="Next slide"
+              aria-label={t("homeSlider.nextSlide")}
               className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/70 backdrop-blur hover:bg-background"
             >
               <ChevronRight className="h-5 w-5" />
@@ -97,7 +99,7 @@ export function HomepageSlider() {
                 <button
                   key={i}
                   onClick={() => setIdx(i)}
-                  aria-label={`Go to slide ${i + 1}`}
+                  aria-label={t("homeSlider.goToSlide", { index: i + 1 })}
                   className={`h-1.5 rounded-full transition-all ${i === idx ? "w-6 bg-foreground" : "w-1.5 bg-foreground/40"}`}
                 />
               ))}

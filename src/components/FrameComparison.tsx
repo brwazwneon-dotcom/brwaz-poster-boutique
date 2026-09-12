@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Card = {
   title: string;
@@ -7,50 +8,52 @@ type Card = {
   highlight?: boolean;
 };
 
-const CARDS: Card[] = [
-  {
-    title: "High Quality PVC Frame",
-    tag: "Bestseller",
-    highlight: true,
-    features: [
-      "Premium PVC Frame",
-      "Available in Black & White",
-      "Modern framed appearance",
-      "Glass-like finish",
-      "Scratch resistant",
-    ],
-  },
-  {
-    title: "Wooden Portrait",
-    tag: "Premium",
-    features: [
-      "Printed directly on premium wood",
-      "No glass",
-      "No frame color selection",
-      "Elegant matte finish",
-      "Long-lasting print",
-    ],
-  },
-  {
-    title: "Photo Printing",
-    tag: "FUJIFILM",
-    features: [
-      "Premium FUJIFILM printing",
-      "Multiple print sizes",
-      "High color accuracy",
-      "Minimum order 20 photos",
-    ],
-  },
-];
-
 export function FrameComparison() {
+  const { t } = useTranslation();
+  const CARDS: Card[] = [
+    {
+      title: t("frameComparison.pvcTitle"),
+      tag: t("frameComparison.pvcTag"),
+      highlight: true,
+      features: [
+        t("frameComparison.pvcFeature1"),
+        t("frameComparison.pvcFeature2"),
+        t("frameComparison.pvcFeature3"),
+        t("frameComparison.pvcFeature4"),
+        t("frameComparison.pvcFeature5"),
+      ],
+    },
+    {
+      title: t("frameComparison.woodTitle"),
+      tag: t("frameComparison.woodTag"),
+      features: [
+        t("frameComparison.woodFeature1"),
+        t("frameComparison.woodFeature2"),
+        t("frameComparison.woodFeature3"),
+        t("frameComparison.woodFeature4"),
+        t("frameComparison.woodFeature5"),
+      ],
+    },
+    {
+      title: t("frameComparison.photoTitle"),
+      tag: t("frameComparison.photoTag"),
+      features: [
+        t("frameComparison.photoFeature1"),
+        t("frameComparison.photoFeature2"),
+        t("frameComparison.photoFeature3"),
+        t("frameComparison.photoFeature4"),
+      ],
+    },
+  ];
+
   return (
     <section className="container-page py-12">
-      <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Compare</div>
-      <h2 className="text-display text-3xl sm:text-4xl mt-2">Choose your finish</h2>
+      <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+        {t("frameComparison.kicker")}
+      </div>
+      <h2 className="text-display text-3xl sm:text-4xl mt-2">{t("frameComparison.heading")}</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Every BRWAZWNEON design ships in your choice of premium finish. Pick the one that fits your
-        room.
+        {t("frameComparison.description")}
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {CARDS.map((c) => (

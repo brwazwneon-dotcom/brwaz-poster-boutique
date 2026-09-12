@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { useCart } from "@/lib/cart";
@@ -8,11 +9,13 @@ import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-i
 
 export function RecentlyViewed({
   excludeId,
-  title = "Recently Viewed",
+  title,
 }: {
   excludeId?: string;
   title?: string;
 }) {
+  const { t } = useTranslation();
+  const displayTitle = title ?? t("home.recentlyViewed");
   const { items } = useRecentlyViewed();
   const cart = useCart();
   const pricing = usePricing();
@@ -33,9 +36,9 @@ export function RecentlyViewed({
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-              Just for you
+              {t("home.justForYou")}
             </p>
-            <h2 className="text-display mt-3 text-3xl sm:text-5xl">{title}</h2>
+            <h2 className="text-display mt-3 text-3xl sm:text-5xl">{displayTitle}</h2>
           </div>
         </div>
 
@@ -73,7 +76,8 @@ export function RecentlyViewed({
                     </div>
                   )}
                   <div className="text-xs text-muted-foreground">
-                    From <span className="text-foreground">{fromPrice}</span> EGP
+                    {t("common.from")} <span className="text-foreground">{fromPrice}</span>{" "}
+                    {t("egp")}
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">
@@ -82,7 +86,7 @@ export function RecentlyViewed({
                     params={p.category_slug ? { slug: p.category_slug } : undefined}
                     className="flex-1 rounded-sm border border-border px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
                   >
-                    Quick View
+                    {t("product.quickView")}
                   </Link>
                   <button
                     type="button"
@@ -92,17 +96,17 @@ export function RecentlyViewed({
                         title: p.title,
                         image: resolveProductArtwork(p, images),
                         categoryId: p.category_id,
-                        categoryName: p.category_name ?? "Poster",
+                        categoryName: p.category_name ?? t("common.poster"),
                         frameType: "pvc",
                         size: "20x30",
                         color: "black",
                         price: priceForFrame(pricing, "pvc", "20x30"),
                       });
-                      toast.success(`${p.title} added to cart`);
+                      toast.success(t("cart.itemAddedToCart", { title: p.title }));
                     }}
                     className="flex-1 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
                   >
-                    Add
+                    {t("common.add")}
                   </button>
                 </div>
               </article>

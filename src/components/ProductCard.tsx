@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { WishlistHeart } from "@/components/WishlistHeart";
@@ -24,6 +25,7 @@ export const ProductCard = memo(function ProductCard({
   onToggle,
   gridMode,
 }: Props) {
+  const { t } = useTranslation();
   const fallbackUrl = product.fallbackArtworkUrl || IMAGE_FALLBACK;
   const safeUrl = product.cardArtworkUrl || fallbackUrl || IMAGE_FALLBACK;
 
@@ -65,7 +67,7 @@ export const ProductCard = memo(function ProductCard({
       )}
       {(product.salesCount ?? 0) > 0 && (
         <span className="pointer-events-none absolute bottom-7 right-2 z-20 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
-          ✔ {formatCount(product.salesCount)} sold
+          ✔ {formatCount(product.salesCount)} {t("product.sold")}
         </span>
       )}
     </div>

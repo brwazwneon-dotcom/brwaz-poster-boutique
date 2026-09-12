@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { fetchRecommendations, type RecPoster } from "@/lib/behavior";
@@ -12,6 +13,7 @@ import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-i
  * Silent when personalization is disabled or there's not enough signal yet.
  */
 export function PersonalizedSections() {
+  const { t } = useTranslation();
   const { data: recs } = useQuery({
     queryKey: ["personalized-recs", typeof window === "undefined" ? "ssr" : visitorId()],
     staleTime: 60_000,
@@ -26,36 +28,36 @@ export function PersonalizedSections() {
   if (recs?.continue_where_you_left_off.length) {
     rails.push({
       key: "continue",
-      title: "Continue where you left off",
-      subtitle: "Still interested? Grab it before it's gone.",
+      title: t("home.continueWhereLeftOff"),
+      subtitle: t("home.continueSubtitle"),
       items: recs.continue_where_you_left_off,
     });
   }
   if (recs?.recently_viewed.length) {
     rails.push({
       key: "viewed",
-      title: "Recently viewed",
+      title: t("home.recentlyViewed"),
       items: recs.recently_viewed,
     });
   }
   if (recs?.because_you_liked.length && recs.top_category_name) {
     rails.push({
       key: "because",
-      title: `Because you liked ${recs.top_category_name}`,
+      title: t("home.becauseYouLikedCategory", { category: recs.top_category_name }),
       items: recs.because_you_liked,
     });
   }
   if (recs?.popular_in_tag.length && recs.top_tag) {
     rails.push({
       key: "popular-tag",
-      title: `Popular in ${recs.top_tag}`,
+      title: t("home.popularInTag", { tag: recs.top_tag }),
       items: recs.popular_in_tag,
     });
   }
   if (recs?.recommended_for_you.length) {
     rails.push({
       key: "for-you",
-      title: "Recommended for you",
+      title: t("home.recommendedForYou"),
       items: recs.recommended_for_you,
     });
   }
@@ -74,7 +76,9 @@ export function PersonalizedSections() {
           <div key={rail.key}>
             <div className="mb-5 flex items-end justify-between gap-4">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.5em] text-primary">For you</p>
+                <p className="text-[10px] uppercase tracking-[0.5em] text-primary">
+                  {t("home.forYou")}
+                </p>
                 <h2 className="text-display mt-2 text-3xl sm:text-4xl">{rail.title}</h2>
                 {rail.subtitle ? (
                   <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{rail.subtitle}</p>

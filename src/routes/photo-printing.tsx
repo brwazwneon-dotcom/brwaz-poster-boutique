@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
@@ -90,6 +91,7 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 function PhotoPrintingPage() {
+  const { t } = useTranslation();
   const pricing = usePricing();
   const SIZES = (["10x15", "13x18", "15x20"] as const).map((id) => ({
     id,
@@ -145,9 +147,9 @@ function PhotoPrintingPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (qty < MIN_QTY) return toast.error(`Minimum order is ${MIN_QTY} photos`);
+    if (qty < MIN_QTY) return toast.error(t("photoPrinting.minOrderError", { min: MIN_QTY }));
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
-      return toast.error("Please fill in all delivery details");
+      return toast.error(t("cart.fillDeliveryFields"));
     if (!/^01\d{9}$/.test(phone.trim()))
       return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
 
@@ -227,7 +229,7 @@ function PhotoPrintingPage() {
       window.location.href = whatsappLink(msg);
 
       if (await readPostOrderMessageEnabled().catch(() => true)) {
-        toast.success("Order submitted! Opening WhatsApp…");
+        toast.success(t("photoPrinting.orderSubmitted"));
       }
       setPics([]);
       setName("");
@@ -235,7 +237,7 @@ function PhotoPrintingPage() {
       setGovernorate("");
       setAddress("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Submission failed");
+      toast.error(err instanceof Error ? err.message : t("photoPrinting.submissionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -247,24 +249,23 @@ function PhotoPrintingPage() {
       <section className="border-b border-border bg-card">
         <div className="container-page py-16 sm:py-20">
           <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-            Premium FUJIFILM Quality
+            {t("photoPrinting.premiumFujiQuality")}
           </p>
-          <h1 className="text-display mt-3 text-5xl sm:text-7xl">Photo Printing</h1>
-          <p className="mt-4 max-w-xl text-muted-foreground">
-            Upload your photos, pick a size, and we deliver high-resolution FUJIFILM prints to your
-            door. Cash on delivery across Egypt.
-          </p>
+          <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("photoPrinting.title")}</h1>
+          <p className="mt-4 max-w-xl text-muted-foreground">{t("photoPrinting.description")}</p>
           <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-            🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over{" "}
-            {settings.freeShippingThreshold} EGP
+            {t("photoPrinting.shippingInfo", {
+              fee: settings.shippingFee,
+              free: settings.freeShippingThreshold,
+            })}
           </p>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
             {[
-              "Premium FUJIFILM Quality",
-              "Multiple Photo Upload",
-              "High Resolution",
-              "Live Price Calculation",
-              "Cash On Delivery",
+              t("photoPrinting.premiumFujiQuality"),
+              t("photoPrinting.multipleUpload"),
+              t("photoPrinting.highResolution"),
+              t("photoPrinting.livePriceCalc"),
+              t("nav.cashOnDelivery"),
             ].map((f) => (
               <li key={f} className="flex items-center gap-2">
                 <span className="text-foreground">✓</span> {f}
@@ -279,8 +280,10 @@ function PhotoPrintingPage() {
       {/* PRICING */}
       <section className="border-b border-border">
         <div className="container-page py-14">
-          <h2 className="text-display text-3xl sm:text-4xl">Pricing</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Minimum order: {MIN_QTY} photos.</p>
+          <h2 className="text-display text-3xl sm:text-4xl">{t("photoPrinting.pricing")}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("photoPrinting.minimumOrder", { qty: MIN_QTY })}
+          </p>
           <div className="mt-8 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-3">
             {SIZES.map((s) => {
               const active = s.id === sizeId;
@@ -294,13 +297,13 @@ function PhotoPrintingPage() {
                   }`}
                 >
                   <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
-                    {active ? "Selected" : "Choose"}
+                    {active ? t("photoPrinting.selected") : t("photoPrinting.choose")}
                   </div>
                   <div className="text-display mt-3 text-3xl">{s.label}</div>
                   <div className="mt-4 flex items-end gap-2">
                     <span className="text-display text-4xl">{s.price}</span>
                     <span className="pb-1 text-xs uppercase tracking-widest text-muted-foreground">
-                      EGP / photo
+                      {t("photoPrinting.perPhoto")}
                     </span>
                   </div>
                 </button>
@@ -318,9 +321,11 @@ function PhotoPrintingPage() {
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
             {/* Uploader */}
             <div>
-              <h2 className="text-display text-3xl sm:text-4xl">Upload Your Photos</h2>
+              <h2 className="text-display text-3xl sm:text-4xl">
+                {t("photoPrinting.uploadYourPhotos")}
+              </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Add as many photos as you like — minimum {MIN_QTY}.
+                {t("photoPrinting.addAsMany", { qty: MIN_QTY })}
               </p>
 
               <label
@@ -329,10 +334,11 @@ function PhotoPrintingPage() {
               >
                 <Upload className="h-6 w-6 text-muted-foreground" />
                 <div className="mt-3 text-sm">
-                  <span className="font-semibold">Click to add photos</span> or drop them here
+                  <span className="font-semibold">{t("photoPrinting.clickToAdd")}</span>{" "}
+                  {t("photoPrinting.orDropHere")}
                 </div>
                 <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  JPG · PNG · HEIC
+                  {t("photoPrinting.formats")}
                 </div>
                 <input
                   id="photo-files"
@@ -348,7 +354,7 @@ function PhotoPrintingPage() {
                 <div className="mt-6">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="text-sm">
-                      {pics.length} photo{pics.length === 1 ? "" : "s"} ready
+                      {t("photoPrinting.photosReady", { count: pics.length })}
                     </div>
                     <button
                       type="button"
@@ -358,7 +364,7 @@ function PhotoPrintingPage() {
                       }}
                       className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
                     >
-                      Clear all
+                      {t("common.clearAll")}
                     </button>
                   </div>
                   <div className="grid max-h-[480px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 md:grid-cols-5">
@@ -377,7 +383,7 @@ function PhotoPrintingPage() {
                           type="button"
                           onClick={() => removePic(p.id)}
                           className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 transition group-hover:opacity-100"
-                          aria-label="Remove photo"
+                          aria-label={t("photoPrinting.removePhoto")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -392,27 +398,26 @@ function PhotoPrintingPage() {
             <form onSubmit={submit} className="rounded-sm border border-border bg-card p-6 sm:p-8">
               <div className="border-b border-border pb-5">
                 <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
-                  Live total
+                  {t("customDesign.liveTotal")}
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-display text-5xl">{total}</span>
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                    EGP
+                    {t("egp")}
                   </span>
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">
-                  {qty} × {size.label} @ {size.price} EGP
+                  {t("photoPrinting.perLabel", { qty, size: size.label, price: size.price })}
                 </div>
                 {remaining > 0 && (
                   <div className="mt-3 rounded-sm bg-background px-3 py-2 text-[11px] text-muted-foreground">
-                    Add {remaining} more photo{remaining === 1 ? "" : "s"} to reach the {MIN_QTY}
-                    -photo minimum.
+                    {t("photoPrinting.addMoreToReachMin", { count: remaining, min: MIN_QTY })}
                   </div>
                 )}
               </div>
 
               <div className="mt-5 space-y-3">
-                <Field label="Full name">
+                <Field label={t("photoPrinting.fullName")}>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -420,7 +425,7 @@ function PhotoPrintingPage() {
                     className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   />
                 </Field>
-                <Field label="Phone number">
+                <Field label={t("photoPrinting.phoneNumber")}>
                   <input
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
@@ -436,14 +441,14 @@ function PhotoPrintingPage() {
                     </span>
                   )}
                 </Field>
-                <Field label="Governorate">
+                <Field label={t("checkout.governorate")}>
                   <select
                     value={governorate}
                     onChange={(e) => setGovernorate(e.target.value)}
                     required
                     className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                   >
-                    <option value="">Select…</option>
+                    <option value="">{t("photoPrinting.select")}</option>
                     {GOVERNORATES.map((g) => (
                       <option key={g} value={g}>
                         {g}
@@ -451,7 +456,7 @@ function PhotoPrintingPage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="Address">
+                <Field label={t("checkout.address")}>
                   <textarea
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
@@ -470,21 +475,21 @@ function PhotoPrintingPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading {progress}%
+                    {t("customDesign.uploading", { progress })}
                   </>
                 ) : (
-                  <>Place order · Cash on delivery</>
+                  <>{t("photoPrinting.placeOrderCod")}</>
                 )}
               </button>
               <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
-                We'll confirm your order on WhatsApp
+                {t("photoPrinting.confirmOnWhatsapp")}
               </p>
               <div className="mt-4 text-center">
                 <Link
                   to="/"
                   className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                 >
-                  ← Back to home
+                  {t("photoPrinting.backToHome")}
                 </Link>
               </div>
             </form>
@@ -513,6 +518,7 @@ function PhotoPrintingBannerRail({ banners }: { banners: PhotoPrintingBanner[] }
 }
 
 function PhotoPrintingBannerCard({ banner }: { banner: PhotoPrintingBanner }) {
+  const { t } = useTranslation();
   const desktop = banner.desktopImageUrl || banner.mobileImageUrl;
   const mobile = banner.mobileImageUrl || banner.desktopImageUrl;
   const image = (
@@ -520,7 +526,7 @@ function PhotoPrintingBannerCard({ banner }: { banner: PhotoPrintingBanner }) {
       {mobile && <source media="(max-width: 640px)" srcSet={mobile} />}
       <img
         src={desktop}
-        alt={banner.altText || banner.title || "Photo printing banner"}
+        alt={banner.altText || banner.title || t("photoPrinting.bannerAlt")}
         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.015]"
         loading="lazy"
         decoding="async"
@@ -547,6 +553,7 @@ function PhotoPrintingBannerCard({ banner }: { banner: PhotoPrintingBanner }) {
 }
 
 function PhotoPrintingImagesSection({ images }: { images: PhotoPrintingPageImage[] }) {
+  const { t } = useTranslation();
   if (images.length === 0) return null;
   const primary = images.find((image) => image.isPrimary) ?? images[0];
   const secondary = images.filter((image) => image.id !== primary.id);
@@ -557,7 +564,7 @@ function PhotoPrintingImagesSection({ images }: { images: PhotoPrintingPageImage
           <figure className="overflow-hidden rounded-sm border border-border bg-background">
             <img
               src={primary.imageUrl}
-              alt={primary.altText || primary.title || "Premium photo print sample"}
+              alt={primary.altText || primary.title || t("photoPrinting.primaryImageAlt")}
               className="aspect-[4/3] h-full w-full object-cover"
               loading="lazy"
               decoding="async"
@@ -582,7 +589,7 @@ function PhotoPrintingImagesSection({ images }: { images: PhotoPrintingPageImage
                 >
                   <img
                     src={image.imageUrl}
-                    alt={image.altText || image.title || "Photo print detail"}
+                    alt={image.altText || image.title || t("photoPrinting.secondaryImageAlt")}
                     className="aspect-square h-full w-full object-cover"
                     loading="lazy"
                     decoding="async"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { getSetsPublic } from "@/lib/db-public.functions";
 import { SafeImage } from "@/components/SafeImage";
 import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
@@ -15,6 +16,7 @@ type SetRow = {
 const ROTATE_MS = 3500;
 
 export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: string }) {
+  const { t } = useTranslation();
   const { data: sets = [] } = useQuery({
     queryKey: ["home-frame-sets"],
     staleTime: 60_000,
@@ -43,9 +45,9 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-              Curated bundles
+              {t("sets.curatedBundles")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || "Frame Sets"}</h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || t("sets.heading")}</h2>
             {subtitle ? (
               <p className="mt-3 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
             ) : null}
@@ -54,7 +56,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
             to="/sets"
             className="hidden shrink-0 rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent sm:inline-flex"
           >
-            View all →
+            {t("common.viewAll")} →
           </Link>
         </div>
 
@@ -62,7 +64,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
           ref={sliderRef}
           to="/sets"
           className="group relative block aspect-[16/9] w-full overflow-hidden rounded-sm border border-border bg-muted"
-          aria-label="Browse frame sets"
+          aria-label={t("sets.browseAriaLabel")}
         >
           {sets.map((s, i) => (
             <div
@@ -90,7 +92,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
                     e.preventDefault();
                     setIndex(i);
                   }}
-                  aria-label={`Show set ${i + 1}`}
+                  aria-label={t("sets.showSetAria", { index: i + 1 })}
                   className={`h-1.5 rounded-full transition-all ${
                     i === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
                   }`}
@@ -105,7 +107,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
             to="/sets"
             className="inline-flex rounded-sm border border-border px-5 py-3 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
           >
-            View all sets →
+            {t("common.viewAll")} →
           </Link>
         </div>
       </div>

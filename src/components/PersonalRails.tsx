@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { FramedArtwork } from "./FramedArtwork";
 import { WishlistHeart } from "./WishlistHeart";
 import { fetchRecommendations, type RecPoster } from "@/lib/behavior";
@@ -29,6 +30,7 @@ function Rail({
   eyebrow?: string;
   itemsCount?: number;
 }) {
+  const { t } = useTranslation();
   const { data: categories = [] } = useCategories();
   const slug = (id: string | null) => categories.find((c) => c.id === id)?.slug ?? "movies";
   const list = items.slice(0, itemsCount);
@@ -43,7 +45,7 @@ function Rail({
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-primary">
-              {eyebrow ?? "For you"}
+              {eyebrow ?? t("home.forYou")}
             </p>
             <h2 className="text-display mt-2 text-3xl sm:text-4xl">{title}</h2>
             {subtitle ? (
@@ -96,11 +98,17 @@ export function ForYouSection({
   subtitle?: string;
   itemsCount?: number;
 }) {
+  const { t } = useTranslation();
   const { data } = useRecs();
   if (!data) return null;
   const items = data.recommended_for_you.length ? data.recommended_for_you : data.recently_viewed;
   return (
-    <Rail title={title || "For You"} subtitle={subtitle} items={items} itemsCount={itemsCount} />
+    <Rail
+      title={title || t("home.forYou")}
+      subtitle={subtitle}
+      items={items}
+      itemsCount={itemsCount}
+    />
   );
 }
 
@@ -113,12 +121,15 @@ export function BecauseYouLikedSection({
   subtitle?: string;
   itemsCount?: number;
 }) {
+  const { t } = useTranslation();
   const { data } = useRecs();
   if (!data) return null;
   if (!data.because_you_liked.length) return null;
   const heading =
     title ||
-    (data.top_category_name ? `Because you liked ${data.top_category_name}` : "Because You Liked");
+    (data.top_category_name
+      ? t("home.becauseYouLikedCategory", { category: data.top_category_name })
+      : t("home.becauseYouLiked"));
   return (
     <Rail
       title={heading}
@@ -138,12 +149,13 @@ export function RecommendedForYouSection({
   subtitle?: string;
   itemsCount?: number;
 }) {
+  const { t } = useTranslation();
   const { data } = useRecs();
   if (!data) return null;
   const items = data.popular_in_tag.length ? data.popular_in_tag : data.recommended_for_you;
   return (
     <Rail
-      title={title || "Recommended For You"}
+      title={title || t("home.recommendedForYou")}
       subtitle={subtitle}
       items={items}
       itemsCount={itemsCount}

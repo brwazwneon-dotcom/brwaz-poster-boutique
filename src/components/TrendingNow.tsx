@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getHomeTrendingCandidatesPublic } from "@/lib/db-public.functions";
 import { FramePreview } from "./FramePreview";
 import { Flame, ArrowRight } from "lucide-react";
@@ -126,6 +127,7 @@ export function TrendingNow({
   itemsCount?: number;
   manualIds?: string[];
 }) {
+  const { t } = useTranslation();
   const manualPosterIds = manualIds ?? [];
   const useManual = manualPosterIds.length > 0;
   const perf = usePerformanceFlags();
@@ -217,9 +219,11 @@ export function TrendingNow({
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.5em] text-primary">
-              <Flame className="mr-1 inline h-3 w-3" /> Trending
+              <Flame className="mr-1 inline h-3 w-3" /> {t("trending.label")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || "Trending Now"}</h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">
+              {title || t("home.trendingNow")}
+            </h2>
             {subtitle ? (
               <p className="mt-2 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
             ) : null}
@@ -228,7 +232,7 @@ export function TrendingNow({
             to="/trending"
             className="group inline-flex shrink-0 items-center gap-2 rounded-sm border border-primary bg-primary px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary-foreground shadow-[0_0_0_0_hsl(var(--primary))] transition-all duration-300 hover:shadow-[0_0_24px_2px_hsl(var(--primary)/0.5)] hover:brightness-110 animate-pulse"
           >
-            View all
+            {t("common.viewAll")}
             <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
           </Link>
         </div>
@@ -247,7 +251,7 @@ export function TrendingNow({
                 className="group relative block w-[44%] shrink-0 snap-start sm:w-[24%] lg:w-[16%]"
               >
                 <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">
-                  <Flame className="h-2.5 w-2.5" /> Trending
+                  <Flame className="h-2.5 w-2.5" /> {t("trending.label")}
                 </span>
                 <FramePreview
                   posterUrl={baseImage?.src || p.image_url || ""}

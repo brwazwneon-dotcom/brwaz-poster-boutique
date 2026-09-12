@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useWishlist } from "@/lib/wishlist";
 import { cn } from "@/lib/utils";
 
@@ -10,12 +11,13 @@ type Props = {
 };
 
 export function WishlistHeart({ posterId, className, alwaysVisible }: Props) {
+  const { t } = useTranslation();
   const { has, toggle } = useWishlist();
   const active = has(posterId);
   return (
     <button
       type="button"
-      aria-label={active ? "Remove from wishlist" : "Save to wishlist"}
+      aria-label={active ? t("product.removeFromWishlist") : t("product.addToWishlist")}
       aria-pressed={active}
       onClick={(e) => {
         e.preventDefault();

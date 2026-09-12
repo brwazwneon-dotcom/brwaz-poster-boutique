@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export type AnnouncementConfig = {
@@ -50,6 +51,7 @@ export function useAnnouncementConfig() {
 }
 
 export function AnnouncementBar() {
+  const { t } = useTranslation();
   const cfg = useAnnouncementConfig();
   if (!cfg.enabled || !cfg.text.trim()) return null;
 
@@ -85,7 +87,7 @@ export function AnnouncementBar() {
       className="relative w-full overflow-hidden border-b border-white/10"
       style={{ backgroundColor: cfg.bg, color: cfg.color }}
       role="region"
-      aria-label="Site announcement"
+      aria-label={t("announcement.ariaLabel")}
     >
       <div
         data-brw-marquee

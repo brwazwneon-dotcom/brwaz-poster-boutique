@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { isPreviewMode, exitPreviewMode } from "@/lib/preview-mode";
 
 /**
@@ -7,6 +8,7 @@ import { isPreviewMode, exitPreviewMode } from "@/lib/preview-mode";
  * "Preview as Client". Read-only; no admin controls are exposed.
  */
 export function PreviewBadge() {
+  const { t } = useTranslation();
   const [active, setActive] = useState(false);
 
   useEffect(() => {
@@ -47,14 +49,14 @@ export function PreviewBadge() {
       aria-live="polite"
     >
       <Eye className="h-4 w-4" aria-hidden />
-      <span className="uppercase tracking-widest">Preview Mode — visible only to admin</span>
+      <span className="uppercase tracking-widest">{t("admin.previewModeBanner")}</span>
       <button
         type="button"
         onClick={backToAdmin}
         className="ml-2 inline-flex items-center gap-1 rounded-full bg-yellow-400 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black transition hover:bg-yellow-300"
       >
         <X className="h-3 w-3" aria-hidden />
-        Back to admin
+        {t("admin.backToAdmin")}
       </button>
     </div>
   );

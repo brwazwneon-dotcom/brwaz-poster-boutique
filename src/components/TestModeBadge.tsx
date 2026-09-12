@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useTestMode } from "@/lib/test-mode";
 import { FlaskConical, X } from "lucide-react";
 
@@ -7,15 +8,16 @@ import { FlaskConical, X } from "lucide-react";
  * on is flagged is_test = true and excluded from analytics/sales.
  */
 export function TestModeBadge() {
+  const { t } = useTranslation();
   const [on, setOn] = useTestMode();
   if (!on) return null;
   return (
     <div className="fixed bottom-4 left-4 z-[70] flex items-center gap-2 rounded-sm border border-primary/60 bg-black/85 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary shadow-[0_0_20px_rgba(255,215,0,0.25)] backdrop-blur">
       <FlaskConical className="h-3.5 w-3.5" />
-      <span>Test Mode · orders won't count</span>
+      <span>{t("admin.testModeBanner")}</span>
       <button
         onClick={() => setOn(false)}
-        title="Turn off test mode"
+        title={t("admin.turnOffTestMode")}
         className="ml-1 rounded p-0.5 text-primary/70 hover:bg-primary/10 hover:text-primary"
       >
         <X className="h-3 w-3" />

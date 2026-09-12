@@ -1,5 +1,6 @@
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
 import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
@@ -47,6 +48,7 @@ export const FramePreview = memo(function FramePreview({
   artwork,
   posterFallbackUrl,
 }: Props) {
+  const { t } = useTranslation();
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
@@ -209,7 +211,7 @@ export const FramePreview = memo(function FramePreview({
           <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Loading
+              {t("common.loading")}
             </span>
           </div>
         </div>

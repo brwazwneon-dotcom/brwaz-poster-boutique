@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FramePreview } from "@/components/FramePreview";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function FrameEditor({
   onChange,
   className,
 }: Props) {
+  const { t } = useTranslation();
   const [s, setS] = useState<EditSettings>(() =>
     value ? normalizeEditSettings(value) : { ...DEFAULT_EDIT_SETTINGS },
   );
@@ -117,21 +119,21 @@ export function FrameEditor({
           loading="eager"
         />
         <div className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/80 px-2 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-          <Move className="h-3 w-3" /> Drag · scroll to zoom
+          <Move className="h-3 w-3" /> {t("frameEditor.dragScrollHint")}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <ToggleBtn active={s.fit === "fit"} onClick={() => update({ fit: "fit" })}>
-          <Minimize2 className="h-3.5 w-3.5" /> Fit
+          <Minimize2 className="h-3.5 w-3.5" /> {t("frameEditor.fit")}
         </ToggleBtn>
         <ToggleBtn active={s.fit === "fill"} onClick={() => update({ fit: "fill" })}>
-          <Maximize2 className="h-3.5 w-3.5" /> Fill
+          <Maximize2 className="h-3.5 w-3.5" /> {t("frameEditor.fill")}
         </ToggleBtn>
       </div>
 
       <SliderRow
-        label="Zoom"
+        label={t("frameEditor.zoom")}
         value={s.zoom}
         min={0.3}
         max={4}
@@ -139,7 +141,7 @@ export function FrameEditor({
         onChange={(v) => update({ zoom: v })}
       />
       <SliderRow
-        label="Rotate"
+        label={t("frameEditor.rotate")}
         value={s.rotate}
         min={-180}
         max={180}
@@ -151,7 +153,7 @@ export function FrameEditor({
             type="button"
             onClick={() => update({ rotate: ((((s.rotate - 90) % 360) + 540) % 360) - 180 })}
             className="rounded-sm border border-border p-1 hover:bg-accent"
-            aria-label="Rotate left"
+            aria-label={t("frameEditor.rotateLeft")}
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
@@ -161,14 +163,14 @@ export function FrameEditor({
             type="button"
             onClick={() => update({ rotate: ((((s.rotate + 90) % 360) + 540) % 360) - 180 })}
             className="rounded-sm border border-border p-1 hover:bg-accent"
-            aria-label="Rotate right"
+            aria-label={t("frameEditor.rotateRight")}
           >
             <RotateCw className="h-3.5 w-3.5" />
           </button>
         }
       />
       <SliderRow
-        label="Stretch H"
+        label={t("frameEditor.stretchH")}
         value={s.stretchX}
         min={0.5}
         max={2}
@@ -176,7 +178,7 @@ export function FrameEditor({
         onChange={(v) => update({ stretchX: v })}
       />
       <SliderRow
-        label="Stretch V"
+        label={t("frameEditor.stretchV")}
         value={s.stretchY}
         min={0.5}
         max={2}
@@ -191,7 +193,7 @@ export function FrameEditor({
         className="w-full"
         onClick={() => update({ ...DEFAULT_EDIT_SETTINGS })}
       >
-        Reset
+        {t("frameEditor.reset")}
       </Button>
     </div>
   );

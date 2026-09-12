@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getPosterImagesPublic } from "@/lib/db-public.functions";
 import { FramePreview } from "@/components/FramePreview";
 import { FramedArtwork } from "@/components/FramedArtwork";
@@ -37,6 +38,7 @@ export function PosterGallery({
   color,
   editSettings,
 }: Props) {
+  const { t } = useTranslation();
   const { data: extras = [] } = useQuery({
     queryKey: ["poster_images", posterId],
     staleTime: 60_000,
@@ -46,12 +48,14 @@ export function PosterGallery({
   });
 
   const slides: Slide[] = useMemo(() => {
-    const base: Slide[] = [{ kind: "frame", url: posterUrl, label: "Frame Preview" }];
+    const base: Slide[] = [
+      { kind: "frame", url: posterUrl, label: t("posterGallery.framePreview") },
+    ];
     extras.forEach((e) => {
-      base.push({ kind: "image", url: e.image_url, label: e.label || e.kind || "Image" });
+      base.push({ kind: "image", url: e.image_url, label: e.label || e.kind || t("posterGallery.image") });
     });
     return base;
-  }, [extras, posterUrl]);
+  }, [extras, posterUrl, t]);
 
   // Product previews must always open on the real uploaded frame mockup.
   // Extra images remain selectable, but they are composited with the same
@@ -85,7 +89,7 @@ export function PosterGallery({
             <button
               type="button"
               onClick={() => go(-1)}
-              aria-label="Previous image"
+              aria-label={t("posterGallery.previousImage")}
               className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -93,7 +97,7 @@ export function PosterGallery({
             <button
               type="button"
               onClick={() => go(1)}
-              aria-label="Next image"
+              aria-label={t("posterGallery.nextImage")}
               className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
             >
               <ChevronRight className="h-5 w-5" />
@@ -104,7 +108,7 @@ export function PosterGallery({
         <button
           type="button"
           onClick={() => setZoomOpen(true)}
-          aria-label="Zoom image"
+          aria-label={t("posterGallery.zoomImage")}
           className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
         >
           <ZoomIn className="h-4 w-4" />
@@ -144,7 +148,7 @@ export function PosterGallery({
           onClick={() => setZoomOpen(false)}
         >
           <button
-            aria-label="Close zoom"
+            aria-label={t("posterGallery.closeZoom")}
             className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
             onClick={() => setZoomOpen(false)}
           >
@@ -176,6 +180,7 @@ function ZoomViewer({
   color: FrameColorId;
   editSettings?: unknown;
 }) {
+  const { t } = useTranslation();
   const [scale, setScale] = useState(1);
   return (
     <div
@@ -205,7 +210,7 @@ function ZoomViewer({
         />
       </div>
       <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-sm bg-background/85 px-2 py-1 text-[10px] uppercase tracking-widest">
-        Scroll or double-tap to zoom
+        {t("posterGallery.scrollHint")}
       </div>
     </div>
   );
