@@ -649,6 +649,15 @@ export const deletePosterImage = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Cheap URL-only listing across all poster gallery images — used by the
+// Media Library's orphan-detection cross-reference (it needs every
+// image_url a product's gallery references, not just its main image_url).
+export const listAllPosterImageUrlsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`select image_url from poster_images`;
+  });
+
 // ---------------------------------------------------------------
 // Landing Pages — ad campaign destinations (/landing/$audience)
 // ---------------------------------------------------------------

@@ -52,6 +52,7 @@ import {
   deletePosterImage,
   listLandingPagesAdmin,
   upsertLandingPage,
+  listAllPosterImageUrlsAdmin,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage, listMediaLibraryAdmin, deleteMediaAssetAdmin } from "@/lib/image-upload.functions";
 
@@ -2214,13 +2215,59 @@ function MediaLibraryTab() {
 
   useEffect(() => {
     (async () => {
-      const [products, banners] = await Promise.all([
+      // Every upload in this admin (products, gallery images, categories,
+      // hero banners, homepage slider, highlights, sets, custom offers,
+      // before/after, landing pages, frame mockups) goes through
+      // uploadPosterImage into the same "posters/" blob prefix that this
+      // library lists — so ALL of these must be cross-referenced, or
+      // legitimately-used images from every tab except Products/Hero
+      // Banners would incorrectly show up as "Unused".
+      const [
+        products,
+        posterImages,
+        banners,
+        categories,
+        sliderImages,
+        highlights,
+        sets,
+        customOffers,
+        beforeAfter,
+        landingPages,
+        settings,
+      ] = await Promise.all([
         listPostersAdmin({ data: {} }),
+        listAllPosterImageUrlsAdmin(),
         listHeroBannersAdmin(),
+        listCategoriesAdmin(),
+        listSliderImagesAdmin(),
+        listHighlightsAdmin(),
+        listSetsAdmin(),
+        listCustomOffersAdmin(),
+        listBeforeAfterAdmin(),
+        listLandingPagesAdmin(),
+        getAllSiteSettingsAdmin(),
       ]);
       const used = new Set<string>();
       for (const p of products as AdminPoster[]) used.add(p.image_url);
+      for (const pi of posterImages as Array<{ image_url: string }>) used.add(pi.image_url);
       for (const b of banners as AdminHeroBanner[]) used.add(b.image_url);
+      for (const c of categories as AdminCategory[]) if (c.image) used.add(c.image);
+      for (const s of sliderImages as AdminSliderImage[]) used.add(s.image_url);
+      for (const h of highlights as AdminHighlight[]) if (h.image_url) used.add(h.image_url);
+      for (const s of sets as AdminSet[]) if (s.image_url) used.add(s.image_url);
+      for (const o of customOffers as AdminCustomOffer[]) if (o.image_url) used.add(o.image_url);
+      for (const ba of beforeAfter as AdminBeforeAfter[]) {
+        used.add(ba.before_url);
+        used.add(ba.after_url);
+      }
+      for (const lp of landingPages as AdminLandingPage[]) if (lp.hero_image) used.add(lp.hero_image);
+      const settingsMap = new Map(
+        (settings as Array<{ key: string; value: unknown }>).map((r) => [r.key, r.value]),
+      );
+      for (const color of MOCKUP_COLORS) {
+        const mockup = parseMockup(settingsMap.get(MOCKUP_KEYS[color]), MOCKUP_DEFAULTS[color]);
+        if (mockup.image) used.add(mockup.image);
+      }
       setUsedUrls(used);
       await loadPage();
     })();
@@ -4052,6 +4099,21 @@ function SettingsTab() {
 
   if (values === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
 
+  // usePricing() (src/lib/use-settings.ts) reads this key live to decide
+  // whether the double-face-tape upsell prompt appears at checkout at all
+  // (src/routes/cart.tsx) — it had no admin input even though the price
+  // field right above it does, so the tape couldn't be turned off without
+  // a DB console. Persists immediately, like the feature-flag toggles below.
+  const tapeEnabled = values["double_face_tape_enabled"] !== "false" && values["double_face_tape_enabled"] !== "0";
+  const toggleTapeEnabled = async (checked: boolean) => {
+    setValues({ ...values, double_face_tape_enabled: String(checked) });
+    try {
+      await setSiteSetting({ data: { key: "double_face_tape_enabled", value: checked } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
   return (
     <div>
       <div className="max-w-md space-y-4">
@@ -4069,6 +4131,10 @@ function SettingsTab() {
             </button>
           </div>
         ))}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={tapeEnabled} onChange={(e) => toggleTapeEnabled(e.target.checked)} />
+          Offer double-face tape at checkout
+        </label>
       </div>
 
       <div className="mt-10 max-w-md border-t border-border pt-8">
