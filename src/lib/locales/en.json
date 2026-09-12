@@ -48,7 +48,8 @@
     "from": "from",
     "to": "to",
     "on": "on",
-    "off": "off"
+    "off": "off",
+    "clearAll": "Clear All"
   },
   "nav": {
     "home": "Home",
@@ -84,9 +85,13 @@
     "english": "English",
     "arabic": "العربية",
     "switchToArabic": "Switch to Arabic",
-    "switchToEnglish": "Switch to English"
+    "switchToEnglish": "Switch to English",
+    "whatsapp": "WhatsApp",
+    "whatsappOrder": "Order via WhatsApp",
+    "orGrabBundle": "Or grab a bundle deal ←"
   },
   "header": {
+    "search": "Search",
     "searchPlaceholder": "Search posters, categories...",
     "searchResults": "Search results",
     "trendingSearches": "Trending searches",
@@ -177,7 +182,9 @@
     "premiumQuality": "Premium Quality",
     "premiumQualityDesc": "Gallery-standard framing",
     "fastDelivery": "Fast Delivery",
-    "fastDeliveryDesc": "2-5 business days across Egypt"
+    "fastDeliveryDesc": "2-5 business days across Egypt",
+    "collection": "Collection",
+    "previewBeforePrinting": "Preview before printing"
   },
   "product": {
     "addToCart": "Add to Cart",
@@ -189,6 +196,8 @@
     "selectSize": "Select Size",
     "selectFrame": "Select Frame",
     "selectColor": "Select Color",
+    "decreaseQty": "Decrease quantity",
+    "increaseQty": "Increase quantity",
     "quantity": "Quantity",
     "price": "Price",
     "total": "Total",
@@ -269,7 +278,22 @@
     "frames_other": "frames",
     "yesAddDoubleFaceTape": "Yes, Add Double-Face Tape",
     "noContinueWithoutIt": "No, Continue Without It",
-    "continueWithoutIt": "Continue Without It"
+    "continueWithoutIt": "Continue Without It",
+    "remove": "Remove",
+    "confirmOrder": "Confirm Order",
+    "placingOrder": "Placing order...",
+    "fillDeliveryFields": "Please fill in all delivery fields",
+    "uploadPaymentScreenshot": "Please upload your payment screenshot",
+    "onlyJpgPngWebpPdf": "Only JPG, PNG, WEBP, or PDF files are allowed",
+    "maxFileSize": "Maximum file size is 10MB",
+    "phonePlaceholder": "01xxxxxxxxx",
+    "selectGovernorate": "Select governorate...",
+    "packagingFee": "Packaging Fee",
+    "doubleFaceTape": "Double-Face Tape",
+    "numberCopied": "Number copied",
+    "copy": "Copy",
+    "screenshotUpload": "Upload payment screenshot",
+    "screenshotHint": "Drag and drop or tap · JPG, PNG, WEBP, PDF · Max 10MB"
   },
   "checkout": {
     "title": "Checkout",
@@ -429,7 +453,19 @@
     "selected": "Selected",
     "customize": "Customize",
     "fromPrice": "From {price} EGP",
-    "addToCart": "Add {{count}} to Cart"
+    "addToCart": "Add {{count}} to Cart",
+    "all": "All",
+    "bestSeller": "Best Seller",
+    "couldNotLoad": "Couldn't load posters. Please try again.",
+    "retry": "Retry",
+    "selectPosters": "Select one or more posters",
+    "tapToSelect": "Tap images to select them, then choose frame, size, and color.",
+    "sameOptionsForAll": "Same options for all",
+    "editing": "Editing",
+    "step": "Step",
+    "moreIn": "More in",
+    "previousPoster": "Previous Poster",
+    "nextPoster": "Next Poster"
   },
   "offers": {
     "title": "Special Offers",
@@ -469,6 +505,15 @@
     "newest": "Newest",
     "mostPopular": "Most popular",
     "noResults": "No trending posters match your search yet."
+  },
+  "bestSellers": {
+    "heading": "Best Sellers",
+    "searchPlaceholder": "Search best sellers...",
+    "featuredOrder": "Featured order",
+    "newest": "Newest",
+    "mostPopular": "Most Popular",
+    "noResults": "No results match your search yet.",
+    "badge": "Best Seller"
   },
   "sets": {
     "curatedBundles": "Curated bundles",

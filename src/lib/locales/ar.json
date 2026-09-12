@@ -50,7 +50,6 @@
     "replace": "استبدال",
     "edit": "تعديل",
     "preview": "معاينة",
-    "done": "تم",
     "all": "الكل",
     "none": "لا شيء",
     "details": "التفاصيل",
@@ -103,6 +102,7 @@
     "instagram": "إنستغرام"
   },
   "header": {
+    "search": "بحث",
     "searchPlaceholder": "ابحث عن بوسترات، أقسام...",
     "searchResults": "نتائج البحث",
     "trendingSearches": "عمليات البحث الرائجة",
@@ -831,6 +831,7 @@
     "title": "الأكثر مبيعاً",
     "pageTitle": "الأكثر مبيعاً — بروا زينون",
     "description": "البوسترات الفاخرة الأكثر حباً. اختيارات التحرير الرائجة في مصر الآن.",
+    "heading": "الأكثر مبيعاً",
     "category": "الأكثر مبيعاً",
     "searchPlaceholder": "ابحث عن الأكثر مبيعاً...",
     "allCategories": "جميع الأقسام",
@@ -839,6 +840,7 @@
     "mostPopular": "الأكثر شهرة",
     "resultsCount": "{filtered} من {total}",
     "emptyState": "لا توجد نتائج تطابق بحثك بعد.",
+    "noResults": "لا توجد نتائج تطابق بحثك بعد.",
     "badge": "الأكثر مبيعاً",
     "egp": "جنيه"
   },
