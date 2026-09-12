@@ -6,6 +6,7 @@
  * `behavior.tracking_enabled` in `site_settings`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 import { isPreviewMode } from "@/lib/preview-mode";
 import { visitorId, detectDevice } from "@/lib/analytics";
 
@@ -36,15 +37,16 @@ export async function getBehaviorSettings(): Promise<BehaviorSettings> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("key,value")
-        .in("key", [
-          "behavior.tracking_enabled",
-          "behavior.personalization_enabled",
-          "behavior.retention_days",
-        ]);
-      const map = new Map((data ?? []).map((r) => [r.key, r.value as unknown]));
+      const settings = await getSiteSettingsPublic({
+        data: {
+          keys: [
+            "behavior.tracking_enabled",
+            "behavior.personalization_enabled",
+            "behavior.retention_days",
+          ],
+        },
+      });
+      const map = new Map(Object.entries(settings));
       const bool = (k: string, fallback: boolean) => {
         const v = map.get(k);
         if (typeof v === "boolean") return v;
