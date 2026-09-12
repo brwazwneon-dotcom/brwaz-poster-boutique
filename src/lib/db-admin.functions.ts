@@ -937,3 +937,15 @@ export const updateErrorLogStatus = createServerFn({ method: "POST" })
     await sql()`update system_logs set status = ${data.status} where id = ${data.id}`;
     return { ok: true };
   });
+
+// ---------------------------------------------------------------
+// AI (Gemini) key rotation status — for the bulk-upload AI assist.
+// Note: counters live in the serverless function's memory, so they
+// reset on cold start; this is a rough live view, not persisted history.
+// ---------------------------------------------------------------
+export const getGeminiKeysStatusAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    const { getGeminiKeysStatus } = await import("@/lib/gemini.server");
+    return getGeminiKeysStatus();
+  });

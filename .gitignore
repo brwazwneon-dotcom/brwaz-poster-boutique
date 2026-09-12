@@ -9,3 +9,5 @@ dist
 *.local
 *.log
 *.tgz
+
+.env*

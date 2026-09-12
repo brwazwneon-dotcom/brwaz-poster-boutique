@@ -26,6 +26,7 @@ import {
   getSystemHealthAdmin,
   listErrorLogsAdmin,
   updateErrorLogStatus,
+  getGeminiKeysStatusAdmin,
   listCustomersAdmin,
   listPhotoOrdersAdmin,
   updatePhotoOrderStatus,
@@ -4031,6 +4032,86 @@ type AdminErrorLog = {
   created_at: string;
 };
 
+type GeminiKeyStatusRow = {
+  label: string;
+  masked: string;
+  present: boolean;
+  state: "available" | "rate_limited" | "failed" | "disabled" | "unknown";
+  requests: number;
+  successes: number;
+  failures: number;
+};
+
+const KEY_STATE_COLOR: Record<GeminiKeyStatusRow["state"], string> = {
+  available: "text-green-500",
+  rate_limited: "text-yellow-500",
+  failed: "text-red-500",
+  disabled: "text-muted-foreground",
+  unknown: "text-muted-foreground",
+};
+
+function GeminiKeysStatusSection() {
+  const [keys, setKeys] = useState<GeminiKeyStatusRow[] | null>(null);
+
+  const load = async () => setKeys((await getGeminiKeysStatusAdmin()) as GeminiKeyStatusRow[]);
+  useEffect(() => {
+    load();
+    const id = window.setInterval(load, 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const present = keys?.filter((k) => k.present) ?? [];
+
+  return (
+    <div className="mb-6">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">AI image analysis keys (Gemini)</h3>
+        <button onClick={load} className="text-xs text-cyan-500 hover:underline">
+          Refresh
+        </button>
+      </div>
+      {keys === null ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : present.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No Gemini API keys configured — bulk upload AI title/SEO generation is disabled.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-sm border border-border">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-border bg-card uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Key</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Requests</th>
+                <th className="px-3 py-2">Success</th>
+                <th className="px-3 py-2">Failures</th>
+              </tr>
+            </thead>
+            <tbody>
+              {present.map((k) => (
+                <tr key={k.label} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2 font-mono">
+                    {k.label} <span className="text-muted-foreground">{k.masked}</span>
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${KEY_STATE_COLOR[k.state]}`}>{k.state}</td>
+                  <td className="px-3 py-2">{k.requests}</td>
+                  <td className="px-3 py-2">{k.successes}</td>
+                  <td className="px-3 py-2">{k.failures}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="border-t border-border bg-card p-2 text-[10px] text-muted-foreground">
+            Requests automatically rotate to the next key once one is rate-limited or fails — counts
+            reset when the server restarts, so treat this as a live snapshot, not full history.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SystemHealthTab() {
   const [stats, setStats] = useState<{
     posterCount: number;
@@ -4078,6 +4159,8 @@ function SystemHealthTab() {
           ))}
         </div>
       )}
+
+      <GeminiKeysStatusSection />
 
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Error logs</h3>
