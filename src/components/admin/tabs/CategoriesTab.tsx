@@ -5,6 +5,7 @@ import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCategory } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 export function CategoriesTab() {
   const confirm = useConfirm();
@@ -66,7 +67,7 @@ export function CategoriesTab() {
     load();
   };
 
-  if (categories === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (categories === null) return <LoadingRows />;
 
   return (
     <div>

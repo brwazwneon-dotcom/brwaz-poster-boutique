@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listReviewsAdmin, upsertReview, deleteReview } from "@/lib/db-admin.functions";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 type AdminReview = {
   id: string;
@@ -50,7 +51,7 @@ export function ReviewsTab() {
     load();
   };
 
-  if (reviews === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (reviews === null) return <LoadingRows />;
 
   return (
     <div>

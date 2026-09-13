@@ -6,6 +6,7 @@ import {
   upsertCustomerAdmin,
   SEGMENT_LABELS,
 } from "@/lib/db-admin.functions";
+import { LoadingRows, LoadingTiles } from "@/components/admin/layout/LoadingState";
 
 type AdminCustomer = {
   id: string;
@@ -80,7 +81,7 @@ export function CustomersTab() {
     });
   }, [customers, q, segmentFilter]);
 
-  if (customers === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (customers === null) return <LoadingRows />;
 
   return (
     <div>
@@ -256,7 +257,7 @@ function CustomerDetailPanel({
         </div>
 
         {!customer || !editing ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <LoadingTiles />
         ) : (
           <>
             <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -369,7 +370,7 @@ function CustomerDetailPanel({
               Order history
             </h4>
             {orders === null ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <LoadingRows count={3} />
             ) : orders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No orders yet.</p>
             ) : (

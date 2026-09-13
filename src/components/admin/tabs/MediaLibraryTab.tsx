@@ -28,6 +28,7 @@ import {
 } from "./shared";
 import { MOCKUP_COLORS } from "./FrameMockupsTab";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingGrid } from "@/components/admin/layout/LoadingState";
 
 type MediaBlob = { url: string; pathname: string; size: number; uploadedAt: string };
 
@@ -144,7 +145,7 @@ export function MediaLibraryTab() {
     }
   };
 
-  if (blobs === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (blobs === null) return <LoadingGrid />;
 
   const visible = onlyOrphaned ? blobs.filter((b) => !usedUrls.has(b.url)) : blobs;
 

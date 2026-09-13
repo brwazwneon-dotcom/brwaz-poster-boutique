@@ -11,6 +11,7 @@ import { optimizeImage } from "@/lib/image-optimize";
 import { landingUtmUrl } from "@/lib/landing-pages";
 import { fileToDataUrl, type AdminCategory, type AdminLandingPage } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 export function LandingPagesTab() {
   const confirm = useConfirm();
@@ -101,7 +102,7 @@ export function LandingPagesTab() {
     });
   };
 
-  if (pages === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (pages === null) return <LoadingRows />;
 
   return (
     <div>

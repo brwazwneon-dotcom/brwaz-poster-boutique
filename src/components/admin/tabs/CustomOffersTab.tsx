@@ -5,6 +5,7 @@ import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCustomOffer } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 export function CustomOffersTab() {
   const confirm = useConfirm();
@@ -57,7 +58,7 @@ export function CustomOffersTab() {
     load();
   };
 
-  if (offers === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (offers === null) return <LoadingRows />;
 
   return (
     <div>

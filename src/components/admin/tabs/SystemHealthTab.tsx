@@ -5,6 +5,7 @@ import {
   updateErrorLogStatus,
   getGeminiKeysStatusAdmin,
 } from "@/lib/db-admin.functions";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 type AdminErrorLog = {
   id: string;
@@ -57,7 +58,7 @@ function GeminiKeysStatusSection() {
         </button>
       </div>
       {keys === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingRows count={2} />
       ) : present.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No Gemini API keys configured — bulk upload AI title/SEO generation is disabled.
@@ -162,7 +163,7 @@ export function SystemHealthTab() {
       </div>
 
       {logs === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingRows />
       ) : logs.length === 0 ? (
         <p className="text-sm text-muted-foreground">No errors logged.</p>
       ) : (

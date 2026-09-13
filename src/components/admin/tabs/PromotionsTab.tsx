@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listCouponsAdmin, upsertCouponAdmin, deleteCouponAdmin } from "@/lib/db-admin.functions";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 type Coupon = {
   id: string;
@@ -182,7 +183,7 @@ export function PromotionsTab() {
       )}
 
       {coupons === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingRows />
       ) : coupons.length === 0 ? (
         <p className="text-sm text-muted-foreground">No coupons yet.</p>
       ) : (

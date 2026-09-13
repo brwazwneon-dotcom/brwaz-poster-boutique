@@ -9,6 +9,7 @@ import {
   type DashboardRange,
 } from "@/lib/db-admin.functions";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows, LoadingTiles } from "@/components/admin/layout/LoadingState";
 
 type Expense = {
   id: string;
@@ -104,7 +105,9 @@ export function FinanceTab() {
       </div>
 
       {report === null ? (
-        <p className="mb-6 text-sm text-muted-foreground">Loading…</p>
+        <div className="mb-6">
+          <LoadingTiles count={3} />
+        </div>
       ) : (
         <div className="mb-6">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -202,7 +205,7 @@ export function FinanceTab() {
       )}
 
       {expenses === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingRows />
       ) : expenses.length === 0 ? (
         <p className="text-sm text-muted-foreground">No expenses logged yet.</p>
       ) : (

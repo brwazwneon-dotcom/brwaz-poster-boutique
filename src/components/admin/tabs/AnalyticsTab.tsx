@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAnalyticsOverviewAdmin } from "@/lib/db-admin.functions";
+import { LoadingTiles } from "@/components/admin/layout/LoadingState";
 
 type AnalyticsData = Awaited<ReturnType<typeof getAnalyticsOverviewAdmin>>;
 
@@ -38,7 +39,7 @@ export function AnalyticsTab() {
       </div>
 
       {data === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingTiles />
       ) : (
         <>
           <p className="mb-4 text-xs text-muted-foreground">

@@ -5,6 +5,7 @@ import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminSet } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 export function SetsTab() {
   const confirm = useConfirm();
@@ -56,7 +57,7 @@ export function SetsTab() {
     load();
   };
 
-  if (sets === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (sets === null) return <LoadingRows />;
 
   return (
     <div>

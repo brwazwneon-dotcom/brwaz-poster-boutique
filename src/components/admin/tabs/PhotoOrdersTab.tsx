@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { listPhotoOrdersAdmin, updatePhotoOrderStatus } from "@/lib/db-admin.functions";
 import { customerWhatsappLink } from "./shared";
 import { ORDER_STATUSES } from "./OrdersTab";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 type AdminPhotoOrder = {
   id: string;
@@ -43,7 +44,7 @@ export function PhotoOrdersTab() {
     }
   };
 
-  if (orders === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (orders === null) return <LoadingRows />;
 
   return (
     <div>

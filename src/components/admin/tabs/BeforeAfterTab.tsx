@@ -5,6 +5,7 @@ import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminBeforeAfter } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 const BEFORE_AFTER_LOCATIONS = ["homepage", "product", "photo-printing", "custom-design"] as const;
 
@@ -61,7 +62,7 @@ export function BeforeAfterTab() {
     load();
   };
 
-  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (items === null) return <LoadingRows />;
 
   return (
     <div>

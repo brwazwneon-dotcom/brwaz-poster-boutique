@@ -36,6 +36,7 @@ import {
 } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { HomepageLayoutSection } from "./HomepageLayoutSection";
+import { LoadingRows, LoadingForm } from "@/components/admin/layout/LoadingState";
 
 // Shared by both the Hero Banner and Homepage Slider upload flows below —
 // both are full-bleed, above-the-fold images where "high quality" and
@@ -132,7 +133,7 @@ export function HomepageTab() {
     load();
   };
 
-  if (banners === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (banners === null) return <LoadingRows />;
 
   return (
     <div>
@@ -323,7 +324,7 @@ function SliderImagesSection() {
     load();
   };
 
-  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (items === null) return <LoadingRows />;
 
   return (
     <div>
@@ -485,7 +486,7 @@ function HighlightsSection() {
     load();
   };
 
-  if (items === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (items === null) return <LoadingRows />;
 
   return (
     <div>
@@ -626,7 +627,7 @@ function TrustFaqSection() {
     }
   };
 
-  if (content === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (content === null) return <LoadingForm />;
 
   const updatePoint = (id: string, patch: Partial<TrustPoint>) => {
     save({

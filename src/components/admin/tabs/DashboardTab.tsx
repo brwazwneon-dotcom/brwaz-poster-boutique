@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { getExecutiveDashboardAdmin, getAlertsAdmin, type DashboardRange, type AdminAlert } from "@/lib/db-admin.functions";
 import type { Tab } from "@/components/admin/layout/nav-config";
+import { LoadingTiles } from "@/components/admin/layout/LoadingState";
 
 type DashboardData = Awaited<ReturnType<typeof getExecutiveDashboardAdmin>>;
 
@@ -125,7 +126,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
       </div>
 
       {data === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LoadingTiles />
       ) : (
         <>
           <p className="mb-4 text-xs text-muted-foreground">

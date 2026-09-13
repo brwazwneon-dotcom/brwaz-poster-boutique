@@ -27,6 +27,7 @@ import { bucketAspect, computeMockupFit, friendlyRatio, type AspectBucket, type 
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { fileToDataUrl, type AdminCategory, type AdminPoster } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
 // Inlined from src/lib/ai-review.ts's pure logic (not imported directly —
 // that file also exports a Supabase-backed hook, and importing it would
@@ -717,7 +718,7 @@ export function ProductsTab() {
     }
   };
 
-  if (products === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (products === null) return <LoadingRows />;
 
   const visibleProducts = onlyNeedsReview
     ? products.filter((p) => p.review_status !== "approved")

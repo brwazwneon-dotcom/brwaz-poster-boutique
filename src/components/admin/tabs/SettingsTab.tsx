@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { getAllSiteSettingsAdmin, setSiteSetting } from "@/lib/db-admin.functions";
 import { AdminThemeToggle } from "@/components/admin/layout/AdminThemeToggle";
 import { useAdminTheme } from "@/components/admin/layout/AdminThemeProvider";
+import { LoadingForm } from "@/components/admin/layout/LoadingState";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
 import {
   GRID_DISPLAY_MODE_KEY,
@@ -65,7 +66,7 @@ export function SettingsTab() {
     }
   };
 
-  if (values === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (values === null) return <LoadingForm />;
 
   // usePricing() (src/lib/use-settings.ts) reads this key live to decide
   // whether the double-face-tape upsell prompt appears at checkout at all
@@ -186,7 +187,7 @@ function StorefrontConfigSection() {
     });
   };
 
-  if (!loaded) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!loaded) return <LoadingForm />;
 
   return (
     <div className="space-y-8">
@@ -343,7 +344,7 @@ function FeatureFlagsSection() {
     }
   };
 
-  if (flags === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (flags === null) return <LoadingForm />;
 
   return (
     <div>

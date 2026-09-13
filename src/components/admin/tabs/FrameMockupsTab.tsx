@@ -11,6 +11,7 @@ import {
   type FrameMockups,
 } from "@/lib/use-settings";
 import { fileToDataUrl, type AdminPoster } from "./shared";
+import { LoadingForm } from "@/components/admin/layout/LoadingState";
 
 export const MOCKUP_COLORS: Array<keyof FrameMockups> = ["black", "white", "wood"];
 
@@ -138,7 +139,7 @@ export function FrameMockupsTab() {
     }
   };
 
-  if (mockups === null || !current) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (mockups === null || !current) return <LoadingForm />;
 
   return (
     <div>
