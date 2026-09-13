@@ -80,11 +80,24 @@ export const Route = createFileRoute("/category/$slug")({
     // available in the initial render instead of only after a client round
     // trip. Does not touch the product grid itself — useInfiniteProducts
     // stays client-driven, this only fixes the category-resolution half.
-    await context.queryClient.ensureQueryData({
+    //
+    // This also populates useCategories()'s react-query cache, but that
+    // cache lives in a QueryClient created fresh per environment (see
+    // getRouter() in src/router.tsx) — there's no dehydration bridging the
+    // server's populated cache to the client's empty one, so useCategories()
+    // alone would resolve to two different values on the server's render
+    // and the client's first paint: a real, reproducible hydration
+    // mismatch. Returning the same data as loaderData sidesteps that,
+    // since TanStack Router already serializes loaderData to the client
+    // reliably (the same mechanism poster.$slug.tsx relies on) — the
+    // component below falls back to it until useCategories() itself
+    // resolves on the client.
+    const categories = await context.queryClient.ensureQueryData({
       queryKey: CATEGORIES_QUERY_KEY,
       queryFn: fetchCategories,
       staleTime: 60_000,
     });
+    return { categories };
   },
   head: ({ params }) => {
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -138,7 +151,12 @@ export const Route = createFileRoute("/category/$slug")({
 function CategoryPage() {
   const { slug } = Route.useParams();
   const isCustomSlug = slug === "custom";
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { categories: loaderCategories } = Route.useLoaderData();
+  // Falls back to the loader's data (identical on server and client — see
+  // the loader's own comment) until this client-only query resolves, so
+  // the very first client render matches what the server sent instead of
+  // briefly rendering with an empty categories list.
+  const { data: categories = loaderCategories, isLoading: categoriesLoading } = useCategories();
 
   // Resolved from the already-fetched categories list rather than its own
   // query — same data, one less round trip, and it was the last direct
