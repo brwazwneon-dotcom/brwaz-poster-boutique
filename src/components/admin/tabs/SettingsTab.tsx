@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getAllSiteSettingsAdmin, setSiteSetting } from "@/lib/db-admin.functions";
+import { AdminThemeToggle } from "@/components/admin/layout/AdminThemeToggle";
+import { useAdminTheme } from "@/components/admin/layout/AdminThemeProvider";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
 import {
   GRID_DISPLAY_MODE_KEY,
@@ -109,6 +111,10 @@ export function SettingsTab() {
 
       <div className="mt-10 max-w-md border-t border-border pt-8">
         <StorefrontConfigSection />
+      </div>
+
+      <div className="mt-10 max-w-md border-t border-border pt-8">
+        <AppearanceSection />
       </div>
     </div>
   );
@@ -360,6 +366,54 @@ function FeatureFlagsSection() {
             />
           </label>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function AppearanceSection() {
+  const { mode } = useAdminTheme();
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold">Appearance</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Admin theme — this only changes how the dashboard looks in your browser, not the
+        storefront. The website's own theme editor (brand colors, draft/publish, versioning)
+        is a separate, larger piece of work that hasn't been built yet.
+      </p>
+
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-sm border border-border p-3">
+        <div>
+          <span className="block text-sm">Admin theme</span>
+          <span className="block text-xs text-muted-foreground">
+            {mode === "system" ? "Follows your OS setting" : mode === "light" ? "Always light" : "Always dark"}
+          </span>
+        </div>
+        <AdminThemeToggle />
+      </div>
+
+      <div className="mt-3 flex gap-2 overflow-x-auto rounded-sm border border-border bg-muted/30 p-3">
+        <div className="flex min-w-24 flex-col items-center gap-1">
+          <div className="h-10 w-full rounded-sm border border-border bg-background" />
+          <span className="text-[10px] text-muted-foreground">Background</span>
+        </div>
+        <div className="flex min-w-24 flex-col items-center gap-1">
+          <div className="h-10 w-full rounded-sm border border-border bg-card" />
+          <span className="text-[10px] text-muted-foreground">Card</span>
+        </div>
+        <div className="flex min-w-24 flex-col items-center gap-1">
+          <div className="h-10 w-full rounded-sm bg-primary" />
+          <span className="text-[10px] text-muted-foreground">Primary</span>
+        </div>
+        <div className="flex min-w-24 flex-col items-center gap-1">
+          <div className="h-10 w-full rounded-sm bg-accent" />
+          <span className="text-[10px] text-muted-foreground">Accent</span>
+        </div>
+        <div className="flex min-w-24 flex-col items-center gap-1">
+          <div className="h-10 w-full rounded-sm border-2 border-ring" />
+          <span className="text-[10px] text-muted-foreground">Ring</span>
+        </div>
       </div>
     </div>
   );

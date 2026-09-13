@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { findNavItem, type Tab } from "./nav-config";
+import { AdminThemeToggle } from "./AdminThemeToggle";
 
 export function AdminTopbar({
   activeTab,
@@ -82,6 +83,8 @@ export function AdminTopbar({
         <ExternalLink className="h-3.5 w-3.5" />
         View website
       </a>
+
+      <AdminThemeToggle compact />
 
       <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
         <DropdownMenuTrigger asChild>

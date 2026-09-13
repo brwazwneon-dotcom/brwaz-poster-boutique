@@ -170,6 +170,77 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* ── Admin-only light theme ────────────────────────────────────────── *
+ * Scoped to [data-admin-theme], set by AdminThemeProvider on a wrapper  *
+ * div around the admin dashboard only — never touches :root, so it     *
+ * can't leak into the storefront (which has no light mode yet; that's  *
+ * a separate, server-controlled theme engine, not this local toggle).  *
+ * The accent/ring carry the brand's existing cyan (#00bee8, already    *
+ * used by the storefront's gallery-white layer) instead of a neutral   *
+ * grey, so "light" reads as chosen rather than a bare palette flip.    *
+ * ───────────────────────────────────────────────────────────────────── */
+[data-admin-theme="light"] {
+  --background: oklch(0.995 0 0);
+  --foreground: oklch(0.16 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0 0);
+  --primary: oklch(0.16 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0 0);
+  --secondary-foreground: oklch(0.16 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.46 0 0);
+  --accent: oklch(0.94 0.03 215);
+  --accent-foreground: oklch(0.16 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.93 0 0);
+  --ring: oklch(0.62 0.09 215);
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.16 0 0);
+  --sidebar-primary: oklch(0.16 0 0);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.92 0.035 215);
+  --sidebar-accent-foreground: oklch(0.16 0 0);
+  --sidebar-border: oklch(0.89 0 0);
+  --sidebar-ring: oklch(0.62 0.09 215);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-admin-theme="system"] {
+    --background: oklch(0.995 0 0);
+    --foreground: oklch(0.16 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.16 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.16 0 0);
+    --primary: oklch(0.16 0 0);
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.95 0 0);
+    --secondary-foreground: oklch(0.16 0 0);
+    --muted: oklch(0.96 0 0);
+    --muted-foreground: oklch(0.46 0 0);
+    --accent: oklch(0.94 0.03 215);
+    --accent-foreground: oklch(0.16 0 0);
+    --destructive: oklch(0.58 0.22 27);
+    --destructive-foreground: oklch(0.99 0 0);
+    --border: oklch(0.89 0 0);
+    --input: oklch(0.93 0 0);
+    --ring: oklch(0.62 0.09 215);
+    --sidebar: oklch(0.975 0 0);
+    --sidebar-foreground: oklch(0.16 0 0);
+    --sidebar-primary: oklch(0.16 0 0);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.92 0.035 215);
+    --sidebar-accent-foreground: oklch(0.16 0 0);
+    --sidebar-border: oklch(0.89 0 0);
+    --sidebar-ring: oklch(0.62 0.09 215);
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
