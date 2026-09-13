@@ -748,6 +748,10 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const reviewStatusSent = typeof data.review_status === "string" && data.review_status ? data.review_status : null;
     const originalUrlSent =
       typeof data.original_url === "string" && data.original_url ? data.original_url : null;
+    const webpSrcsetSent =
+      typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
+    const avifSrcsetSent =
+      typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
     const editSettingsSent =
       data.edit_settings && typeof data.edit_settings === "object"
         ? JSON.stringify(data.edit_settings)
@@ -762,6 +766,8 @@ export const upsertPoster = createServerFn({ method: "POST" })
             seo_title = ${seoTitle}, seo_description = ${seoDescription}, alt_text = ${altText},
             review_status = case when ${reviewStatusSent !== null} then ${reviewStatusSent} else review_status end,
             original_url = case when ${originalUrlSent !== null} then ${originalUrlSent} else original_url end,
+            webp_srcset = case when ${webpSrcsetSent !== null} then ${webpSrcsetSent} else webp_srcset end,
+            avif_srcset = case when ${avifSrcsetSent !== null} then ${avifSrcsetSent} else avif_srcset end,
             edit_settings = case when ${editSettingsSent !== null} then ${editSettingsSent}::jsonb else edit_settings end,
             updated_at = now()
         where id = ${id}
@@ -773,12 +779,13 @@ export const upsertPoster = createServerFn({ method: "POST" })
       insert into posters (
         title, slug, description, image_url, category_id, tags, badge, hidden, featured,
         trending, is_best_seller, seo_title, seo_description, alt_text, review_status,
-        original_url, edit_settings
+        original_url, webp_srcset, avif_srcset, edit_settings
       )
       values (
         ${title}, ${candidateSlug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
         ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
-        ${reviewStatusSent ?? "approved"}, ${originalUrlSent}, ${(editSettingsSent ?? "{}")}::jsonb
+        ${reviewStatusSent ?? "approved"}, ${originalUrlSent}, ${webpSrcsetSent}, ${avifSrcsetSent},
+        ${(editSettingsSent ?? "{}")}::jsonb
       )
       returning id
     `);

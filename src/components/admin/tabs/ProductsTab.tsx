@@ -14,6 +14,7 @@ import {
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
+import { uploadResponsiveSrcSets } from "@/lib/responsive-image";
 import { FramePreview } from "@/components/FramePreview";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import {
@@ -388,9 +389,17 @@ export function ProductsTab() {
         fileToDataUrl(optimized),
         fileToDataUrl(item.file),
       ]);
-      const [{ url: imageUrl }, { url: originalUrl }] = await Promise.all([
+      const [{ url: imageUrl }, { url: originalUrl }, { webp_srcset, avif_srcset }] = await Promise.all([
         uploadPosterImage({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
         uploadPosterImage({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
+        // Generated from `toOptimize` (the full-quality, possibly-edited
+        // source) rather than the already-downscaled `optimized` JPEG, so
+        // the largest srcset variant stays as sharp as the source allows —
+        // this is the fix for both "products load slow in the category
+        // grid" and the "LOADING..." spinner on selecting a product: every
+        // card and preview was shipping this same full-resolution upload
+        // to a ~200-300px slot with no resized/modern-format alternative.
+        uploadResponsiveSrcSets(toOptimize, uploadPosterImage),
       ]);
 
       const hasSubs = categoriesRef.current.some((c) => c.parent_id === item.categoryId);
@@ -408,6 +417,8 @@ export function ProductsTab() {
           title: item.title || filenameToTitle(item.file.name),
           image_url: imageUrl,
           original_url: originalUrl,
+          webp_srcset,
+          avif_srcset,
           edit_settings: item.editSettings ?? DEFAULT_EDIT_SETTINGS,
           category_id: item.subCategoryId ?? item.categoryId ?? null,
           badge: item.badge,

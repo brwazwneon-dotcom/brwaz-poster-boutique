@@ -42,7 +42,6 @@ import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Minus, Plus, Truck, Clock } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { resolveProductArtwork, usePosterPreviews } from "@/lib/public-images";
 import { useTranslation } from "react-i18next";
 import { StickyProductBar, type BarAction } from "@/components/StickyProductBar";
 import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
@@ -53,6 +52,8 @@ export type Poster = {
   id: string;
   title: string;
   image_url?: string;
+  webp_srcset?: string | null;
+  avif_srcset?: string | null;
   category_id: string | null;
   tags?: string[] | null;
   edit_settings?: unknown;
@@ -221,6 +222,8 @@ function CategoryPage() {
               id: p.id,
               title: p.title,
               image_url: p.cardArtworkUrl,
+              webp_srcset: p.webpSrcSet,
+              avif_srcset: p.avifSrcSet,
               category_id: p.categoryId,
               badge: p.badge,
               sales_count: p.salesCount,
@@ -230,7 +233,6 @@ function CategoryPage() {
         ),
     [selectedIds, products],
   );
-  const selectedPreviewMap = usePosterPreviews(selectedPosters.map((p) => p.id));
 
   if (isCustomSlug) {
     return <Navigate to="/custom-design" replace />;
@@ -365,7 +367,6 @@ function CategoryPage() {
             {selectedPosters.length > 0 && category ? (
               <Customizer
                 posters={selectedPosters}
-                imageMap={selectedPreviewMap}
                 category={category}
                 onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
                 onClear={() => setSelectedIds([])}
@@ -390,7 +391,6 @@ function CategoryPage() {
           {selectedPosters.length > 0 && category && (
             <MobileCustomizerBar
               posters={selectedPosters}
-              imageMap={selectedPreviewMap}
               category={category}
               onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
               onClear={() => setSelectedIds([])}
@@ -436,13 +436,11 @@ function CategoryPage() {
 
 export function Customizer({
   posters,
-  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
-  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -550,7 +548,7 @@ export function Customizer({
         add({
           posterId: poster.id,
           title: poster.title,
-          image: resolveProductArtwork(poster, imageMap),
+          image: poster.image_url ?? "",
           categoryId: category.id,
           categoryName: category.name,
           frameType: s.frameType,
@@ -606,7 +604,9 @@ export function Customizer({
             <PosterGallery
               key={primary.id}
               posterId={primary.id}
-              posterUrl={resolveProductArtwork(primary, imageMap)}
+              posterUrl={primary.image_url ?? ""}
+              avifSrcSet={primary.avif_srcset ?? undefined}
+              webpSrcSet={primary.webp_srcset ?? undefined}
               title={primary.title}
               frameType={current.frameType}
               color={current.color}
@@ -667,7 +667,9 @@ export function Customizer({
                     className="absolute inset-0 z-10"
                   />
                   <FramedArtwork
-                    posterUrl={resolveProductArtwork(p, imageMap)}
+                    posterUrl={p.image_url ?? ""}
+                    avifSrcSet={p.avif_srcset ?? undefined}
+                    webpSrcSet={p.webp_srcset ?? undefined}
                     title={p.title}
                     frameType={s.frameType}
                     color={s.color}
@@ -825,13 +827,11 @@ export function Customizer({
 
 function MobileCustomizerBar({
   posters,
-  imageMap,
   category,
   onRemove,
   onClear,
 }: {
   posters: Poster[];
-  imageMap: Record<string, string>;
   category: Category;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -872,7 +872,6 @@ function MobileCustomizerBar({
         <div className="h-full">
           <Customizer
             posters={posters}
-            imageMap={imageMap}
             category={category}
             onRemove={onRemove}
             onClear={() => {

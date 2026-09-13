@@ -42,6 +42,8 @@ export type DbPoster = {
   seo_title: string | null;
   seo_description: string | null;
   alt_text: string | null;
+  webp_srcset: string | null;
+  avif_srcset: string | null;
 };
 
 export async function fetchPosterBySlugFromDb(slug: string): Promise<DbPoster | null> {
@@ -49,7 +51,7 @@ export async function fetchPosterBySlugFromDb(slug: string): Promise<DbPoster | 
     select id, title, slug, description, image_url, category_id, tags, badge,
            sales_count, views_count, is_best_seller, hidden, trending,
            trending_order, pinned, sort_order, created_at, edit_settings,
-           seo_title, seo_description, alt_text
+           seo_title, seo_description, alt_text, webp_srcset, avif_srcset
     from posters
     where slug = ${slug} and hidden = false
     limit 1
@@ -96,7 +98,7 @@ export async function fetchPostersByCategoryFromDb(
     `select id, title, slug, description, image_url, category_id, tags, badge,
             sales_count, views_count, is_best_seller, hidden, trending,
             trending_order, pinned, sort_order, created_at, edit_settings,
-            seo_title, seo_description, alt_text
+            seo_title, seo_description, alt_text, webp_srcset, avif_srcset
      from posters
      where category_id = any($1) and hidden = false
      order by ${orderBy}
@@ -211,14 +213,29 @@ export async function fetchPostersByIdsFromDb(ids: string[]): Promise<PosterById
   return rows as unknown as PosterByIdRow[];
 }
 
-export async function fetchPosterImagesByIdsFromDb(ids: string[]): Promise<Record<string, string>> {
+export type PosterImageVariantRow = {
+  url: string;
+  webpSrcSet: string | null;
+  avifSrcSet: string | null;
+};
+
+export async function fetchPosterImagesByIdsFromDb(
+  ids: string[],
+): Promise<Record<string, PosterImageVariantRow>> {
   if (ids.length === 0) return {};
   const rows = await sql()`
-    select id, image_url from posters where id = any(${ids})
+    select id, image_url, webp_srcset, avif_srcset from posters where id = any(${ids})
   `;
-  const out: Record<string, string> = {};
-  for (const row of rows as Array<{ id: string; image_url: string | null }>) {
-    if (row.image_url) out[row.id] = row.image_url;
+  const out: Record<string, PosterImageVariantRow> = {};
+  for (const row of rows as Array<{
+    id: string;
+    image_url: string | null;
+    webp_srcset: string | null;
+    avif_srcset: string | null;
+  }>) {
+    if (row.image_url) {
+      out[row.id] = { url: row.image_url, webpSrcSet: row.webp_srcset, avifSrcSet: row.avif_srcset };
+    }
   }
   return out;
 }

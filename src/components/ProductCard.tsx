@@ -53,6 +53,9 @@ export const ProductCard = memo(function ProductCard({
       <FramePreview
         posterUrl={safeUrl}
         posterFallbackUrl={fallbackUrl}
+        avifSrcSet={product.avifSrcSet ?? undefined}
+        webpSrcSet={product.webpSrcSet ?? undefined}
+        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw"
         title={product.title}
         color={gridMode}
         loading={gridIndex < 4 ? "eager" : "lazy"}

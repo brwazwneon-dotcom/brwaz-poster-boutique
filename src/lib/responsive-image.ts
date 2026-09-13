@@ -133,3 +133,46 @@ export function blobToFile(blob: Blob, name: string): File {
 export function buildSrcSet(variants: { width: number; url: string }[]): string {
   return variants.map((v) => `${v.url} ${v.width}w`).join(", ");
 }
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Shared by every upload flow that needs a responsive srcset (admin Homepage
+ * banners/slider, Products bulk upload): generates WebP/AVIF variants from
+ * `file`, uploads each via `uploadPosterImage`, and returns ready-to-store
+ * srcset strings (null when a format produced no variants, e.g. SVG/GIF
+ * sources or browsers that can't encode AVIF).
+ */
+export async function uploadResponsiveSrcSets(
+  file: File,
+  uploadPosterImage: (args: {
+    data: { dataUrl: string; filename: string };
+  }) => Promise<{ url: string }>,
+): Promise<{ webp_srcset: string | null; avif_srcset: string | null }> {
+  const { webp, avif } = await generateResponsiveImageSet(file);
+  const base = file.name.replace(/\.[^.]+$/, "");
+
+  const uploadVariant = async (v: ResponsiveVariant, ext: string) => {
+    const variantFile = blobToFile(v.blob, `${base}-${v.width}w.${ext}`);
+    const dataUrl = await fileToDataUrl(variantFile);
+    const { url } = await uploadPosterImage({ data: { dataUrl, filename: variantFile.name } });
+    return { width: v.width, url };
+  };
+
+  const [webpUploaded, avifUploaded] = await Promise.all([
+    Promise.all(webp.map((v) => uploadVariant(v, "webp"))),
+    Promise.all(avif.map((v) => uploadVariant(v, "avif"))),
+  ]);
+
+  return {
+    webp_srcset: webpUploaded.length ? buildSrcSet(webpUploaded) : null,
+    avif_srcset: avifUploaded.length ? buildSrcSet(avifUploaded) : null,
+  };
+}

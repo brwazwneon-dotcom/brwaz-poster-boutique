@@ -24,6 +24,8 @@ type Slide =
 type Props = {
   posterId: string;
   posterUrl: string;
+  avifSrcSet?: string;
+  webpSrcSet?: string;
   title: string;
   frameType: FrameTypeId;
   color: FrameColorId;
@@ -33,6 +35,8 @@ type Props = {
 export function PosterGallery({
   posterId,
   posterUrl,
+  avifSrcSet,
+  webpSrcSet,
   title,
   frameType,
   color,
@@ -77,6 +81,9 @@ export function PosterGallery({
       <div className="relative">
         <FramePreview
           posterUrl={current.url}
+          avifSrcSet={current.kind === "frame" ? avifSrcSet : undefined}
+          webpSrcSet={current.kind === "frame" ? webpSrcSet : undefined}
+          sizes="(max-width: 640px) 90vw, min(340px, 36vh)"
           title={current.kind === "frame" ? title : `${title} — ${current.label}`}
           frameType={frameType}
           color={color}

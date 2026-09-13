@@ -13,6 +13,8 @@ export type NormalizedProduct = {
   viewsCount?: number | null;
   isBestSeller?: boolean | null;
   image_url?: string | null;
+  webpSrcSet?: string | null;
+  avifSrcSet?: string | null;
 };
 
 export type SortConfig = {
@@ -70,9 +72,6 @@ export function useInfiniteProducts(categoryIds: string[], sortConfig: SortConfi
       const normalized: NormalizedProduct[] = rows.map((r) => ({
         id: r.id,
         title: r.title,
-        // No image_variants pipeline yet on the new database (Phase 4) —
-        // every card falls back to the original image_url directly, same
-        // as this hook already did when no thumbnail variant existed.
         cardArtworkUrl: r.image_url ?? "",
         fallbackArtworkUrl: r.image_url ?? "",
         categoryId: r.category_id,
@@ -81,6 +80,8 @@ export function useInfiniteProducts(categoryIds: string[], sortConfig: SortConfi
         viewsCount: r.views_count,
         isBestSeller: r.is_best_seller,
         image_url: r.image_url,
+        webpSrcSet: r.webp_srcset,
+        avifSrcSet: r.avif_srcset,
       }));
 
       setProducts((prev) => {

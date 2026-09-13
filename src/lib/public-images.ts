@@ -23,7 +23,6 @@ export type ResponsiveMap = Record<string, ResponsivePosterImage>;
 // render, the effect re-runs, and if that effect also calls setState you
 // get a render loop (`Maximum update depth exceeded`). See WallOfInspiration
 // and HeroBannerSlider fixes from the same audit for a hit of this pattern.
-const EMPTY_VARIANT_MAP: VariantMap = {};
 const EMPTY_RESPONSIVE_MAP: ResponsiveMap = {};
 
 export function resolveProductArtwork(
@@ -40,12 +39,16 @@ export function resolveProductArtwork(
 /**
  * Public storefront image rule: use generated display variants only.
  *
- * TEMPORARY (Phase 1, no image_variants pipeline yet on the new database):
- * returns each poster's plain image_url directly, ignoring variant/format —
- * there is only one image per poster today, uploaded as a URL by the admin.
- * Once Phase 4 adds real AVIF/WebP variant generation, only the queryFn
- * body below needs to change back to a real variant lookup — every caller
- * of this hook stays the same.
+ * Backed by posters.webp_srcset/avif_srcset (admin-generated at upload
+ * time — see src/lib/responsive-image.ts) instead of discrete named sizes:
+ * a srcset already lets the browser pick the right width, so "thumb" vs
+ * "small" vs "medium" vs "large" no longer need separate server-generated
+ * files — every variant param below resolves to the same underlying
+ * responsive image, sized by whatever `sizes` the caller passes it in
+ * (see usePosterResponsiveImages). Returns a ResponsiveMap so existing
+ * resolveProductArtwork() callers keep working unchanged (it already reads
+ * `.src` off either a plain string or an object) while new call sites can
+ * read `.webpSrcSet`/`.avifSrcSet` straight off the same map.
  */
 export function usePosterImageVariants(
   ids: string[],
@@ -54,13 +57,23 @@ export function usePosterImageVariants(
 ) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   const key = uniqueIds.join(",");
-  const { data = EMPTY_VARIANT_MAP } = useQuery({
+  const { data = EMPTY_RESPONSIVE_MAP } = useQuery({
     queryKey: ["public-poster-image-variants", variant, format, key],
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
-    queryFn: async (): Promise<Record<string, string>> => {
-      return getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
+    queryFn: async (): Promise<ResponsiveMap> => {
+      const rows = await getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
+      const out: ResponsiveMap = {};
+      for (const [id, row] of Object.entries(rows)) {
+        out[id] = {
+          src: row.url,
+          webpSrcSet: row.webpSrcSet ?? undefined,
+          avifSrcSet: row.avifSrcSet ?? undefined,
+          sizes: "(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw",
+        };
+      }
+      return out;
     },
   });
   return data;
@@ -70,10 +83,6 @@ export const usePosterThumbs = (ids: string[]) => usePosterImageVariants(ids, "t
 export const usePosterSmalls = (ids: string[]) => usePosterImageVariants(ids, "small");
 export const usePosterPreviews = (ids: string[]) => usePosterImageVariants(ids, "medium");
 
-/**
- * TEMPORARY (Phase 1, see usePosterImageVariants above): no srcset yet,
- * every poster resolves to a single plain image_url as `src`.
- */
 export function usePosterResponsiveImages(
   ids: string[],
   sizes = "(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw",
@@ -86,10 +95,15 @@ export function usePosterResponsiveImages(
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<Record<string, ResponsivePosterImage>> => {
-      const urls = await getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
+      const rows = await getPosterImagesByIdsPublic({ data: { ids: uniqueIds } });
       const out: Record<string, ResponsivePosterImage> = {};
-      for (const id of uniqueIds) {
-        if (urls[id]) out[id] = { src: urls[id], sizes };
+      for (const [id, row] of Object.entries(rows)) {
+        out[id] = {
+          src: row.url,
+          webpSrcSet: row.webpSrcSet ?? undefined,
+          avifSrcSet: row.avifSrcSet ?? undefined,
+          sizes,
+        };
       }
       return out;
     },

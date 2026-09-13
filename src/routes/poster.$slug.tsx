@@ -19,7 +19,6 @@ import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
-import { resolveProductArtwork, usePosterPreviews } from "@/lib/public-images";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { useCategories } from "@/lib/use-categories";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
@@ -108,7 +107,6 @@ function PosterPage() {
   const { poster } = Route.useLoaderData();
   const { data: categories = [] } = useCategories();
   const category = categories.find((c) => c.id === poster.category_id) ?? null;
-  const imageMap = usePosterPreviews([poster.id]);
   const perf = usePerformanceFlags();
   const { record: recordRecentlyViewed } = useRecentlyViewed();
 
@@ -122,7 +120,7 @@ function PosterPage() {
     recordRecentlyViewed({
       id: poster.id,
       title: poster.title,
-      image_url: resolveProductArtwork(poster, imageMap),
+      image_url: poster.image_url ?? "",
       category_id: poster.category_id,
       category_slug: category.slug,
       category_name: category.name,
@@ -149,6 +147,8 @@ function PosterPage() {
     id: poster.id,
     title: poster.title,
     image_url: poster.image_url ?? undefined,
+    webp_srcset: poster.webp_srcset,
+    avif_srcset: poster.avif_srcset,
     category_id: poster.category_id,
     tags: poster.tags,
     edit_settings: poster.edit_settings,
@@ -180,7 +180,6 @@ function PosterPage() {
         {category ? (
           <Customizer
             posters={[posterForCustomizer]}
-            imageMap={imageMap}
             category={category}
             onRemove={() => {
               /* single-product page: nothing to remove down to */
