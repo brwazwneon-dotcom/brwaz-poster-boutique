@@ -19,11 +19,20 @@ type AdminPhotoOrder = {
   status: string;
   photos: string[];
   created_at: string;
+  selected_albums: Array<{ id: string; name: string; price: number; qty: number }>;
+  albums_total: number;
+  payment_method: "cod" | "instapay" | "vodafone_cash";
 };
 
 const PHOTO_ORDER_KIND_LABEL: Record<AdminPhotoOrder["kind"], string> = {
   photo_4x6: "4×6 Printing",
   photo_printing: "Photo Printing",
+};
+
+const PAYMENT_METHOD_LABEL: Record<AdminPhotoOrder["payment_method"], string> = {
+  cod: "Cash on delivery",
+  instapay: "InstaPay",
+  vodafone_cash: "Vodafone Cash",
 };
 
 export function PhotoOrdersTab() {
@@ -64,6 +73,7 @@ export function PhotoOrdersTab() {
                 <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Detail</th>
                 <th className="px-3 py-2">Photos</th>
+                <th className="px-3 py-2">Payment</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
@@ -110,7 +120,30 @@ export function PhotoOrdersTab() {
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 font-medium">{Number(o.total_price)} EGP</td>
+                  <td className="px-3 py-2 text-xs">
+                    <span
+                      className={
+                        o.payment_method === "cod"
+                          ? "text-muted-foreground"
+                          : "font-medium text-amber-500"
+                      }
+                    >
+                      {PAYMENT_METHOD_LABEL[o.payment_method]}
+                    </span>
+                    {o.payment_method !== "cod" && (
+                      <div className="text-[10px] text-muted-foreground">
+                        Verify transfer received
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 font-medium">
+                    {Number(o.total_price)} EGP
+                    {o.albums_total > 0 && (
+                      <div className="text-[10px] font-normal text-muted-foreground">
+                        incl. {o.selected_albums.map((a) => `${a.name} ×${a.qty}`).join(", ")}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <select
                       value={o.status}

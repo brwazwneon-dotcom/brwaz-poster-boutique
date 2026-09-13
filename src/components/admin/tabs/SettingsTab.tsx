@@ -278,6 +278,18 @@ function StorefrontConfigSection() {
                 placeholder="Price (EGP)"
                 className="w-24 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
               />
+              <input
+                type="number"
+                min={0}
+                value={p.originalPrice ?? ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  updatePackage(i, { originalPrice: e.target.value && n > 0 ? n : undefined });
+                }}
+                placeholder="Was (optional)"
+                title="Original price before discount — leave blank if there's no active offer"
+                className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
               <button onClick={() => removePackage(i)} className="text-xs text-red-500 hover:underline">
                 Remove
               </button>

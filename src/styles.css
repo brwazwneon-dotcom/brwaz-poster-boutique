@@ -1433,3 +1433,17 @@ svg {
     transition: none;
   }
 }
+
+/* Site-wide: tailwindcss-animate's .animate-in/.fade-in/.slide-in-from-*
+ * utilities (used for entrance reveals across product cards, the
+ * photo-printing hero, etc.) run near-instantly instead of being removed
+ * outright — a hard `animation: none` here would strand elements at their
+ * enter-keyframe starting state (e.g. opacity 0) since that state is only
+ * ever cleared by the animation itself running to completion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

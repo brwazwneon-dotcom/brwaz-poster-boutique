@@ -23,6 +23,7 @@ import { BeforeAfterTab } from "./BeforeAfterTab";
 import { LandingPagesTab } from "./LandingPagesTab";
 import { MediaLibraryTab } from "./MediaLibraryTab";
 import { HomepageTab } from "./HomepageTab";
+import { PhotoPrintingTab } from "./PhotoPrintingTab";
 import { FrameMockupsTab } from "./FrameMockupsTab";
 import { SystemHealthTab } from "./SystemHealthTab";
 import { SettingsTab } from "./SettingsTab";
@@ -74,6 +75,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             {visitedTabs.has("landing-pages") && <div hidden={tab !== "landing-pages"}><LandingPagesTab /></div>}
             {visitedTabs.has("media") && <div hidden={tab !== "media"}><MediaLibraryTab /></div>}
             {visitedTabs.has("homepage") && <div hidden={tab !== "homepage"}><HomepageTab /></div>}
+            {visitedTabs.has("photo-printing") && <div hidden={tab !== "photo-printing"}><PhotoPrintingTab /></div>}
             {visitedTabs.has("mockups") && <div hidden={tab !== "mockups"}><FrameMockupsTab /></div>}
             {visitedTabs.has("health") && <div hidden={tab !== "health"}><SystemHealthTab /></div>}
             {visitedTabs.has("settings") && <div hidden={tab !== "settings"}><SettingsTab /></div>}

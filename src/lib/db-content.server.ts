@@ -1,5 +1,26 @@
 import { sql } from "@/lib/neon.server";
 
+export type DbPhotoAlbum = {
+  id: string;
+  name_en: string;
+  name_ar: string;
+  description_en: string | null;
+  description_ar: string | null;
+  price: number;
+  image_url: string | null;
+  sort_order: number;
+};
+
+export async function fetchEnabledPhotoAlbumsFromDb(): Promise<DbPhotoAlbum[]> {
+  const rows = await sql()`
+    select id, name_en, name_ar, description_en, description_ar, price, image_url, sort_order
+    from photo_albums
+    where enabled = true
+    order by sort_order asc, created_at asc
+  `;
+  return rows as unknown as DbPhotoAlbum[];
+}
+
 export type DbHeroBanner = {
   id: string;
   image_url: string;
@@ -244,7 +265,9 @@ export async function fetchLandingBundleFromDb(
         where id = any(${page.manual_poster_ids}) and hidden = false
       `;
       const byId = new Map((rows as unknown as DbLandingPoster[]).map((r) => [r.id, r]));
-      posters = page.manual_poster_ids.map((id) => byId.get(id)).filter((p): p is DbLandingPoster => !!p);
+      posters = page.manual_poster_ids
+        .map((id) => byId.get(id))
+        .filter((p): p is DbLandingPoster => !!p);
     }
   } else if (page.display_mode === "category" && page.source_category_id) {
     const rows = await sql()`

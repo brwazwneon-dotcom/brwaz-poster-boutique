@@ -228,7 +228,9 @@ export function PosterImageEditor({
                 className="h-full w-full cursor-move touch-none select-none"
               />
             )}
-            {!mockupFrame && <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />}
+            {!mockupFrame && (
+              <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />
+            )}
             {showCropHint && (
               <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 rounded-sm bg-amber-500/90 px-2 py-1 text-center text-[10px] font-semibold text-black">
                 ⚠ Content near the edges may be partially cropped
@@ -236,7 +238,7 @@ export function PosterImageEditor({
             )}
           </div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Drag to move · Scroll to zoom · Ratio 2:3
+            Drag to move · Scroll to zoom · Ratio {formatRatioLabel(ratio)}
           </div>
         </div>
 
@@ -412,6 +414,21 @@ export function PosterImageEditor({
       </div>
     </div>
   );
+}
+
+function formatRatioLabel(ratio: number): string {
+  const KNOWN: [number, string][] = [
+    [2 / 3, "2:3"],
+    [3 / 4, "3:4"],
+    [13 / 18, "13:18"],
+    [1, "1:1"],
+    [4 / 3, "4:3"],
+    [3 / 2, "3:2"],
+  ];
+  for (const [r, label] of KNOWN) {
+    if (Math.abs(ratio - r) < 0.005) return label;
+  }
+  return `${ratio.toFixed(2)}:1`;
 }
 
 function Section({

@@ -20,6 +20,7 @@ import {
   Wallet,
   Activity,
   Settings,
+  Printer,
 } from "lucide-react";
 
 export type Tab =
@@ -38,6 +39,7 @@ export type Tab =
   | "before-after"
   | "landing-pages"
   | "media"
+  | "photo-printing"
   | "homepage"
   | "mockups"
   | "health"
@@ -95,6 +97,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "homepage", label: "Homepage", icon: Home, keywords: ["hero", "slider", "highlights"] },
       { id: "landing-pages", label: "Landing Pages", icon: Rocket, keywords: ["audience", "campaign pages"] },
+      { id: "photo-printing", label: "Photo Printing", icon: Printer, keywords: ["banners", "photo 4x6"] },
       { id: "before-after", label: "Before / After", icon: SplitSquareHorizontal, keywords: ["comparison"] },
       { id: "offers", label: "Offers", icon: Tag, keywords: ["custom offers", "deals"] },
     ],

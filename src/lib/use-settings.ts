@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getSiteSettingsPublic } from "@/lib/db-public.functions";
+import { getSiteSettingsPublic, getPhotoAlbumsPublic } from "@/lib/db-public.functions";
 
 // Frame mockups are served from /public so they work on every host
 // (Lovable preview, Lovable published, custom domains on Vercel, etc.).
@@ -358,6 +358,10 @@ export type Photo4x6Package = {
   key: string;
   photos: number;
   price: number;
+  /** Optional real "before discount" price — shown struck through with a
+   *  savings badge when set and greater than `price`. Never fabricated:
+   *  admin leaves this unset for a package with no active discount. */
+  originalPrice?: number;
   label: string;
 };
 
@@ -398,10 +402,16 @@ export function parsePhoto4x6(raw: unknown): Photo4x6Config {
             const photos = Number(p?.photos);
             const price = Number(p?.price);
             if (!Number.isFinite(photos) || !Number.isFinite(price)) return null;
+            const originalPriceRaw = Number(p?.originalPrice);
+            const originalPrice =
+              Number.isFinite(originalPriceRaw) && originalPriceRaw > price
+                ? originalPriceRaw
+                : undefined;
             return {
               key: String(p?.key ?? `p${photos}`),
               photos,
               price,
+              ...(originalPrice !== undefined ? { originalPrice } : {}),
               label: String(p?.label ?? `${photos} Photos 4×6`),
             } as Photo4x6Package;
           })
@@ -549,6 +559,48 @@ export function usePhotoPrintingMediaConfig(): PhotoPrintingMediaConfig {
   return q.data ?? PHOTO_PRINTING_MEDIA_DEFAULTS;
 }
 
+/* -------------------- Photo Printing albums (order add-ons) -------------------- */
+
+export type PhotoAlbum = {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  price: number;
+  imageUrl: string;
+};
+
+export function usePhotoAlbumsPublic(): PhotoAlbum[] {
+  const q = useQuery({
+    queryKey: ["photo-albums"],
+    staleTime: 30_000,
+    queryFn: async (): Promise<PhotoAlbum[]> => {
+      const rows = await getPhotoAlbumsPublic();
+      return (
+        rows as Array<{
+          id: string;
+          name_en: string;
+          name_ar: string;
+          description_en: string | null;
+          description_ar: string | null;
+          price: number | string;
+          image_url: string | null;
+        }>
+      ).map((r) => ({
+        id: r.id,
+        nameEn: r.name_en,
+        nameAr: r.name_ar,
+        descriptionEn: r.description_en ?? "",
+        descriptionAr: r.description_ar ?? "",
+        price: Number(r.price) || 0,
+        imageUrl: r.image_url ?? "",
+      }));
+    },
+  });
+  return q.data ?? [];
+}
+
 /* -------------------- Post-order success message -------------------- */
 
 export const POST_ORDER_MESSAGE_ENABLED_KEY = "post_order_success_message_enabled";
@@ -568,7 +620,9 @@ export function parsePostOrderMessageEnabled(v: unknown): boolean {
  * to ON.
  */
 export async function readPostOrderMessageEnabled(): Promise<boolean> {
-  const settings = await getSiteSettingsPublic({ data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] } });
+  const settings = await getSiteSettingsPublic({
+    data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] },
+  });
   return parsePostOrderMessageEnabled(settings[POST_ORDER_MESSAGE_ENABLED_KEY]);
 }
 
@@ -582,7 +636,9 @@ export function usePostOrderMessageEnabled(): boolean {
     queryKey: ["post-order-message-enabled"],
     staleTime: 60_000,
     queryFn: async (): Promise<boolean> => {
-      const settings = await getSiteSettingsPublic({ data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] } });
+      const settings = await getSiteSettingsPublic({
+        data: { keys: [POST_ORDER_MESSAGE_ENABLED_KEY] },
+      });
       return parsePostOrderMessageEnabled(settings[POST_ORDER_MESSAGE_ENABLED_KEY]);
     },
   });

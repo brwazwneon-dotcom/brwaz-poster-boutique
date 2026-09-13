@@ -103,6 +103,41 @@ type Photo4x6PackageInput = { key: string; photos: number; price: number; label:
 // Same principle as guard_order_price() on the `orders` table, applied
 // here as authoritative computation instead of a post-hoc guard, since
 // there's no separate catalog table to check a submitted price against.
+const LOOSE_SIZE_KEYS = ["10x15", "13x18", "15x20"] as const;
+type LooseSizeKey = (typeof LOOSE_SIZE_KEYS)[number];
+const LOOSE_SIZE_MIN_QTY = 25;
+const PAYMENT_METHODS = ["cod", "instapay", "vodafone_cash"] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+type SelectedAlbumInput = { id: string; qty: number };
+
+// Albums are priced server-side from the live `photo_albums` table — the
+// client only sends which albums + quantities were picked, same
+// no-client-trusted-price principle as the package/size pricing above.
+async function resolveSelectedAlbums(selected: SelectedAlbumInput[] | undefined): Promise<{
+  albumsTotal: number;
+  snapshot: Array<{ id: string; name: string; price: number; qty: number }>;
+}> {
+  if (!selected || selected.length === 0) return { albumsTotal: 0, snapshot: [] };
+  const ids = [...new Set(selected.map((s) => String(s.id)))];
+  const rows = (await sql()`
+    select id, name_en, price from photo_albums where id = any(${ids}::uuid[]) and enabled = true
+  `) as Array<{ id: string; name_en: string; price: number | string }>;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let albumsTotal = 0;
+  const snapshot: Array<{ id: string; name: string; price: number; qty: number }> = [];
+  for (const s of selected) {
+    const row = byId.get(s.id);
+    if (!row) continue;
+    const qty = Math.trunc(Number(s.qty));
+    if (!Number.isFinite(qty) || qty < 1 || qty > 20) throw new Error("Invalid album quantity");
+    const price = Number(row.price) || 0;
+    albumsTotal += price * qty;
+    snapshot.push({ id: row.id, name: row.name_en, price, qty });
+  }
+  return { albumsTotal, snapshot };
+}
+
 export const createPhoto4x6Order = createServerFn({ method: "POST" })
   .validator(
     (data: unknown) =>
@@ -111,18 +146,86 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         phone: string;
         governorate: string;
         address: string;
-        package_key: string;
+        // Exactly one of these two selection modes is expected: a fixed
+        // 4x6 bundle (package_key, looked up in photo_4x6_config), or a
+        // loose print size sold per photo (size_key + quantity, priced from
+        // the same photo_10x15/13x18/15x20 settings the poster/frame
+        // checkout already reads via usePricing()).
+        package_key?: string;
+        size_key?: LooseSizeKey;
+        quantity?: number;
         notes: string | null;
         original_paths: string[];
         enhanced_paths: string[];
         suit_paths: string[];
         selected_versions: Record<string, string>;
+        selected_albums?: SelectedAlbumInput[];
+        payment_method?: PaymentMethod;
       },
   )
   .handler(async ({ data }) => {
     if (data.original_paths.length === 0) throw new Error("At least one photo is required");
     if (data.original_paths.length > 50) throw new Error("Too many photos in one order");
     if (!/^01\d{9}$/.test(data.phone)) throw new Error("Invalid phone number");
+    const paymentMethod: PaymentMethod = PAYMENT_METHODS.includes(
+      data.payment_method as PaymentMethod,
+    )
+      ? (data.payment_method as PaymentMethod)
+      : "cod";
+
+    const { albumsTotal, snapshot: albumsSnapshot } = await resolveSelectedAlbums(
+      data.selected_albums,
+    );
+
+    let photoCount: number;
+    let subtotal: number;
+    let packageKeyToStore: string;
+
+    if (data.size_key) {
+      if (!LOOSE_SIZE_KEYS.includes(data.size_key)) throw new Error("Invalid size selected");
+      const qty = Math.trunc(Number(data.quantity));
+      if (!Number.isFinite(qty) || qty < LOOSE_SIZE_MIN_QTY || qty > 50)
+        throw new Error(`Minimum order for this size is ${LOOSE_SIZE_MIN_QTY} photos`);
+      if (data.original_paths.length !== qty) {
+        throw new Error(`This selection requires exactly ${qty} photos`);
+      }
+      const priceKey = `photo_${data.size_key}`;
+      const settings = await fetchSiteSettingsFromDb([
+        priceKey,
+        "shipping_fee",
+        "free_shipping_threshold",
+      ]);
+      const unitPrice = Number(settings[priceKey]) || 0;
+      if (unitPrice <= 0) throw new Error("This size is not available right now");
+      photoCount = qty;
+      subtotal = unitPrice * qty;
+      packageKeyToStore = `size_${data.size_key}`;
+
+      const fee = Number(settings.shipping_fee) || 89;
+      const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
+      const shipping = computeShippingServer(subtotal + albumsTotal, fee, freeThreshold);
+      const totalPrice = subtotal + albumsTotal + shipping;
+
+      const rows = await sql()`
+        insert into photo_4x6_orders (
+          customer_name, phone, governorate, address, package_key, photo_count,
+          total_price, notes, original_paths, enhanced_paths, suit_paths, selected_versions,
+          selected_albums, albums_total, payment_method
+        ) values (
+          ${data.customer_name}, ${data.phone}, ${data.governorate}, ${data.address},
+          ${packageKeyToStore}, ${photoCount}, ${totalPrice}, ${data.notes},
+          ${data.original_paths}, ${data.enhanced_paths}, ${data.suit_paths},
+          ${JSON.stringify(data.selected_versions)}, ${JSON.stringify(albumsSnapshot)}, ${albumsTotal},
+          ${paymentMethod}
+        )
+        returning id, order_number
+      `;
+      return {
+        ok: true as const,
+        order: rows[0] as { id: string; order_number: string },
+        totalPrice,
+      };
+    }
 
     const settings = await fetchSiteSettingsFromDb([
       "photo_4x6_config",
@@ -137,22 +240,28 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     }
     const fee = Number(settings.shipping_fee) || 89;
     const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
-    const shipping = computeShippingServer(pkg.price, fee, freeThreshold);
-    const totalPrice = pkg.price + shipping;
+    const shipping = computeShippingServer(pkg.price + albumsTotal, fee, freeThreshold);
+    const totalPrice = pkg.price + albumsTotal + shipping;
 
     const rows = await sql()`
       insert into photo_4x6_orders (
         customer_name, phone, governorate, address, package_key, photo_count,
-        total_price, notes, original_paths, enhanced_paths, suit_paths, selected_versions
+        total_price, notes, original_paths, enhanced_paths, suit_paths, selected_versions,
+        selected_albums, albums_total, payment_method
       ) values (
         ${data.customer_name}, ${data.phone}, ${data.governorate}, ${data.address},
         ${data.package_key}, ${pkg.photos}, ${totalPrice}, ${data.notes},
         ${data.original_paths}, ${data.enhanced_paths}, ${data.suit_paths},
-        ${JSON.stringify(data.selected_versions)}
+        ${JSON.stringify(data.selected_versions)}, ${JSON.stringify(albumsSnapshot)}, ${albumsTotal},
+        ${paymentMethod}
       )
       returning id, order_number
     `;
-    return { ok: true as const, order: rows[0] as { id: string; order_number: string }, totalPrice };
+    return {
+      ok: true as const,
+      order: rows[0] as { id: string; order_number: string },
+      totalPrice,
+    };
   });
 
 const PHOTO_SIZE_SETTING_KEY: Record<string, string> = {
@@ -206,7 +315,11 @@ export const createPhotoOrder = createServerFn({ method: "POST" })
       )
       returning id, order_number
     `;
-    return { ok: true as const, order: rows[0] as { id: string; order_number: string }, totalPrice };
+    return {
+      ok: true as const,
+      order: rows[0] as { id: string; order_number: string },
+      totalPrice,
+    };
   });
 
 export type TrackedOrder = {

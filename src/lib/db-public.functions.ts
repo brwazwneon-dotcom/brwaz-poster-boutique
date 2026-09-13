@@ -34,6 +34,7 @@ import {
   fetchEnabledSetsFromDb,
   fetchActiveBeforeAfterFromDb,
   fetchLandingBundleFromDb,
+  fetchEnabledPhotoAlbumsFromDb,
   logSystemEventToDb,
 } from "@/lib/db-content.server";
 import {
@@ -44,9 +45,11 @@ import {
 } from "@/lib/db-analytics.server";
 import type { Category } from "@/lib/use-categories";
 
-export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(async (): Promise<Category[]> => {
-  return fetchCategoriesFromDb();
-});
+export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Category[]> => {
+    return fetchCategoriesFromDb();
+  },
+);
 
 export const getPosterBySlugPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { slug: string }).slug)
@@ -90,6 +93,10 @@ export const getSiteSettingsPublic = createServerFn({ method: "GET" })
 
 export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledHeroBannersFromDb();
+});
+
+export const getPhotoAlbumsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  return fetchEnabledPhotoAlbumsFromDb();
 });
 
 export const getHighlightsPublic = createServerFn({ method: "GET" }).handler(async () => {
@@ -259,7 +266,9 @@ export const logPosterEventPublic = createServerFn({ method: "POST" })
   });
 
 export const logSearchQueryPublic = createServerFn({ method: "POST" })
-  .validator((data: unknown) => data as { query: string; results_count: number; visitor_id: string })
+  .validator(
+    (data: unknown) => data as { query: string; results_count: number; visitor_id: string },
+  )
   .handler(async ({ data }) => {
     try {
       await logSearchQueryToDb(data);
@@ -334,7 +343,9 @@ export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })
   });
 
 export const getRoomTransformationArtworkPublic = createServerFn({ method: "GET" })
-  .validator((data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null })
+  .validator(
+    (data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null },
+  )
   .handler(async ({ data }) => {
     return fetchRoomTransformationArtworkFromDb(data.posterId);
   });

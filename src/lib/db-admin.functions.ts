@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { NeonDbError } from "@neondatabase/serverless";
 import { sql } from "@/lib/neon.server";
 import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
+import type { Json } from "@/lib/db-catalog.server";
 
 function slugify(input: string): string {
   const base = input
@@ -48,7 +49,8 @@ async function withUniqueSlugRetry<T extends Record<string, unknown>>(
 export type DashboardRange = "today" | "yesterday" | "7d" | "30d" | "this_month" | "last_month";
 
 function computeRangeBounds(range: DashboardRange, now = new Date()) {
-  const startOfDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const startOfDay = (d: Date) =>
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
   const todayStart = startOfDay(now);
 
@@ -201,7 +203,8 @@ export const getAlertsAdmin = createServerFn({ method: "GET" })
       alerts.push({
         id: "photo_orders_pending",
         count: photoN,
-        label: photoN === 1 ? "photo order waiting confirmation" : "photo orders waiting confirmation",
+        label:
+          photoN === 1 ? "photo order waiting confirmation" : "photo orders waiting confirmation",
         tab: "photo-orders",
       });
     }
@@ -342,7 +345,9 @@ export const deleteExpenseAdmin = createServerFn({ method: "POST" })
 
 export const getProfitReportAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { range?: DashboardRange } | undefined)?.range ?? "this_month")
+  .validator(
+    (data: unknown) => (data as { range?: DashboardRange } | undefined)?.range ?? "this_month",
+  )
   .handler(async ({ data: range }) => {
     const { curStart, curEnd } = computeRangeBounds(range);
     const client = sql();
@@ -465,7 +470,8 @@ export const upsertCategory = createServerFn({ method: "POST" })
     const id = typeof data.id === "string" ? data.id : null;
     const name = String(data.name ?? "").trim();
     if (!name) throw new Error("Category name is required");
-    const slug = typeof data.slug === "string" && data.slug.trim() ? slugify(data.slug) : slugify(name);
+    const slug =
+      typeof data.slug === "string" && data.slug.trim() ? slugify(data.slug) : slugify(name);
     const nameAr = typeof data.name_ar === "string" && data.name_ar ? data.name_ar : null;
     const description = typeof data.description === "string" ? data.description : null;
     const image = typeof data.image === "string" ? data.image : null;
@@ -481,7 +487,10 @@ export const upsertCategory = createServerFn({ method: "POST" })
         : null;
 
     if (id) {
-      const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
+      const rows = await withUniqueSlugRetry(
+        slug,
+        "categories_slug_key",
+        (candidateSlug) => sql()`
         update categories
         set name = ${name}, name_ar = ${nameAr}, slug = ${candidateSlug}, description = ${description},
             image = ${image}, hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder},
@@ -489,10 +498,14 @@ export const upsertCategory = createServerFn({ method: "POST" })
             parent_id = ${parentId}, updated_at = now()
         where id = ${id}
         returning id
-      `);
+      `,
+      );
       return { id: rows[0]?.id ?? id };
     }
-    const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
+    const rows = await withUniqueSlugRetry(
+      slug,
+      "categories_slug_key",
+      (candidateSlug) => sql()`
       insert into categories (
         name, name_ar, slug, description, image, hidden, featured, sort_order,
         show_in_header, show_in_collections, parent_id
@@ -502,7 +515,8 @@ export const upsertCategory = createServerFn({ method: "POST" })
         ${showInHeader}, ${showInCollections}, ${parentId}
       )
       returning id
-    `);
+    `,
+    );
     return { id: (rows[0] as { id: string }).id };
   });
 
@@ -531,11 +545,15 @@ export const findOrCreateCategory = createServerFn({ method: "POST" })
     if (existing[0]) return { id: (existing[0] as { id: string }).id, created: false };
 
     const slug = slugify(name);
-    const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
+    const rows = await withUniqueSlugRetry(
+      slug,
+      "categories_slug_key",
+      (candidateSlug) => sql()`
       insert into categories (name, slug, parent_id, hidden, show_in_header, show_in_collections)
       values (${name}, ${candidateSlug}, ${parentId}, false, ${parentId === null}, ${parentId === null})
       returning id
-    `);
+    `,
+    );
     return { id: (rows[0] as { id: string }).id, created: true };
   });
 
@@ -604,7 +622,8 @@ export function computeCustomerSegments(c: CustomerRow): string[] {
   const sinceFirst = daysSince(c.first_order_at);
 
   if (c.order_count === 0) return segments;
-  if (c.order_count === 1 && sinceFirst !== null && sinceFirst <= SEGMENT_NEW_WITHIN_DAYS) segments.push("new");
+  if (c.order_count === 1 && sinceFirst !== null && sinceFirst <= SEGMENT_NEW_WITHIN_DAYS)
+    segments.push("new");
   if (c.order_count > 1) segments.push("returning");
   if (c.order_count >= SEGMENT_FREQUENT_ORDERS) segments.push("frequent");
   if (spend >= SEGMENT_VIP_SPEND) segments.push("vip");
@@ -654,7 +673,10 @@ export const listCustomersAdmin = createServerFn({ method: "GET" })
       order by o.last_order_at desc nulls last
       limit 500
     `;
-    return rows.map((r) => ({ ...r, segments: computeCustomerSegments(r as unknown as CustomerRow) }));
+    return rows.map((r) => ({
+      ...r,
+      segments: computeCustomerSegments(r as unknown as CustomerRow),
+    }));
   });
 
 // Full profile for the Customer 360 view: the customer record, their
@@ -691,7 +713,8 @@ export const getCustomerDetailAdmin = createServerFn({ method: "GET" })
     return {
       customer: customerRows[0],
       orders,
-      favoriteCategory: (favoriteCategory[0] as { category_name: string } | undefined)?.category_name ?? null,
+      favoriteCategory:
+        (favoriteCategory[0] as { category_name: string } | undefined)?.category_name ?? null,
     };
   });
 
@@ -732,9 +755,11 @@ export const upsertPoster = createServerFn({ method: "POST" })
     if (!title) throw new Error("Product title is required");
     const imageUrl = String(data.image_url ?? "").trim();
     if (!imageUrl) throw new Error("Product image URL is required");
-    const slug = typeof data.slug === "string" && data.slug.trim() ? slugify(data.slug) : slugify(title);
+    const slug =
+      typeof data.slug === "string" && data.slug.trim() ? slugify(data.slug) : slugify(title);
     const description = typeof data.description === "string" ? data.description : null;
-    const categoryId = typeof data.category_id === "string" && data.category_id ? data.category_id : null;
+    const categoryId =
+      typeof data.category_id === "string" && data.category_id ? data.category_id : null;
     const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
     const badge = typeof data.badge === "string" && data.badge ? data.badge : null;
     const hidden = Boolean(data.hidden);
@@ -743,9 +768,12 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const isBestSeller = Boolean(data.is_best_seller);
     const seoTitle = typeof data.seo_title === "string" && data.seo_title ? data.seo_title : null;
     const seoDescription =
-      typeof data.seo_description === "string" && data.seo_description ? data.seo_description : null;
+      typeof data.seo_description === "string" && data.seo_description
+        ? data.seo_description
+        : null;
     const altText = typeof data.alt_text === "string" && data.alt_text ? data.alt_text : null;
-    const reviewStatusSent = typeof data.review_status === "string" && data.review_status ? data.review_status : null;
+    const reviewStatusSent =
+      typeof data.review_status === "string" && data.review_status ? data.review_status : null;
     const originalUrlSent =
       typeof data.original_url === "string" && data.original_url ? data.original_url : null;
     const webpSrcsetSent =
@@ -758,7 +786,10 @@ export const upsertPoster = createServerFn({ method: "POST" })
         : null;
 
     if (id) {
-      const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
+      const rows = await withUniqueSlugRetry(
+        slug,
+        "posters_slug_key",
+        (candidateSlug) => sql()`
         update posters
         set title = ${title}, slug = ${candidateSlug}, description = ${description}, image_url = ${imageUrl},
             category_id = ${categoryId}, tags = ${tags}, badge = ${badge}, hidden = ${hidden},
@@ -772,10 +803,14 @@ export const upsertPoster = createServerFn({ method: "POST" })
             updated_at = now()
         where id = ${id}
         returning id
-      `);
+      `,
+      );
       return { id: rows[0]?.id ?? id };
     }
-    const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
+    const rows = await withUniqueSlugRetry(
+      slug,
+      "posters_slug_key",
+      (candidateSlug) => sql()`
       insert into posters (
         title, slug, description, image_url, category_id, tags, badge, hidden, featured,
         trending, is_best_seller, seo_title, seo_description, alt_text, review_status,
@@ -785,10 +820,11 @@ export const upsertPoster = createServerFn({ method: "POST" })
         ${title}, ${candidateSlug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
         ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
         ${reviewStatusSent ?? "approved"}, ${originalUrlSent}, ${webpSrcsetSent}, ${avifSrcsetSent},
-        ${(editSettingsSent ?? "{}")}::jsonb
+        ${editSettingsSent ?? "{}"}::jsonb
       )
       returning id
-    `);
+    `,
+    );
     return { id: (rows[0] as { id: string }).id };
   });
 
@@ -831,7 +867,8 @@ export const deletePoster = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
   .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
-    const galleryRows = await sql()`delete from poster_images where poster_id = ${id} returning image_url`;
+    const galleryRows =
+      await sql()`delete from poster_images where poster_id = ${id} returning image_url`;
     const posterRows = await sql()`delete from posters where id = ${id} returning image_url`;
     const urls = [
       ...(posterRows[0]?.image_url ? [posterRows[0].image_url as string] : []),
@@ -900,7 +937,8 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
       sql()`
         select id, order_number, 'photo_4x6' as kind, customer_name, phone, governorate, address,
                package_key as detail, photo_count as quantity, total_price, status, created_at,
-               original_paths, enhanced_paths, suit_paths, selected_versions
+               original_paths, enhanced_paths, suit_paths, selected_versions,
+               selected_albums, albums_total, payment_method
         from photo_4x6_orders
         order by created_at desc limit 200
       `,
@@ -939,6 +977,9 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
           enhanced_paths: string[];
           suit_paths: string[];
           selected_versions: Record<string, string> | null;
+          selected_albums: Array<{ id: string; name: string; price: number; qty: number }> | null;
+          albums_total: number | string | null;
+          payment_method: string | null;
         }
       >
     ).map((row) => {
@@ -950,12 +991,24 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
         return original;
       });
       const base: BaseRow = row;
-      return { ...base, photos };
+      return {
+        ...base,
+        photos,
+        selected_albums: row.selected_albums ?? [],
+        albums_total: Number(row.albums_total) || 0,
+        payment_method: row.payment_method ?? "cod",
+      };
     });
 
     const photoRows = (photo as Array<BaseRow & { photo_urls: string[] }>).map((row) => {
       const { photo_urls, ...base } = row;
-      return { ...base, photos: photo_urls };
+      return {
+        ...base,
+        photos: photo_urls,
+        selected_albums: [] as Array<{ id: string; name: string; price: number; qty: number }>,
+        albums_total: 0,
+        payment_method: "cod",
+      };
     });
 
     return [...p4x6Rows, ...photoRows].sort(
@@ -965,7 +1018,9 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
 
 export const updatePhotoOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => data as { id: string; kind: "photo_4x6" | "photo_printing"; status: string })
+  .validator(
+    (data: unknown) => data as { id: string; kind: "photo_4x6" | "photo_printing"; status: string },
+  )
   .handler(async ({ data }) => {
     if (!VALID_ORDER_STATUSES.has(data.status)) throw new Error("Invalid status");
     if (data.kind === "photo_4x6") {
@@ -997,9 +1052,11 @@ export const upsertReview = createServerFn({ method: "POST" })
     const id = typeof data.id === "string" ? data.id : null;
     const customerName = String(data.customer_name ?? "").trim();
     if (!customerName) throw new Error("Customer name is required");
-    const governorate = typeof data.governorate === "string" && data.governorate ? data.governorate : null;
+    const governorate =
+      typeof data.governorate === "string" && data.governorate ? data.governorate : null;
     const rating = Math.min(5, Math.max(1, Math.round(Number(data.rating) || 5)));
-    const reviewText = typeof data.review_text === "string" && data.review_text ? data.review_text : null;
+    const reviewText =
+      typeof data.review_text === "string" && data.review_text ? data.review_text : null;
     const photoUrl = typeof data.photo_url === "string" && data.photo_url ? data.photo_url : null;
     const posterId = typeof data.poster_id === "string" && data.poster_id ? data.poster_id : null;
     const approved = data.approved === undefined ? true : Boolean(data.approved);
@@ -1051,6 +1108,60 @@ export const setSiteSetting = createServerFn({ method: "POST" })
       on conflict (key) do update set value = excluded.value, updated_at = now()
     `;
     return { ok: true };
+  });
+
+// Same upsert as setSiteSetting, but also snapshots the new value into
+// site_settings_history — for settings that need a real publish timeline
+// (see the website theme engine), not just the single current value.
+export const setSiteSettingWithHistory = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { key: string; value: unknown })
+  .handler(async ({ data, context }) => {
+    const client = sql();
+    const valueJson = JSON.stringify(data.value);
+    await client`
+      insert into site_settings (key, value) values (${data.key}, ${valueJson})
+      on conflict (key) do update set value = excluded.value, updated_at = now()
+    `;
+    await client`
+      insert into site_settings_history (key, value, created_by)
+      values (${data.key}, ${valueJson}, ${context.adminId})
+    `;
+    return { ok: true };
+  });
+
+export const getSiteSettingHistory = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { key: string; limit?: number })
+  .handler(async ({ data }) => {
+    const limit = Math.min(Math.max(data.limit ?? 20, 1), 100);
+    return sql()`
+      select h.id, h.key, h.value, h.created_at, h.created_by, a.email as created_by_email
+      from site_settings_history h
+      left join admin_users a on a.id = h.created_by
+      where h.key = ${data.key}
+      order by h.created_at desc
+      limit ${limit}
+    `;
+  });
+
+// Loads a historical value back into `${key}_draft` — NOT straight back to
+// the live published key — so admin always previews before re-publishing
+// an old version rather than rolling back blind.
+export const restoreSiteSettingVersionToDraft = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { historyId: string; draftKey: string })
+  .handler(async ({ data }) => {
+    const rows = await sql()`
+      select value from site_settings_history where id = ${data.historyId}
+    `;
+    const row = rows[0] as { value: Json } | undefined;
+    if (!row) throw new Error("Version not found");
+    await sql()`
+      insert into site_settings (key, value) values (${data.draftKey}, ${JSON.stringify(row.value)})
+      on conflict (key) do update set value = excluded.value, updated_at = now()
+    `;
+    return { ok: true, value: row.value };
   });
 
 // ---------------------------------------------------------------
@@ -1129,7 +1240,8 @@ export const upsertSet = createServerFn({ method: "POST" })
     const id = typeof data.id === "string" ? data.id : null;
     const name = String(data.name ?? "").trim();
     if (!name) throw new Error("Set name is required");
-    const description = typeof data.description === "string" && data.description ? data.description : null;
+    const description =
+      typeof data.description === "string" && data.description ? data.description : null;
     const imageUrl = typeof data.image_url === "string" && data.image_url ? data.image_url : null;
     const framesCount = Math.max(1, Math.round(Number(data.frames_count) || 1));
     const price = Number(data.price);
@@ -1193,7 +1305,8 @@ export const upsertBeforeAfter = createServerFn({ method: "POST" })
     const location =
       typeof data.location === "string" && data.location.trim() ? data.location.trim() : "homepage";
     const title = typeof data.title === "string" && data.title ? data.title : null;
-    const description = typeof data.description === "string" && data.description ? data.description : null;
+    const description =
+      typeof data.description === "string" && data.description ? data.description : null;
     const active = data.active === undefined ? true : Boolean(data.active);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
 
@@ -1310,11 +1423,16 @@ export const upsertLandingPage = createServerFn({ method: "POST" })
     const visible = Boolean(data.visible);
     const titleAr = typeof data.title_ar === "string" && data.title_ar ? data.title_ar : null;
     const titleEn = typeof data.title_en === "string" && data.title_en ? data.title_en : null;
-    const subtitleAr = typeof data.subtitle_ar === "string" && data.subtitle_ar ? data.subtitle_ar : null;
-    const subtitleEn = typeof data.subtitle_en === "string" && data.subtitle_en ? data.subtitle_en : null;
-    const heroImage = typeof data.hero_image === "string" && data.hero_image ? data.hero_image : null;
+    const subtitleAr =
+      typeof data.subtitle_ar === "string" && data.subtitle_ar ? data.subtitle_ar : null;
+    const subtitleEn =
+      typeof data.subtitle_en === "string" && data.subtitle_en ? data.subtitle_en : null;
+    const heroImage =
+      typeof data.hero_image === "string" && data.hero_image ? data.hero_image : null;
     const whatsappMessage =
-      typeof data.whatsapp_message === "string" && data.whatsapp_message ? data.whatsapp_message : null;
+      typeof data.whatsapp_message === "string" && data.whatsapp_message
+        ? data.whatsapp_message
+        : null;
     const ctaText = typeof data.cta_text === "string" && data.cta_text ? data.cta_text : null;
     const sourceCategoryId =
       typeof data.source_category_id === "string" && data.source_category_id
@@ -1325,11 +1443,15 @@ export const upsertLandingPage = createServerFn({ method: "POST" })
       : "smart_mix";
     const posterLimit = Math.max(1, Math.min(200, Number(data.poster_limit) || 24));
     const manualPosterIds = Array.isArray(data.manual_poster_ids)
-      ? (data.manual_poster_ids as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "")
+      ? (data.manual_poster_ids as unknown[]).filter(
+          (v): v is string => typeof v === "string" && v.trim() !== "",
+        )
       : [];
     const seoTitle = typeof data.seo_title === "string" && data.seo_title ? data.seo_title : null;
     const metaDescription =
-      typeof data.meta_description === "string" && data.meta_description ? data.meta_description : null;
+      typeof data.meta_description === "string" && data.meta_description
+        ? data.meta_description
+        : null;
 
     const rows = await sql()`
       insert into landing_pages (
@@ -1445,8 +1567,10 @@ export const upsertSliderImage = createServerFn({ method: "POST" })
     const linkUrl = typeof data.link_url === "string" && data.link_url ? data.link_url : null;
     const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
-    const webpSrcset = typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
-    const avifSrcset = typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
+    const webpSrcset =
+      typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
+    const avifSrcset =
+      typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
 
     if (id) {
       const rows = await sql()`
@@ -1498,12 +1622,16 @@ export const upsertHeroBanner = createServerFn({ method: "POST" })
     if (!imageUrl) throw new Error("Banner image is required");
     const title = typeof data.title === "string" && data.title ? data.title : null;
     const subtitle = typeof data.subtitle === "string" && data.subtitle ? data.subtitle : null;
-    const buttonText = typeof data.button_text === "string" && data.button_text ? data.button_text : null;
-    const buttonLink = typeof data.button_link === "string" && data.button_link ? data.button_link : null;
+    const buttonText =
+      typeof data.button_text === "string" && data.button_text ? data.button_text : null;
+    const buttonLink =
+      typeof data.button_link === "string" && data.button_link ? data.button_link : null;
     const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
-    const webpSrcset = typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
-    const avifSrcset = typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
+    const webpSrcset =
+      typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
+    const avifSrcset =
+      typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
 
     if (id) {
       const rows = await sql()`
@@ -1532,6 +1660,68 @@ export const deleteHeroBanner = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from hero_banners where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
+// Photo Printing — albums (add-on products sold with a photo order)
+// ---------------------------------------------------------------
+export const listPhotoAlbumsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, name_en, name_ar, description_en, description_ar, price, image_url,
+             enabled, sort_order
+      from photo_albums
+      order by sort_order asc, created_at asc
+    `;
+  });
+
+export const upsertPhotoAlbum = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as Record<string, unknown>)
+  .handler(async ({ data }) => {
+    const id = typeof data.id === "string" ? data.id : null;
+    const nameEn = String(data.name_en ?? "").trim();
+    const nameAr = String(data.name_ar ?? "").trim();
+    if (!nameEn || !nameAr) throw new Error("Album name (EN and AR) is required");
+    const price = Number(data.price);
+    if (!Number.isFinite(price) || price <= 0)
+      throw new Error("Album price must be a positive number");
+    const descriptionEn =
+      typeof data.description_en === "string" && data.description_en ? data.description_en : null;
+    const descriptionAr =
+      typeof data.description_ar === "string" && data.description_ar ? data.description_ar : null;
+    const imageUrl = typeof data.image_url === "string" && data.image_url ? data.image_url : null;
+    const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
+    const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+
+    if (id) {
+      const rows = await sql()`
+        update photo_albums
+        set name_en = ${nameEn}, name_ar = ${nameAr}, description_en = ${descriptionEn},
+            description_ar = ${descriptionAr}, price = ${price}, image_url = ${imageUrl},
+            enabled = ${enabled}, sort_order = ${sortOrder}, updated_at = now()
+        where id = ${id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? id };
+    }
+    const rows = await sql()`
+      insert into photo_albums
+        (name_en, name_ar, description_en, description_ar, price, image_url, enabled, sort_order)
+      values
+        (${nameEn}, ${nameAr}, ${descriptionEn}, ${descriptionAr}, ${price}, ${imageUrl}, ${enabled}, ${sortOrder})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deletePhotoAlbum = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as string)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from photo_albums where id = ${id}`;
     return { ok: true };
   });
 
