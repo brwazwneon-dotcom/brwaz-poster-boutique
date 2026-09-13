@@ -78,7 +78,7 @@ export const Route = createFileRoute("/")({
     ],
     links: [
       { rel: "canonical", href: "https://brwazwneon.com/" },
-      { rel: "preload", as: "image", href: hero, fetchpriority: "high" },
+      { rel: "preload", as: "image", href: hero, fetchPriority: "high" },
     ],
   }),
   component: Index,
