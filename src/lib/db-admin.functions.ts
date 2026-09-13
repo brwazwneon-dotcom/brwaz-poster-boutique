@@ -325,6 +325,73 @@ export const getProfitReportAdmin = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------
+// Promotions — coupon codes. Admin management only in this pass; checkout
+// redemption is a deliberate follow-up (see neon/migrations/014_coupons.sql
+// for why: cart.tsx's existing bundle-discount/shipping-threshold pricing
+// is intricate and revenue-sensitive, and deserves its own careful
+// integration pass rather than a rushed addition here).
+// ---------------------------------------------------------------
+export const listCouponsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, code, discount_type, discount_value, usage_limit, used_count,
+             per_customer_limit, min_order_amount, starts_at, ends_at, enabled, created_at
+      from coupons
+      order by created_at desc
+    `;
+  });
+
+export const upsertCouponAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as {
+        id?: string;
+        code: string;
+        discount_type: "percent" | "fixed";
+        discount_value: number;
+        usage_limit: number | null;
+        per_customer_limit: number | null;
+        min_order_amount: number | null;
+        starts_at: string | null;
+        ends_at: string | null;
+        enabled: boolean;
+      },
+  )
+  .handler(async ({ data }) => {
+    const code = data.code.trim().toUpperCase();
+    if (!code) throw new Error("Coupon code is required");
+    if (data.id) {
+      await sql()`
+        update coupons
+        set code = ${code}, discount_type = ${data.discount_type}, discount_value = ${data.discount_value},
+            usage_limit = ${data.usage_limit}, per_customer_limit = ${data.per_customer_limit},
+            min_order_amount = ${data.min_order_amount}, starts_at = ${data.starts_at}, ends_at = ${data.ends_at},
+            enabled = ${data.enabled}
+        where id = ${data.id}
+      `;
+      return { id: data.id };
+    }
+    const rows = await sql()`
+      insert into coupons (code, discount_type, discount_value, usage_limit, per_customer_limit,
+        min_order_amount, starts_at, ends_at, enabled)
+      values (${code}, ${data.discount_type}, ${data.discount_value}, ${data.usage_limit}, ${data.per_customer_limit},
+        ${data.min_order_amount}, ${data.starts_at}, ${data.ends_at}, ${data.enabled})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteCouponAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as string)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from coupons where id = ${id}`;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------
 export const listCategoriesAdmin = createServerFn({ method: "GET" })

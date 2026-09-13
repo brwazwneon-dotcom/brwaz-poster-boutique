@@ -3,6 +3,7 @@ import { adminLogout } from "@/lib/admin-auth-neon.functions";
 import { DashboardTab } from "./DashboardTab";
 import { AnalyticsTab } from "./AnalyticsTab";
 import { FinanceTab } from "./FinanceTab";
+import { PromotionsTab } from "./PromotionsTab";
 import { OrdersTab } from "./OrdersTab";
 import { PhotoOrdersTab } from "./PhotoOrdersTab";
 import { ProductsTab } from "./ProductsTab";
@@ -23,6 +24,7 @@ type Tab =
   | "dashboard"
   | "analytics"
   | "finance"
+  | "promotions"
   | "products"
   | "categories"
   | "orders"
@@ -68,6 +70,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     { id: "customers", label: "Customers" },
     { id: "reviews", label: "Reviews" },
     { id: "offers", label: "Offers" },
+    { id: "promotions", label: "Promotions" },
     { id: "sets", label: "Sets" },
     { id: "before-after", label: "Before / After" },
     { id: "landing-pages", label: "Landing Pages" },
@@ -114,6 +117,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         {visitedTabs.has("customers") && <div hidden={tab !== "customers"}><CustomersTab /></div>}
         {visitedTabs.has("reviews") && <div hidden={tab !== "reviews"}><ReviewsTab /></div>}
         {visitedTabs.has("offers") && <div hidden={tab !== "offers"}><CustomOffersTab /></div>}
+        {visitedTabs.has("promotions") && <div hidden={tab !== "promotions"}><PromotionsTab /></div>}
         {visitedTabs.has("sets") && <div hidden={tab !== "sets"}><SetsTab /></div>}
         {visitedTabs.has("before-after") && <div hidden={tab !== "before-after"}><BeforeAfterTab /></div>}
         {visitedTabs.has("landing-pages") && <div hidden={tab !== "landing-pages"}><LandingPagesTab /></div>}
