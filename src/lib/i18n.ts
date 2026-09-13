@@ -33,6 +33,26 @@ export const i18nInitPromise = i18n
       caches: ["localStorage"],
     },
     interpolation: { escapeValue: false },
+  })
+  .then(async () => {
+    // i18next-browser-languagedetector's "navigator" source has no real
+    // meaning in Node's SSR environment (no browser locale to read), but
+    // some environments expose a stand-in `navigator` that it can still
+    // read from — resolving to "en" instead of falling through to
+    // fallbackLng. The client's own real navigator/localStorage detection
+    // then resolves independently and can land on "ar", diverging from
+    // whatever the server rendered. Since there's no per-request language
+    // cookie (yet) for the server to read a real user preference from,
+    // force the deterministic, correct-for-the-large-majority answer here:
+    // this store's fallback and primary audience is Arabic. This does
+    // mean a *returning* visitor who explicitly switched to English will
+    // see a brief server-rendered Arabic flash before their stored
+    // preference re-applies client-side — a real but narrower gap than
+    // the sitewide mismatch this replaces, left for a future cookie-based
+    // fix rather than expanding scope here.
+    if (typeof window === "undefined" && i18n.language !== "ar") {
+      await i18n.changeLanguage("ar");
+    }
   });
 
 export default i18n;

@@ -263,7 +263,21 @@ function RootShell({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
   return (
-    <html lang={lang} dir={lang === "ar" ? "rtl" : "ltr"} data-build-id={__BUILD_ID__}>
+    <html
+      lang={lang}
+      dir={lang === "ar" ? "rtl" : "ltr"}
+      data-build-id={__BUILD_ID__}
+      // The inline theme-preview bootstrap script (in this route's own
+      // head scripts, above) mutates <html>'s data-theme/data-site-theme
+      // attributes and inline custom-property style directly, before
+      // React hydrates — intentionally, to paint the previewed theme with
+      // no flash. React has no way to know about that out-of-band DOM
+      // write, so it always disagrees with what it would have rendered
+      // here; this tells it that's expected for this element specifically
+      // rather than a real bug (it does not silence mismatches in the
+      // element's children).
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
       </head>
