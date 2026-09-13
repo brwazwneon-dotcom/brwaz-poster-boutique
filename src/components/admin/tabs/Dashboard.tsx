@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { adminLogout } from "@/lib/admin-auth-neon.functions";
+import { DashboardTab } from "./DashboardTab";
 import { OrdersTab } from "./OrdersTab";
 import { PhotoOrdersTab } from "./PhotoOrdersTab";
 import { ProductsTab } from "./ProductsTab";
@@ -17,6 +18,7 @@ import { SystemHealthTab } from "./SystemHealthTab";
 import { SettingsTab } from "./SettingsTab";
 
 type Tab =
+  | "dashboard"
   | "products"
   | "categories"
   | "orders"
@@ -34,13 +36,13 @@ type Tab =
   | "settings";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const [tab, setTab] = useState<Tab>("orders");
+  const [tab, setTab] = useState<Tab>("dashboard");
   // Tabs mount lazily on first visit but never unmount again — switching
   // away and back (e.g. to double-check a category while reviewing the
   // upload queue) used to wipe all in-progress local state, most painfully
   // the Products upload queue, since a bare `{tab === "x" && <XTab/>}`
   // destroys and recreates the component on every switch.
-  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set(["orders"]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set(["dashboard"]));
   const switchTab = (t: Tab) => {
     setTab(t);
     setVisitedTabs((prev) => (prev.has(t) ? prev : new Set(prev).add(t)));
@@ -52,6 +54,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   };
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: "dashboard", label: "Dashboard" },
     { id: "orders", label: "Orders" },
     { id: "photo-orders", label: "Photo Orders" },
     { id: "products", label: "Products" },
@@ -95,6 +98,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
       <div className="mx-auto max-w-6xl px-4 py-8">
+        {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab /></div>}
         {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}
         {visitedTabs.has("photo-orders") && <div hidden={tab !== "photo-orders"}><PhotoOrdersTab /></div>}
         {visitedTabs.has("products") && <div hidden={tab !== "products"}><ProductsTab /></div>}

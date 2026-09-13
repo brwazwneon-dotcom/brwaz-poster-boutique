@@ -39,6 +39,131 @@ async function withUniqueSlugRetry<T extends Record<string, unknown>>(
 }
 
 // ---------------------------------------------------------------
+// Executive Dashboard — every number here is a real, server-computed
+// query against Neon. Nothing is fabricated or client-calculated: a
+// metric this store hasn't connected yet (marketing spend/ROAS) is simply
+// never returned, so the UI can render "Not connected" instead of a fake
+// zero that would be indistinguishable from a real one.
+// ---------------------------------------------------------------
+export type DashboardRange = "today" | "yesterday" | "7d" | "30d" | "this_month" | "last_month";
+
+function computeRangeBounds(range: DashboardRange, now = new Date()) {
+  const startOfDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
+  const todayStart = startOfDay(now);
+
+  switch (range) {
+    case "yesterday":
+      return {
+        curStart: addDays(todayStart, -1),
+        curEnd: todayStart,
+        prevStart: addDays(todayStart, -2),
+        prevEnd: addDays(todayStart, -1),
+      };
+    case "7d":
+      return {
+        curStart: addDays(todayStart, -7),
+        curEnd: addDays(todayStart, 1),
+        prevStart: addDays(todayStart, -14),
+        prevEnd: addDays(todayStart, -7),
+      };
+    case "30d":
+      return {
+        curStart: addDays(todayStart, -30),
+        curEnd: addDays(todayStart, 1),
+        prevStart: addDays(todayStart, -60),
+        prevEnd: addDays(todayStart, -30),
+      };
+    case "this_month": {
+      const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      return { curStart, curEnd: addDays(todayStart, 1), prevStart, prevEnd: curStart };
+    }
+    case "last_month": {
+      const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      const curEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+      return { curStart, curEnd, prevStart, prevEnd: curStart };
+    }
+    case "today":
+    default:
+      return {
+        curStart: todayStart,
+        curEnd: addDays(todayStart, 1),
+        prevStart: addDays(todayStart, -1),
+        prevEnd: todayStart,
+      };
+  }
+}
+
+export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { range?: DashboardRange } | undefined)?.range ?? "today")
+  .handler(async ({ data: range }) => {
+    const { curStart, curEnd, prevStart, prevEnd } = computeRangeBounds(range);
+    const client = sql();
+
+    const [orderStats, newCustomers, returningCustomers, visitors] = await Promise.all([
+      client`
+        select
+          count(*) filter (where created_at >= ${curStart} and created_at < ${curEnd})::int as cur_orders,
+          coalesce(sum(total_price) filter (where created_at >= ${curStart} and created_at < ${curEnd}), 0)::numeric as cur_revenue,
+          count(*) filter (where status = 'cancelled' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_cancelled,
+          count(*) filter (where status = 'returned' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_returned,
+          count(*) filter (where created_at >= ${prevStart} and created_at < ${prevEnd})::int as prev_orders,
+          coalesce(sum(total_price) filter (where created_at >= ${prevStart} and created_at < ${prevEnd}), 0)::numeric as prev_revenue
+        from orders
+        where is_test = false
+      `,
+      client`
+        select count(*)::int as n from customers
+        where created_at >= ${curStart} and created_at < ${curEnd}
+      `,
+      client`
+        select count(distinct o.customer_id)::int as n
+        from orders o
+        join customers c on c.id = o.customer_id
+        where o.is_test = false
+          and o.created_at >= ${curStart} and o.created_at < ${curEnd}
+          and c.created_at < ${curStart}
+      `,
+      client`
+        select count(distinct visitor_id)::int as n from analytics_visits
+        where created_at >= ${curStart} and created_at < ${curEnd}
+      `,
+    ]);
+
+    const stats = orderStats[0] as {
+      cur_orders: number;
+      cur_revenue: string;
+      cur_cancelled: number;
+      cur_returned: number;
+      prev_orders: number;
+      prev_revenue: string;
+    };
+    const curRevenue = Number(stats.cur_revenue);
+    const prevRevenue = Number(stats.prev_revenue);
+    const visitorCount = (visitors[0] as { n: number }).n;
+
+    return {
+      range,
+      periodStart: curStart.toISOString(),
+      periodEnd: curEnd.toISOString(),
+      orders: stats.cur_orders,
+      ordersPrev: stats.prev_orders,
+      revenue: curRevenue,
+      revenuePrev: prevRevenue,
+      averageOrderValue: stats.cur_orders > 0 ? curRevenue / stats.cur_orders : 0,
+      cancelledOrders: stats.cur_cancelled,
+      returnedOrders: stats.cur_returned,
+      newCustomers: (newCustomers[0] as { n: number }).n,
+      returningCustomers: (returningCustomers[0] as { n: number }).n,
+      visitors: visitorCount,
+      conversionRate: visitorCount > 0 ? stats.cur_orders / visitorCount : null,
+    };
+  });
+
+// ---------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------
 export const listCategoriesAdmin = createServerFn({ method: "GET" })
