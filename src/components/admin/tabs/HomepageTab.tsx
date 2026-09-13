@@ -29,6 +29,7 @@ import {
   type AdminHighlight,
 } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { HomepageLayoutSection } from "./HomepageLayoutSection";
 
 export function HomepageTab() {
   const confirm = useConfirm();
@@ -96,15 +97,18 @@ export function HomepageTab() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between">
-        <h2 className="text-lg font-semibold">Homepage banners</h2>
-        <button
-          onClick={() => setEditing({})}
-          className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
-        >
-          + New banner
-        </button>
-      </div>
+      <HomepageLayoutSection />
+
+      <div className="mt-10 border-t border-border pt-8">
+        <div className="mb-4 flex justify-between">
+          <h2 className="text-lg font-semibold">Homepage banners</h2>
+          <button
+            onClick={() => setEditing({})}
+            className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+          >
+            + New banner
+          </button>
+        </div>
 
       {editing && (
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
@@ -212,6 +216,7 @@ export function HomepageTab() {
             </div>
           ))}
         {banners.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
+      </div>
       </div>
 
       <div className="mt-10 border-t border-border pt-8">
