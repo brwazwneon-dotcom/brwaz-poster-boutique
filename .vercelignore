@@ -7,7 +7,6 @@ dist
 .vercel
 test-results
 *.mjs
-*.png
 *.tgz
 *.log
 bun.lock
