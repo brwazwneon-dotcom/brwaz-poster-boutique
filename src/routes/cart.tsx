@@ -29,6 +29,7 @@ import {
 import { trackEvent, trackCustom, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
+import { getAudienceAttribution } from "@/lib/landing-pages";
 import { useTranslation } from "react-i18next";
 
 const INSTAPAY_NUMBER = "01090771294";
@@ -564,6 +565,15 @@ function CartPage() {
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
       const guestSessionId = visitorId();
+      // First-touch attribution, captured once on a landing-page visit and
+      // persisted client-side — by now (checkout) the original ?utm_* query
+      // string is long gone from the URL, so this is the only place left to
+      // read it from. Absent for direct/organic traffic that never passed
+      // through a landing page.
+      const attribution = getAudienceAttribution();
+      const utmSource = attribution?.utm_source && attribution.utm_source !== "direct" ? attribution.utm_source : null;
+      const utmMedium = attribution?.utm_medium || null;
+      const utmCampaign = attribution?.utm_campaign || null;
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
@@ -597,6 +607,9 @@ function CartPage() {
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
           payment_screenshot: screenshotPath,
           is_test: testFlag,
+          utm_source: utmSource,
+          utm_medium: utmMedium,
+          utm_campaign: utmCampaign,
         };
       });
       // Append the double-face-tape line as its own order row when chosen.
@@ -623,6 +636,9 @@ function CartPage() {
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
           payment_screenshot: screenshotPath,
           is_test: testFlag,
+          utm_source: utmSource,
+          utm_medium: utmMedium,
+          utm_campaign: utmCampaign,
         } as (typeof rows)[number]);
       }
       const orderPayloadDebug = {

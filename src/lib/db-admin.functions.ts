@@ -167,23 +167,28 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
     `;
   });
 
-// Customers — derived from orders grouped by phone (no separate table:
-// the phone number given at checkout is the only stable customer
-// identity this store currently collects).
+// Customers — backed by the real `customers` table (Business OS Phase 1b),
+// which checkout upserts by phone on every order. Order stats are still
+// computed from `orders` at read time, never stored/denormalized on the
+// customer row, so they can never drift out of sync with the real ledger.
 export const listCustomersAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
     return sql()`
-      select phone,
-             max(customer_name) as customer_name,
-             max(governorate) as governorate,
-             count(*)::int as order_count,
-             coalesce(sum(total_price), 0)::numeric as total_spent,
-             max(created_at) as last_order_at
-      from orders
-      where is_test = false
-      group by phone
-      order by last_order_at desc
+      select c.phone,
+             coalesce(c.name, '') as customer_name,
+             coalesce(c.governorate, '') as governorate,
+             coalesce(o.order_count, 0)::int as order_count,
+             coalesce(o.total_spent, 0)::numeric as total_spent,
+             o.last_order_at
+      from customers c
+      left join (
+        select phone, count(*)::int as order_count, sum(total_price) as total_spent, max(created_at) as last_order_at
+        from orders
+        where is_test = false
+        group by phone
+      ) o on o.phone = c.phone
+      order by o.last_order_at desc nulls last
       limit 500
     `;
   });

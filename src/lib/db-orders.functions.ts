@@ -25,6 +25,14 @@ export type OrderRowInput = {
   payment_status: string;
   payment_screenshot: string | null;
   is_test: boolean;
+  // Attribution — captured once on a landing-page visit and persisted
+  // client-side (src/lib/landing-pages.ts's getAudienceAttribution), since
+  // by checkout time the original ?utm_* query string is long gone from
+  // the current URL. Absent for direct/organic traffic that never passed
+  // through a landing page.
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
 };
 
 // Public — checkout is anonymous, same as before. Runs entirely
@@ -43,21 +51,38 @@ export const createOrderRows = createServerFn({ method: "POST" })
     }
 
     const client = sql();
+
+    // One checkout = one customer, even across multiple cart-item rows.
+    // Insert-or-update by phone (the only stable identity collected at
+    // checkout) — atomic via ON CONFLICT, so concurrent checkouts from the
+    // same repeat customer can't race into two rows. Never touches
+    // tags/notes (admin-authored) or source (first-touch only, set once).
+    const first = rows[0];
+    const [{ id: customerId }] = await client`
+      insert into customers (phone, name, address, governorate, source)
+      values (${first.phone}, ${first.customer_name}, ${first.address}, ${first.governorate}, ${first.utm_source ?? null})
+      on conflict (phone) do update
+      set name = excluded.name, address = excluded.address, governorate = excluded.governorate, updated_at = now()
+      returning id
+    `;
+
     const results = (await client.transaction(
       rows.map(
         (r) => client`
           insert into orders (
-            guest_session_id, customer_name, phone, governorate, address,
+            guest_session_id, customer_id, customer_name, phone, governorate, address,
             frame_type, frame_color, size, quantity, selected_poster,
             poster_title, poster_image, notes, subtotal, packaging_fee,
             shipping_cost, total_price, status, payment_method,
-            payment_status, payment_screenshot, is_test
+            payment_status, payment_screenshot, is_test,
+            utm_source, utm_medium, utm_campaign
           ) values (
-            ${r.guest_session_id}, ${r.customer_name}, ${r.phone}, ${r.governorate}, ${r.address},
+            ${r.guest_session_id}, ${customerId}, ${r.customer_name}, ${r.phone}, ${r.governorate}, ${r.address},
             ${r.frame_type}, ${r.frame_color}, ${r.size}, ${r.quantity}, ${r.selected_poster},
             ${r.poster_title}, ${r.poster_image}, ${r.notes}, ${r.subtotal}, ${r.packaging_fee},
             ${r.shipping_cost}, ${r.total_price}, ${r.status}, ${r.payment_method},
-            ${r.payment_status}, ${r.payment_screenshot}, ${r.is_test}
+            ${r.payment_status}, ${r.payment_screenshot}, ${r.is_test},
+            ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}
           )
           returning id, order_number
         `,
