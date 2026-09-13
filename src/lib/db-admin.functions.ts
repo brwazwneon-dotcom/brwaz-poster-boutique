@@ -217,6 +217,114 @@ export const getAnalyticsOverviewAdmin = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------
+// Finance — expense log + a simple profit view (revenue minus logged
+// expenses). Deliberately no per-order COGS yet — see the migration
+// comment in neon/migrations/013_expenses.sql for why.
+// ---------------------------------------------------------------
+export const EXPENSE_CATEGORIES = [
+  "ads",
+  "shipping",
+  "packaging",
+  "printing",
+  "materials",
+  "salaries",
+  "software",
+  "subscriptions",
+  "electricity",
+  "maintenance",
+  "other",
+];
+
+export const listExpensesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { days?: number } | undefined)?.days ?? 30)
+  .handler(async ({ data: days }) => {
+    return sql()`
+      select id, amount, category, expense_date, description, payment_method, created_at
+      from expenses
+      where expense_date >= current_date - make_interval(days => ${days})
+      order by expense_date desc, created_at desc
+      limit 500
+    `;
+  });
+
+export const upsertExpenseAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as {
+        id?: string;
+        amount: number;
+        category: string;
+        expense_date: string;
+        description: string | null;
+        payment_method: string | null;
+      },
+  )
+  .handler(async ({ data }) => {
+    if (data.id) {
+      await sql()`
+        update expenses
+        set amount = ${data.amount}, category = ${data.category}, expense_date = ${data.expense_date},
+            description = ${data.description}, payment_method = ${data.payment_method}
+        where id = ${data.id}
+      `;
+      return { id: data.id };
+    }
+    const rows = await sql()`
+      insert into expenses (amount, category, expense_date, description, payment_method)
+      values (${data.amount}, ${data.category}, ${data.expense_date}, ${data.description}, ${data.payment_method})
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteExpenseAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as string)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from expenses where id = ${id}`;
+    return { ok: true };
+  });
+
+export const getProfitReportAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { range?: DashboardRange } | undefined)?.range ?? "this_month")
+  .handler(async ({ data: range }) => {
+    const { curStart, curEnd } = computeRangeBounds(range);
+    const client = sql();
+    const [revenueRow, expensesByCategory] = await Promise.all([
+      client`
+        select coalesce(sum(total_price), 0)::numeric as revenue, count(*)::int as orders
+        from orders
+        where is_test = false and created_at >= ${curStart} and created_at < ${curEnd}
+      `,
+      client`
+        select category, coalesce(sum(amount), 0)::numeric as total
+        from expenses
+        where expense_date >= ${curStart}::date and expense_date < ${curEnd}::date
+        group by category
+        order by total desc
+      `,
+    ]);
+    const revenue = Number((revenueRow[0] as { revenue: string }).revenue);
+    const totalExpenses = (expensesByCategory as { category: string; total: string }[]).reduce(
+      (sum, r) => sum + Number(r.total),
+      0,
+    );
+    return {
+      range,
+      periodStart: curStart.toISOString(),
+      periodEnd: curEnd.toISOString(),
+      revenue,
+      orders: (revenueRow[0] as { orders: number }).orders,
+      expensesByCategory,
+      totalExpenses,
+      netProfit: revenue - totalExpenses,
+    };
+  });
+
+// ---------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------
 export const listCategoriesAdmin = createServerFn({ method: "GET" })

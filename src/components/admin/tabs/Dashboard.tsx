@@ -2,6 +2,7 @@ import { useState } from "react";
 import { adminLogout } from "@/lib/admin-auth-neon.functions";
 import { DashboardTab } from "./DashboardTab";
 import { AnalyticsTab } from "./AnalyticsTab";
+import { FinanceTab } from "./FinanceTab";
 import { OrdersTab } from "./OrdersTab";
 import { PhotoOrdersTab } from "./PhotoOrdersTab";
 import { ProductsTab } from "./ProductsTab";
@@ -21,6 +22,7 @@ import { SettingsTab } from "./SettingsTab";
 type Tab =
   | "dashboard"
   | "analytics"
+  | "finance"
   | "products"
   | "categories"
   | "orders"
@@ -58,6 +60,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "analytics", label: "Analytics" },
+    { id: "finance", label: "Finance" },
     { id: "orders", label: "Orders" },
     { id: "photo-orders", label: "Photo Orders" },
     { id: "products", label: "Products" },
@@ -103,6 +106,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       <div className="mx-auto max-w-6xl px-4 py-8">
         {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab /></div>}
         {visitedTabs.has("analytics") && <div hidden={tab !== "analytics"}><AnalyticsTab /></div>}
+        {visitedTabs.has("finance") && <div hidden={tab !== "finance"}><FinanceTab /></div>}
         {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}
         {visitedTabs.has("photo-orders") && <div hidden={tab !== "photo-orders"}><PhotoOrdersTab /></div>}
         {visitedTabs.has("products") && <div hidden={tab !== "products"}><ProductsTab /></div>}
