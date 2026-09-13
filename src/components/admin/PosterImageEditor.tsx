@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Crop, ZoomIn, ZoomOut, Move, Maximize, Minimize, RotateCcw, Wand2, X } from "lucide-react";
+import {
+  Crop,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  RotateCw,
+  Sparkles,
+  Wand2,
+  X,
+} from "lucide-react";
 import {
   DEFAULT_EDIT_SETTINGS,
   type EditSettings,
@@ -9,6 +21,8 @@ import {
   normalizeEditSettings,
   renderEditTo,
 } from "@/lib/poster-edit";
+import { bucketAspect } from "@/lib/mockup-fit";
+import { FramePreview } from "@/components/FramePreview";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -18,6 +32,9 @@ type Props = {
   initial?: unknown;
   /** Final printable ratio. Defaults to 2:3 for posters. */
   ratio?: number;
+  /** When set, the live preview renders inside the real frame chrome
+   *  instead of a plain box. */
+  mockupFrame?: "black" | "white" | "wood";
   onCancel: () => void;
   onSave: (settings: EditSettings) => void;
   saving?: boolean;
@@ -29,6 +46,7 @@ export function PosterImageEditor({
   source,
   initial,
   ratio = 2 / 3,
+  mockupFrame,
   onCancel,
   onSave,
   saving,
@@ -85,6 +103,28 @@ export function PosterImageEditor({
 
   const reset = () =>
     setSettings({ ...DEFAULT_EDIT_SETTINGS, ratio, extendMode: settings.extendMode });
+
+  // Self-contained fit check (no caller-supplied aspect data needed): once
+  // the source image is loaded we know its natural ratio directly.
+  const naturalRatio = img ? img.naturalWidth / img.naturalHeight : null;
+  const aspectBucket = naturalRatio != null ? bucketAspect(naturalRatio) : null;
+  const showCropHint = aspectBucket !== null && aspectBucket !== "good" && settings.fit === "fill";
+
+  // Off-ratio images lose less of the subject with "fit" (empty space,
+  // filled by the extend-background mode) than with "fill" (hard crop).
+  // Well-fitting images default to "fill" per DEFAULT_EDIT_SETTINGS.
+  const handleSmartFit = () => {
+    const base = { zoom: 1, offsetX: 0, offsetY: 0, stretchX: 1, stretchY: 1 } as const;
+    if (aspectBucket === null || aspectBucket === "good") {
+      update({ ...base, fit: "fill" });
+    } else {
+      update({
+        ...base,
+        fit: "fit",
+        extendMode: settings.extendMode === "none" ? "blur" : settings.extendMode,
+      });
+    }
+  };
 
   // Pan via drag on the preview canvas.
   const onPointerDown = (e: React.PointerEvent) => {
@@ -156,6 +196,26 @@ export function PosterImageEditor({
               <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                 Loading image…
               </div>
+            ) : mockupFrame ? (
+              <FramePreview
+                posterUrl=""
+                color={mockupFrame}
+                loading="eager"
+                className="h-full w-full"
+                aspectClassName="h-full w-full"
+                artwork={
+                  <canvas
+                    ref={canvasRef}
+                    width={previewW}
+                    height={PREVIEW_H}
+                    onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={onPointerUp}
+                    onWheel={onWheel}
+                    className="h-full w-full cursor-move touch-none select-none"
+                  />
+                }
+              />
             ) : (
               <canvas
                 ref={canvasRef}
@@ -168,7 +228,12 @@ export function PosterImageEditor({
                 className="h-full w-full cursor-move touch-none select-none"
               />
             )}
-            <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />
+            {!mockupFrame && <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />}
+            {showCropHint && (
+              <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 rounded-sm bg-amber-500/90 px-2 py-1 text-center text-[10px] font-semibold text-black">
+                ⚠ Content near the edges may be partially cropped
+              </div>
+            )}
           </div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
             Drag to move · Scroll to zoom · Ratio 2:3
@@ -198,9 +263,31 @@ export function PosterImageEditor({
             >
               Fill frame
             </ToolButton>
+            <ToolButton
+              active={settings.fit === "custom"}
+              onClick={() => update({ fit: "custom" })}
+              icon={<Move className="h-3.5 w-3.5" />}
+            >
+              Crop
+            </ToolButton>
+            <ToolButton onClick={handleSmartFit} icon={<Sparkles className="h-3.5 w-3.5" />}>
+              Smart Fit
+            </ToolButton>
             <ToolButton onClick={reset} icon={<RotateCcw className="h-3.5 w-3.5" />}>
               Reset
             </ToolButton>
+          </Section>
+
+          <Section title="Rotate" icon={<RotateCw className="h-3.5 w-3.5" />}>
+            <RangeRow
+              label="Angle"
+              min={-180}
+              max={180}
+              step={1}
+              value={settings.rotate}
+              onChange={(v) => update({ rotate: v, fit: "custom" })}
+              format={(v) => `${v}°`}
+            />
           </Section>
 
           <Section title="Zoom" icon={<ZoomIn className="h-3.5 w-3.5" />}>

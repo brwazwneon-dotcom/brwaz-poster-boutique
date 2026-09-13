@@ -104,7 +104,7 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 
 type Box = { x: number; y: number; w: number; h: number };
 
-function computeImageBox(
+export function computeImageBox(
   img: { width: number; height: number },
   s: EditSettings,
   outW: number,
@@ -227,7 +227,17 @@ export function renderEditTo(
 
   const box = computeImageBox(img, s, outW, outH);
   drawBackground(ctx, img, box, s, outW, outH);
-  ctx.drawImage(img, box.x, box.y, box.w, box.h);
+  if (s.rotate) {
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((s.rotate * Math.PI) / 180);
+    ctx.drawImage(img, -box.w / 2, -box.h / 2, box.w, box.h);
+    ctx.restore();
+  } else {
+    ctx.drawImage(img, box.x, box.y, box.w, box.h);
+  }
 }
 
 /** Render to an offscreen canvas and return a JPEG blob. */

@@ -96,6 +96,15 @@ import {
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { FramePreview } from "@/components/FramePreview";
+import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
+import {
+  DEFAULT_EDIT_SETTINGS,
+  isDefaultEdit,
+  loadImage,
+  renderEditToBlob,
+  type EditSettings,
+} from "@/lib/poster-edit";
+import { bucketAspect, computeMockupFit, friendlyRatio, type AspectBucket, type MockupFit } from "@/lib/mockup-fit";
 
 export const Route = createLazyFileRoute("/admin")({
   component: AdminPage,
@@ -2578,6 +2587,40 @@ type AdminPoster = {
   review_status: string;
 };
 
+// Inlined from src/lib/ai-review.ts's pure logic (not imported directly —
+// that file also exports a Supabase-backed hook, and importing it would
+// pull `@/integrations/supabase/client`'s eager `createClient()` call into
+// this Neon-only bundle). Same reasons vocabulary, same 0.75 default
+// threshold, just without the admin-configurable-threshold Supabase hook.
+type ReviewReason =
+  | "low_confidence"
+  | "category_unclear"
+  | "missing_subcategory"
+  | "ai_failed";
+const REVIEW_REASON_LABEL: Record<ReviewReason, string> = {
+  low_confidence: "Low confidence",
+  category_unclear: "Category unclear",
+  missing_subcategory: "Missing subcategory",
+  ai_failed: "AI analysis failed",
+};
+const AI_THRESHOLD_DEFAULT = 0.75;
+function computeReviewReasons(input: {
+  confidence: number | null;
+  categoryId: string | null;
+  subCategoryId: string | null;
+  hasSubsUnderCategory: boolean;
+  aiFailed: boolean;
+}): ReviewReason[] {
+  const reasons: ReviewReason[] = [];
+  if (input.aiFailed) reasons.push("ai_failed");
+  if (input.confidence != null && input.confidence < AI_THRESHOLD_DEFAULT) reasons.push("low_confidence");
+  if (!input.categoryId) reasons.push("category_unclear");
+  if (input.categoryId && !input.subCategoryId && input.hasSubsUnderCategory) {
+    reasons.push("missing_subcategory");
+  }
+  return reasons;
+}
+
 const REVIEW_LABELS: Record<string, string> = {
   approved: "Approved",
   needs_edit: "Needs review",
@@ -2590,22 +2633,30 @@ type QueueStatus =
   | "queued"
   | "optimizing"
   | "analyzing"
-  | "preview"
-  | "uploading"
-  | "creating"
   | "ready"
+  | "warning"
+  | "fixed"
+  | "publishing"
+  | "published"
   | "failed";
+
 type QueueItem = {
   id: string;
-  file: File;
+  file: File; // never mutated — source of truth for re-optimize + archived original
   previewUrl: string;
   status: QueueStatus;
   error?: string;
   productId?: string;
-  // Populated once Phase A (analyze) completes; retained so Phase B
-  // (confirm & publish) can upload the blob only after human confirmation.
-  analyzed?: boolean;
-  dataUrl?: string;
+
+  // Analyze All output
+  width: number | null;
+  height: number | null;
+  ratio: number | null;
+  aspectBucket: AspectBucket | null;
+  mockupFit: MockupFit;
+
+  // AI (best-effort)
+  aiFailed: boolean;
   title: string;
   description: string;
   seo_title: string;
@@ -2613,14 +2664,20 @@ type QueueItem = {
   alt_text: string;
   badge: string | null;
   tags: string[];
-  mainCategoryId: string | null;
-  mainCategoryName: string | null;
+  confidence: number;
+
+  // Category — batch-applied via "Apply to All", with a per-item override escape hatch
+  categoryId: string | null;
+  categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
-  needsReview: boolean;
-  validationConflicts: string[];
-  confidence: number;
-  expanded?: boolean;
+  categoryOverridden: boolean;
+
+  // Mockup editor
+  editSettings: EditSettings | null; // null = DEFAULT_EDIT_SETTINGS applies
+  warningAccepted: boolean;
+
+  publishedWithWarning?: boolean;
 };
 
 function filenameToTitle(filename: string): string {
@@ -2647,12 +2704,24 @@ function fileToDataUrl(file: File): Promise<string> {
 const QUEUE_STATUS_LABEL: Record<QueueStatus, string> = {
   queued: "Queued",
   optimizing: "Optimizing",
-  analyzing: "AI analyzing",
-  preview: "Ready to review",
-  uploading: "Uploading",
-  creating: "Publishing",
-  ready: "Published",
+  analyzing: "Analyzing",
+  ready: "Ready",
+  warning: "Warning",
+  fixed: "Fixed",
+  publishing: "Publishing",
+  published: "Published",
   failed: "Failed",
+};
+const QUEUE_STATUS_BADGE_CLASS: Record<QueueStatus, string> = {
+  queued: "bg-accent text-muted-foreground",
+  optimizing: "bg-accent text-muted-foreground",
+  analyzing: "bg-accent text-muted-foreground",
+  ready: "bg-emerald-500/15 text-emerald-500",
+  warning: "bg-amber-500/15 text-amber-500",
+  fixed: "bg-cyan-500/15 text-cyan-500",
+  publishing: "bg-accent text-muted-foreground",
+  published: "bg-emerald-500/15 text-emerald-500",
+  failed: "bg-red-500/15 text-red-500",
 };
 
 type AdminPosterImage = {
@@ -2762,10 +2831,23 @@ function ProductsTab() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
-  const [newSubName, setNewSubName] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const categoriesRef = useRef<AdminCategory[]>([]);
   categoriesRef.current = categories;
+
+  // ---- Bulk Smart Upload Studio ----
+  const [applyCategoryId, setApplyCategoryId] = useState("");
+  const [applySubCategoryId, setApplySubCategoryId] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newSubCategoryName, setNewSubCategoryName] = useState("");
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+  const [gridFilter, setGridFilter] = useState<"all" | "warning">("all");
+  const [gridPage, setGridPage] = useState(0);
+  const [overrideOpenId, setOverrideOpenId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [mockupFrameColor, setMockupFrameColor] = useState<"black" | "white" | "wood">("black");
+  const GRID_PAGE_SIZE = 60;
 
   const load = async () => {
     const [p, c] = await Promise.all([listPostersAdmin({ data: {} }), listCategoriesAdmin()]);
@@ -2781,104 +2863,58 @@ function ProductsTab() {
     return (id: string | null) => (id ? (map.get(id) ?? "—") : "—");
   }, [categories]);
 
-  // ---- Upload queue, two phases ----
-  // Phase A (automatic, concurrency-limited): optimize -> AI-assist on the
-  // local data URL (no blob upload yet) -> resolve/auto-create category ->
-  // land at "preview" for a human look. Phase B (confirmAndPublish, its own
-  // pump): only once confirmed does the image actually upload to blob
-  // storage and the poster get created — a discarded preview leaves no
-  // orphaned blob or DB row by construction.
+  // ---- Bulk Smart Upload Studio ----
+  // Select -> Analyze All (optimize + measure mockup fit + AI metadata, no
+  // upload yet) -> pick category/subcategory once and Apply to All -> fix
+  // or accept any mockup-fit warnings -> Publish All (uploads + creates the
+  // posters). A discarded item never touched the network, so it leaves no
+  // orphaned blob or DB row.
   const updateQueueItem = (id: string, patch: Partial<QueueItem>) =>
     setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
+  // ---- Analyze All: optimize -> measure dimensions/mockup fit -> AI
+  // metadata on the local data URL. Category is deliberately NOT resolved
+  // here — it's chosen once, after analysis, via Apply to All below. ----
   const analyzeItem = async (item: QueueItem) => {
     try {
       updateQueueItem(item.id, { status: "optimizing", error: undefined });
       const optimized = await optimizeImage(item.file, { maxDim: 2000, quality: 0.85 });
-      const dataUrl = await fileToDataUrl(optimized);
 
-      updateQueueItem(item.id, { status: "analyzing" });
+      const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+        const probe = new Image();
+        probe.onload = () => resolve({ w: probe.naturalWidth, h: probe.naturalHeight });
+        probe.onerror = () => reject(new Error("Could not read image dimensions"));
+        probe.src = item.previewUrl;
+      });
+      const ratio = dims.w / dims.h;
+      const aspectBucket = bucketAspect(ratio);
+      const mockupFit = computeMockupFit(ratio);
+      updateQueueItem(item.id, {
+        status: "analyzing",
+        width: dims.w,
+        height: dims.h,
+        ratio,
+        aspectBucket,
+        mockupFit,
+      });
+
       let meta: Partial<GeneratedPosterMeta> = {};
       let aiFailed = false;
       try {
+        const dataUrl = await fileToDataUrl(optimized);
         meta = await generatePosterMeta({
-          data: {
-            imageUrl: dataUrl,
-            filename: item.file.name,
-            categories: categoriesRef.current.map((c) => ({
-              id: c.id,
-              name: c.name,
-              slug: c.slug,
-              parent_id: c.parent_id ?? null,
-            })),
-          },
+          data: { imageUrl: dataUrl, filename: item.file.name, categories: [] },
         });
       } catch {
         // AI assist is best-effort: a failure here still leaves a usable
-        // draft (filename-derived title, no category), never blocks the
-        // flow — but it must land flagged for review, not silently
-        // publishable, since there's no category or real SEO on it.
+        // draft (filename-derived title). It's folded into review_status
+        // at publish time, never blocks the flow here.
         aiFailed = true;
       }
 
-      // Resolve both the main AND sub category (not just the most-specific
-      // id) so the preview row can show "Category > Subcategory", auto-
-      // creating whatever the AI suggested that doesn't exist yet —
-      // checking-then-inserting by name so repeated subjects across the
-      // batch reuse the same row instead of duplicating it. Newly created
-      // categories are pushed into categoriesRef so later items in this
-      // same batch see them too.
-      let mainCategoryId: string | null = null;
-      let subCategoryId: string | null = meta.subcategory_id ?? null;
-      if (subCategoryId) {
-        const subCat = categoriesRef.current.find((c) => c.id === subCategoryId);
-        mainCategoryId = subCat?.parent_id ?? meta.category_id ?? null;
-      } else {
-        mainCategoryId = meta.category_id ?? null;
-        if (!mainCategoryId && meta.suggested_category_name) {
-          try {
-            const { id, created } = await findOrCreateCategory({
-              data: { name: meta.suggested_category_name, parentId: null },
-            });
-            mainCategoryId = id;
-            if (created) {
-              categoriesRef.current = [
-                ...categoriesRef.current,
-                { id, name: meta.suggested_category_name, slug: id, parent_id: null } as AdminCategory,
-              ];
-            }
-          } catch {
-            /* best-effort — leave uncategorized rather than block the flow */
-          }
-        }
-        if (mainCategoryId && meta.suggested_subcategory_name) {
-          try {
-            const { id, created } = await findOrCreateCategory({
-              data: { name: meta.suggested_subcategory_name, parentId: mainCategoryId },
-            });
-            subCategoryId = id;
-            if (created) {
-              categoriesRef.current = [
-                ...categoriesRef.current,
-                { id, name: meta.suggested_subcategory_name, slug: id, parent_id: mainCategoryId } as AdminCategory,
-              ];
-            }
-          } catch {
-            /* leave at main category only */
-          }
-        }
-      }
-      const mainCategoryName = mainCategoryId
-        ? (categoriesRef.current.find((c) => c.id === mainCategoryId)?.name ?? meta.suggested_category_name ?? null)
-        : null;
-      const subCategoryName = subCategoryId
-        ? (categoriesRef.current.find((c) => c.id === subCategoryId)?.name ?? meta.suggested_subcategory_name ?? null)
-        : null;
-
       updateQueueItem(item.id, {
-        status: "preview",
-        analyzed: true,
-        dataUrl,
+        status: mockupFit.ok ? "ready" : "warning",
+        aiFailed,
         title: meta.title || filenameToTitle(item.file.name),
         description: meta.description || "",
         seo_title: meta.seo_title || "",
@@ -2886,16 +2922,6 @@ function ProductsTab() {
         alt_text: meta.alt_text || "",
         badge: meta.badge ?? null,
         tags: meta.tags ?? [],
-        mainCategoryId,
-        mainCategoryName,
-        subCategoryId,
-        subCategoryName,
-        // Flag for review whenever the AI itself flagged it, the AI call
-        // failed outright, or no category could be resolved at all — any
-        // of these would otherwise silently publish an uncategorized or
-        // generic-fallback product via "Publish all ready".
-        needsReview: aiFailed || (!mainCategoryId && !subCategoryId) || Boolean(meta.needs_review),
-        validationConflicts: meta.validation_conflicts ?? [],
         confidence: aiFailed ? 0 : typeof meta.confidence === "number" ? meta.confidence : 1,
       });
     } catch (err) {
@@ -2906,17 +2932,50 @@ function ProductsTab() {
     }
   };
 
-  const confirmAndPublish = async (item: QueueItem) => {
-    updateQueueItem(item.id, { status: "uploading", error: undefined });
+  // ---- Publish All: bake any manual crop, upload web + archival original,
+  // create the poster. review_status folds in both the mockup-fit warning
+  // (if published anyway) and any AI-quality reasons, reusing the same
+  // "Needs review" system already live on the product list below. ----
+  const publishItem = async (item: QueueItem) => {
+    updateQueueItem(item.id, { status: "publishing", error: undefined });
     try {
-      if (!item.dataUrl) throw new Error("Image data missing — please re-add this photo");
-      const { url } = await uploadPosterImage({ data: { dataUrl: item.dataUrl, filename: item.file.name } });
-      updateQueueItem(item.id, { status: "creating" });
+      let toOptimize: File = item.file;
+      if (item.editSettings && !isDefaultEdit(item.editSettings)) {
+        const img = await loadImage(item.previewUrl);
+        const outH = 2400;
+        const outW = Math.round(outH * item.editSettings.ratio);
+        const blob = await renderEditToBlob(img, item.editSettings, outW, outH, 0.92);
+        toOptimize = new File([blob], item.file.name.replace(/\.[^.]+$/, "") + "-edited.jpg", {
+          type: "image/jpeg",
+        });
+      }
+      const optimized = await optimizeImage(toOptimize, { maxDim: 2000, quality: 0.85 });
+      const [webDataUrl, originalDataUrl] = await Promise.all([
+        fileToDataUrl(optimized),
+        fileToDataUrl(item.file),
+      ]);
+      const [{ url: imageUrl }, { url: originalUrl }] = await Promise.all([
+        uploadPosterImage({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
+        uploadPosterImage({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
+      ]);
+
+      const hasSubs = categoriesRef.current.some((c) => c.parent_id === item.categoryId);
+      const reasons = computeReviewReasons({
+        confidence: item.confidence,
+        categoryId: item.categoryId,
+        subCategoryId: item.subCategoryId,
+        hasSubsUnderCategory: hasSubs,
+        aiFailed: item.aiFailed,
+      });
+      const needsEdit = Boolean(item.publishedWithWarning) || reasons.length > 0;
+
       const { id: productId } = await upsertPoster({
         data: {
           title: item.title || filenameToTitle(item.file.name),
-          image_url: url,
-          category_id: item.subCategoryId ?? item.mainCategoryId ?? null,
+          image_url: imageUrl,
+          original_url: originalUrl,
+          edit_settings: item.editSettings ?? DEFAULT_EDIT_SETTINGS,
+          category_id: item.subCategoryId ?? item.categoryId ?? null,
           badge: item.badge,
           tags: item.tags,
           seo_title: item.seo_title || null,
@@ -2925,10 +2984,10 @@ function ProductsTab() {
           description: item.description || null,
           hidden: false,
           trending: false,
-          review_status: item.needsReview ? "needs_edit" : "approved",
+          review_status: needsEdit ? "needs_edit" : "approved",
         },
       });
-      updateQueueItem(item.id, { status: "ready", productId });
+      updateQueueItem(item.id, { status: "published", productId });
       load();
     } catch (err) {
       updateQueueItem(item.id, {
@@ -2939,8 +2998,7 @@ function ProductsTab() {
   };
 
   // 9 rotating Gemini keys are configured, so a higher concurrency spreads
-  // load across them instead of one key eating the whole rate limit —
-  // was 3, which made a 1000-image batch take much longer than it needs to.
+  // load across them instead of one key eating the whole rate limit.
   const MAX_CONCURRENT = 8;
   const activeCountRef = useRef(0);
   const pendingRef = useRef<QueueItem[]>([]);
@@ -2956,8 +3014,8 @@ function ProductsTab() {
     }
   };
 
-  // Separate pump for Phase B, so "Publish all ready" can fan many
-  // confirmed items out at once without competing with in-flight analysis.
+  // Separate pump for publishing, so "Publish All" can fan many items out
+  // at once without competing with any still-in-flight analysis.
   const publishActiveCountRef = useRef(0);
   const publishPendingRef = useRef<QueueItem[]>([]);
   const pumpPublish = () => {
@@ -2965,7 +3023,7 @@ function ProductsTab() {
       const item = publishPendingRef.current.shift();
       if (!item) break;
       publishActiveCountRef.current++;
-      confirmAndPublish(item).finally(() => {
+      publishItem(item).finally(() => {
         publishActiveCountRef.current--;
         pumpPublish();
       });
@@ -2975,10 +3033,8 @@ function ProductsTab() {
     publishPendingRef.current.push(item);
     pumpPublish();
   };
-  const publishAllReady = () => {
-    queue.filter((q) => q.status === "preview" && !q.needsReview).forEach(queuePublish);
-  };
 
+  // ---- Select Images: only enqueues. Analysis is a deliberate next step. ----
   const addFiles = (files: FileList | File[]) => {
     const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (incoming.length === 0) return;
@@ -2987,6 +3043,12 @@ function ProductsTab() {
       file,
       previewUrl: URL.createObjectURL(file),
       status: "queued",
+      width: null,
+      height: null,
+      ratio: null,
+      aspectBucket: null,
+      mockupFit: { ok: true, reason: null },
+      aiFailed: false,
       title: "",
       description: "",
       seo_title: "",
@@ -2994,27 +3056,33 @@ function ProductsTab() {
       alt_text: "",
       badge: null,
       tags: [],
-      mainCategoryId: null,
-      mainCategoryName: null,
+      confidence: 1,
+      categoryId: null,
+      categoryName: null,
       subCategoryId: null,
       subCategoryName: null,
-      needsReview: false,
-      validationConflicts: [],
-      confidence: 1,
+      categoryOverridden: false,
+      editSettings: null,
+      warningAccepted: false,
     }));
-    setQueue((prev) => [...items, ...prev]);
-    pendingRef.current.push(...items);
+    setQueue((prev) => [...prev, ...items]);
+  };
+
+  const startAnalysis = () => {
+    const toAnalyze = queue.filter((q) => q.status === "queued");
+    if (toAnalyze.length === 0) return;
+    pendingRef.current.push(...toAnalyze);
     pump();
   };
 
   const retryItem = (item: QueueItem) => {
-    if (item.analyzed) {
-      updateQueueItem(item.id, { status: "preview", error: undefined });
-      queuePublish(item);
-    } else {
+    if (item.width === null) {
       updateQueueItem(item.id, { status: "queued", error: undefined });
-      pendingRef.current.push(item);
+      pendingRef.current.push({ ...item, status: "queued" });
       pump();
+    } else {
+      updateQueueItem(item.id, { status: item.mockupFit.ok ? "ready" : "warning", error: undefined });
+      queuePublish(item);
     }
   };
 
@@ -3023,30 +3091,123 @@ function ProductsTab() {
     setQueue((prev) => prev.filter((q) => q.id !== item.id));
   };
 
-  const clearFinishedQueue = () =>
-    setQueue((prev) => prev.filter((q) => q.status !== "ready"));
+  const clearPublished = () => setQueue((prev) => prev.filter((q) => q.status !== "published"));
 
-  // Lets the admin type a brand-new subcategory name right in the preview
-  // row (e.g. "Arsenal" under an already-picked "Football") instead of
-  // leaving this page to add it in the Categories tab first.
-  const addQueueSubcategory = async (item: QueueItem) => {
-    if (!item.mainCategoryId) return;
-    const name = (newSubName[item.id] ?? "").trim();
+  // ---- Top Control Bar: pick category+subcategory once, apply to every
+  // queued image, with a per-item override escape hatch for stragglers. ----
+  const addTopCategory = async () => {
+    const name = newCategoryName.trim();
     if (!name) return;
     try {
-      const { id, created } = await findOrCreateCategory({
-        data: { name, parentId: item.mainCategoryId },
-      });
+      const { id } = await upsertCategory({ data: { name } });
+      const newCat = { id, name, slug: id, parent_id: null } as AdminCategory;
+      categoriesRef.current = [...categoriesRef.current, newCat];
+      setCategories((prev) => [...prev, newCat]);
+      setApplyCategoryId(id);
+      setApplySubCategoryId("");
+      setNewCategoryName("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add category");
+    }
+  };
+
+  const addTopSubCategory = async () => {
+    if (!applyCategoryId) return;
+    const name = newSubCategoryName.trim();
+    if (!name) return;
+    try {
+      const { id, created } = await findOrCreateCategory({ data: { name, parentId: applyCategoryId } });
       if (created) {
-        const newCat = { id, name, slug: id, parent_id: item.mainCategoryId } as AdminCategory;
+        const newCat = { id, name, slug: id, parent_id: applyCategoryId } as AdminCategory;
         categoriesRef.current = [...categoriesRef.current, newCat];
         setCategories((prev) => [...prev, newCat]);
       }
-      updateQueueItem(item.id, { subCategoryId: id, subCategoryName: name });
-      setNewSubName((prev) => ({ ...prev, [item.id]: "" }));
+      setApplySubCategoryId(id);
+      setNewSubCategoryName("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add subcategory");
     }
+  };
+
+  const requestApplyToAll = () => {
+    if (!applyCategoryId) {
+      toast.error("Pick a category first");
+      return;
+    }
+    if (queue.length === 0) return;
+    setShowApplyConfirm(true);
+  };
+
+  const confirmApplyToAll = () => {
+    const catName = categories.find((c) => c.id === applyCategoryId)?.name ?? null;
+    const subName = applySubCategoryId
+      ? (categories.find((c) => c.id === applySubCategoryId)?.name ?? null)
+      : null;
+    setQueue((prev) =>
+      prev.map((q) => ({
+        ...q,
+        categoryId: applyCategoryId,
+        categoryName: catName,
+        subCategoryId: applySubCategoryId || null,
+        subCategoryName: subName,
+        categoryOverridden: false,
+      })),
+    );
+    setShowApplyConfirm(false);
+    toast.success(`Applied ${catName}${subName ? ` → ${subName}` : ""} to ${queue.length} image(s)`);
+  };
+
+  const overrideItemCategory = (item: QueueItem, categoryId: string | null, subCategoryId: string | null) => {
+    const catName = categoryId ? (categories.find((c) => c.id === categoryId)?.name ?? null) : null;
+    const subName = subCategoryId ? (categories.find((c) => c.id === subCategoryId)?.name ?? null) : null;
+    updateQueueItem(item.id, {
+      categoryId,
+      categoryName: catName,
+      subCategoryId,
+      subCategoryName: subName,
+      categoryOverridden: true,
+    });
+  };
+
+  const overriddenCount = queue.filter((q) => q.categoryOverridden).length;
+  const readyCount = queue.filter((q) => q.status === "ready").length;
+  const warningCount = queue.filter((q) => q.status === "warning").length;
+  const fixedCount = queue.filter((q) => q.status === "fixed").length;
+  const publishedCount = queue.filter((q) => q.status === "published").length;
+  const publishableCount = readyCount + fixedCount + warningCount;
+
+  const runPublishAll = () => {
+    const targets = queue.filter((q) => q.status === "ready" || q.status === "fixed");
+    targets.forEach(queuePublish);
+  };
+
+  const requestPublishAll = () => {
+    const unresolvedWarnings = queue.filter((q) => q.status === "warning" && !q.warningAccepted);
+    if (unresolvedWarnings.length > 0) {
+      setPublishDialogOpen(true);
+      return;
+    }
+    runPublishAll();
+  };
+
+  const publishAsIs = () => {
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.status === "warning" ? { ...q, warningAccepted: true, publishedWithWarning: true } : q,
+      ),
+    );
+    setPublishDialogOpen(false);
+    // Publish everything ready/fixed, plus the warnings just accepted.
+    const targets = queue.filter((q) => q.status === "ready" || q.status === "fixed" || q.status === "warning");
+    targets.forEach((q) => queuePublish({ ...q, warningAccepted: true, publishedWithWarning: q.status === "warning" || q.publishedWithWarning }));
+  };
+
+  const fixImagesInstead = () => {
+    setPublishDialogOpen(false);
+    setGridFilter("warning");
+    setGridPage(0);
+    const firstWarning = queue.find((q) => q.status === "warning");
+    if (firstWarning) setEditingItemId(firstWarning.id);
   };
 
   // ---- Selection + bulk actions ----
@@ -3129,6 +3290,10 @@ function ProductsTab() {
     ? products.filter((p) => p.review_status !== "approved")
     : products;
 
+  const gridItems = gridFilter === "warning" ? queue.filter((q) => q.status === "warning") : queue;
+  const totalPages = Math.max(1, Math.ceil(gridItems.length / GRID_PAGE_SIZE));
+  const pagedItems = gridItems.slice(gridPage * GRID_PAGE_SIZE, (gridPage + 1) * GRID_PAGE_SIZE);
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -3151,7 +3316,7 @@ function ProductsTab() {
         </div>
       </div>
 
-      {/* ---- Drop zone ---- */}
+      {/* ---- 1. Select Images ---- */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -3168,9 +3333,9 @@ function ProductsTab() {
           dragOver ? "border-primary bg-primary/5" : "border-border hover:border-foreground/40"
         }`}
       >
-        <p className="text-sm font-medium">Drag & drop poster images here, or click to browse</p>
+        <p className="text-sm font-medium">+ SELECT IMAGES — drag & drop, or click to browse</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Multiple files at once · auto-optimized, auto-named, AI-assisted · lands as a draft for review
+          Add 10, 100, or 500+ at once · nothing is analyzed or published automatically
         </p>
         <input
           ref={fileInputRef}
@@ -3185,230 +3350,384 @@ function ProductsTab() {
         />
       </div>
 
-      {/* ---- Upload queue ---- */}
       {queue.length > 0 && (
         <div className="mb-6 rounded-sm border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              Upload queue ({queue.filter((q) => q.status === "ready").length}/{queue.length} done)
-            </span>
-            <div className="flex items-center gap-3">
-              {queue.some((q) => q.status === "preview" && q.needsReview) && (
-                <span className="text-xs text-amber-500">
-                  {queue.filter((q) => q.status === "preview" && q.needsReview).length} need review
+          {/* ---- 2. Analyze All ---- */}
+          {queue.some((q) => q.status === "queued") && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
+              <span className="text-xs text-muted-foreground">
+                {queue.length} image(s) selected ·{" "}
+                {queue.filter((q) => q.status !== "queued").length} analyzed
+              </span>
+              <button
+                onClick={startAnalysis}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+              >
+                Analyze Images
+              </button>
+            </div>
+          )}
+
+          {/* ---- 3. Top Control Bar ---- */}
+          {queue.some((q) => q.status !== "queued") && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2">
+              <select
+                value={applyCategoryId}
+                onChange={(e) => {
+                  setApplyCategoryId(e.target.value);
+                  setApplySubCategoryId("");
+                }}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              >
+                <option value="">Category…</option>
+                {categories
+                  .filter((c) => !c.parent_id)
+                  .map((main) => (
+                    <option key={main.id} value={main.id}>
+                      {main.name}
+                    </option>
+                  ))}
+              </select>
+              <input
+                placeholder="+ New category"
+                dir="ltr"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addTopCategory();
+                }}
+                className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+              />
+              <button
+                onClick={addTopCategory}
+                disabled={!newCategoryName.trim()}
+                className="rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-40"
+              >
+                Add
+              </button>
+
+              <select
+                value={applySubCategoryId}
+                disabled={!applyCategoryId}
+                onChange={(e) => setApplySubCategoryId(e.target.value)}
+                className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs disabled:opacity-50"
+              >
+                <option value="">Subcategory (optional)…</option>
+                {categories
+                  .filter((c) => c.parent_id === applyCategoryId)
+                  .map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+              </select>
+              <input
+                placeholder="+ New subcategory"
+                dir="ltr"
+                disabled={!applyCategoryId}
+                value={newSubCategoryName}
+                onChange={(e) => setNewSubCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addTopSubCategory();
+                }}
+                className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-xs disabled:opacity-50"
+              />
+              <button
+                onClick={addTopSubCategory}
+                disabled={!applyCategoryId || !newSubCategoryName.trim()}
+                className="rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-40"
+              >
+                Add
+              </button>
+
+              <button
+                onClick={requestApplyToAll}
+                disabled={!applyCategoryId}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-40"
+              >
+                Apply to All
+              </button>
+
+              <div className="ml-auto flex flex-wrap items-center gap-3">
+                {warningCount > 0 && gridFilter === "all" && (
+                  <button
+                    onClick={() => {
+                      setGridFilter("warning");
+                      setGridPage(0);
+                    }}
+                    className="text-xs text-amber-500 hover:underline"
+                  >
+                    {warningCount} need attention
+                  </button>
+                )}
+                {gridFilter === "warning" && (
+                  <button
+                    onClick={() => {
+                      setGridFilter("all");
+                      setGridPage(0);
+                    }}
+                    className="text-xs text-muted-foreground hover:underline"
+                  >
+                    Show all
+                  </button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {readyCount} ready · {warningCount} warning · {fixedCount} fixed · {publishedCount} published
                 </span>
-              )}
-              {queue.some((q) => q.status === "preview" && !q.needsReview) && (
                 <button
-                  onClick={publishAllReady}
-                  className="rounded-sm bg-primary px-2 py-1 text-xs font-medium text-primary-foreground"
+                  onClick={requestPublishAll}
+                  disabled={publishableCount === 0}
+                  className="rounded-sm bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-40"
                 >
-                  Publish all ready ({queue.filter((q) => q.status === "preview" && !q.needsReview).length})
+                  Publish All ({publishableCount})
                 </button>
-              )}
-              <button onClick={clearFinishedQueue} className="text-xs text-muted-foreground hover:text-foreground">
-                Clear finished
+                <button onClick={clearPublished} className="text-xs text-muted-foreground hover:text-foreground">
+                  Clear published
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ---- 4. Image Grid ---- */}
+          <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+            {pagedItems.map((q) => (
+              <div
+                key={q.id}
+                className={`group relative overflow-hidden rounded-sm border bg-background ${
+                  q.status === "warning"
+                    ? "border-amber-500"
+                    : q.status === "failed"
+                      ? "border-red-500"
+                      : "border-border"
+                }`}
+              >
+                <div
+                  className="aspect-square cursor-pointer bg-muted"
+                  onClick={() => {
+                    if (q.status === "warning" || q.status === "fixed") setEditingItemId(q.id);
+                  }}
+                >
+                  <img src={q.previewUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                </div>
+                {q.categoryOverridden && (
+                  <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase text-primary-foreground">
+                    Override
+                  </span>
+                )}
+                <button
+                  onClick={() => discardItem(q)}
+                  className="absolute right-1 top-1 rounded-sm bg-background/80 px-1 py-0.5 text-[10px] text-red-500 opacity-0 transition group-hover:opacity-100"
+                >
+                  ✕
+                </button>
+                <div className="space-y-0.5 border-t border-border bg-background px-1.5 py-1 text-[9px]">
+                  <div className="truncate font-medium">{q.title || q.file.name}</div>
+                  {q.width && q.ratio !== null && (
+                    <div className="text-muted-foreground">
+                      {q.width}×{q.height} · {friendlyRatio(q.ratio)}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`rounded-sm px-1 py-0.5 uppercase tracking-wide ${QUEUE_STATUS_BADGE_CLASS[q.status]}`}
+                    >
+                      {q.status === "warning"
+                        ? "⚠ Warning"
+                        : q.status === "ready" || q.status === "fixed"
+                          ? "✓ Good fit"
+                          : QUEUE_STATUS_LABEL[q.status]}
+                    </span>
+                    {q.status === "failed" && (
+                      <button onClick={() => retryItem(q)} className="text-cyan-500 hover:underline">
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                  {q.status === "warning" && q.mockupFit.reason && (
+                    <div className="text-amber-500">{q.mockupFit.reason}</div>
+                  )}
+                  <button
+                    onClick={() => setOverrideOpenId(overrideOpenId === q.id ? null : q.id)}
+                    className="block w-full truncate text-left text-cyan-500 hover:underline"
+                  >
+                    {q.categoryName ?? "No category"}
+                    {q.subCategoryName ? ` > ${q.subCategoryName}` : ""}
+                  </button>
+                </div>
+                {overrideOpenId === q.id && (
+                  <div className="absolute inset-0 z-10 flex flex-col gap-1 bg-background/95 p-2 text-[10px]">
+                    <select
+                      value={q.categoryId ?? ""}
+                      onChange={(e) => overrideItemCategory(q, e.target.value || null, null)}
+                      className="rounded-sm border border-border bg-background px-1 py-1"
+                    >
+                      <option value="">No category</option>
+                      {categories
+                        .filter((c) => !c.parent_id)
+                        .map((main) => (
+                          <option key={main.id} value={main.id}>
+                            {main.name}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      value={q.subCategoryId ?? ""}
+                      disabled={!q.categoryId}
+                      onChange={(e) => overrideItemCategory(q, q.categoryId, e.target.value || null)}
+                      className="rounded-sm border border-border bg-background px-1 py-1 disabled:opacity-50"
+                    >
+                      <option value="">No subcategory</option>
+                      {categories
+                        .filter((c) => c.parent_id === q.categoryId)
+                        .map((sub) => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => setOverrideOpenId(null)}
+                      className="rounded-sm border border-border py-1 hover:bg-accent"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {pagedItems.length === 0 && (
+              <p className="col-span-full py-6 text-center text-xs text-muted-foreground">
+                {gridFilter === "warning" ? "No images need attention." : "No images yet."}
+              </p>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 border-t border-border py-2 text-xs">
+              <button
+                disabled={gridPage === 0}
+                onClick={() => setGridPage((p) => p - 1)}
+                className="disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <span className="text-muted-foreground">
+                Page {gridPage + 1} / {totalPages}
+              </span>
+              <button
+                disabled={gridPage >= totalPages - 1}
+                onClick={() => setGridPage((p) => p + 1)}
+                className="disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {/* ---- 5. Publish Bar ---- */}
+          {queue.some((q) => q.status !== "queued") && (
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-2">
+              <span className="text-xs text-muted-foreground">
+                {readyCount} ready · {warningCount} warning · {fixedCount} fixed · {publishedCount} published
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={requestPublishAll}
+                  disabled={publishableCount === 0}
+                  className="rounded-sm bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-40"
+                >
+                  Publish All ({publishableCount})
+                </button>
+                <button onClick={clearPublished} className="text-xs text-muted-foreground hover:text-foreground">
+                  Clear published
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- Publish dialog ---- */}
+      {publishDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-sm border border-border bg-card p-5">
+            <p className="text-sm">{warningCount} images may not fit correctly inside the mockup.</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                onClick={publishAsIs}
+                className="rounded-sm bg-primary px-3 py-2 text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+              >
+                Publish As Is
+              </button>
+              <button
+                onClick={fixImagesInstead}
+                className="rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
+              >
+                Fix Images
+              </button>
+              <button
+                onClick={() => setPublishDialogOpen(false)}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                Cancel
               </button>
             </div>
           </div>
-          <div className="max-h-[32rem] overflow-y-auto">
-            {queue.map((q) =>
-              q.status === "preview" ? (
-                <div key={q.id} className="border-b border-border last:border-0">
-                  <div className="flex items-center gap-3 px-4 py-2">
-                    <img src={q.previewUrl} alt="" className="h-10 w-8 shrink-0 rounded-sm object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-medium">{q.title}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {q.mainCategoryName ?? "Uncategorized"}
-                        {q.subCategoryName ? ` > ${q.subCategoryName}` : ""}
-                      </div>
-                    </div>
-                    {q.needsReview && (
-                      <span className="shrink-0 rounded-sm bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-500">
-                        Needs review
-                      </span>
-                    )}
-                    <button
-                      onClick={() => updateQueueItem(q.id, { expanded: !q.expanded })}
-                      className="shrink-0 text-xs text-cyan-500 hover:underline"
-                    >
-                      {q.expanded ? "Hide" : "Review"}
-                    </button>
-                    <button
-                      onClick={() => queuePublish(q)}
-                      className="shrink-0 rounded-sm border border-border px-2 py-1 text-xs hover:bg-accent"
-                    >
-                      Confirm & Publish
-                    </button>
-                    <button onClick={() => discardItem(q)} className="shrink-0 text-xs text-red-500 hover:underline">
-                      Discard
-                    </button>
-                  </div>
-                  {q.expanded && (
-                    <div className="space-y-3 border-t border-border bg-accent/30 p-3">
-                      {q.validationConflicts.length > 0 && (
-                        <div className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-600">
-                          {q.validationConflicts.join(" · ")}
-                        </div>
-                      )}
-                      <input
-                        placeholder="Title"
-                        dir="ltr"
-                        value={q.title}
-                        onChange={(e) => updateQueueItem(q.id, { title: e.target.value })}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          value={q.mainCategoryId ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value || null;
-                            const main = categories.find((c) => c.id === val);
-                            updateQueueItem(q.id, {
-                              mainCategoryId: val,
-                              mainCategoryName: main?.name ?? null,
-                              subCategoryId: null,
-                              subCategoryName: null,
-                            });
-                          }}
-                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                        >
-                          <option value="">No category</option>
-                          {categories
-                            .filter((c) => !c.parent_id)
-                            .map((main) => (
-                              <option key={main.id} value={main.id}>
-                                {main.name}
-                              </option>
-                            ))}
-                        </select>
-                        <select
-                          value={q.subCategoryId ?? ""}
-                          disabled={!q.mainCategoryId}
-                          onChange={(e) => {
-                            const val = e.target.value || null;
-                            const sub = categories.find((c) => c.id === val);
-                            updateQueueItem(q.id, { subCategoryId: val, subCategoryName: sub?.name ?? null });
-                          }}
-                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
-                        >
-                          <option value="">No subcategory</option>
-                          {categories
-                            .filter((c) => c.parent_id === q.mainCategoryId)
-                            .map((sub) => (
-                              <option key={sub.id} value={sub.id}>
-                                {sub.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          placeholder={q.mainCategoryId ? "+ Add new subcategory…" : "Pick a category first"}
-                          dir="ltr"
-                          disabled={!q.mainCategoryId}
-                          value={newSubName[q.id] ?? ""}
-                          onChange={(e) => setNewSubName((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") addQueueSubcategory(q);
-                          }}
-                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
-                        />
-                        <button
-                          onClick={() => addQueueSubcategory(q)}
-                          disabled={!q.mainCategoryId}
-                          className="shrink-0 rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <textarea
-                        placeholder="Description"
-                        dir="ltr"
-                        value={q.description}
-                        onChange={(e) => updateQueueItem(q.id, { description: e.target.value })}
-                        rows={3}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      <input
-                        placeholder="SEO title"
-                        dir="ltr"
-                        value={q.seo_title}
-                        onChange={(e) => updateQueueItem(q.id, { seo_title: e.target.value })}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      <textarea
-                        placeholder="SEO description"
-                        dir="ltr"
-                        value={q.seo_description}
-                        onChange={(e) => updateQueueItem(q.id, { seo_description: e.target.value })}
-                        rows={2}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      <input
-                        placeholder="Alt text"
-                        dir="ltr"
-                        value={q.alt_text}
-                        onChange={(e) => updateQueueItem(q.id, { alt_text: e.target.value })}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      <input
-                        placeholder="Badge (optional)"
-                        dir="ltr"
-                        value={q.badge ?? ""}
-                        onChange={(e) => updateQueueItem(q.id, { badge: e.target.value || null })}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      />
-                      {q.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {q.tags.map((t, i) => (
-                            <span key={i} className="rounded-sm bg-accent px-2 py-0.5 text-[10px]">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <label className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={q.needsReview}
-                          onChange={(e) => updateQueueItem(q.id, { needsReview: e.target.checked })}
-                        />
-                        Flag for review
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div key={q.id} className="flex items-center gap-3 border-b border-border px-4 py-2 last:border-0">
-                  <img src={q.previewUrl} alt="" className="h-10 w-8 rounded-sm object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs">{q.file.name}</div>
-                    {q.error && <div className="truncate text-xs text-red-500">{q.error}</div>}
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                      q.status === "ready"
-                        ? "bg-emerald-500/15 text-emerald-500"
-                        : q.status === "failed"
-                          ? "bg-red-500/15 text-red-500"
-                          : "bg-accent text-muted-foreground"
-                    }`}
-                  >
-                    {QUEUE_STATUS_LABEL[q.status]}
-                  </span>
-                  {q.status === "failed" && (
-                    <button onClick={() => retryItem(q)} className="shrink-0 text-xs text-cyan-500 hover:underline">
-                      Retry
-                    </button>
-                  )}
-                </div>
-              ),
-            )}
+        </div>
+      )}
+
+      {/* ---- Apply to All confirm ---- */}
+      {showApplyConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-sm border border-border bg-card p-5">
+            <p className="text-sm">
+              Apply {categories.find((c) => c.id === applyCategoryId)?.name}
+              {applySubCategoryId ? ` → ${categories.find((c) => c.id === applySubCategoryId)?.name}` : ""} to{" "}
+              {queue.length} image(s)?
+              {overriddenCount > 0 &&
+                ` ${overriddenCount} of these have a manual override that will be replaced.`}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowApplyConfirm(false)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApplyToAll}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+              >
+                {overriddenCount > 0 ? "Apply Anyway" : "Apply"}
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* ---- Mockup Editor ---- */}
+      {editingItemId &&
+        (() => {
+          const item = queue.find((q) => q.id === editingItemId);
+          if (!item) return null;
+          return (
+            <PosterImageEditor
+              source={item.file}
+              initial={item.editSettings ?? undefined}
+              mockupFrame={mockupFrameColor}
+              onCancel={() => setEditingItemId(null)}
+              onSave={(s) => {
+                updateQueueItem(item.id, {
+                  editSettings: s,
+                  status: item.status === "warning" ? "fixed" : item.status,
+                  warningAccepted: item.status === "warning" ? true : item.warningAccepted,
+                });
+                setEditingItemId(null);
+                toast.success("Saved — applied when published");
+              }}
+            />
+          );
+        })()}
 
       {/* ---- Bulk action bar ---- */}
       {selected.size > 0 && (

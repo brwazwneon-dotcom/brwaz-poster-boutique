@@ -211,6 +211,12 @@ export const upsertPoster = createServerFn({ method: "POST" })
       typeof data.seo_description === "string" && data.seo_description ? data.seo_description : null;
     const altText = typeof data.alt_text === "string" && data.alt_text ? data.alt_text : null;
     const reviewStatusSent = typeof data.review_status === "string" && data.review_status ? data.review_status : null;
+    const originalUrlSent =
+      typeof data.original_url === "string" && data.original_url ? data.original_url : null;
+    const editSettingsSent =
+      data.edit_settings && typeof data.edit_settings === "object"
+        ? JSON.stringify(data.edit_settings)
+        : null;
 
     if (id) {
       const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
@@ -220,6 +226,8 @@ export const upsertPoster = createServerFn({ method: "POST" })
             featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller},
             seo_title = ${seoTitle}, seo_description = ${seoDescription}, alt_text = ${altText},
             review_status = case when ${reviewStatusSent !== null} then ${reviewStatusSent} else review_status end,
+            original_url = case when ${originalUrlSent !== null} then ${originalUrlSent} else original_url end,
+            edit_settings = case when ${editSettingsSent !== null} then ${editSettingsSent}::jsonb else edit_settings end,
             updated_at = now()
         where id = ${id}
         returning id
@@ -229,12 +237,13 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
       insert into posters (
         title, slug, description, image_url, category_id, tags, badge, hidden, featured,
-        trending, is_best_seller, seo_title, seo_description, alt_text, review_status
+        trending, is_best_seller, seo_title, seo_description, alt_text, review_status,
+        original_url, edit_settings
       )
       values (
         ${title}, ${candidateSlug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
         ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
-        ${reviewStatusSent ?? "approved"}
+        ${reviewStatusSent ?? "approved"}, ${originalUrlSent}, ${(editSettingsSent ?? "{}")}::jsonb
       )
       returning id
     `);
