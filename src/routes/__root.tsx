@@ -10,7 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import i18n from "@/lib/i18n";
+import i18n, { i18nInitPromise } from "@/lib/i18n";
 
 import appCss from "../styles.css?url";
 import { logSystemEvent } from "../lib/error-logger";
@@ -146,6 +146,15 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // i18next's `.init()` (src/lib/i18n.ts) is async — without awaiting it
+  // here, SSR could render before it resolves to the detected/fallback
+  // language, landing on i18next's pre-init default and diverging from
+  // the client (which by hydration time has long since resolved), causing
+  // sitewide hydration mismatches. See i18nInitPromise's own comment for
+  // the full race.
+  loader: async () => {
+    await i18nInitPromise;
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
