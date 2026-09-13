@@ -296,19 +296,76 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
 // which checkout upserts by phone on every order. Order stats are still
 // computed from `orders` at read time, never stored/denormalized on the
 // customer row, so they can never drift out of sync with the real ledger.
+//
+// Segment thresholds below are a deliberately simple, transparent starting
+// point (not a tuned model) — adjust as real order volume comes in:
+const SEGMENT_VIP_SPEND = 5000; // lifetime EGP
+const SEGMENT_FREQUENT_ORDERS = 3;
+const SEGMENT_INACTIVE_DAYS = 60;
+const SEGMENT_AT_RISK_MIN_DAYS = 30;
+const SEGMENT_NEW_WITHIN_DAYS = 30;
+
+type CustomerRow = {
+  order_count: number;
+  total_spent: number | string;
+  first_order_at: string | null;
+  last_order_at: string | null;
+  cancelled_count: number;
+};
+
+export function computeCustomerSegments(c: CustomerRow): string[] {
+  const segments: string[] = [];
+  const now = Date.now();
+  const dayMs = 86_400_000;
+  const daysSince = (iso: string | null) => (iso ? (now - new Date(iso).getTime()) / dayMs : null);
+  const spend = Number(c.total_spent);
+  const sinceLast = daysSince(c.last_order_at);
+  const sinceFirst = daysSince(c.first_order_at);
+
+  if (c.order_count === 0) return segments;
+  if (c.order_count === 1 && sinceFirst !== null && sinceFirst <= SEGMENT_NEW_WITHIN_DAYS) segments.push("new");
+  if (c.order_count > 1) segments.push("returning");
+  if (c.order_count >= SEGMENT_FREQUENT_ORDERS) segments.push("frequent");
+  if (spend >= SEGMENT_VIP_SPEND) segments.push("vip");
+  if (c.cancelled_count > 0) segments.push("has_cancellations");
+  if (sinceLast !== null) {
+    if (sinceLast >= SEGMENT_INACTIVE_DAYS) segments.push("inactive");
+    else if (c.order_count > 1 && sinceLast >= SEGMENT_AT_RISK_MIN_DAYS) segments.push("at_risk");
+  }
+  return segments;
+}
+
+export const SEGMENT_LABELS: Record<string, string> = {
+  new: "New",
+  returning: "Returning",
+  frequent: "Frequent buyer",
+  vip: "VIP",
+  has_cancellations: "Has cancellations",
+  inactive: "Inactive",
+  at_risk: "At risk",
+};
+
 export const listCustomersAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
-    return sql()`
-      select c.phone,
+    const rows = await sql()`
+      select c.id, c.phone,
              coalesce(c.name, '') as customer_name,
              coalesce(c.governorate, '') as governorate,
+             c.tags,
              coalesce(o.order_count, 0)::int as order_count,
              coalesce(o.total_spent, 0)::numeric as total_spent,
-             o.last_order_at
+             o.first_order_at,
+             o.last_order_at,
+             coalesce(o.cancelled_count, 0)::int as cancelled_count
       from customers c
       left join (
-        select phone, count(*)::int as order_count, sum(total_price) as total_spent, max(created_at) as last_order_at
+        select phone,
+               count(*)::int as order_count,
+               sum(total_price) as total_spent,
+               min(created_at) as first_order_at,
+               max(created_at) as last_order_at,
+               count(*) filter (where status = 'cancelled')::int as cancelled_count
         from orders
         where is_test = false
         group by phone
@@ -316,6 +373,73 @@ export const listCustomersAdmin = createServerFn({ method: "GET" })
       order by o.last_order_at desc nulls last
       limit 500
     `;
+    return rows.map((r) => ({ ...r, segments: computeCustomerSegments(r as unknown as CustomerRow) }));
+  });
+
+// Full profile for the Customer 360 view: the customer record, their
+// complete order history, and a best-effort favorite category (only
+// meaningful for orders placed against a real catalog poster — bundle/
+// custom-design orders have no `selected_poster` to join through).
+export const getCustomerDetailAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { id: string }).id)
+  .handler(async ({ data: id }) => {
+    const client = sql();
+    const [customerRows, orders, favoriteCategory] = await Promise.all([
+      client`select * from customers where id = ${id}`,
+      client`
+        select id, order_number, poster_title, poster_image, total_price, status,
+               payment_method, payment_status, created_at, utm_source, utm_medium, utm_campaign
+        from orders
+        where customer_id = ${id} and is_test = false
+        order by created_at desc
+        limit 100
+      `,
+      client`
+        select cat.name as category_name, count(*)::int as n
+        from orders o
+        join posters p on p.id = o.selected_poster
+        join categories cat on cat.id = p.category_id
+        where o.customer_id = ${id} and o.is_test = false
+        group by cat.name
+        order by n desc
+        limit 1
+      `,
+    ]);
+    if (!customerRows[0]) throw new Error("Customer not found");
+    return {
+      customer: customerRows[0],
+      orders,
+      favoriteCategory: (favoriteCategory[0] as { category_name: string } | undefined)?.category_name ?? null,
+    };
+  });
+
+// Admin edits to a customer profile — always sends the full editable
+// state (same convention as upsertCategory/upsertPoster), so this is a
+// plain overwrite: no coalesce-vs-clear ambiguity to worry about.
+export const upsertCustomerAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as {
+        id: string;
+        name: string | null;
+        email: string | null;
+        address: string | null;
+        governorate: string | null;
+        tags: string[];
+        notes: string | null;
+      },
+  )
+  .handler(async ({ data }) => {
+    await sql()`
+      update customers
+      set name = ${data.name}, email = ${data.email}, address = ${data.address},
+          governorate = ${data.governorate}, tags = ${data.tags}, notes = ${data.notes},
+          updated_at = now()
+      where id = ${data.id}
+    `;
+    return { ok: true };
   });
 
 export const upsertPoster = createServerFn({ method: "POST" })
