@@ -163,6 +163,59 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
     };
   });
 
+// Surfaces analytics data that's already being captured on every storefront
+// visit (analytics_visits, analytics_poster_events, search_queries) but has
+// never had an admin view — no new tracking added here, only the missing UI.
+export const getAnalyticsOverviewAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { days?: number } | undefined)?.days ?? 30)
+  .handler(async ({ data: days }) => {
+    const client = sql();
+    const [bySource, byDay, topProducts, topSearches, zeroResultSearches] = await Promise.all([
+      client`
+        select source, count(distinct visitor_id)::int as visitors, count(*)::int as visits
+        from analytics_visits
+        where created_at >= now() - make_interval(days => ${days})
+        group by source
+        order by visits desc
+      `,
+      client`
+        select date_trunc('day', created_at)::date as day,
+               count(distinct visitor_id)::int as visitors, count(*)::int as visits
+        from analytics_visits
+        where created_at >= now() - make_interval(days => ${days})
+        group by day
+        order by day asc
+      `,
+      client`
+        select p.id, p.title, p.image_url, count(*)::int as views
+        from analytics_poster_events e
+        join posters p on p.id = e.poster_id
+        where e.created_at >= now() - make_interval(days => ${days}) and e.event_type = 'view'
+        group by p.id, p.title, p.image_url
+        order by views desc
+        limit 10
+      `,
+      client`
+        select query, count(*)::int as n
+        from search_queries
+        where created_at >= now() - make_interval(days => ${days})
+        group by query
+        order by n desc
+        limit 10
+      `,
+      client`
+        select query, count(*)::int as n
+        from search_queries
+        where created_at >= now() - make_interval(days => ${days}) and results_count = 0
+        group by query
+        order by n desc
+        limit 10
+      `,
+    ]);
+    return { days, bySource, byDay, topProducts, topSearches, zeroResultSearches };
+  });
+
 // ---------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------
