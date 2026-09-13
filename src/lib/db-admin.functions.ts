@@ -163,6 +163,59 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
     };
   });
 
+export type AdminAlert = {
+  id: "orders_pending" | "photo_orders_pending" | "products_need_review";
+  count: number;
+  label: string;
+  tab: "orders" | "photo-orders" | "products";
+};
+
+// Every alert here reads a real, already-existing column — orders.status,
+// photo_orders.status, posters.review_status — no separate notifications
+// table. Nothing is shown unless its count is > 0; there is no "all good"
+// fallback with a fake number.
+export const getAlertsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    const client = sql();
+    const [pendingOrders, pendingPhotoOrders, needsReview] = await Promise.all([
+      client`select count(*)::int as n from orders where is_test = false and status = 'new'`,
+      client`select count(*)::int as n from photo_orders where status = 'new'`,
+      client`select count(*)::int as n from posters where review_status is distinct from 'approved'`,
+    ]);
+
+    const alerts: AdminAlert[] = [];
+    const ordersN = (pendingOrders[0] as { n: number }).n;
+    const photoN = (pendingPhotoOrders[0] as { n: number }).n;
+    const reviewN = (needsReview[0] as { n: number }).n;
+
+    if (ordersN > 0) {
+      alerts.push({
+        id: "orders_pending",
+        count: ordersN,
+        label: ordersN === 1 ? "order waiting confirmation" : "orders waiting confirmation",
+        tab: "orders",
+      });
+    }
+    if (photoN > 0) {
+      alerts.push({
+        id: "photo_orders_pending",
+        count: photoN,
+        label: photoN === 1 ? "photo order waiting confirmation" : "photo orders waiting confirmation",
+        tab: "photo-orders",
+      });
+    }
+    if (reviewN > 0) {
+      alerts.push({
+        id: "products_need_review",
+        count: reviewN,
+        label: reviewN === 1 ? "product needs review" : "products need review",
+        tab: "products",
+      });
+    }
+    return alerts;
+  });
+
 // Surfaces analytics data that's already being captured on every storefront
 // visit (analytics_visits, analytics_poster_events, search_queries) but has
 // never had an admin view — no new tracking added here, only the missing UI.

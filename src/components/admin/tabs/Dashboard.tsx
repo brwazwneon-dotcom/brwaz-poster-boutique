@@ -56,7 +56,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             onSignOut={logout}
           />
           <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
-            {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab /></div>}
+            {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab onNavigate={switchTab} /></div>}
             {visitedTabs.has("analytics") && <div hidden={tab !== "analytics"}><AnalyticsTab /></div>}
             {visitedTabs.has("finance") && <div hidden={tab !== "finance"}><FinanceTab /></div>}
             {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}

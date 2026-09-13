@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { getExecutiveDashboardAdmin, type DashboardRange } from "@/lib/db-admin.functions";
+import { AlertTriangle } from "lucide-react";
+import { getExecutiveDashboardAdmin, getAlertsAdmin, type DashboardRange, type AdminAlert } from "@/lib/db-admin.functions";
+import type { Tab } from "@/components/admin/layout/nav-config";
 
 type DashboardData = Awaited<ReturnType<typeof getExecutiveDashboardAdmin>>;
 
@@ -63,7 +65,34 @@ function NotConnectedTile({ label, hint }: { label: string; hint: string }) {
   );
 }
 
-export function DashboardTab() {
+function AlertCenter({ onNavigate }: { onNavigate?: (tab: Tab) => void }) {
+  const [alerts, setAlerts] = useState<AdminAlert[] | null>(null);
+
+  useEffect(() => {
+    getAlertsAdmin().then(setAlerts);
+  }, []);
+
+  if (alerts === null || alerts.length === 0) return null;
+
+  return (
+    <div className="mb-6 space-y-1.5">
+      {alerts.map((a) => (
+        <button
+          key={a.id}
+          onClick={() => onNavigate?.(a.tab)}
+          className="flex w-full items-center gap-2 rounded-sm border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-left text-sm transition hover:bg-amber-500/15"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+          <span>
+            <strong className="tabular-nums">{a.count}</strong> {a.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }) {
   const [range, setRange] = useState<DashboardRange>("today");
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -76,6 +105,8 @@ export function DashboardTab() {
 
   return (
     <div>
+      <AlertCenter onNavigate={onNavigate} />
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Executive Dashboard</h2>
         <div className="flex flex-wrap gap-1">
