@@ -5,7 +5,14 @@ import { useTranslation } from "react-i18next";
 import { getSliderImagesPublic } from "@/lib/db-public.functions";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Slide = { id: string; image_url: string; title: string | null; link_url: string | null };
+type Slide = {
+  id: string;
+  image_url: string;
+  title: string | null;
+  link_url: string | null;
+  webp_srcset: string | null;
+  avif_srcset: string | null;
+};
 
 export function HomepageSlider() {
   const { t } = useTranslation();
@@ -54,6 +61,9 @@ export function HomepageSlider() {
           const inner = (
             <SafeImage
               src={s.image_url}
+              webpSrcSet={s.webp_srcset ?? undefined}
+              avifSrcSet={s.avif_srcset ?? undefined}
+              sizes="100vw"
               alt={s.title ?? ""}
               className="h-full w-full object-cover"
               loading={i === 0 ? "eager" : "lazy"}

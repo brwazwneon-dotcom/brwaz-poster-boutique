@@ -35,14 +35,21 @@ export const DEFAULT_HERO_BANNER_CONFIG: HeroBannerConfig = {
 
 // Vercel Blob URLs are already public and permanent, so unlike the old
 // Supabase Storage version there's no signing step and no image_variants
-// join — `image_url` doubles as `src` directly.
+// join — `image_url` doubles as `src` directly. webp_srcset/avif_srcset
+// (populated at upload time by src/lib/responsive-image.ts, admin-side)
+// map straight onto the camelCase props HeroBannerSlider's <picture> reads.
 export function useHeroBanners() {
   return useQuery({
     queryKey: ["hero-banners"],
     staleTime: 60_000,
     queryFn: async () => {
       const banners = await getHeroBannersPublic();
-      return banners.map((b) => ({ ...b, src: b.image_url })) as HeroBanner[];
+      return banners.map((b) => ({
+        ...b,
+        src: b.image_url,
+        webpSrcSet: b.webp_srcset ?? undefined,
+        avifSrcSet: b.avif_srcset ?? undefined,
+      })) as HeroBanner[];
     },
   });
 }

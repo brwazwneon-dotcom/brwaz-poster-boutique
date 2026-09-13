@@ -63,6 +63,8 @@ export type AdminHeroBanner = {
   button_link: string | null;
   enabled: boolean;
   sort_order: number;
+  webp_srcset?: string | null;
+  avif_srcset?: string | null;
 };
 
 export type AdminSliderImage = {
@@ -72,6 +74,8 @@ export type AdminSliderImage = {
   link_url: string | null;
   sort_order: number;
   enabled: boolean;
+  webp_srcset?: string | null;
+  avif_srcset?: string | null;
 };
 
 export type AdminHighlight = {

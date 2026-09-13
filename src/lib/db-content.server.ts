@@ -9,11 +9,14 @@ export type DbHeroBanner = {
   button_link: string | null;
   enabled: boolean;
   sort_order: number;
+  webp_srcset: string | null;
+  avif_srcset: string | null;
 };
 
 export async function fetchEnabledHeroBannersFromDb(): Promise<DbHeroBanner[]> {
   const rows = await sql()`
-    select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order
+    select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order,
+           webp_srcset, avif_srcset
     from hero_banners
     where enabled = true
     order by sort_order asc
@@ -23,7 +26,8 @@ export async function fetchEnabledHeroBannersFromDb(): Promise<DbHeroBanner[]> {
 
 export async function fetchAllHeroBannersFromDb(): Promise<DbHeroBanner[]> {
   const rows = await sql()`
-    select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order
+    select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order,
+           webp_srcset, avif_srcset
     from hero_banners
     order by sort_order asc
   `;
@@ -98,11 +102,13 @@ export type DbSliderImage = {
   link_url: string | null;
   sort_order: number;
   enabled: boolean;
+  webp_srcset: string | null;
+  avif_srcset: string | null;
 };
 
 export async function fetchEnabledSliderImagesFromDb(): Promise<DbSliderImage[]> {
   const rows = await sql()`
-    select id, image_url, title, link_url, sort_order, enabled
+    select id, image_url, title, link_url, sort_order, enabled, webp_srcset, avif_srcset
     from slider_images
     where enabled = true
     order by sort_order asc
@@ -112,7 +118,7 @@ export async function fetchEnabledSliderImagesFromDb(): Promise<DbSliderImage[]>
 
 export async function fetchAllSliderImagesFromDb(): Promise<DbSliderImage[]> {
   const rows = await sql()`
-    select id, image_url, title, link_url, sort_order, enabled
+    select id, image_url, title, link_url, sort_order, enabled, webp_srcset, avif_srcset
     from slider_images
     order by sort_order asc
   `;

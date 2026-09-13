@@ -16,6 +16,12 @@ import {
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import {
+  generateResponsiveImageSet,
+  blobToFile,
+  buildSrcSet,
+  type ResponsiveVariant,
+} from "@/lib/responsive-image";
+import {
   STOREFRONT_CONTENT_KEY,
   normalizeStorefrontContent,
   type StorefrontContent,
@@ -30,6 +36,38 @@ import {
 } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { HomepageLayoutSection } from "./HomepageLayoutSection";
+
+// Shared by both the Hero Banner and Homepage Slider upload flows below —
+// both are full-bleed, above-the-fold images where "high quality" and
+// "fast to load" are otherwise in tension. Generates WebP (and AVIF where
+// the browser can encode it) at several widths from the ORIGINAL file (not
+// the already-downscaled JPEG used for image_url, to keep the largest
+// variant as sharp as possible), uploads each, and returns ready-to-store
+// srcset strings. Visitors' browsers then pick the smallest file that
+// still fills their viewport — a phone never downloads the 2200px version.
+async function uploadResponsiveSrcSets(
+  file: File,
+): Promise<{ webp_srcset: string | null; avif_srcset: string | null }> {
+  const { webp, avif } = await generateResponsiveImageSet(file);
+  const base = file.name.replace(/\.[^.]+$/, "");
+
+  const uploadVariant = async (v: ResponsiveVariant, ext: string) => {
+    const variantFile = blobToFile(v.blob, `${base}-${v.width}w.${ext}`);
+    const dataUrl = await fileToDataUrl(variantFile);
+    const { url } = await uploadPosterImage({ data: { dataUrl, filename: variantFile.name } });
+    return { width: v.width, url };
+  };
+
+  const [webpUploaded, avifUploaded] = await Promise.all([
+    Promise.all(webp.map((v) => uploadVariant(v, "webp"))),
+    Promise.all(avif.map((v) => uploadVariant(v, "avif"))),
+  ]);
+
+  return {
+    webp_srcset: webpUploaded.length ? buildSrcSet(webpUploaded) : null,
+    avif_srcset: avifUploaded.length ? buildSrcSet(avifUploaded) : null,
+  };
+}
 
 export function HomepageTab() {
   const confirm = useConfirm();
@@ -49,7 +87,8 @@ export function HomepageTab() {
       const optimized = await optimizeImage(file, { maxDim: 2400, quality: 0.85 });
       const dataUrl = await fileToDataUrl(optimized);
       const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
-      setEditing((prev) => ({ ...(prev ?? {}), image_url: url }));
+      const { webp_srcset, avif_srcset } = await uploadResponsiveSrcSets(file);
+      setEditing((prev) => ({ ...(prev ?? {}), image_url: url, webp_srcset, avif_srcset }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -252,7 +291,8 @@ function SliderImagesSection() {
       const optimized = await optimizeImage(file, { maxDim: 2400, quality: 0.85 });
       const dataUrl = await fileToDataUrl(optimized);
       const { url } = await uploadPosterImage({ data: { dataUrl, filename: file.name } });
-      setEditing((prev) => ({ ...(prev ?? {}), image_url: url }));
+      const { webp_srcset, avif_srcset } = await uploadResponsiveSrcSets(file);
+      setEditing((prev) => ({ ...(prev ?? {}), image_url: url, webp_srcset, avif_srcset }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {

@@ -1421,7 +1421,7 @@ export const listSliderImagesAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
     return sql()`
-      select id, image_url, title, link_url, sort_order, enabled
+      select id, image_url, title, link_url, sort_order, enabled, webp_srcset, avif_srcset
       from slider_images
       order by sort_order asc, created_at asc
     `;
@@ -1438,20 +1438,23 @@ export const upsertSliderImage = createServerFn({ method: "POST" })
     const linkUrl = typeof data.link_url === "string" && data.link_url ? data.link_url : null;
     const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+    const webpSrcset = typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
+    const avifSrcset = typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
 
     if (id) {
       const rows = await sql()`
         update slider_images
         set image_url = ${imageUrl}, title = ${title}, link_url = ${linkUrl},
-            enabled = ${enabled}, sort_order = ${sortOrder}
+            enabled = ${enabled}, sort_order = ${sortOrder},
+            webp_srcset = ${webpSrcset}, avif_srcset = ${avifSrcset}
         where id = ${id}
         returning id
       `;
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into slider_images (image_url, title, link_url, enabled, sort_order)
-      values (${imageUrl}, ${title}, ${linkUrl}, ${enabled}, ${sortOrder})
+      insert into slider_images (image_url, title, link_url, enabled, sort_order, webp_srcset, avif_srcset)
+      values (${imageUrl}, ${title}, ${linkUrl}, ${enabled}, ${sortOrder}, ${webpSrcset}, ${avifSrcset})
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };
@@ -1472,7 +1475,8 @@ export const listHeroBannersAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
     return sql()`
-      select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order
+      select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order,
+             webp_srcset, avif_srcset
       from hero_banners
       order by sort_order asc, created_at asc
     `;
@@ -1491,21 +1495,26 @@ export const upsertHeroBanner = createServerFn({ method: "POST" })
     const buttonLink = typeof data.button_link === "string" && data.button_link ? data.button_link : null;
     const enabled = data.enabled === undefined ? true : Boolean(data.enabled);
     const sortOrder = Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0;
+    const webpSrcset = typeof data.webp_srcset === "string" && data.webp_srcset ? data.webp_srcset : null;
+    const avifSrcset = typeof data.avif_srcset === "string" && data.avif_srcset ? data.avif_srcset : null;
 
     if (id) {
       const rows = await sql()`
         update hero_banners
         set image_url = ${imageUrl}, title = ${title}, subtitle = ${subtitle},
             button_text = ${buttonText}, button_link = ${buttonLink},
-            enabled = ${enabled}, sort_order = ${sortOrder}, updated_at = now()
+            enabled = ${enabled}, sort_order = ${sortOrder},
+            webp_srcset = ${webpSrcset}, avif_srcset = ${avifSrcset}, updated_at = now()
         where id = ${id}
         returning id
       `;
       return { id: rows[0]?.id ?? id };
     }
     const rows = await sql()`
-      insert into hero_banners (image_url, title, subtitle, button_text, button_link, enabled, sort_order)
-      values (${imageUrl}, ${title}, ${subtitle}, ${buttonText}, ${buttonLink}, ${enabled}, ${sortOrder})
+      insert into hero_banners
+        (image_url, title, subtitle, button_text, button_link, enabled, sort_order, webp_srcset, avif_srcset)
+      values
+        (${imageUrl}, ${title}, ${subtitle}, ${buttonText}, ${buttonLink}, ${enabled}, ${sortOrder}, ${webpSrcset}, ${avifSrcset})
       returning id
     `;
     return { id: (rows[0] as { id: string }).id };
