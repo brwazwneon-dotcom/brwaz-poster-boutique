@@ -4,8 +4,10 @@ import { listSetsAdmin, upsertSet, deleteSet } from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminSet } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 export function SetsTab() {
+  const confirm = useConfirm();
   const [sets, setSets] = useState<AdminSet[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminSet> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -44,7 +46,7 @@ export function SetsTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this set?")) return;
+    if (!(await confirm("Delete this set?"))) return;
     await deleteSet({ data: id });
     load();
   };

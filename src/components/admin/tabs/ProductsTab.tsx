@@ -26,6 +26,7 @@ import {
 import { bucketAspect, computeMockupFit, friendlyRatio, type AspectBucket, type MockupFit } from "@/lib/mockup-fit";
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { fileToDataUrl, type AdminCategory, type AdminPoster } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 // Inlined from src/lib/ai-review.ts's pure logic (not imported directly —
 // that file also exports a Supabase-backed hook, and importing it would
@@ -252,6 +253,7 @@ function PosterGalleryImagesEditor({ posterId }: { posterId: string }) {
 }
 
 export function ProductsTab() {
+  const confirm = useConfirm();
   const [products, setProducts] = useState<AdminPoster[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [editing, setEditing] = useState<Partial<AdminPoster> | null>(null);
@@ -671,7 +673,7 @@ export function ProductsTab() {
 
   const deleteSelected = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`Delete ${selected.size} product(s)? This can't be undone.`)) return;
+    if (!(await confirm(`Delete ${selected.size} product(s)? This can't be undone.`))) return;
     const ids = Array.from(selected);
     const results = await Promise.allSettled(ids.map((id) => deletePoster({ data: id })));
     const failed = results.filter((r) => r.status === "rejected").length;
@@ -696,7 +698,7 @@ export function ProductsTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this product?")) return;
+    if (!(await confirm("Delete this product?"))) return;
     try {
       await deletePoster({ data: id });
       toast.success("Deleted");

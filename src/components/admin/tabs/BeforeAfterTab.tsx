@@ -4,10 +4,12 @@ import { listBeforeAfterAdmin, upsertBeforeAfter, deleteBeforeAfter } from "@/li
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminBeforeAfter } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 const BEFORE_AFTER_LOCATIONS = ["homepage", "product", "photo-printing", "custom-design"] as const;
 
 export function BeforeAfterTab() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<AdminBeforeAfter[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminBeforeAfter> | null>(null);
   const [uploadingSide, setUploadingSide] = useState<"before" | "after" | null>(null);
@@ -49,7 +51,7 @@ export function BeforeAfterTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this pair?")) return;
+    if (!(await confirm("Delete this pair?"))) return;
     await deleteBeforeAfter({ data: id });
     load();
   };

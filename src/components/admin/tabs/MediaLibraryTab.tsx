@@ -27,6 +27,7 @@ import {
   type AdminLandingPage,
 } from "./shared";
 import { MOCKUP_COLORS } from "./FrameMockupsTab";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 type MediaBlob = { url: string; pathname: string; size: number; uploadedAt: string };
 
@@ -37,6 +38,7 @@ function formatBytes(n: number): string {
 }
 
 export function MediaLibraryTab() {
+  const confirm = useConfirm();
   const [blobs, setBlobs] = useState<MediaBlob[] | null>(null);
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
@@ -122,8 +124,8 @@ export function MediaLibraryTab() {
   };
 
   const remove = async (url: string) => {
-    if (usedUrls.has(url) && !confirm("This image is used by a product or banner. Delete anyway?")) return;
-    if (!usedUrls.has(url) && !confirm("Delete this image permanently?")) return;
+    if (usedUrls.has(url) && !(await confirm("This image is used by a product or banner. Delete anyway?"))) return;
+    if (!usedUrls.has(url) && !(await confirm("Delete this image permanently?"))) return;
     try {
       await deleteMediaAssetAdmin({ data: { url } });
       setBlobs((prev) => prev?.filter((b) => b.url !== url) ?? null);

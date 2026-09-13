@@ -4,8 +4,10 @@ import { listCategoriesAdmin, upsertCategory, deleteCategory } from "@/lib/db-ad
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCategory } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 export function CategoriesTab() {
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<AdminCategory[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminCategory> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -59,7 +61,7 @@ export function CategoriesTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this category?")) return;
+    if (!(await confirm("Delete this category?"))) return;
     await deleteCategory({ data: id });
     load();
   };

@@ -28,8 +28,10 @@ import {
   type AdminSliderImage,
   type AdminHighlight,
 } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 export function HomepageTab() {
+  const confirm = useConfirm();
   const [banners, setBanners] = useState<AdminHeroBanner[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminHeroBanner> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -67,7 +69,7 @@ export function HomepageTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this banner?")) return;
+    if (!(await confirm("Delete this banner?"))) return;
     await deleteHeroBanner({ data: id });
     load();
   };
@@ -228,6 +230,7 @@ export function HomepageTab() {
 }
 
 function SliderImagesSection() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<AdminSliderImage[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminSliderImage> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -265,7 +268,7 @@ function SliderImagesSection() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this slide?")) return;
+    if (!(await confirm("Delete this slide?"))) return;
     await deleteSliderImage({ data: id });
     load();
   };
@@ -388,6 +391,7 @@ function SliderImagesSection() {
 }
 
 function HighlightsSection() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<AdminHighlight[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminHighlight> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -426,7 +430,7 @@ function HighlightsSection() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this highlight?")) return;
+    if (!(await confirm("Delete this highlight?"))) return;
     await deleteHighlight({ data: id });
     load();
   };

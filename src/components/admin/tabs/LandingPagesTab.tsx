@@ -10,8 +10,10 @@ import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { landingUtmUrl } from "@/lib/landing-pages";
 import { fileToDataUrl, type AdminCategory, type AdminLandingPage } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 export function LandingPagesTab() {
+  const confirm = useConfirm();
   const [pages, setPages] = useState<AdminLandingPage[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [editing, setEditing] = useState<AdminLandingPage | null>(null);
@@ -55,7 +57,7 @@ export function LandingPagesTab() {
   };
 
   const remove = async (p: AdminLandingPage) => {
-    if (!confirm(`Delete the "${p.audience_key}" landing page? This can't be undone.`)) return;
+    if (!(await confirm(`Delete the "${p.audience_key}" landing page? This can't be undone.`))) return;
     await deleteLandingPage({ data: { id: p.id } });
     toast.success("Deleted");
     load();

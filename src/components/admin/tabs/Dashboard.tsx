@@ -5,6 +5,7 @@ import { AdminSidebar } from "@/components/admin/layout/AdminSidebar";
 import { AdminTopbar } from "@/components/admin/layout/AdminTopbar";
 import { AdminCommandPalette } from "@/components/admin/layout/AdminCommandPalette";
 import { AdminThemeProvider } from "@/components/admin/layout/AdminThemeProvider";
+import { ConfirmDialogProvider } from "@/components/admin/layout/ConfirmDialogProvider";
 import type { Tab } from "@/components/admin/layout/nav-config";
 import { DashboardTab } from "./DashboardTab";
 import { AnalyticsTab } from "./AnalyticsTab";
@@ -47,6 +48,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   return (
     <AdminThemeProvider>
+    <ConfirmDialogProvider>
       <SidebarProvider>
         <AdminSidebar activeTab={tab} onNavigate={switchTab} />
         <SidebarInset>
@@ -84,6 +86,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           onSignOut={logout}
         />
       </SidebarProvider>
+    </ConfirmDialogProvider>
     </AdminThemeProvider>
   );
 }

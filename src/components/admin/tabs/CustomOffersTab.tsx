@@ -4,8 +4,10 @@ import { listCustomOffersAdmin, upsertCustomOffer, deleteCustomOffer } from "@/l
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCustomOffer } from "./shared";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 export function CustomOffersTab() {
+  const confirm = useConfirm();
   const [offers, setOffers] = useState<AdminCustomOffer[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminCustomOffer> | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,7 +47,7 @@ export function CustomOffersTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this offer?")) return;
+    if (!(await confirm("Delete this offer?"))) return;
     await deleteCustomOffer({ data: id });
     load();
   };

@@ -8,6 +8,7 @@ import {
   getProfitReportAdmin,
   type DashboardRange,
 } from "@/lib/db-admin.functions";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 type Expense = {
   id: string;
@@ -33,6 +34,7 @@ function todayISO(): string {
 }
 
 export function FinanceTab() {
+  const confirm = useConfirm();
   const [expenses, setExpenses] = useState<Expense[] | null>(null);
   const [editing, setEditing] = useState<Partial<Expense> | null>(null);
   const [range, setRange] = useState<DashboardRange>("this_month");
@@ -74,7 +76,7 @@ export function FinanceTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this expense?")) return;
+    if (!(await confirm("Delete this expense?"))) return;
     await deleteExpenseAdmin({ data: id });
     loadExpenses();
     loadReport();

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listCouponsAdmin, upsertCouponAdmin, deleteCouponAdmin } from "@/lib/db-admin.functions";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 type Coupon = {
   id: string;
@@ -17,6 +18,7 @@ type Coupon = {
 };
 
 export function PromotionsTab() {
+  const confirm = useConfirm();
   const [coupons, setCoupons] = useState<Coupon[] | null>(null);
   const [editing, setEditing] = useState<Partial<Coupon> | null>(null);
 
@@ -52,7 +54,7 @@ export function PromotionsTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this coupon?")) return;
+    if (!(await confirm("Delete this coupon?"))) return;
     await deleteCouponAdmin({ data: id });
     load();
   };

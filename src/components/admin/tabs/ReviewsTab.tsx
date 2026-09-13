@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listReviewsAdmin, upsertReview, deleteReview } from "@/lib/db-admin.functions";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 
 type AdminReview = {
   id: string;
@@ -17,6 +18,7 @@ type AdminReview = {
 };
 
 export function ReviewsTab() {
+  const confirm = useConfirm();
   const [reviews, setReviews] = useState<AdminReview[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminReview> | null>(null);
 
@@ -38,7 +40,7 @@ export function ReviewsTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this review?")) return;
+    if (!(await confirm("Delete this review?"))) return;
     await deleteReview({ data: id });
     load();
   };
