@@ -290,6 +290,16 @@ type Tab =
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("orders");
+  // Tabs mount lazily on first visit but never unmount again — switching
+  // away and back (e.g. to double-check a category while reviewing the
+  // upload queue) used to wipe all in-progress local state, most painfully
+  // the Products upload queue, since a bare `{tab === "x" && <XTab/>}`
+  // destroys and recreates the component on every switch.
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set(["orders"]));
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    setVisitedTabs((prev) => (prev.has(t) ? prev : new Set(prev).add(t)));
+  };
 
   const logout = async () => {
     await adminLogout();
@@ -327,7 +337,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => switchTab(t.id)}
               className={`border-b-2 px-4 py-2.5 text-xs uppercase tracking-widest transition ${
                 tab === t.id
                   ? "border-primary text-foreground"
@@ -340,21 +350,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {tab === "orders" && <OrdersTab />}
-        {tab === "photo-orders" && <PhotoOrdersTab />}
-        {tab === "products" && <ProductsTab />}
-        {tab === "categories" && <CategoriesTab />}
-        {tab === "customers" && <CustomersTab />}
-        {tab === "reviews" && <ReviewsTab />}
-        {tab === "offers" && <CustomOffersTab />}
-        {tab === "sets" && <SetsTab />}
-        {tab === "before-after" && <BeforeAfterTab />}
-        {tab === "landing-pages" && <LandingPagesTab />}
-        {tab === "media" && <MediaLibraryTab />}
-        {tab === "homepage" && <HomepageTab />}
-        {tab === "mockups" && <FrameMockupsTab />}
-        {tab === "health" && <SystemHealthTab />}
-        {tab === "settings" && <SettingsTab />}
+        {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}
+        {visitedTabs.has("photo-orders") && <div hidden={tab !== "photo-orders"}><PhotoOrdersTab /></div>}
+        {visitedTabs.has("products") && <div hidden={tab !== "products"}><ProductsTab /></div>}
+        {visitedTabs.has("categories") && <div hidden={tab !== "categories"}><CategoriesTab /></div>}
+        {visitedTabs.has("customers") && <div hidden={tab !== "customers"}><CustomersTab /></div>}
+        {visitedTabs.has("reviews") && <div hidden={tab !== "reviews"}><ReviewsTab /></div>}
+        {visitedTabs.has("offers") && <div hidden={tab !== "offers"}><CustomOffersTab /></div>}
+        {visitedTabs.has("sets") && <div hidden={tab !== "sets"}><SetsTab /></div>}
+        {visitedTabs.has("before-after") && <div hidden={tab !== "before-after"}><BeforeAfterTab /></div>}
+        {visitedTabs.has("landing-pages") && <div hidden={tab !== "landing-pages"}><LandingPagesTab /></div>}
+        {visitedTabs.has("media") && <div hidden={tab !== "media"}><MediaLibraryTab /></div>}
+        {visitedTabs.has("homepage") && <div hidden={tab !== "homepage"}><HomepageTab /></div>}
+        {visitedTabs.has("mockups") && <div hidden={tab !== "mockups"}><FrameMockupsTab /></div>}
+        {visitedTabs.has("health") && <div hidden={tab !== "health"}><SystemHealthTab /></div>}
+        {visitedTabs.has("settings") && <div hidden={tab !== "settings"}><SettingsTab /></div>}
       </div>
     </div>
   );
@@ -2752,6 +2762,7 @@ function ProductsTab() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
+  const [newSubName, setNewSubName] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const categoriesRef = useRef<AdminCategory[]>([]);
   categoriesRef.current = categories;
@@ -2788,6 +2799,7 @@ function ProductsTab() {
 
       updateQueueItem(item.id, { status: "analyzing" });
       let meta: Partial<GeneratedPosterMeta> = {};
+      let aiFailed = false;
       try {
         meta = await generatePosterMeta({
           data: {
@@ -2803,7 +2815,10 @@ function ProductsTab() {
         });
       } catch {
         // AI assist is best-effort: a failure here still leaves a usable
-        // draft (filename-derived title, no category), never blocks the flow.
+        // draft (filename-derived title, no category), never blocks the
+        // flow — but it must land flagged for review, not silently
+        // publishable, since there's no category or real SEO on it.
+        aiFailed = true;
       }
 
       // Resolve both the main AND sub category (not just the most-specific
@@ -2875,9 +2890,13 @@ function ProductsTab() {
         mainCategoryName,
         subCategoryId,
         subCategoryName,
-        needsReview: Boolean(meta.needs_review),
+        // Flag for review whenever the AI itself flagged it, the AI call
+        // failed outright, or no category could be resolved at all — any
+        // of these would otherwise silently publish an uncategorized or
+        // generic-fallback product via "Publish all ready".
+        needsReview: aiFailed || (!mainCategoryId && !subCategoryId) || Boolean(meta.needs_review),
         validationConflicts: meta.validation_conflicts ?? [],
-        confidence: typeof meta.confidence === "number" ? meta.confidence : 1,
+        confidence: aiFailed ? 0 : typeof meta.confidence === "number" ? meta.confidence : 1,
       });
     } catch (err) {
       updateQueueItem(item.id, {
@@ -3006,6 +3025,29 @@ function ProductsTab() {
 
   const clearFinishedQueue = () =>
     setQueue((prev) => prev.filter((q) => q.status !== "ready"));
+
+  // Lets the admin type a brand-new subcategory name right in the preview
+  // row (e.g. "Arsenal" under an already-picked "Football") instead of
+  // leaving this page to add it in the Categories tab first.
+  const addQueueSubcategory = async (item: QueueItem) => {
+    if (!item.mainCategoryId) return;
+    const name = (newSubName[item.id] ?? "").trim();
+    if (!name) return;
+    try {
+      const { id, created } = await findOrCreateCategory({
+        data: { name, parentId: item.mainCategoryId },
+      });
+      if (created) {
+        const newCat = { id, name, slug: id, parent_id: item.mainCategoryId } as AdminCategory;
+        categoriesRef.current = [...categoriesRef.current, newCat];
+        setCategories((prev) => [...prev, newCat]);
+      }
+      updateQueueItem(item.id, { subCategoryId: id, subCategoryName: name });
+      setNewSubName((prev) => ({ ...prev, [item.id]: "" }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add subcategory");
+    }
+  };
 
   // ---- Selection + bulk actions ----
   const toggleSelected = (id: string) =>
@@ -3212,60 +3254,78 @@ function ProductsTab() {
                       )}
                       <input
                         placeholder="Title"
+                        dir="ltr"
                         value={q.title}
                         onChange={(e) => updateQueueItem(q.id, { title: e.target.value })}
                         className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
                       />
-                      <select
-                        value={q.subCategoryId ?? q.mainCategoryId ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value || null;
-                          const cat = categories.find((c) => c.id === val);
-                          if (!cat) {
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={q.mainCategoryId ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value || null;
+                            const main = categories.find((c) => c.id === val);
                             updateQueueItem(q.id, {
-                              mainCategoryId: null,
-                              mainCategoryName: null,
-                              subCategoryId: null,
-                              subCategoryName: null,
-                            });
-                          } else if (cat.parent_id) {
-                            const main = categories.find((c) => c.id === cat.parent_id);
-                            updateQueueItem(q.id, {
-                              mainCategoryId: cat.parent_id,
+                              mainCategoryId: val,
                               mainCategoryName: main?.name ?? null,
-                              subCategoryId: cat.id,
-                              subCategoryName: cat.name,
-                            });
-                          } else {
-                            updateQueueItem(q.id, {
-                              mainCategoryId: cat.id,
-                              mainCategoryName: cat.name,
                               subCategoryId: null,
                               subCategoryName: null,
                             });
-                          }
-                        }}
-                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">No category</option>
-                        {categories
-                          .filter((c) => !c.parent_id)
-                          .map((main) => {
-                            const subs = categories.filter((c) => c.parent_id === main.id);
-                            return (
-                              <optgroup key={main.id} label={main.name}>
-                                <option value={main.id}>{main.name}</option>
-                                {subs.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    — {s.name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            );
-                          })}
-                      </select>
+                          }}
+                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">No category</option>
+                          {categories
+                            .filter((c) => !c.parent_id)
+                            .map((main) => (
+                              <option key={main.id} value={main.id}>
+                                {main.name}
+                              </option>
+                            ))}
+                        </select>
+                        <select
+                          value={q.subCategoryId ?? ""}
+                          disabled={!q.mainCategoryId}
+                          onChange={(e) => {
+                            const val = e.target.value || null;
+                            const sub = categories.find((c) => c.id === val);
+                            updateQueueItem(q.id, { subCategoryId: val, subCategoryName: sub?.name ?? null });
+                          }}
+                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                        >
+                          <option value="">No subcategory</option>
+                          {categories
+                            .filter((c) => c.parent_id === q.mainCategoryId)
+                            .map((sub) => (
+                              <option key={sub.id} value={sub.id}>
+                                {sub.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          placeholder={q.mainCategoryId ? "+ Add new subcategory…" : "Pick a category first"}
+                          dir="ltr"
+                          disabled={!q.mainCategoryId}
+                          value={newSubName[q.id] ?? ""}
+                          onChange={(e) => setNewSubName((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") addQueueSubcategory(q);
+                          }}
+                          className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                        />
+                        <button
+                          onClick={() => addQueueSubcategory(q)}
+                          disabled={!q.mainCategoryId}
+                          className="shrink-0 rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
+                        >
+                          Add
+                        </button>
+                      </div>
                       <textarea
                         placeholder="Description"
+                        dir="ltr"
                         value={q.description}
                         onChange={(e) => updateQueueItem(q.id, { description: e.target.value })}
                         rows={3}
@@ -3273,12 +3333,14 @@ function ProductsTab() {
                       />
                       <input
                         placeholder="SEO title"
+                        dir="ltr"
                         value={q.seo_title}
                         onChange={(e) => updateQueueItem(q.id, { seo_title: e.target.value })}
                         className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
                       />
                       <textarea
                         placeholder="SEO description"
+                        dir="ltr"
                         value={q.seo_description}
                         onChange={(e) => updateQueueItem(q.id, { seo_description: e.target.value })}
                         rows={2}
@@ -3286,12 +3348,14 @@ function ProductsTab() {
                       />
                       <input
                         placeholder="Alt text"
+                        dir="ltr"
                         value={q.alt_text}
                         onChange={(e) => updateQueueItem(q.id, { alt_text: e.target.value })}
                         className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
                       />
                       <input
                         placeholder="Badge (optional)"
+                        dir="ltr"
                         value={q.badge ?? ""}
                         onChange={(e) => updateQueueItem(q.id, { badge: e.target.value || null })}
                         className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
@@ -3446,12 +3510,14 @@ function ProductsTab() {
           <div className="space-y-3">
             <input
               placeholder="Title"
+              dir="ltr"
               value={editing.title ?? ""}
               onChange={(e) => setEditing({ ...editing, title: e.target.value })}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
             <input
               placeholder="Image URL"
+              dir="ltr"
               value={editing.image_url ?? ""}
               onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
@@ -3480,6 +3546,7 @@ function ProductsTab() {
             </select>
             <input
               placeholder="Badge (e.g. New, Sale) — optional"
+              dir="ltr"
               value={editing.badge ?? ""}
               onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
@@ -3491,12 +3558,14 @@ function ProductsTab() {
               <div className="space-y-3 border-t border-border p-3">
                 <input
                   placeholder="SEO title (falls back to product title)"
+                  dir="ltr"
                   value={editing.seo_title ?? ""}
                   onChange={(e) => setEditing({ ...editing, seo_title: e.target.value })}
                   className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
                 />
                 <textarea
                   placeholder="SEO description (falls back to a default)"
+                  dir="ltr"
                   value={editing.seo_description ?? ""}
                   onChange={(e) => setEditing({ ...editing, seo_description: e.target.value })}
                   rows={2}
@@ -3504,6 +3573,7 @@ function ProductsTab() {
                 />
                 <input
                   placeholder="Image alt text"
+                  dir="ltr"
                   value={editing.alt_text ?? ""}
                   onChange={(e) => setEditing({ ...editing, alt_text: e.target.value })}
                   className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
