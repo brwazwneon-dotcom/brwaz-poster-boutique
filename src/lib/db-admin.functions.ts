@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { NeonDbError } from "@neondatabase/serverless";
 import { sql } from "@/lib/neon.server";
 import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
 
@@ -9,6 +10,32 @@ function slugify(input: string): string {
     .replace(/[^a-z0-9؀-ۿ]+/g, "-")
     .replace(/(^-+)|(-+$)/g, "");
   return base || `item-${Date.now().toString(36)}`;
+}
+
+// Bounded above ProductsTab's MAX_CONCURRENT=8 bulk-upload concurrency —
+// catches the actual unique-constraint violation and retries with an
+// incremented suffix rather than pre-checking existence first, which would
+// have a TOCTOU race under concurrent inserts.
+const MAX_SLUG_RETRIES = 10;
+
+async function withUniqueSlugRetry<T extends Record<string, unknown>>(
+  baseSlug: string,
+  constraintName: string,
+  runQuery: (slug: string) => Promise<T[]>,
+): Promise<T[]> {
+  let candidate = baseSlug;
+  for (let attempt = 0; attempt < MAX_SLUG_RETRIES; attempt++) {
+    try {
+      return await runQuery(candidate);
+    } catch (err) {
+      if (err instanceof NeonDbError && err.code === "23505" && err.constraint === constraintName) {
+        candidate = `${baseSlug}-${attempt + 2}`;
+        continue;
+      }
+      throw err;
+    }
+  }
+  return runQuery(`${baseSlug}-${Date.now().toString(36)}`);
 }
 
 // ---------------------------------------------------------------
@@ -48,28 +75,28 @@ export const upsertCategory = createServerFn({ method: "POST" })
         : null;
 
     if (id) {
-      const rows = await sql()`
+      const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
         update categories
-        set name = ${name}, name_ar = ${nameAr}, slug = ${slug}, description = ${description},
+        set name = ${name}, name_ar = ${nameAr}, slug = ${candidateSlug}, description = ${description},
             image = ${image}, hidden = ${hidden}, featured = ${featured}, sort_order = ${sortOrder},
             show_in_header = ${showInHeader}, show_in_collections = ${showInCollections},
             parent_id = ${parentId}, updated_at = now()
         where id = ${id}
         returning id
-      `;
+      `);
       return { id: rows[0]?.id ?? id };
     }
-    const rows = await sql()`
+    const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
       insert into categories (
         name, name_ar, slug, description, image, hidden, featured, sort_order,
         show_in_header, show_in_collections, parent_id
       )
       values (
-        ${name}, ${nameAr}, ${slug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder},
+        ${name}, ${nameAr}, ${candidateSlug}, ${description}, ${image}, ${hidden}, ${featured}, ${sortOrder},
         ${showInHeader}, ${showInCollections}, ${parentId}
       )
       returning id
-    `;
+    `);
     return { id: (rows[0] as { id: string }).id };
   });
 
@@ -98,17 +125,17 @@ export const findOrCreateCategory = createServerFn({ method: "POST" })
     if (existing[0]) return { id: (existing[0] as { id: string }).id, created: false };
 
     const slug = slugify(name);
-    const rows = await sql()`
+    const rows = await withUniqueSlugRetry(slug, "categories_slug_key", (candidateSlug) => sql()`
       insert into categories (name, slug, parent_id, hidden, show_in_header, show_in_collections)
-      values (${name}, ${slug}, ${parentId}, false, ${parentId === null}, ${parentId === null})
+      values (${name}, ${candidateSlug}, ${parentId}, false, ${parentId === null}, ${parentId === null})
       returning id
-    `;
+    `);
     return { id: (rows[0] as { id: string }).id, created: true };
   });
 
 export const deleteCategory = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from categories where id = ${id}`;
     return { ok: true };
@@ -125,7 +152,7 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
       return sql()`
         select id, title, slug, description, image_url, category_id, tags, badge, hidden, featured,
                trending, is_best_seller, sales_count, views_count, created_at,
-               seo_title, seo_description, alt_text
+               seo_title, seo_description, alt_text, review_status
         from posters where category_id = ${data.categoryId}
         order by created_at desc
       `;
@@ -133,7 +160,7 @@ export const listPostersAdmin = createServerFn({ method: "GET" })
     return sql()`
       select id, title, slug, description, image_url, category_id, tags, badge, hidden, featured,
              trending, is_best_seller, sales_count, views_count, created_at,
-             seo_title, seo_description, alt_text
+             seo_title, seo_description, alt_text, review_status
       from posters
       order by created_at desc
       limit 500
@@ -183,31 +210,34 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const seoDescription =
       typeof data.seo_description === "string" && data.seo_description ? data.seo_description : null;
     const altText = typeof data.alt_text === "string" && data.alt_text ? data.alt_text : null;
+    const reviewStatusSent = typeof data.review_status === "string" && data.review_status ? data.review_status : null;
 
     if (id) {
-      const rows = await sql()`
+      const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
         update posters
-        set title = ${title}, slug = ${slug}, description = ${description}, image_url = ${imageUrl},
+        set title = ${title}, slug = ${candidateSlug}, description = ${description}, image_url = ${imageUrl},
             category_id = ${categoryId}, tags = ${tags}, badge = ${badge}, hidden = ${hidden},
             featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller},
             seo_title = ${seoTitle}, seo_description = ${seoDescription}, alt_text = ${altText},
+            review_status = case when ${reviewStatusSent !== null} then ${reviewStatusSent} else review_status end,
             updated_at = now()
         where id = ${id}
         returning id
-      `;
+      `);
       return { id: rows[0]?.id ?? id };
     }
-    const rows = await sql()`
+    const rows = await withUniqueSlugRetry(slug, "posters_slug_key", (candidateSlug) => sql()`
       insert into posters (
         title, slug, description, image_url, category_id, tags, badge, hidden, featured,
-        trending, is_best_seller, seo_title, seo_description, alt_text
+        trending, is_best_seller, seo_title, seo_description, alt_text, review_status
       )
       values (
-        ${title}, ${slug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
-        ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText}
+        ${title}, ${candidateSlug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
+        ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
+        ${reviewStatusSent ?? "approved"}
       )
       returning id
-    `;
+    `);
     return { id: (rows[0] as { id: string }).id };
   });
 
@@ -225,12 +255,13 @@ export const bulkUpdatePosters = createServerFn({ method: "POST" })
           hidden?: boolean;
           trending?: boolean;
           is_best_seller?: boolean;
+          review_status?: string;
         };
       },
   )
   .handler(async ({ data }) => {
     if (data.ids.length === 0) return { ok: true, count: 0 };
-    const { category_id, badge, hidden, trending, is_best_seller } = data.patch;
+    const { category_id, badge, hidden, trending, is_best_seller, review_status } = data.patch;
     await sql()`
       update posters set
         category_id = coalesce(${category_id === undefined ? null : category_id}::uuid, category_id),
@@ -238,6 +269,7 @@ export const bulkUpdatePosters = createServerFn({ method: "POST" })
         hidden = coalesce(${hidden === undefined ? null : hidden}, hidden),
         trending = coalesce(${trending === undefined ? null : trending}, trending),
         is_best_seller = coalesce(${is_best_seller === undefined ? null : is_best_seller}, is_best_seller),
+        review_status = case when ${review_status !== undefined} then ${review_status} else review_status end,
         updated_at = now()
       where id = any(${data.ids})
     `;
@@ -246,9 +278,18 @@ export const bulkUpdatePosters = createServerFn({ method: "POST" })
 
 export const deletePoster = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
-    await sql()`delete from posters where id = ${id}`;
+    const galleryRows = await sql()`delete from poster_images where poster_id = ${id} returning image_url`;
+    const posterRows = await sql()`delete from posters where id = ${id} returning image_url`;
+    const urls = [
+      ...(posterRows[0]?.image_url ? [posterRows[0].image_url as string] : []),
+      ...galleryRows.map((r) => (r as { image_url: string }).image_url),
+    ];
+    if (urls.length) {
+      const { del } = await import("@vercel/blob");
+      await Promise.allSettled(urls.map((u) => del(u)));
+    }
     return { ok: true };
   });
 
@@ -435,7 +476,7 @@ export const upsertReview = createServerFn({ method: "POST" })
 
 export const deleteReview = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from reviews where id = ${id}`;
     return { ok: true };
@@ -508,7 +549,7 @@ export const upsertHighlight = createServerFn({ method: "POST" })
 
 export const deleteHighlight = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from highlights where id = ${id}`;
     return { ok: true };
@@ -571,7 +612,7 @@ export const upsertSet = createServerFn({ method: "POST" })
 
 export const deleteSet = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from sets where id = ${id}`;
     return { ok: true };
@@ -625,7 +666,7 @@ export const upsertBeforeAfter = createServerFn({ method: "POST" })
 
 export const deleteBeforeAfter = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from before_after where id = ${id}`;
     return { ok: true };
@@ -680,9 +721,14 @@ export const upsertPosterImage = createServerFn({ method: "POST" })
 
 export const deletePosterImage = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
-    await sql()`delete from poster_images where id = ${id}`;
+    const rows = await sql()`delete from poster_images where id = ${id} returning image_url`;
+    const url = rows[0]?.image_url as string | undefined;
+    if (url) {
+      const { del } = await import("@vercel/blob");
+      await del(url).catch(() => {});
+    }
     return { ok: true };
   });
 
@@ -818,7 +864,7 @@ export const upsertCustomOffer = createServerFn({ method: "POST" })
 
 export const deleteCustomOffer = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from custom_offers where id = ${id}`;
     return { ok: true };
@@ -869,7 +915,7 @@ export const upsertSliderImage = createServerFn({ method: "POST" })
 
 export const deleteSliderImage = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from slider_images where id = ${id}`;
     return { ok: true };
@@ -923,7 +969,7 @@ export const upsertHeroBanner = createServerFn({ method: "POST" })
 
 export const deleteHeroBanner = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => (data as { id: string }).id)
+  .validator((data: unknown) => data as string)
   .handler(async ({ data: id }) => {
     await sql()`delete from hero_banners where id = ${id}`;
     return { ok: true };

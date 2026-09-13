@@ -93,7 +93,7 @@ import {
   POST_ORDER_MESSAGE_ENABLED_KEY,
   parsePostOrderMessageEnabled,
 } from "@/lib/use-settings";
-import { generatePosterMeta } from "@/lib/poster-ai.functions";
+import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { FramePreview } from "@/components/FramePreview";
 
@@ -2473,8 +2473,13 @@ function MediaLibraryTab() {
   const remove = async (url: string) => {
     if (usedUrls.has(url) && !confirm("This image is used by a product or banner. Delete anyway?")) return;
     if (!usedUrls.has(url) && !confirm("Delete this image permanently?")) return;
-    await deleteMediaAssetAdmin({ data: { url } });
-    setBlobs((prev) => prev?.filter((b) => b.url !== url) ?? null);
+    try {
+      await deleteMediaAssetAdmin({ data: { url } });
+      setBlobs((prev) => prev?.filter((b) => b.url !== url) ?? null);
+      toast.success("Deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
   };
 
   const copyUrl = async (url: string) => {
@@ -2560,9 +2565,26 @@ type AdminPoster = {
   seo_title?: string | null;
   seo_description?: string | null;
   alt_text?: string | null;
+  review_status: string;
 };
 
-type QueueStatus = "queued" | "optimizing" | "uploading" | "analyzing" | "creating" | "ready" | "failed";
+const REVIEW_LABELS: Record<string, string> = {
+  approved: "Approved",
+  needs_edit: "Needs review",
+};
+const REVIEW_BADGE_CLASS: Record<string, string> = {
+  needs_edit: "bg-amber-500/15 text-amber-500",
+};
+
+type QueueStatus =
+  | "queued"
+  | "optimizing"
+  | "analyzing"
+  | "preview"
+  | "uploading"
+  | "creating"
+  | "ready"
+  | "failed";
 type QueueItem = {
   id: string;
   file: File;
@@ -2570,6 +2592,25 @@ type QueueItem = {
   status: QueueStatus;
   error?: string;
   productId?: string;
+  // Populated once Phase A (analyze) completes; retained so Phase B
+  // (confirm & publish) can upload the blob only after human confirmation.
+  analyzed?: boolean;
+  dataUrl?: string;
+  title: string;
+  description: string;
+  seo_title: string;
+  seo_description: string;
+  alt_text: string;
+  badge: string | null;
+  tags: string[];
+  mainCategoryId: string | null;
+  mainCategoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
+  needsReview: boolean;
+  validationConflicts: string[];
+  confidence: number;
+  expanded?: boolean;
 };
 
 function filenameToTitle(filename: string): string {
@@ -2596,10 +2637,11 @@ function fileToDataUrl(file: File): Promise<string> {
 const QUEUE_STATUS_LABEL: Record<QueueStatus, string> = {
   queued: "Queued",
   optimizing: "Optimizing",
-  uploading: "Uploading",
   analyzing: "AI analyzing",
-  creating: "Creating draft",
-  ready: "Ready",
+  preview: "Ready to review",
+  uploading: "Uploading",
+  creating: "Publishing",
+  ready: "Published",
   failed: "Failed",
 };
 
@@ -2709,6 +2751,7 @@ function ProductsTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
+  const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const categoriesRef = useRef<AdminCategory[]>([]);
   categoriesRef.current = categories;
@@ -2727,39 +2770,28 @@ function ProductsTab() {
     return (id: string | null) => (id ? (map.get(id) ?? "—") : "—");
   }, [categories]);
 
-  // ---- Upload queue: optimize -> upload -> AI-assist (best effort) ->
-  // create as a hidden draft product. Concurrency-limited so 100+ files
-  // don't fire 100 requests at once. ----
+  // ---- Upload queue, two phases ----
+  // Phase A (automatic, concurrency-limited): optimize -> AI-assist on the
+  // local data URL (no blob upload yet) -> resolve/auto-create category ->
+  // land at "preview" for a human look. Phase B (confirmAndPublish, its own
+  // pump): only once confirmed does the image actually upload to blob
+  // storage and the poster get created — a discarded preview leaves no
+  // orphaned blob or DB row by construction.
   const updateQueueItem = (id: string, patch: Partial<QueueItem>) =>
     setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
-  const processItem = async (item: QueueItem) => {
+  const analyzeItem = async (item: QueueItem) => {
     try {
       updateQueueItem(item.id, { status: "optimizing", error: undefined });
       const optimized = await optimizeImage(item.file, { maxDim: 2000, quality: 0.85 });
-
-      updateQueueItem(item.id, { status: "uploading" });
       const dataUrl = await fileToDataUrl(optimized);
-      const { url } = await uploadPosterImage({ data: { dataUrl, filename: item.file.name } });
 
       updateQueueItem(item.id, { status: "analyzing" });
-      let meta: Partial<{
-        title: string;
-        badge: string | null;
-        tags: string[];
-        category_id: string | null;
-        subcategory_id: string | null;
-        suggested_category_name: string | null;
-        suggested_subcategory_name: string | null;
-        seo_title: string;
-        seo_description: string;
-        alt_text: string;
-        description: string;
-      }> = {};
+      let meta: Partial<GeneratedPosterMeta> = {};
       try {
         meta = await generatePosterMeta({
           data: {
-            imageUrl: url,
+            imageUrl: dataUrl,
             filename: item.file.name,
             categories: categoriesRef.current.map((c) => ({
               id: c.id,
@@ -2771,25 +2803,29 @@ function ProductsTab() {
         });
       } catch {
         // AI assist is best-effort: a failure here still leaves a usable
-        // draft (filename-derived title, no category), never blocks upload.
+        // draft (filename-derived title, no category), never blocks the flow.
       }
 
-      // Resolve the most specific category possible: an existing/matched
-      // subcategory wins, then fall back to auto-creating whatever the AI
-      // suggested (a new subcategory under an existing main, or an
-      // entirely new main category — checking-then-inserting by name so
-      // repeated subjects across the batch reuse the same row instead of
-      // duplicating it). Newly created categories are pushed into
-      // categoriesRef so later items in this same batch see them too.
-      let resolvedCategoryId: string | null = meta.subcategory_id ?? null;
-      if (!resolvedCategoryId) {
-        let mainId = meta.category_id ?? null;
-        if (!mainId && meta.suggested_category_name) {
+      // Resolve both the main AND sub category (not just the most-specific
+      // id) so the preview row can show "Category > Subcategory", auto-
+      // creating whatever the AI suggested that doesn't exist yet —
+      // checking-then-inserting by name so repeated subjects across the
+      // batch reuse the same row instead of duplicating it. Newly created
+      // categories are pushed into categoriesRef so later items in this
+      // same batch see them too.
+      let mainCategoryId: string | null = null;
+      let subCategoryId: string | null = meta.subcategory_id ?? null;
+      if (subCategoryId) {
+        const subCat = categoriesRef.current.find((c) => c.id === subCategoryId);
+        mainCategoryId = subCat?.parent_id ?? meta.category_id ?? null;
+      } else {
+        mainCategoryId = meta.category_id ?? null;
+        if (!mainCategoryId && meta.suggested_category_name) {
           try {
             const { id, created } = await findOrCreateCategory({
               data: { name: meta.suggested_category_name, parentId: null },
             });
-            mainId = id;
+            mainCategoryId = id;
             if (created) {
               categoriesRef.current = [
                 ...categoriesRef.current,
@@ -2797,43 +2833,80 @@ function ProductsTab() {
               ];
             }
           } catch {
-            /* best-effort — leave uncategorized rather than block the upload */
+            /* best-effort — leave uncategorized rather than block the flow */
           }
         }
-        if (mainId && meta.suggested_subcategory_name) {
+        if (mainCategoryId && meta.suggested_subcategory_name) {
           try {
             const { id, created } = await findOrCreateCategory({
-              data: { name: meta.suggested_subcategory_name, parentId: mainId },
+              data: { name: meta.suggested_subcategory_name, parentId: mainCategoryId },
             });
-            resolvedCategoryId = id;
+            subCategoryId = id;
             if (created) {
               categoriesRef.current = [
                 ...categoriesRef.current,
-                { id, name: meta.suggested_subcategory_name, slug: id, parent_id: mainId } as AdminCategory,
+                { id, name: meta.suggested_subcategory_name, slug: id, parent_id: mainCategoryId } as AdminCategory,
               ];
             }
           } catch {
-            resolvedCategoryId = mainId;
+            /* leave at main category only */
           }
-        } else {
-          resolvedCategoryId = mainId;
         }
       }
+      const mainCategoryName = mainCategoryId
+        ? (categoriesRef.current.find((c) => c.id === mainCategoryId)?.name ?? meta.suggested_category_name ?? null)
+        : null;
+      const subCategoryName = subCategoryId
+        ? (categoriesRef.current.find((c) => c.id === subCategoryId)?.name ?? meta.suggested_subcategory_name ?? null)
+        : null;
 
+      updateQueueItem(item.id, {
+        status: "preview",
+        analyzed: true,
+        dataUrl,
+        title: meta.title || filenameToTitle(item.file.name),
+        description: meta.description || "",
+        seo_title: meta.seo_title || "",
+        seo_description: meta.seo_description || "",
+        alt_text: meta.alt_text || "",
+        badge: meta.badge ?? null,
+        tags: meta.tags ?? [],
+        mainCategoryId,
+        mainCategoryName,
+        subCategoryId,
+        subCategoryName,
+        needsReview: Boolean(meta.needs_review),
+        validationConflicts: meta.validation_conflicts ?? [],
+        confidence: typeof meta.confidence === "number" ? meta.confidence : 1,
+      });
+    } catch (err) {
+      updateQueueItem(item.id, {
+        status: "failed",
+        error: err instanceof Error ? err.message : "Analysis failed",
+      });
+    }
+  };
+
+  const confirmAndPublish = async (item: QueueItem) => {
+    updateQueueItem(item.id, { status: "uploading", error: undefined });
+    try {
+      if (!item.dataUrl) throw new Error("Image data missing — please re-add this photo");
+      const { url } = await uploadPosterImage({ data: { dataUrl: item.dataUrl, filename: item.file.name } });
       updateQueueItem(item.id, { status: "creating" });
       const { id: productId } = await upsertPoster({
         data: {
-          title: meta.title || filenameToTitle(item.file.name),
+          title: item.title || filenameToTitle(item.file.name),
           image_url: url,
-          category_id: resolvedCategoryId,
-          badge: meta.badge ?? null,
-          tags: meta.tags ?? [],
-          seo_title: meta.seo_title || null,
-          seo_description: meta.seo_description || null,
-          alt_text: meta.alt_text || null,
-          description: meta.description || null,
-          hidden: true, // lands as a draft — admin reviews before publishing
+          category_id: item.subCategoryId ?? item.mainCategoryId ?? null,
+          badge: item.badge,
+          tags: item.tags,
+          seo_title: item.seo_title || null,
+          seo_description: item.seo_description || null,
+          alt_text: item.alt_text || null,
+          description: item.description || null,
+          hidden: false,
           trending: false,
+          review_status: item.needsReview ? "needs_edit" : "approved",
         },
       });
       updateQueueItem(item.id, { status: "ready", productId });
@@ -2841,7 +2914,7 @@ function ProductsTab() {
     } catch (err) {
       updateQueueItem(item.id, {
         status: "failed",
-        error: err instanceof Error ? err.message : "Upload failed",
+        error: err instanceof Error ? err.message : "Publish failed",
       });
     }
   };
@@ -2857,11 +2930,34 @@ function ProductsTab() {
       const item = pendingRef.current.shift();
       if (!item) break;
       activeCountRef.current++;
-      processItem(item).finally(() => {
+      analyzeItem(item).finally(() => {
         activeCountRef.current--;
         pump();
       });
     }
+  };
+
+  // Separate pump for Phase B, so "Publish all ready" can fan many
+  // confirmed items out at once without competing with in-flight analysis.
+  const publishActiveCountRef = useRef(0);
+  const publishPendingRef = useRef<QueueItem[]>([]);
+  const pumpPublish = () => {
+    while (publishActiveCountRef.current < MAX_CONCURRENT && publishPendingRef.current.length > 0) {
+      const item = publishPendingRef.current.shift();
+      if (!item) break;
+      publishActiveCountRef.current++;
+      confirmAndPublish(item).finally(() => {
+        publishActiveCountRef.current--;
+        pumpPublish();
+      });
+    }
+  };
+  const queuePublish = (item: QueueItem) => {
+    publishPendingRef.current.push(item);
+    pumpPublish();
+  };
+  const publishAllReady = () => {
+    queue.filter((q) => q.status === "preview" && !q.needsReview).forEach(queuePublish);
   };
 
   const addFiles = (files: FileList | File[]) => {
@@ -2872,6 +2968,20 @@ function ProductsTab() {
       file,
       previewUrl: URL.createObjectURL(file),
       status: "queued",
+      title: "",
+      description: "",
+      seo_title: "",
+      seo_description: "",
+      alt_text: "",
+      badge: null,
+      tags: [],
+      mainCategoryId: null,
+      mainCategoryName: null,
+      subCategoryId: null,
+      subCategoryName: null,
+      needsReview: false,
+      validationConflicts: [],
+      confidence: 1,
     }));
     setQueue((prev) => [...items, ...prev]);
     pendingRef.current.push(...items);
@@ -2879,9 +2989,19 @@ function ProductsTab() {
   };
 
   const retryItem = (item: QueueItem) => {
-    updateQueueItem(item.id, { status: "queued", error: undefined });
-    pendingRef.current.push(item);
-    pump();
+    if (item.analyzed) {
+      updateQueueItem(item.id, { status: "preview", error: undefined });
+      queuePublish(item);
+    } else {
+      updateQueueItem(item.id, { status: "queued", error: undefined });
+      pendingRef.current.push(item);
+      pump();
+    }
+  };
+
+  const discardItem = (item: QueueItem) => {
+    URL.revokeObjectURL(item.previewUrl);
+    setQueue((prev) => prev.filter((q) => q.id !== item.id));
   };
 
   const clearFinishedQueue = () =>
@@ -2918,8 +3038,11 @@ function ProductsTab() {
   const deleteSelected = async () => {
     if (selected.size === 0) return;
     if (!confirm(`Delete ${selected.size} product(s)? This can't be undone.`)) return;
-    for (const id of selected) await deletePoster({ data: id });
-    toast.success("Deleted");
+    const ids = Array.from(selected);
+    const results = await Promise.allSettled(ids.map((id) => deletePoster({ data: id })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (ids.length - failed > 0) toast.success(`Deleted ${ids.length - failed} product(s)`);
+    if (failed > 0) toast.error(`${failed} product(s) failed to delete`);
     clearSelection();
     load();
   };
@@ -2940,22 +3063,50 @@ function ProductsTab() {
 
   const remove = async (id: string) => {
     if (!confirm("Delete this product?")) return;
-    await deletePoster({ data: id });
-    load();
+    try {
+      await deletePoster({ data: id });
+      toast.success("Deleted");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
+
+  const markReviewed = async (id: string) => {
+    try {
+      await bulkUpdatePosters({ data: { ids: [id], patch: { review_status: "approved" } } });
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to mark reviewed");
+    }
   };
 
   if (products === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+
+  const visibleProducts = onlyNeedsReview
+    ? products.filter((p) => p.review_status !== "approved")
+    : products;
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Products</h2>
-        <button
-          onClick={() => setEditing({})}
-          className="rounded-sm border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-        >
-          + Single product (advanced)
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={onlyNeedsReview}
+              onChange={(e) => setOnlyNeedsReview(e.target.checked)}
+            />
+            Needs review only
+          </label>
+          <button
+            onClick={() => setEditing({})}
+            className="rounded-sm border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          >
+            + Single product (advanced)
+          </button>
+        </div>
       </div>
 
       {/* ---- Drop zone ---- */}
@@ -2995,40 +3146,202 @@ function ProductsTab() {
       {/* ---- Upload queue ---- */}
       {queue.length > 0 && (
         <div className="mb-6 rounded-sm border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              Upload queue ({queue.filter((q) => q.status === "ready").length}/{queue.length} ready)
+              Upload queue ({queue.filter((q) => q.status === "ready").length}/{queue.length} done)
             </span>
-            <button onClick={clearFinishedQueue} className="text-xs text-muted-foreground hover:text-foreground">
-              Clear finished
-            </button>
-          </div>
-          <div className="max-h-72 overflow-y-auto">
-            {queue.map((q) => (
-              <div key={q.id} className="flex items-center gap-3 border-b border-border px-4 py-2 last:border-0">
-                <img src={q.previewUrl} alt="" className="h-10 w-8 rounded-sm object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs">{q.file.name}</div>
-                  {q.error && <div className="truncate text-xs text-red-500">{q.error}</div>}
-                </div>
-                <span
-                  className={`shrink-0 rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                    q.status === "ready"
-                      ? "bg-emerald-500/15 text-emerald-500"
-                      : q.status === "failed"
-                        ? "bg-red-500/15 text-red-500"
-                        : "bg-accent text-muted-foreground"
-                  }`}
-                >
-                  {QUEUE_STATUS_LABEL[q.status]}
+            <div className="flex items-center gap-3">
+              {queue.some((q) => q.status === "preview" && q.needsReview) && (
+                <span className="text-xs text-amber-500">
+                  {queue.filter((q) => q.status === "preview" && q.needsReview).length} need review
                 </span>
-                {q.status === "failed" && (
-                  <button onClick={() => retryItem(q)} className="shrink-0 text-xs text-cyan-500 hover:underline">
-                    Retry
-                  </button>
-                )}
-              </div>
-            ))}
+              )}
+              {queue.some((q) => q.status === "preview" && !q.needsReview) && (
+                <button
+                  onClick={publishAllReady}
+                  className="rounded-sm bg-primary px-2 py-1 text-xs font-medium text-primary-foreground"
+                >
+                  Publish all ready ({queue.filter((q) => q.status === "preview" && !q.needsReview).length})
+                </button>
+              )}
+              <button onClick={clearFinishedQueue} className="text-xs text-muted-foreground hover:text-foreground">
+                Clear finished
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[32rem] overflow-y-auto">
+            {queue.map((q) =>
+              q.status === "preview" ? (
+                <div key={q.id} className="border-b border-border last:border-0">
+                  <div className="flex items-center gap-3 px-4 py-2">
+                    <img src={q.previewUrl} alt="" className="h-10 w-8 shrink-0 rounded-sm object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium">{q.title}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {q.mainCategoryName ?? "Uncategorized"}
+                        {q.subCategoryName ? ` > ${q.subCategoryName}` : ""}
+                      </div>
+                    </div>
+                    {q.needsReview && (
+                      <span className="shrink-0 rounded-sm bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-500">
+                        Needs review
+                      </span>
+                    )}
+                    <button
+                      onClick={() => updateQueueItem(q.id, { expanded: !q.expanded })}
+                      className="shrink-0 text-xs text-cyan-500 hover:underline"
+                    >
+                      {q.expanded ? "Hide" : "Review"}
+                    </button>
+                    <button
+                      onClick={() => queuePublish(q)}
+                      className="shrink-0 rounded-sm border border-border px-2 py-1 text-xs hover:bg-accent"
+                    >
+                      Confirm & Publish
+                    </button>
+                    <button onClick={() => discardItem(q)} className="shrink-0 text-xs text-red-500 hover:underline">
+                      Discard
+                    </button>
+                  </div>
+                  {q.expanded && (
+                    <div className="space-y-3 border-t border-border bg-accent/30 p-3">
+                      {q.validationConflicts.length > 0 && (
+                        <div className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-600">
+                          {q.validationConflicts.join(" · ")}
+                        </div>
+                      )}
+                      <input
+                        placeholder="Title"
+                        value={q.title}
+                        onChange={(e) => updateQueueItem(q.id, { title: e.target.value })}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <select
+                        value={q.subCategoryId ?? q.mainCategoryId ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value || null;
+                          const cat = categories.find((c) => c.id === val);
+                          if (!cat) {
+                            updateQueueItem(q.id, {
+                              mainCategoryId: null,
+                              mainCategoryName: null,
+                              subCategoryId: null,
+                              subCategoryName: null,
+                            });
+                          } else if (cat.parent_id) {
+                            const main = categories.find((c) => c.id === cat.parent_id);
+                            updateQueueItem(q.id, {
+                              mainCategoryId: cat.parent_id,
+                              mainCategoryName: main?.name ?? null,
+                              subCategoryId: cat.id,
+                              subCategoryName: cat.name,
+                            });
+                          } else {
+                            updateQueueItem(q.id, {
+                              mainCategoryId: cat.id,
+                              mainCategoryName: cat.name,
+                              subCategoryId: null,
+                              subCategoryName: null,
+                            });
+                          }
+                        }}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">No category</option>
+                        {categories
+                          .filter((c) => !c.parent_id)
+                          .map((main) => {
+                            const subs = categories.filter((c) => c.parent_id === main.id);
+                            return (
+                              <optgroup key={main.id} label={main.name}>
+                                <option value={main.id}>{main.name}</option>
+                                {subs.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    — {s.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            );
+                          })}
+                      </select>
+                      <textarea
+                        placeholder="Description"
+                        value={q.description}
+                        onChange={(e) => updateQueueItem(q.id, { description: e.target.value })}
+                        rows={3}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        placeholder="SEO title"
+                        value={q.seo_title}
+                        onChange={(e) => updateQueueItem(q.id, { seo_title: e.target.value })}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <textarea
+                        placeholder="SEO description"
+                        value={q.seo_description}
+                        onChange={(e) => updateQueueItem(q.id, { seo_description: e.target.value })}
+                        rows={2}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        placeholder="Alt text"
+                        value={q.alt_text}
+                        onChange={(e) => updateQueueItem(q.id, { alt_text: e.target.value })}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        placeholder="Badge (optional)"
+                        value={q.badge ?? ""}
+                        onChange={(e) => updateQueueItem(q.id, { badge: e.target.value || null })}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      {q.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {q.tags.map((t, i) => (
+                            <span key={i} className="rounded-sm bg-accent px-2 py-0.5 text-[10px]">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={q.needsReview}
+                          onChange={(e) => updateQueueItem(q.id, { needsReview: e.target.checked })}
+                        />
+                        Flag for review
+                      </label>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div key={q.id} className="flex items-center gap-3 border-b border-border px-4 py-2 last:border-0">
+                  <img src={q.previewUrl} alt="" className="h-10 w-8 rounded-sm object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs">{q.file.name}</div>
+                    {q.error && <div className="truncate text-xs text-red-500">{q.error}</div>}
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                      q.status === "ready"
+                        ? "bg-emerald-500/15 text-emerald-500"
+                        : q.status === "failed"
+                          ? "bg-red-500/15 text-red-500"
+                          : "bg-accent text-muted-foreground"
+                    }`}
+                  >
+                    {QUEUE_STATUS_LABEL[q.status]}
+                  </span>
+                  {q.status === "failed" && (
+                    <button onClick={() => retryItem(q)} className="shrink-0 text-xs text-cyan-500 hover:underline">
+                      Retry
+                    </button>
+                  )}
+                </div>
+              ),
+            )}
           </div>
         </div>
       )}
@@ -3238,13 +3551,24 @@ function ProductsTab() {
 
       {/* ---- Product list ---- */}
       <div className="space-y-2">
-        {products.map((p) => (
+        {visibleProducts.map((p) => (
           <div key={p.id} className="flex items-center justify-between rounded-sm border border-border p-3">
             <div className="flex items-center gap-3">
               <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelected(p.id)} />
               <img src={p.image_url} alt="" className="h-12 w-9 rounded-sm object-cover" />
               <div>
-                <div className="text-sm font-medium">{p.title}</div>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  {p.title}
+                  {p.review_status !== "approved" && (
+                    <span
+                      className={`rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                        REVIEW_BADGE_CLASS[p.review_status] ?? "bg-accent text-muted-foreground"
+                      }`}
+                    >
+                      {REVIEW_LABELS[p.review_status] ?? p.review_status}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {categoryName(p.category_id)}
                   {p.hidden ? " · draft" : " · published"}
@@ -3254,6 +3578,11 @@ function ProductsTab() {
               </div>
             </div>
             <div className="flex gap-2">
+              {p.review_status !== "approved" && (
+                <button onClick={() => markReviewed(p.id)} className="text-xs text-emerald-500 hover:underline">
+                  Mark reviewed
+                </button>
+              )}
               <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
                 Edit
               </button>
@@ -3263,7 +3592,11 @@ function ProductsTab() {
             </div>
           </div>
         ))}
-        {products.length === 0 && <p className="text-sm text-muted-foreground">No products yet — drop some images above.</p>}
+        {visibleProducts.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {onlyNeedsReview ? "Nothing needs review." : "No products yet — drop some images above."}
+          </p>
+        )}
       </div>
     </div>
   );
