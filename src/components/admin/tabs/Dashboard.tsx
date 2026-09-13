@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { adminLogout } from "@/lib/admin-auth-neon.functions";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/layout/AdminSidebar";
+import { AdminTopbar } from "@/components/admin/layout/AdminTopbar";
+import { AdminCommandPalette } from "@/components/admin/layout/AdminCommandPalette";
+import type { Tab } from "@/components/admin/layout/nav-config";
 import { DashboardTab } from "./DashboardTab";
 import { AnalyticsTab } from "./AnalyticsTab";
 import { FinanceTab } from "./FinanceTab";
@@ -20,27 +25,6 @@ import { FrameMockupsTab } from "./FrameMockupsTab";
 import { SystemHealthTab } from "./SystemHealthTab";
 import { SettingsTab } from "./SettingsTab";
 
-type Tab =
-  | "dashboard"
-  | "analytics"
-  | "finance"
-  | "promotions"
-  | "products"
-  | "categories"
-  | "orders"
-  | "photo-orders"
-  | "customers"
-  | "reviews"
-  | "offers"
-  | "sets"
-  | "before-after"
-  | "landing-pages"
-  | "media"
-  | "homepage"
-  | "mockups"
-  | "health"
-  | "settings";
-
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
   // Tabs mount lazily on first visit but never unmount again — switching
@@ -49,6 +33,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   // the Products upload queue, since a bare `{tab === "x" && <XTab/>}`
   // destroys and recreates the component on every switch.
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set(["dashboard"]));
+  const [commandOpen, setCommandOpen] = useState(false);
   const switchTab = (t: Tab) => {
     setTab(t);
     setVisitedTabs((prev) => (prev.has(t) ? prev : new Set(prev).add(t)));
@@ -59,74 +44,43 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     onLogout();
   };
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "analytics", label: "Analytics" },
-    { id: "finance", label: "Finance" },
-    { id: "orders", label: "Orders" },
-    { id: "photo-orders", label: "Photo Orders" },
-    { id: "products", label: "Products" },
-    { id: "categories", label: "Categories" },
-    { id: "customers", label: "Customers" },
-    { id: "reviews", label: "Reviews" },
-    { id: "offers", label: "Offers" },
-    { id: "promotions", label: "Promotions" },
-    { id: "sets", label: "Sets" },
-    { id: "before-after", label: "Before / After" },
-    { id: "landing-pages", label: "Landing Pages" },
-    { id: "media", label: "Media Library" },
-    { id: "homepage", label: "Homepage" },
-    { id: "mockups", label: "Frame Mockups" },
-    { id: "health", label: "System Health" },
-    { id: "settings", label: "Settings" },
-  ];
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <h1 className="text-display text-xl">BRWAZWNEON Admin</h1>
-          <button onClick={logout} className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
-            Sign out
-          </button>
+    <SidebarProvider>
+      <AdminSidebar activeTab={tab} onNavigate={switchTab} />
+      <SidebarInset>
+        <AdminTopbar
+          activeTab={tab}
+          onOpenCommandPalette={() => setCommandOpen(true)}
+          onSignOut={logout}
+        />
+        <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab /></div>}
+          {visitedTabs.has("analytics") && <div hidden={tab !== "analytics"}><AnalyticsTab /></div>}
+          {visitedTabs.has("finance") && <div hidden={tab !== "finance"}><FinanceTab /></div>}
+          {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}
+          {visitedTabs.has("photo-orders") && <div hidden={tab !== "photo-orders"}><PhotoOrdersTab /></div>}
+          {visitedTabs.has("products") && <div hidden={tab !== "products"}><ProductsTab /></div>}
+          {visitedTabs.has("categories") && <div hidden={tab !== "categories"}><CategoriesTab /></div>}
+          {visitedTabs.has("customers") && <div hidden={tab !== "customers"}><CustomersTab /></div>}
+          {visitedTabs.has("reviews") && <div hidden={tab !== "reviews"}><ReviewsTab /></div>}
+          {visitedTabs.has("offers") && <div hidden={tab !== "offers"}><CustomOffersTab /></div>}
+          {visitedTabs.has("promotions") && <div hidden={tab !== "promotions"}><PromotionsTab /></div>}
+          {visitedTabs.has("sets") && <div hidden={tab !== "sets"}><SetsTab /></div>}
+          {visitedTabs.has("before-after") && <div hidden={tab !== "before-after"}><BeforeAfterTab /></div>}
+          {visitedTabs.has("landing-pages") && <div hidden={tab !== "landing-pages"}><LandingPagesTab /></div>}
+          {visitedTabs.has("media") && <div hidden={tab !== "media"}><MediaLibraryTab /></div>}
+          {visitedTabs.has("homepage") && <div hidden={tab !== "homepage"}><HomepageTab /></div>}
+          {visitedTabs.has("mockups") && <div hidden={tab !== "mockups"}><FrameMockupsTab /></div>}
+          {visitedTabs.has("health") && <div hidden={tab !== "health"}><SystemHealthTab /></div>}
+          {visitedTabs.has("settings") && <div hidden={tab !== "settings"}><SettingsTab /></div>}
         </div>
-        <div className="mx-auto flex max-w-6xl gap-1 px-4">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => switchTab(t.id)}
-              className={`border-b-2 px-4 py-2.5 text-xs uppercase tracking-widest transition ${
-                tab === t.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        {visitedTabs.has("dashboard") && <div hidden={tab !== "dashboard"}><DashboardTab /></div>}
-        {visitedTabs.has("analytics") && <div hidden={tab !== "analytics"}><AnalyticsTab /></div>}
-        {visitedTabs.has("finance") && <div hidden={tab !== "finance"}><FinanceTab /></div>}
-        {visitedTabs.has("orders") && <div hidden={tab !== "orders"}><OrdersTab /></div>}
-        {visitedTabs.has("photo-orders") && <div hidden={tab !== "photo-orders"}><PhotoOrdersTab /></div>}
-        {visitedTabs.has("products") && <div hidden={tab !== "products"}><ProductsTab /></div>}
-        {visitedTabs.has("categories") && <div hidden={tab !== "categories"}><CategoriesTab /></div>}
-        {visitedTabs.has("customers") && <div hidden={tab !== "customers"}><CustomersTab /></div>}
-        {visitedTabs.has("reviews") && <div hidden={tab !== "reviews"}><ReviewsTab /></div>}
-        {visitedTabs.has("offers") && <div hidden={tab !== "offers"}><CustomOffersTab /></div>}
-        {visitedTabs.has("promotions") && <div hidden={tab !== "promotions"}><PromotionsTab /></div>}
-        {visitedTabs.has("sets") && <div hidden={tab !== "sets"}><SetsTab /></div>}
-        {visitedTabs.has("before-after") && <div hidden={tab !== "before-after"}><BeforeAfterTab /></div>}
-        {visitedTabs.has("landing-pages") && <div hidden={tab !== "landing-pages"}><LandingPagesTab /></div>}
-        {visitedTabs.has("media") && <div hidden={tab !== "media"}><MediaLibraryTab /></div>}
-        {visitedTabs.has("homepage") && <div hidden={tab !== "homepage"}><HomepageTab /></div>}
-        {visitedTabs.has("mockups") && <div hidden={tab !== "mockups"}><FrameMockupsTab /></div>}
-        {visitedTabs.has("health") && <div hidden={tab !== "health"}><SystemHealthTab /></div>}
-        {visitedTabs.has("settings") && <div hidden={tab !== "settings"}><SettingsTab /></div>}
-      </div>
-    </div>
+      </SidebarInset>
+      <AdminCommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onNavigate={switchTab}
+        onSignOut={logout}
+      />
+    </SidebarProvider>
   );
 }
