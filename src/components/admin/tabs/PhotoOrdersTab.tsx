@@ -4,6 +4,7 @@ import { listPhotoOrdersAdmin, updatePhotoOrderStatus } from "@/lib/db-admin.fun
 import { customerWhatsappLink } from "./shared";
 import { ORDER_STATUSES } from "./OrdersTab";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
+import { Download, X } from "lucide-react";
 
 type AdminPhotoOrder = {
   id: string;
@@ -37,6 +38,8 @@ const PAYMENT_METHOD_LABEL: Record<AdminPhotoOrder["payment_method"], string> = 
 
 export function PhotoOrdersTab() {
   const [orders, setOrders] = useState<AdminPhotoOrder[] | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = async () => setOrders((await listPhotoOrdersAdmin()) as AdminPhotoOrder[]);
   useEffect(() => {
@@ -50,6 +53,33 @@ export function PhotoOrdersTab() {
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
+  const downloadZip = async (o: AdminPhotoOrder) => {
+    setDownloadingId(o.id);
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      await Promise.all(
+        o.photos.map(async (url, i) => {
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const blob = await res.blob();
+          const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+          zip.file(`photo-${i + 1}.${ext}`, blob);
+        }),
+      );
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${o.order_number ?? o.id.slice(0, 8)}-photos.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -104,21 +134,33 @@ export function PhotoOrdersTab() {
                     {o.detail} · qty {o.quantity}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {o.photos.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        o.photos.map((url, i) => (
-                          <a key={i} href={url} target="_blank" rel="noreferrer">
-                            <img
-                              src={url}
-                              alt=""
-                              className="h-10 w-10 rounded-sm border border-border object-cover"
-                            />
-                          </a>
-                        ))
-                      )}
-                    </div>
+                    {o.photos.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap gap-1">
+                          {o.photos.map((url, i) => (
+                            <button key={i} onClick={() => setLightbox(url)} type="button">
+                              <img
+                                src={url}
+                                alt=""
+                                className="h-14 w-14 rounded-sm border border-border object-cover transition hover:opacity-80"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => downloadZip(o)}
+                          disabled={downloadingId === o.id}
+                          className="flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                        >
+                          <Download className="h-3 w-3" />
+                          {downloadingId === o.id
+                            ? "Zipping…"
+                            : `Download ZIP (${o.photos.length})`}
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     <span
@@ -161,6 +203,27 @@ export function PhotoOrdersTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute right-4 top-4 rounded-sm border border-border bg-background p-1.5 text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-full max-w-full rounded-sm object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

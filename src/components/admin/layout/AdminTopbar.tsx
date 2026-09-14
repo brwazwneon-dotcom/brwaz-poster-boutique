@@ -156,17 +156,19 @@ export function AdminTopbar({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold">
-                      {n.status === "new" ? "🔔 طلب جديد" : "طلب"} #
-                      {n.order_number ?? n.id.slice(0, 8)}
+                      {n.status === "new" ? "🔔 طلب جديد" : "طلب"} #{n.orderNumbers.join(", #")}
                     </span>
                     <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {timeAgoAr(n.created_at)}
+                      {timeAgoAr(n.createdAt)}
                     </span>
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {n.customer_name} · {n.poster_title ?? ""}
+                    {n.customerName} ·{" "}
+                    {n.itemCount > 1
+                      ? `${n.itemCount} براويز: ${n.posterTitles.slice(0, 2).join(", ")}${n.itemCount > 2 ? "…" : ""}`
+                      : (n.posterTitles[0] ?? "")}
                   </div>
-                  <div className="text-xs font-medium">{n.total_price} EGP</div>
+                  <div className="text-xs font-medium">{n.totalPrice} EGP</div>
                 </button>
               ))}
             </div>
