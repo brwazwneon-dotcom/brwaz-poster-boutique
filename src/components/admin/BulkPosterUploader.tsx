@@ -11,8 +11,9 @@ import {
   Sparkles,
   AlertTriangle,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { uploadAndSign, signStoragePath } from "@/lib/storage-url";
+import { uploadPosterImage } from "@/lib/image-upload.functions";
+import { upsertPoster } from "@/lib/db-admin.functions";
+import { uploadResponsiveSrcSets } from "@/lib/responsive-image";
 import { optimizeImage } from "@/lib/image-optimize";
 import { useCategories, type Category } from "@/lib/use-categories";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
@@ -26,6 +27,15 @@ import {
 import { cn } from "@/lib/utils";
 import { generatePosterMeta } from "@/lib/poster-ai.functions";
 import { CategoryPicker } from "@/components/admin/CategoryPicker";
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 type ItemStatus = "pending" | "optimizing" | "uploading" | "done" | "failed";
 type AiStatus = "idle" | "pending" | "generated" | "needs_review" | "failed";
@@ -134,7 +144,6 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
-    const slug = effectiveCategory?.slug ?? "misc";
 
     let cursor = 0;
     const worker = async () => {
@@ -163,44 +172,52 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
           const optimized = await optimizeImage(toOptimize, { maxDim: 2000, quality: 0.85 });
 
           update(id, { status: "uploading" });
-          const uid = crypto.randomUUID();
-          const baseExt = (current.file.name.split(".").pop() ?? "jpg").toLowerCase();
-          const optExt = (optimized.name.split(".").pop() ?? "jpg").toLowerCase();
 
-          // Upload optimized (public-facing) + original (admin archive) in parallel.
-          const [webUrl, originalUrl] = await Promise.all([
-            uploadAndSign("posters", `${slug}/${uid}.${optExt}`, optimized),
-            uploadAndSign("posters-originals", `${slug}/${uid}.${baseExt}`, current.file).catch(
-              () => null,
-            ),
+          // Upload optimized (public-facing) + original (admin archive) in
+          // parallel, plus a responsive AVIF/WebP srcset generated from the
+          // full-quality source — same Neon/Vercel-Blob pipeline ProductsTab
+          // already uses, so bulk-uploaded posters get the same fast-loading
+          // grid images as single uploads instead of one full-res JPEG.
+          const [webDataUrl, originalDataUrl] = await Promise.all([
+            fileToDataUrl(optimized),
+            fileToDataUrl(current.file),
           ]);
+          const [{ url: webUrl }, originalResult, { webp_srcset, avif_srcset }] = await Promise.all(
+            [
+              uploadPosterImage({ data: { dataUrl: webDataUrl, filename: optimized.name } }),
+              uploadPosterImage({
+                data: { dataUrl: originalDataUrl, filename: current.file.name },
+              }).catch(() => null),
+              uploadResponsiveSrcSets(toOptimize, uploadPosterImage),
+            ],
+          );
+          const originalUrl = originalResult?.url ?? null;
 
           const baseName = current.file.name.replace(/\.[^.]+$/, "");
           const finalTitle = titlePrefix ? `${titlePrefix} ${baseName}` : baseName;
 
-          const { data: inserted, error: insErr } = await supabase
-            .from("posters")
-            .insert({
+          const { id: posterId } = await upsertPoster({
+            data: {
               title: finalTitle,
               category_id: effectiveCategoryId,
               image_url: webUrl,
               original_url: originalUrl,
+              webp_srcset,
+              avif_srcset,
               tags,
-              edit_settings: (current.edit ?? {}) as never,
-            })
-            .select("id")
-            .single();
-          if (insErr) throw insErr;
+              edit_settings: current.edit ?? {},
+            },
+          });
 
           update(id, {
             status: "done",
-            posterId: inserted?.id,
+            posterId,
             ai: aiEnabled ? "pending" : "idle",
           });
 
-          if (aiEnabled && inserted?.id) {
+          if (aiEnabled && posterId) {
             // Fire-and-forget AI generation; do not block other uploads.
-            void runAiForPoster(id, inserted.id, webUrl, current.file.name);
+            void runAiForPoster(id, posterId, webUrl, current.file.name);
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Upload failed";
@@ -266,8 +283,9 @@ export function BulkPosterUploader({ onDone }: { onDone: () => void }) {
       } else if (meta.category_id && !effectiveCategoryId) {
         patch.category_id = meta.category_id;
       }
-      const { error } = await supabase.from("posters").update(patch).eq("id", posterId);
-      if (error) throw error;
+      // upsertPoster requires title/image_url on every call (insert or
+      // update) — both are already known here, unchanged by this patch.
+      await upsertPoster({ data: { id: posterId, image_url: imageUrl, ...patch } });
       update(itemId, { ai: "generated", aiTitle: meta.title });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "AI failed";
@@ -669,5 +687,3 @@ function StatusBadge({ status, ai }: { status: ItemStatus; ai?: AiStatus }) {
 
 // Silence "unused" complaints for re-exports kept for future use.
 export type { Category };
-// Re-export to avoid TS unused warning if signStoragePath is later imported here.
-void signStoragePath;
