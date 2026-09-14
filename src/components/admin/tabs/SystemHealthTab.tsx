@@ -95,11 +95,13 @@ function RecoverBrokenImagesSection() {
     if (pickedCount === 0) return;
     setUploading(true);
     try {
+      const byId = new Map(rows?.map((r) => [r.product_id, r]) ?? []);
       const uploads = await Promise.all(
         Object.entries(picked).map(async ([productId, file]) => ({
           productId,
           filename: file.name,
           dataUrl: await fileToDataUrl(file),
+          table: byId.get(productId)?.table ?? "posters",
         })),
       );
       const result = await bulkRecoverImagesAdmin({ data: { uploads } });

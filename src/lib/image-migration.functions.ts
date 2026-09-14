@@ -17,8 +17,8 @@ import { cloudinary } from "@/lib/cloudinary.server";
 // bug in this code.
 
 const DEAD_DOMAIN = "blob.vercel-storage.com";
-type Table = "posters" | "hero_banners";
-const TABLES: Table[] = ["posters", "hero_banners"];
+type Table = "posters" | "hero_banners" | "slider_images";
+const TABLES: Table[] = ["posters", "hero_banners", "slider_images"];
 
 type MigrationCounts = {
   not_applicable: number;
@@ -31,6 +31,7 @@ type MigrationCounts = {
 export type MigrationStatusSummary = {
   posters: MigrationCounts;
   hero_banners: MigrationCounts;
+  slider_images: MigrationCounts;
   total: MigrationCounts;
   paused: boolean;
 };
@@ -47,9 +48,10 @@ export const getImageMigrationStatusAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async (): Promise<MigrationStatusSummary> => {
     const client = sql();
-    const [posterRows, bannerRows, pausedSetting] = await Promise.all([
+    const [posterRows, bannerRows, sliderRows, pausedSetting] = await Promise.all([
       client`select migration_status, count(*)::int as n from posters group by migration_status`,
       client`select migration_status, count(*)::int as n from hero_banners group by migration_status`,
+      client`select migration_status, count(*)::int as n from slider_images group by migration_status`,
       client`select value from site_settings where key = 'image_migration_paused'`,
     ]);
 
@@ -61,14 +63,19 @@ export const getImageMigrationStatusAdmin = createServerFn({ method: "GET" })
     for (const r of bannerRows as { migration_status: string; n: number }[]) {
       heroBanners[r.migration_status as keyof MigrationCounts] = r.n;
     }
+    const sliderImages = EMPTY_COUNTS();
+    for (const r of sliderRows as { migration_status: string; n: number }[]) {
+      sliderImages[r.migration_status as keyof MigrationCounts] = r.n;
+    }
     const total = EMPTY_COUNTS();
     for (const key of Object.keys(total) as (keyof MigrationCounts)[]) {
-      total[key] = posters[key] + heroBanners[key];
+      total[key] = posters[key] + heroBanners[key] + sliderImages[key];
     }
 
     return {
       posters,
       hero_banners: heroBanners,
+      slider_images: sliderImages,
       total,
       paused: pausedSetting[0]?.value === true,
     };
@@ -118,7 +125,7 @@ async function migrateOneRow(
   if (cached) return { status: "migrated", newUrl: cached };
 
   try {
-    const publicId = `posters/migrated-${row.id}`;
+    const publicId = `${table}/migrated-${row.id}`;
     const result = await cloudinary.uploader.upload(sourceUrl, {
       public_id: publicId,
       resource_type: "image",
@@ -279,6 +286,7 @@ export type BrokenImageManifestRow = {
   old_image_url: string | null;
   migration_status: string;
   required_action: string;
+  table: Table;
 };
 
 const REQUIRED_ACTION: Record<string, string> = {
@@ -293,21 +301,45 @@ const REQUIRED_ACTION: Record<string, string> = {
 export const listBrokenImagesAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async (): Promise<BrokenImageManifestRow[]> => {
-    const rows = await sql()`
-      select
-        p.id as product_id,
-        p.title as product_name,
-        coalesce(parent_cat.name, cat.name) as category,
-        case when parent_cat.id is not null then cat.name else null end as subcategory,
-        coalesce(p.legacy_image_url, p.image_url) as old_image_url,
-        p.migration_status
-      from posters p
-      left join categories cat on cat.id = p.category_id
-      left join categories parent_cat on parent_cat.id = cat.parent_id
-      where p.migration_status in ('broken_source', 'failed', 'pending')
-      order by p.title asc
-    `;
-    return (rows as Omit<BrokenImageManifestRow, "required_action">[]).map((r) => ({
+    const client = sql();
+    const [posterRows, bannerRows, sliderRows] = await Promise.all([
+      client`
+        select
+          p.id as product_id,
+          p.title as product_name,
+          coalesce(parent_cat.name, cat.name) as category,
+          case when parent_cat.id is not null then cat.name else null end as subcategory,
+          coalesce(p.legacy_image_url, p.image_url) as old_image_url,
+          p.migration_status,
+          'posters' as table
+        from posters p
+        left join categories cat on cat.id = p.category_id
+        left join categories parent_cat on parent_cat.id = cat.parent_id
+        where p.migration_status in ('broken_source', 'failed', 'pending')
+        order by p.title asc
+      `,
+      client`
+        select id as product_id, coalesce(title, 'Hero banner') as product_name,
+               'Hero Banner' as category, null as subcategory,
+               coalesce(legacy_image_url, image_url) as old_image_url, migration_status,
+               'hero_banners' as table
+        from hero_banners
+        where migration_status in ('broken_source', 'failed', 'pending')
+      `,
+      client`
+        select id as product_id, coalesce(title, 'Homepage slider image') as product_name,
+               'Homepage Slider' as category, null as subcategory,
+               coalesce(legacy_image_url, image_url) as old_image_url, migration_status,
+               'slider_images' as table
+        from slider_images
+        where migration_status in ('broken_source', 'failed', 'pending')
+      `,
+    ]);
+    const rows = [...posterRows, ...bannerRows, ...sliderRows] as Omit<
+      BrokenImageManifestRow,
+      "required_action"
+    >[];
+    return rows.map((r) => ({
       ...r,
       required_action: REQUIRED_ACTION[r.migration_status] ?? "Review",
     }));
@@ -317,6 +349,7 @@ type RecoveryUpload = {
   productId: string;
   dataUrl: string;
   filename: string;
+  table: Table;
 };
 
 // The "bulk import when originals are provided" pipeline: takes exactly
@@ -347,6 +380,7 @@ export const bulkRecoverImagesAdmin = createServerFn({ method: "POST" })
         continue;
       }
       try {
+        const table = upload.table ?? "posters";
         const safeName = upload.filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[^.]+$/, "");
         const publicId = `posters/recovered-${upload.productId}-${safeName}`;
         const result = await cloudinary.uploader.upload(upload.dataUrl, {
@@ -354,15 +388,21 @@ export const bulkRecoverImagesAdmin = createServerFn({ method: "POST" })
           resource_type: "image",
           overwrite: true,
         });
-        await client`
-          update posters
-          set image_url = ${result.secure_url},
-              legacy_image_url = coalesce(legacy_image_url, image_url),
-              migration_status = 'migrated',
-              migration_error = null,
-              migration_attempted_at = now()
-          where id = ${upload.productId}
-        `;
+        // hero_banners/slider_images get disabled the moment they're
+        // confirmed broken (see the homepage-hero fix) so the storefront
+        // never shows a dead placeholder slide -- re-enable once a real
+        // replacement lands, or the upload would silently stay invisible.
+        const enabledClause = table === "posters" ? "" : ", enabled = true";
+        await client(
+          `update ${table}
+           set image_url = $1,
+               legacy_image_url = coalesce(legacy_image_url, image_url),
+               migration_status = 'migrated',
+               migration_error = null,
+               migration_attempted_at = now()${enabledClause}
+           where id = $2`,
+          [result.secure_url, upload.productId],
+        );
         succeeded += 1;
       } catch (err) {
         failed += 1;
