@@ -26,6 +26,7 @@ import {
   Crop,
 } from "lucide-react";
 import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
+import { PhotoPrintingBannerRail } from "@/components/PhotoPrintingPromoBanner";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import {
   renderEditToBlob,
@@ -1555,56 +1556,6 @@ function PhotoPrintingPage() {
         />
       )}
     </div>
-  );
-}
-
-function PhotoPrintingBannerRail({ banners }: { banners: PhotoPrintingBanner[] }) {
-  if (banners.length === 0) return null;
-  return (
-    <section className="border-b border-border bg-background">
-      <div className="container-page py-8 sm:py-10">
-        <div className="space-y-4">
-          {banners.map((banner) => (
-            <PhotoPrintingBannerCard key={banner.id} banner={banner} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PhotoPrintingBannerCard({ banner }: { banner: PhotoPrintingBanner }) {
-  const { t } = useTranslation();
-  const desktop = banner.desktopImageUrl || banner.mobileImageUrl;
-  const mobile = banner.mobileImageUrl || banner.desktopImageUrl;
-  const image = (
-    <picture>
-      {mobile && <source media="(max-width: 640px)" srcSet={mobile} />}
-      <img
-        src={desktop}
-        alt={banner.altText || banner.title || t("photoPrinting.bannerAlt")}
-        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.015]"
-        loading="lazy"
-        decoding="async"
-        sizes="(max-width: 640px) 100vw, min(1120px, 100vw)"
-      />
-    </picture>
-  );
-  const content = (
-    <div className="group relative isolate aspect-[16/9] overflow-hidden rounded-sm border border-border bg-card shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:aspect-[21/7]">
-      {image}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.34),rgba(0,0,0,0.04)_48%,rgba(255,255,255,0.08))]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/35 to-transparent" />
-    </div>
-  );
-  if (!banner.linkUrl) return content;
-  return (
-    <a
-      href={banner.linkUrl}
-      className="block outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      {content}
-    </a>
   );
 }
 

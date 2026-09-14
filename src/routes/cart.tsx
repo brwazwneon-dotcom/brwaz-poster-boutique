@@ -3,6 +3,7 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
+import { PhotoPrintingPromoBanner } from "@/components/PhotoPrintingPromoBanner";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -571,7 +572,10 @@ function CartPage() {
       // read it from. Absent for direct/organic traffic that never passed
       // through a landing page.
       const attribution = getAudienceAttribution();
-      const utmSource = attribution?.utm_source && attribution.utm_source !== "direct" ? attribution.utm_source : null;
+      const utmSource =
+        attribution?.utm_source && attribution.utm_source !== "direct"
+          ? attribution.utm_source
+          : null;
       const utmMedium = attribution?.utm_medium || null;
       const utmCampaign = attribution?.utm_campaign || null;
       // Apply bundle discount pro-rata to each item so DB totals line up
@@ -840,6 +844,7 @@ function CartPage() {
             </Link>
           </div>
           <div className="mt-16 space-y-16">
+            <PhotoPrintingPromoBanner />
             <BestSellers />
             <RecentlyViewed />
           </div>
@@ -1309,7 +1314,7 @@ function CartPage() {
                           <img
                             src={screenshotPreview}
                             alt="Payment screenshot"
-                            className="max-h-56 w-full object-contain bg-black/40"
+                            className="max-h-56 w-full object-contain bg-muted"
                           />
                         ) : (
                           <div className="flex items-center gap-2 p-4 text-sm">
@@ -1479,7 +1484,7 @@ function CartPage() {
       )}
       {tapeOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={t("cart.needDoubleFaceTape")}
@@ -1535,7 +1540,7 @@ function CartPage() {
       )}
       {photoUpsellOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={t("photo4x6.printing")}
@@ -1596,7 +1601,7 @@ function CartPage() {
       )}
       {zoomItem && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
           onClick={() => setZoomItem(null)}
           role="dialog"
           aria-modal="true"
