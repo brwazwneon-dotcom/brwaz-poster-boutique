@@ -718,6 +718,10 @@ export function ProductsTab({
       return next;
     });
   const clearSelection = () => setSelected(new Set());
+  const toggleSelectAll = () =>
+    setSelected((prev) =>
+      prev.size === visibleProducts.length ? new Set() : new Set(visibleProducts.map((p) => p.id)),
+    );
 
   const applyBulk = async (patch: {
     category_id?: string;
@@ -1565,6 +1569,16 @@ export function ProductsTab({
       )}
 
       {/* ---- Product list ---- */}
+      {visibleProducts.length > 0 && (
+        <label className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={selected.size > 0 && selected.size === visibleProducts.length}
+            onChange={toggleSelectAll}
+          />
+          Select all ({visibleProducts.length})
+        </label>
+      )}
       <div className="space-y-2">
         {visibleProducts.map((p) => (
           <div
