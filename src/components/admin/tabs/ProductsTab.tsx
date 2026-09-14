@@ -24,7 +24,13 @@ import {
   renderEditToBlob,
   type EditSettings,
 } from "@/lib/poster-edit";
-import { bucketAspect, computeMockupFit, friendlyRatio, type AspectBucket, type MockupFit } from "@/lib/mockup-fit";
+import {
+  bucketAspect,
+  computeMockupFit,
+  friendlyRatio,
+  type AspectBucket,
+  type MockupFit,
+} from "@/lib/mockup-fit";
 import { generatePosterMeta, type GeneratedPosterMeta } from "@/lib/poster-ai.functions";
 import { fileToDataUrl, type AdminCategory, type AdminPoster } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
@@ -35,11 +41,7 @@ import { LoadingRows } from "@/components/admin/layout/LoadingState";
 // pull `@/integrations/supabase/client`'s eager `createClient()` call into
 // this Neon-only bundle). Same reasons vocabulary, same 0.75 default
 // threshold, just without the admin-configurable-threshold Supabase hook.
-type ReviewReason =
-  | "low_confidence"
-  | "category_unclear"
-  | "missing_subcategory"
-  | "ai_failed";
+type ReviewReason = "low_confidence" | "category_unclear" | "missing_subcategory" | "ai_failed";
 const REVIEW_REASON_LABEL: Record<ReviewReason, string> = {
   low_confidence: "Low confidence",
   category_unclear: "Category unclear",
@@ -56,7 +58,8 @@ function computeReviewReasons(input: {
 }): ReviewReason[] {
   const reasons: ReviewReason[] = [];
   if (input.aiFailed) reasons.push("ai_failed");
-  if (input.confidence != null && input.confidence < AI_THRESHOLD_DEFAULT) reasons.push("low_confidence");
+  if (input.confidence != null && input.confidence < AI_THRESHOLD_DEFAULT)
+    reasons.push("low_confidence");
   if (!input.categoryId) reasons.push("category_unclear");
   if (input.categoryId && !input.subCategoryId && input.hasSubsUnderCategory) {
     reasons.push("missing_subcategory");
@@ -219,7 +222,10 @@ function PosterGalleryImagesEditor({ posterId }: { posterId: string }) {
         ) : (
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {images.map((img) => (
-              <div key={img.id} className="group relative aspect-square overflow-hidden rounded-sm border border-border">
+              <div
+                key={img.id}
+                className="group relative aspect-square overflow-hidden rounded-sm border border-border"
+              >
                 <img src={img.image_url} alt="" className="h-full w-full object-cover" />
                 <button
                   onClick={() => remove(img.id)}
@@ -254,7 +260,16 @@ function PosterGalleryImagesEditor({ posterId }: { posterId: string }) {
   );
 }
 
-export function ProductsTab() {
+export function ProductsTab({
+  focusCategoryId,
+  onFocusCategoryHandled,
+}: {
+  // Set by CategoriesTab (via Dashboard) when the admin clicks "Manage
+  // images" on a category/subcategory — jumps here pre-filtered to that
+  // category instead of the full unfiltered product list.
+  focusCategoryId?: string | null;
+  onFocusCategoryHandled?: () => void;
+} = {}) {
   const confirm = useConfirm();
   const [products, setProducts] = useState<AdminPoster[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
@@ -266,6 +281,8 @@ export function ProductsTab() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
+  const [listCategoryFilter, setListCategoryFilter] = useState("");
+  const [recropping, setRecropping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const categoriesRef = useRef<AdminCategory[]>([]);
   categoriesRef.current = categories;
@@ -283,6 +300,21 @@ export function ProductsTab() {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [mockupFrameColor, setMockupFrameColor] = useState<"black" | "white" | "wood">("black");
   const GRID_PAGE_SIZE = 60;
+
+  useEffect(() => {
+    if (!focusCategoryId) return;
+    setListCategoryFilter(focusCategoryId);
+    const asSub = categoriesRef.current.find((c) => c.id === focusCategoryId);
+    if (asSub?.parent_id) {
+      setApplyCategoryId(asSub.parent_id);
+      setApplySubCategoryId(focusCategoryId);
+    } else {
+      setApplyCategoryId(focusCategoryId);
+      setApplySubCategoryId("");
+    }
+    onFocusCategoryHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCategoryId]);
 
   const load = async () => {
     const [p, c] = await Promise.all([listPostersAdmin({ data: {} }), listCategoriesAdmin()]);
@@ -389,18 +421,19 @@ export function ProductsTab() {
         fileToDataUrl(optimized),
         fileToDataUrl(item.file),
       ]);
-      const [{ url: imageUrl }, { url: originalUrl }, { webp_srcset, avif_srcset }] = await Promise.all([
-        uploadPosterImage({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
-        uploadPosterImage({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
-        // Generated from `toOptimize` (the full-quality, possibly-edited
-        // source) rather than the already-downscaled `optimized` JPEG, so
-        // the largest srcset variant stays as sharp as the source allows —
-        // this is the fix for both "products load slow in the category
-        // grid" and the "LOADING..." spinner on selecting a product: every
-        // card and preview was shipping this same full-resolution upload
-        // to a ~200-300px slot with no resized/modern-format alternative.
-        uploadResponsiveSrcSets(toOptimize, uploadPosterImage),
-      ]);
+      const [{ url: imageUrl }, { url: originalUrl }, { webp_srcset, avif_srcset }] =
+        await Promise.all([
+          uploadPosterImage({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
+          uploadPosterImage({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
+          // Generated from `toOptimize` (the full-quality, possibly-edited
+          // source) rather than the already-downscaled `optimized` JPEG, so
+          // the largest srcset variant stays as sharp as the source allows —
+          // this is the fix for both "products load slow in the category
+          // grid" and the "LOADING..." spinner on selecting a product: every
+          // card and preview was shipping this same full-resolution upload
+          // to a ~200-300px slot with no resized/modern-format alternative.
+          uploadResponsiveSrcSets(toOptimize, uploadPosterImage),
+        ]);
 
       const hasSubs = categoriesRef.current.some((c) => c.parent_id === item.categoryId);
       const reasons = computeReviewReasons({
@@ -526,7 +559,10 @@ export function ProductsTab() {
       pendingRef.current.push({ ...item, status: "queued" });
       pump();
     } else {
-      updateQueueItem(item.id, { status: item.mockupFit.ok ? "ready" : "warning", error: undefined });
+      updateQueueItem(item.id, {
+        status: item.mockupFit.ok ? "ready" : "warning",
+        error: undefined,
+      });
       queuePublish(item);
     }
   };
@@ -561,7 +597,9 @@ export function ProductsTab() {
     const name = newSubCategoryName.trim();
     if (!name) return;
     try {
-      const { id, created } = await findOrCreateCategory({ data: { name, parentId: applyCategoryId } });
+      const { id, created } = await findOrCreateCategory({
+        data: { name, parentId: applyCategoryId },
+      });
       if (created) {
         const newCat = { id, name, slug: id, parent_id: applyCategoryId } as AdminCategory;
         categoriesRef.current = [...categoriesRef.current, newCat];
@@ -599,12 +637,20 @@ export function ProductsTab() {
       })),
     );
     setShowApplyConfirm(false);
-    toast.success(`Applied ${catName}${subName ? ` → ${subName}` : ""} to ${queue.length} image(s)`);
+    toast.success(
+      `Applied ${catName}${subName ? ` → ${subName}` : ""} to ${queue.length} image(s)`,
+    );
   };
 
-  const overrideItemCategory = (item: QueueItem, categoryId: string | null, subCategoryId: string | null) => {
+  const overrideItemCategory = (
+    item: QueueItem,
+    categoryId: string | null,
+    subCategoryId: string | null,
+  ) => {
     const catName = categoryId ? (categories.find((c) => c.id === categoryId)?.name ?? null) : null;
-    const subName = subCategoryId ? (categories.find((c) => c.id === subCategoryId)?.name ?? null) : null;
+    const subName = subCategoryId
+      ? (categories.find((c) => c.id === subCategoryId)?.name ?? null)
+      : null;
     updateQueueItem(item.id, {
       categoryId,
       categoryName: catName,
@@ -643,8 +689,16 @@ export function ProductsTab() {
     );
     setPublishDialogOpen(false);
     // Publish everything ready/fixed, plus the warnings just accepted.
-    const targets = queue.filter((q) => q.status === "ready" || q.status === "fixed" || q.status === "warning");
-    targets.forEach((q) => queuePublish({ ...q, warningAccepted: true, publishedWithWarning: q.status === "warning" || q.publishedWithWarning }));
+    const targets = queue.filter(
+      (q) => q.status === "ready" || q.status === "fixed" || q.status === "warning",
+    );
+    targets.forEach((q) =>
+      queuePublish({
+        ...q,
+        warningAccepted: true,
+        publishedWithWarning: q.status === "warning" || q.publishedWithWarning,
+      }),
+    );
   };
 
   const fixImagesInstead = () => {
@@ -709,6 +763,38 @@ export function ProductsTab() {
     }
   };
 
+  // Re-crop an already-published poster's image (distinct from the queue's
+  // PosterImageEditor above, which only edits a not-yet-uploaded File).
+  // Bakes the new crop into a fresh image_url + srcsets the same way
+  // publishItem does, then hands it to the existing edit form / Save
+  // button rather than writing straight to the DB, so title/etc. edits
+  // made in the same session aren't lost.
+  const applyRecrop = async (settings: EditSettings) => {
+    if (!editing?.image_url) return;
+    setRecropping(false);
+    try {
+      const img = await loadImage(editing.image_url);
+      const outH = 2400;
+      const outW = Math.round(outH * settings.ratio);
+      const blob = await renderEditToBlob(img, settings, outW, outH, 0.92);
+      const file = new File([blob], "recrop.jpg", { type: "image/jpeg" });
+      const optimized = await optimizeImage(file, { maxDim: 2000, quality: 0.85 });
+      const dataUrl = await fileToDataUrl(optimized);
+      const [{ url: imageUrl }, { webp_srcset, avif_srcset }] = await Promise.all([
+        uploadPosterImage({ data: { dataUrl, filename: "recrop.jpg" } }),
+        uploadResponsiveSrcSets(file, uploadPosterImage),
+      ]);
+      setEditing((prev) =>
+        prev
+          ? { ...prev, image_url: imageUrl, webp_srcset, avif_srcset, edit_settings: settings }
+          : prev,
+      );
+      toast.success("Image re-cropped — click Save to publish");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Re-crop failed");
+    }
+  };
+
   const remove = async (id: string) => {
     if (!(await confirm("Delete this product?"))) return;
     try {
@@ -731,9 +817,9 @@ export function ProductsTab() {
 
   if (products === null) return <LoadingRows />;
 
-  const visibleProducts = onlyNeedsReview
-    ? products.filter((p) => p.review_status !== "approved")
-    : products;
+  const visibleProducts = products
+    .filter((p) => (onlyNeedsReview ? p.review_status !== "approved" : true))
+    .filter((p) => (listCategoryFilter ? p.category_id === listCategoryFilter : true));
 
   const gridItems = gridFilter === "warning" ? queue.filter((q) => q.status === "warning") : queue;
   const totalPages = Math.max(1, Math.ceil(gridItems.length / GRID_PAGE_SIZE));
@@ -744,6 +830,28 @@ export function ProductsTab() {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Products</h2>
         <div className="flex items-center gap-3">
+          <select
+            value={listCategoryFilter}
+            onChange={(e) => setListCategoryFilter(e.target.value)}
+            className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+          >
+            <option value="">All categories</option>
+            {categories
+              .filter((c) => !c.parent_id)
+              .map((main) => {
+                const subs = categories.filter((c) => c.parent_id === main.id);
+                return (
+                  <optgroup key={main.id} label={main.name}>
+                    <option value={main.id}>{main.name}</option>
+                    {subs.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        — {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+          </select>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
@@ -917,7 +1025,8 @@ export function ProductsTab() {
                   </button>
                 )}
                 <span className="text-xs text-muted-foreground">
-                  {readyCount} ready · {warningCount} warning · {fixedCount} fixed · {publishedCount} published
+                  {readyCount} ready · {warningCount} warning · {fixedCount} fixed ·{" "}
+                  {publishedCount} published
                 </span>
                 <button
                   onClick={requestPublishAll}
@@ -926,7 +1035,10 @@ export function ProductsTab() {
                 >
                   Publish All ({publishableCount})
                 </button>
-                <button onClick={clearPublished} className="text-xs text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={clearPublished}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
                   Clear published
                 </button>
               </div>
@@ -952,7 +1064,13 @@ export function ProductsTab() {
                     if (q.status === "warning" || q.status === "fixed") setEditingItemId(q.id);
                   }}
                 >
-                  <img src={q.previewUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  <img
+                    src={q.previewUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 {q.categoryOverridden && (
                   <span className="absolute left-1 top-1 rounded-sm bg-primary px-1.5 py-0.5 text-[9px] uppercase text-primary-foreground">
@@ -983,7 +1101,10 @@ export function ProductsTab() {
                           : QUEUE_STATUS_LABEL[q.status]}
                     </span>
                     {q.status === "failed" && (
-                      <button onClick={() => retryItem(q)} className="text-cyan-500 hover:underline">
+                      <button
+                        onClick={() => retryItem(q)}
+                        className="text-cyan-500 hover:underline"
+                      >
                         Retry
                       </button>
                     )}
@@ -1018,7 +1139,9 @@ export function ProductsTab() {
                     <select
                       value={q.subCategoryId ?? ""}
                       disabled={!q.categoryId}
-                      onChange={(e) => overrideItemCategory(q, q.categoryId, e.target.value || null)}
+                      onChange={(e) =>
+                        overrideItemCategory(q, q.categoryId, e.target.value || null)
+                      }
                       className="rounded-sm border border-border bg-background px-1 py-1 disabled:opacity-50"
                     >
                       <option value="">No subcategory</option>
@@ -1073,7 +1196,8 @@ export function ProductsTab() {
           {queue.some((q) => q.status !== "queued") && (
             <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-2">
               <span className="text-xs text-muted-foreground">
-                {readyCount} ready · {warningCount} warning · {fixedCount} fixed · {publishedCount} published
+                {readyCount} ready · {warningCount} warning · {fixedCount} fixed · {publishedCount}{" "}
+                published
               </span>
               <div className="flex items-center gap-3">
                 <button
@@ -1083,7 +1207,10 @@ export function ProductsTab() {
                 >
                   Publish All ({publishableCount})
                 </button>
-                <button onClick={clearPublished} className="text-xs text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={clearPublished}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
                   Clear published
                 </button>
               </div>
@@ -1096,7 +1223,9 @@ export function ProductsTab() {
       {publishDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-sm rounded-sm border border-border bg-card p-5">
-            <p className="text-sm">{warningCount} images may not fit correctly inside the mockup.</p>
+            <p className="text-sm">
+              {warningCount} images may not fit correctly inside the mockup.
+            </p>
             <div className="mt-4 flex flex-col gap-2">
               <button
                 onClick={publishAsIs}
@@ -1127,8 +1256,10 @@ export function ProductsTab() {
           <div className="w-full max-w-sm rounded-sm border border-border bg-card p-5">
             <p className="text-sm">
               Apply {categories.find((c) => c.id === applyCategoryId)?.name}
-              {applySubCategoryId ? ` → ${categories.find((c) => c.id === applySubCategoryId)?.name}` : ""} to{" "}
-              {queue.length} image(s)?
+              {applySubCategoryId
+                ? ` → ${categories.find((c) => c.id === applySubCategoryId)?.name}`
+                : ""}{" "}
+              to {queue.length} image(s)?
               {overriddenCount > 0 &&
                 ` ${overriddenCount} of these have a manual override that will be replaced.`}
             </p>
@@ -1173,6 +1304,17 @@ export function ProductsTab() {
             />
           );
         })()}
+
+      {/* ---- Re-crop editor (existing, already-published product) ---- */}
+      {recropping && editing?.image_url && (
+        <PosterImageEditor
+          source={editing.image_url}
+          initial={editing.edit_settings ?? undefined}
+          mockupFrame={previewFrame}
+          onCancel={() => setRecropping(false)}
+          onSave={applyRecrop}
+        />
+      )}
 
       {/* ---- Bulk action bar ---- */}
       {selected.size > 0 && (
@@ -1220,25 +1362,46 @@ export function ProductsTab() {
           >
             Apply
           </button>
-          <button onClick={() => applyBulk({ trending: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+          <button
+            onClick={() => applyBulk({ trending: true })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
             + Trending
           </button>
-          <button onClick={() => applyBulk({ is_best_seller: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+          <button
+            onClick={() => applyBulk({ is_best_seller: true })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
             + Best Seller
           </button>
-          <button onClick={() => applyBulk({ is_best_seller: false })} className="rounded-sm border border-border px-2 py-1 text-xs">
+          <button
+            onClick={() => applyBulk({ is_best_seller: false })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
             − Best Seller
           </button>
-          <button onClick={() => applyBulk({ hidden: false })} className="rounded-sm border border-border px-2 py-1 text-xs">
+          <button
+            onClick={() => applyBulk({ hidden: false })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
             Publish
           </button>
-          <button onClick={() => applyBulk({ hidden: true })} className="rounded-sm border border-border px-2 py-1 text-xs">
+          <button
+            onClick={() => applyBulk({ hidden: true })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
             Hide
           </button>
-          <button onClick={deleteSelected} className="rounded-sm border border-red-500/40 px-2 py-1 text-xs text-red-500">
+          <button
+            onClick={deleteSelected}
+            className="rounded-sm border border-red-500/40 px-2 py-1 text-xs text-red-500"
+          >
             Delete
           </button>
-          <button onClick={clearSelection} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+          <button
+            onClick={clearSelection}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+          >
             Clear selection
           </button>
         </div>
@@ -1250,20 +1413,32 @@ export function ProductsTab() {
           <div>
             {editing.image_url ? (
               <>
-                <FramePreview posterUrl={editing.image_url} color={previewFrame} aspectClassName="aspect-[3/4]" />
+                <FramePreview
+                  posterUrl={editing.image_url}
+                  color={previewFrame}
+                  aspectClassName="aspect-[3/4]"
+                />
                 <div className="mt-2 flex gap-1">
                   {(["black", "white", "wood"] as const).map((c) => (
                     <button
                       key={c}
                       onClick={() => setPreviewFrame(c)}
                       className={`flex-1 rounded-sm border px-1 py-1 text-[10px] capitalize ${
-                        previewFrame === c ? "border-primary text-foreground" : "border-border text-muted-foreground"
+                        previewFrame === c
+                          ? "border-primary text-foreground"
+                          : "border-border text-muted-foreground"
                       }`}
                     >
                       {c}
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setRecropping(true)}
+                  className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs hover:bg-accent"
+                >
+                  Re-crop image
+                </button>
               </>
             ) : (
               <div className="flex aspect-[3/4] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
@@ -1372,10 +1547,16 @@ export function ProductsTab() {
               </label>
             </div>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -1386,9 +1567,16 @@ export function ProductsTab() {
       {/* ---- Product list ---- */}
       <div className="space-y-2">
         {visibleProducts.map((p) => (
-          <div key={p.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+          <div
+            key={p.id}
+            className="flex items-center justify-between rounded-sm border border-border p-3"
+          >
             <div className="flex items-center gap-3">
-              <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelected(p.id)} />
+              <input
+                type="checkbox"
+                checked={selected.has(p.id)}
+                onChange={() => toggleSelected(p.id)}
+              />
               <img src={p.image_url} alt="" className="h-12 w-9 rounded-sm object-cover" />
               <div>
                 <div className="flex items-center gap-2 text-sm font-medium">
@@ -1413,11 +1601,17 @@ export function ProductsTab() {
             </div>
             <div className="flex gap-2">
               {p.review_status !== "approved" && (
-                <button onClick={() => markReviewed(p.id)} className="text-xs text-emerald-500 hover:underline">
+                <button
+                  onClick={() => markReviewed(p.id)}
+                  className="text-xs text-emerald-500 hover:underline"
+                >
                   Mark reviewed
                 </button>
               )}
-              <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(p)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
               <button onClick={() => remove(p.id)} className="text-xs text-red-500 hover:underline">
@@ -1428,7 +1622,11 @@ export function ProductsTab() {
         ))}
         {visibleProducts.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            {onlyNeedsReview ? "Nothing needs review." : "No products yet — drop some images above."}
+            {onlyNeedsReview
+              ? "Nothing needs review."
+              : listCategoryFilter
+                ? "No products in this category yet — drop some images above."
+                : "No products yet — drop some images above."}
           </p>
         )}
       </div>

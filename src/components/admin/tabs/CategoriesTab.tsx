@@ -7,7 +7,13 @@ import { fileToDataUrl, type AdminCategory } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
 
-export function CategoriesTab() {
+export function CategoriesTab({
+  onManageImages,
+}: {
+  // Set by Dashboard — jumps to the Products tab pre-filtered to this
+  // category's posters, instead of duplicating image management here.
+  onManageImages?: (categoryId: string) => void;
+} = {}) {
   const confirm = useConfirm();
   const [categories, setCategories] = useState<AdminCategory[] | null>(null);
   const [editing, setEditing] = useState<Partial<AdminCategory> | null>(null);
@@ -85,7 +91,11 @@ export function CategoriesTab() {
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[140px_1fr]">
           <div>
             {editing.image ? (
-              <img src={editing.image} alt="" className="aspect-square w-full rounded-sm object-cover" />
+              <img
+                src={editing.image}
+                alt=""
+                className="aspect-square w-full rounded-sm object-cover"
+              />
             ) : (
               <div className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -184,7 +194,9 @@ export function CategoriesTab() {
                 <input
                   type="checkbox"
                   checked={editing.show_in_collections !== false}
-                  onChange={(e) => setEditing({ ...editing, show_in_collections: e.target.checked })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, show_in_collections: e.target.checked })
+                  }
                 />
                 Show in collections grid
               </label>
@@ -199,10 +211,16 @@ export function CategoriesTab() {
               </label>
             </div>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -227,26 +245,57 @@ export function CategoriesTab() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setEditing(main)} className="text-xs text-cyan-500 hover:underline">
+                    {onManageImages && (
+                      <button
+                        onClick={() => onManageImages(main.id)}
+                        className="text-xs text-cyan-500 hover:underline"
+                      >
+                        Manage images
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setEditing(main)}
+                      className="text-xs text-cyan-500 hover:underline"
+                    >
                       Edit
                     </button>
-                    <button onClick={() => remove(main.id)} className="text-xs text-red-500 hover:underline">
+                    <button
+                      onClick={() => remove(main.id)}
+                      className="text-xs text-red-500 hover:underline"
+                    >
                       Delete
                     </button>
                   </div>
                 </div>
                 <div className="ml-6 mt-1 space-y-1 border-l border-border pl-4">
                   {subs.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-2">
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between rounded-sm border border-border p-2"
+                    >
                       <div className="text-xs">
                         {s.name}
                         {s.hidden ? " · hidden" : ""}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+                        {onManageImages && (
+                          <button
+                            onClick={() => onManageImages(s.id)}
+                            className="text-xs text-cyan-500 hover:underline"
+                          >
+                            Manage images
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditing(s)}
+                          className="text-xs text-cyan-500 hover:underline"
+                        >
                           Edit
                         </button>
-                        <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
+                        <button
+                          onClick={() => remove(s.id)}
+                          className="text-xs text-red-500 hover:underline"
+                        >
                           Delete
                         </button>
                       </div>
@@ -255,7 +304,9 @@ export function CategoriesTab() {
                   <div className="flex gap-2 pt-1">
                     <input
                       value={newSubName[main.id] ?? ""}
-                      onChange={(e) => setNewSubName((prev) => ({ ...prev, [main.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setNewSubName((prev) => ({ ...prev, [main.id]: e.target.value }))
+                      }
                       onKeyDown={(e) => {
                         if (e.key === "Enter") addSubcategory(main.id);
                       }}
@@ -274,7 +325,9 @@ export function CategoriesTab() {
               </div>
             );
           })}
-        {categories.length === 0 && <p className="text-sm text-muted-foreground">No categories yet.</p>}
+        {categories.length === 0 && (
+          <p className="text-sm text-muted-foreground">No categories yet.</p>
+        )}
       </div>
     </div>
   );

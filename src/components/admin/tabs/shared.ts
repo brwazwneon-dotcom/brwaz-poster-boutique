@@ -2,12 +2,18 @@
 // Extracted verbatim from the former monolithic src/routes/admin.lazy.tsx
 // (no logic changes) — see the module split in the Business OS Phase 1 plan.
 
+import type { EditSettings } from "@/lib/poster-edit";
+
 // Build a wa.me link to a CUSTOMER's own number (not the business line —
 // see src/lib/whatsapp.ts's whatsappLink, which always targets the
 // business number and is unrelated to this admin-side use).
 export function customerWhatsappLink(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-  const intl = digits.startsWith("0") ? `2${digits}` : digits.startsWith("20") ? digits : `20${digits}`;
+  const intl = digits.startsWith("0")
+    ? `2${digits}`
+    : digits.startsWith("20")
+      ? digits
+      : `20${digits}`;
   return `https://wa.me/${intl}`;
 }
 
@@ -41,6 +47,10 @@ export type AdminPoster = {
   slug: string;
   description?: string | null;
   image_url: string;
+  original_url?: string | null;
+  webp_srcset?: string | null;
+  avif_srcset?: string | null;
+  edit_settings?: EditSettings | null;
   category_id: string | null;
   badge: string | null;
   hidden: boolean;
