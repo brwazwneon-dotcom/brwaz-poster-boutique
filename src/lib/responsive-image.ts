@@ -24,6 +24,19 @@ let avifSupportPromise: Promise<boolean> | null = null;
 // generally cannot yet. Feature-detect once per session and silently fall
 // back to WebP-only elsewhere — the storefront already renders <source
 // type="image/avif"> only when an avifSrcSet is actually present.
+//
+// Per the Canvas spec, toBlob() silently falls back to image/png when the
+// browser can't encode the requested `type` — it does not reject or return
+// null. blob.size > 0 is therefore always true (even a 2x2 PNG has bytes),
+// so the old truthy-only check reported AVIF support on every browser,
+// including ones that can't actually do it. Every "AVIF" variant this
+// pipeline ever generated on such a browser was really a full-size PNG
+// (confirmed live: a poster's avif_srcset entry served as
+// Content-Type: image/png, 1.6MB, labeled as a 640w AVIF) — uploaded
+// under a misleading .avif filename and served via <source
+// type="image/avif">, either wasting the upload or, worse, having the
+// browser trust the MIME claim and decode a multi-megabyte "thumbnail".
+// The fix is to check blob.type, not just blob.size.
 function supportsAvifEncoding(): Promise<boolean> {
   if (avifSupportPromise) return avifSupportPromise;
   avifSupportPromise = new Promise((resolve) => {
@@ -31,7 +44,10 @@ function supportsAvifEncoding(): Promise<boolean> {
       const canvas = document.createElement("canvas");
       canvas.width = 2;
       canvas.height = 2;
-      canvas.toBlob((blob) => resolve(Boolean(blob && blob.size > 0)), "image/avif");
+      canvas.toBlob(
+        (blob) => resolve(Boolean(blob && blob.size > 0 && blob.type === "image/avif")),
+        "image/avif",
+      );
     } catch {
       resolve(false);
     }
@@ -68,7 +84,10 @@ function naturalSize(bitmap: ImageBitmap | HTMLImageElement): { w: number; h: nu
     : { w: bitmap.width, h: bitmap.height };
 }
 
-function drawAtWidth(bitmap: ImageBitmap | HTMLImageElement, targetWidth: number): HTMLCanvasElement {
+function drawAtWidth(
+  bitmap: ImageBitmap | HTMLImageElement,
+  targetWidth: number,
+): HTMLCanvasElement {
   const { w: naturalW, h: naturalH } = naturalSize(bitmap);
   const scale = Math.min(1, targetWidth / naturalW);
   const w = Math.max(1, Math.round(naturalW * scale));
@@ -81,7 +100,11 @@ function drawAtWidth(bitmap: ImageBitmap | HTMLImageElement, targetWidth: number
   return canvas;
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number): Promise<Blob | null> {
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mime: string,
+  quality: number,
+): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
 }
 
@@ -94,7 +117,11 @@ export async function generateResponsiveImageSet(
   file: File,
   opts: { widths?: readonly number[] } = {},
 ): Promise<ResponsiveImageSet> {
-  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
+  if (
+    !file.type.startsWith("image/") ||
+    file.type === "image/svg+xml" ||
+    file.type === "image/gif"
+  ) {
     return { webp: [], avif: [] };
   }
 
@@ -119,7 +146,13 @@ export async function generateResponsiveImageSet(
     if (webpBlob) webp.push({ width, blob: webpBlob });
     if (canAvif) {
       const avifBlob = await canvasToBlob(canvas, "image/avif", AVIF_QUALITY);
-      if (avifBlob && avifBlob.size > 0) avif.push({ width, blob: avifBlob });
+      // Re-check the type here too: encoder support can vary by input
+      // (e.g. color profile, size) even after the session-level probe
+      // above passed, and a silent PNG fallback must never be uploaded
+      // under an .avif name.
+      if (avifBlob && avifBlob.size > 0 && avifBlob.type === "image/avif") {
+        avif.push({ width, blob: avifBlob });
+      }
     }
   }
   return { webp, avif };
