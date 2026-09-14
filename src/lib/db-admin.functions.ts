@@ -875,8 +875,8 @@ export const deletePoster = createServerFn({ method: "POST" })
       ...galleryRows.map((r) => (r as { image_url: string }).image_url),
     ];
     if (urls.length) {
-      const { del } = await import("@vercel/blob");
-      await Promise.allSettled(urls.map((u) => del(u)));
+      const { deleteCloudinaryAsset } = await import("@/lib/cloudinary.server");
+      await Promise.allSettled(urls.map((u) => deleteCloudinaryAsset(u)));
     }
     return { ok: true };
   });
@@ -1390,8 +1390,8 @@ export const deletePosterImage = createServerFn({ method: "POST" })
     const rows = await sql()`delete from poster_images where id = ${id} returning image_url`;
     const url = rows[0]?.image_url as string | undefined;
     if (url) {
-      const { del } = await import("@vercel/blob");
-      await del(url).catch(() => {});
+      const { deleteCloudinaryAsset } = await import("@/lib/cloudinary.server");
+      await deleteCloudinaryAsset(url);
     }
     return { ok: true };
   });
