@@ -27,7 +27,15 @@ function loadImage(item: QueueItem): Promise<void> {
     const { src, fallbackSrc, signal, resolve, reject } = item;
 
     if (signal?.aborted) {
-      activeCount--;
+      // activeCount was already incremented by processQueue() before this
+      // ran, and its own .finally() decrements it once this promise
+      // resolves — decrementing again here double-counted every already-
+      // aborted item (frequent: SafeImage recreates its AbortController on
+      // every re-render, aborting stale queue entries), driving activeCount
+      // permanently negative and letting far more than MAX_CONCURRENT
+      // image loads fire at once — the likely cause of "images sometimes
+      // load slowly / fail to appear" under any re-render churn (a fast
+      // scroll, a hydration mismatch recovery, a filter change).
       reject(new DOMException("Aborted", "AbortError"));
       resolveLoad();
       return;

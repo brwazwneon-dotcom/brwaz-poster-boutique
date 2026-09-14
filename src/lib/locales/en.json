@@ -54,7 +54,16 @@
     "scrollRight": "Scroll right",
     "poster": "Poster",
     "view": "View",
-    "downloadOriginal": "Download Original"
+    "downloadOriginal": "Download Original",
+    "all": "All",
+    "description": "Description",
+    "details": "Details",
+    "featuredOrder": "Featured order",
+    "hideDetails": "Hide details",
+    "home": "Home",
+    "info": "Info",
+    "none": "None",
+    "viewDetails": "View details"
   },
   "nav": {
     "home": "Home",
@@ -94,10 +103,13 @@
     "whatsapp": "WhatsApp",
     "whatsappOrder": "Order via WhatsApp",
     "orGrabBundle": "Or grab a bundle deal ←",
-    "collectionsQuickBar": "Collections quick bar"
+    "collectionsQuickBar": "Collections quick bar",
+    "facebook": "Facebook",
+    "instagram": "Instagram"
   },
   "header": {
     "search": "Search",
+    "searchPosters": "Search posters...",
     "searchPlaceholder": "Search posters, categories...",
     "searchResults": "Search results",
     "trendingSearches": "Trending searches",
@@ -197,7 +209,30 @@
     "popularInTag": "Popular in {{tag}}",
     "becauseYouLikedCategory": "Because you liked {{category}}",
     "curatedCollectionsKicker": "Curated · Collections",
-    "exploreCollection": "Explore the collection"
+    "exploreCollection": "Explore the collection",
+    "bundle": "Bundle",
+    "cashOnDelivery": "Cash on Delivery",
+    "claimOffer": "Claim the Offer",
+    "customizeYourFrame": "Customize Your Frame",
+    "explore": "Explore",
+    "frames": "Frames",
+    "limitedTime": "Limited Time",
+    "mostPopular": "Most Popular",
+    "newPostersSoon": "New posters coming soon",
+    "order": "Order",
+    "over7Million": "Professional printing for your memories and designs",
+    "poster": "Poster",
+    "posters": "Posters",
+    "premiumPvcFrames": "Carefully Selected Materials",
+    "printYourPhotos": "Print Your Photos",
+    "profDesignerIncluded": "Precision-checked before printing",
+    "shippingAcrossEgypt": "Shipping Across Egypt",
+    "shopPosters": "Shop Posters",
+    "sold": "sold",
+    "time": "left",
+    "views": "views",
+    "weEnhancePhoto": "We enhance your photo before printing",
+    "woodenPortraits": "Wooden Portraits"
   },
   "product": {
     "addToCart": "Add to Cart",
@@ -248,7 +283,9 @@
     "size_50x60": "50 × 60 cm",
     "size_50x70": "50 × 70 cm",
     "size_60x90": "60 × 90 cm",
-    "size_100x60": "100 × 60 cm"
+    "size_100x60": "100 × 60 cm",
+    "pressToZoom": "Press and hold to zoom {{title}}",
+    "views": "views"
   },
   "cart": {
     "title": "Shopping Cart",
@@ -310,7 +347,40 @@
     "copy": "Copy",
     "screenshotUpload": "Upload payment screenshot",
     "screenshotHint": "Drag and drop or tap · JPG, PNG, WEBP, PDF · Max 10MB",
-    "itemAddedToCart": "{{title}} added to cart"
+    "itemAddedToCart": "{{title}} added to cart",
+    "addAmountForFree": "Add {{amount}} EGP more for free shipping",
+    "addMoreForOffer": "Add {{missing}} more photos to unlock {{percent}}% off",
+    "addPhotos": "Add 4×6 Photos",
+    "address": "Address",
+    "addressLabel": "Full address",
+    "browseCollections": "Browse Collections",
+    "bundleApplied": "Bundle offer applied",
+    "codDescription": "Pay in cash when your order arrives.",
+    "continueWithout": "Continue without it",
+    "freeUnlocked": "Free shipping unlocked",
+    "governorate": "Governorate",
+    "instapayDescription": "Transfer the amount, then upload your payment screenshot.",
+    "instapayHint": "(InstaPay or Vodafone Cash) — after paying, upload the deposit screenshot below.",
+    "instapayNumber": "InstaPay number",
+    "instapayTransferTo": "Please transfer the total amount to:",
+    "needDoubleTape": "Need double-face tape?",
+    "noContinueWithout": "No, continue without it",
+    "offerDiscount": "Offer: {{label}} ({{percent}}% off)",
+    "optionalAddon": "Optional add-on",
+    "orderReceived": "Your order has been received. We'll contact you shortly to confirm the details.",
+    "packageLabel": "{{sizeLabel}} package — {{photos}} photos",
+    "paymentMethod": "Payment method",
+    "phoneLabel": "Mobile number",
+    "phoneValidation": "Mobile number must be 11 digits and start with 01",
+    "photoPrinting": "4×6 Photo Printing",
+    "photos": "photos",
+    "previewBeforePrinting": "Preview before printing",
+    "progressToFreeShipping": "Progress to free shipping",
+    "shippingAcrossEgypt": "Shipping across Egypt: {{fee}} EGP · Free over {{free}} EGP",
+    "subtotalLabel": "Subtotal ({{count}} photos)",
+    "tapeCostSummary": "{{unit}} EGP per frame · {{count}} frames",
+    "tapeDescription": "Add double-face tape to hang your frames easily — no nails or drilling.",
+    "yesAddTape": "Yes, add double-face tape"
   },
   "checkout": {
     "title": "Checkout",
@@ -348,7 +418,10 @@
     "addressPlaceholder": "e.g. 15 El-Tahrir Street, Downtown",
     "cityPlaceholder": "e.g. Alexandria",
     "governoratePlaceholder": "e.g. Alexandria",
-    "notesPlaceholder": "Any special instructions..."
+    "notesPlaceholder": "Any special instructions...",
+    "backToHome": "← Back to Home",
+    "confirmOnWhatsapp": "We'll confirm your order via WhatsApp",
+    "placeOrderCod": "Confirm Order · Cash on Delivery"
   },
   "wishlist": {
     "title": "My Wishlist",
@@ -358,7 +431,8 @@
     "remove": "Remove",
     "added": "Added to wishlist",
     "removed": "Removed from wishlist",
-    "moveToCart": "Move to Cart"
+    "moveToCart": "Move to Cart",
+    "saveForLater": "Saved for later"
   },
   "search": {
     "title": "Search",
@@ -373,7 +447,25 @@
     "clearRecent": "Clear recent searches",
     "suggestions": "Suggestions",
     "searchHint": "Type at least 2 characters to search",
-    "inCategory": "in"
+    "inCategory": "in",
+    "findYourPoster": "Find your poster",
+    "searching": "Searching...",
+    "typeToSearch": "Search"
+  },
+  "landing": {
+    "loading": "Loading...",
+    "unavailable": "This landing page is unavailable",
+    "hidden": "This campaign page is currently hidden.",
+    "home": "Home",
+    "whatsappCta": "Order via WhatsApp",
+    "qualityGuaranteed": "Quality Guaranteed",
+    "shippingAllEgypt": "Shipping across Egypt",
+    "excellentReviews": "Excellent customer reviews",
+    "noImages": "No images have been added to this page yet.",
+    "loadMore": "Load More",
+    "readyToOrder": "Ready to order?",
+    "contactWhatsapp": "Contact us directly on WhatsApp to confirm size and frame.",
+    "pinned": "Pinned"
   },
   "auth": {
     "adminLogin": "Admin Login",
@@ -464,6 +556,15 @@
     "sortPriceHigh": "Price: High to Low",
     "sortNameAsc": "Name: A to Z",
     "sortNameDesc": "Name: Z to A",
+    "sortAlphabetically": "Alphabetically",
+    "sortBestSelling": "Best Selling",
+    "sortMostViewed": "Most Viewed",
+    "backHome": "Back Home",
+    "categoryNotFound": "Category not found",
+    "loadMore": "Load More",
+    "loadingPosters": "Loading posters...",
+    "noPostersMatch": "No posters match your search",
+    "result": "result",
     "noPosters": "No posters in this category yet",
     "viewing": "Viewing",
     "of": "of",
@@ -519,7 +620,17 @@
     "frameType": "Frame type",
     "frameColor": "Frame color",
     "addBundle": "Add bundle",
-    "selectExactly": "Select exactly {{count}} posters to continue."
+    "selectExactly": "Select exactly {{count}} posters to continue.",
+    "bundleAdded": "Bundle added to cart",
+    "bundleCount": "Bundle · {{count}} frames",
+    "bundleCovers": "This bundle covers exactly {{count}} frames",
+    "bundleSelected": "Offer selected",
+    "chooseThisBundle": "Choose This Bundle",
+    "noPostersAvailable": "No posters available.",
+    "pickBundle": "Pick a bundle, then choose which posters you want. Mix any categories — pay one price.",
+    "selectedBadge": "Selected · choose your posters below",
+    "thisBundleIs": "This bundle includes {{count}} posters",
+    "whatsappBundle": "WhatsApp"
   },
   "trending": {
     "label": "Trending",
@@ -528,7 +639,16 @@
     "curatedOrder": "Curated order",
     "newest": "Newest",
     "mostPopular": "Most popular",
-    "noResults": "No trending posters match your search yet."
+    "noResults": "No trending posters match your search yet.",
+    "allCategories": "All Categories",
+    "badge": "Trending",
+    "category": "Trending",
+    "description": "The premium posters everyone's talking about. Fresh picks, updated constantly.",
+    "egp": "EGP",
+    "emptyState": "No results match your search yet.",
+    "pageTitle": "Trending Now — BRWAZWNEON",
+    "resultsCount": "{filtered} of {total}",
+    "title": "Trending Now"
   },
   "bestSellers": {
     "heading": "Best Sellers",
@@ -538,7 +658,15 @@
     "mostPopular": "Most Popular",
     "noResults": "No results match your search yet.",
     "badge": "Best Seller",
-    "viewAll": "View All Best Sellers"
+    "viewAll": "View All Best Sellers",
+    "allCategories": "All Categories",
+    "category": "Best Sellers",
+    "description": "The most-loved premium posters. Editor's picks trending across Egypt right now.",
+    "egp": "EGP",
+    "emptyState": "No results match your search yet.",
+    "pageTitle": "Best Sellers — BRWAZWNEON",
+    "resultsCount": "{filtered} of {total}",
+    "title": "Best Sellers"
   },
   "sets": {
     "curatedBundles": "Curated bundles",
@@ -550,7 +678,16 @@
     "hideDetails": "Hide details",
     "addToCart": "Add to cart",
     "browseAriaLabel": "Browse frame sets",
-    "showSetAria": "Show set {{index}}"
+    "showSetAria": "Show set {{index}}",
+    "category": "Curated Sets",
+    "egp": "EGP",
+    "emptyState": "New sets coming soon.",
+    "frameCount": "{{count}} frames",
+    "framesCount": "{{count}} frames",
+    "pageTitle": "Frame Sets — BRWAZWNEON",
+    "setAddedToCart": "Set added to cart",
+    "title": "Frame Sets",
+    "whatsapp": "WhatsApp"
   },
   "customDesign": {
     "metaTitle": "Custom Design — BRWAZWNEON",
@@ -735,7 +872,11 @@
     "submissionFailed": "Submission failed",
     "bannerAlt": "Photo printing banner",
     "primaryImageAlt": "Premium photo print sample",
-    "secondaryImageAlt": "Photo print detail"
+    "secondaryImageAlt": "Photo print detail",
+    "clearAll": "Clear All",
+    "fillDetails": "Please fill in all delivery details",
+    "premiumQuality": "Professional FUJIFILM Quality",
+    "sectionPrefix": "Professional FUJIFILM Quality"
   },
   "howItWorks": {
     "label": "How It Works",
@@ -836,7 +977,17 @@
     "fileTooLarge": "{{name}} exceeds {{max}}MB",
     "unsupportedFormat": "{{name}}: unsupported format",
     "failedToReadImage": "Failed to read image",
-    "heicReadError": "Could not read HEIC file. Please convert to JPG."
+    "heicReadError": "Could not read HEIC file. Please convert to JPG.",
+    "close": "Close",
+    "fillDeliveryDetails": "Please fill in all delivery details",
+    "lowResWarning": "Low resolution — quality may be affected",
+    "pageDescription": "Print your personal photos in premium 4×6 quality. AI enhancement, suit conversion, cash on delivery across Egypt.",
+    "pageTitle": "4×6 Photo Printing",
+    "phoneLabel": "Mobile number",
+    "phonePlaceholder": "01xxxxxxxxx",
+    "phoneValidation": "Mobile number must be 11 digits and start with 01",
+    "photosRemaining": "Add {{remaining}} more photos to complete your package ({{total}} total).",
+    "suitSubLabel": "Put the photo in a suit"
   },
   "reviews": {
     "writeReview": "Write a Review",

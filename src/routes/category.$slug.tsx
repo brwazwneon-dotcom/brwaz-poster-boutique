@@ -179,10 +179,14 @@ function CategoryPage() {
 
   const perf = usePerformanceFlags();
   const { t } = useTranslation();
+  // bestselling/popular used to share the same "Most Popular" key, so the
+  // two SORTS buttons that render them (see below) showed the identical
+  // label — a real, visible duplicate, not just an admin-config alias.
+  // Each now points at its own already-existing, distinct translation.
   const sortLabels: Record<SortKey, string> = {
     newest: "category.sortNewest",
-    bestselling: "category.sortPopular",
-    popular: "category.sortPopular",
+    bestselling: "category.sortBestSelling",
+    popular: "category.sortMostViewed",
     az: "category.sortNameAsc",
     manual: "category.sortNewest",
     trending: "category.sortPopular",
@@ -227,7 +231,11 @@ function CategoryPage() {
     error: paginationError,
     loadMore,
     retry,
-  } = useInfiniteProducts(includedCategoryIds, { sort }, `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`);
+  } = useInfiniteProducts(
+    includedCategoryIds,
+    { sort },
+    `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`,
+  );
 
   const selectedPosters: Poster[] = useMemo(
     () =>
@@ -288,9 +296,7 @@ function CategoryPage() {
         /* noop */
       }
     }
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   return (
