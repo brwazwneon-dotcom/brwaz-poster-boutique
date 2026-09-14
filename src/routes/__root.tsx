@@ -33,7 +33,6 @@ import { FloatingActions } from "@/components/FloatingActions";
 import { ThemeBoot } from "@/components/ThemeBoot";
 import { ThemePreviewBanner } from "@/components/ThemePreviewBanner";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { loadPublishedThemeSettings, type ThemeMode } from "@/lib/theme-system";
 
 const SITE_URL = "https://brwazwneon.com";
 const TIKTOK_PIXEL_ID = "D9E35TRC77UDPAPRP140";
@@ -147,14 +146,16 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // i18next's `.init()` (src/lib/i18n.ts) is async — without awaiting it
+  // here, SSR could render before it resolves to the detected/fallback
+  // language, landing on i18next's pre-init default and diverging from
+  // the client (which by hydration time has long since resolved), causing
+  // sitewide hydration mismatches. See i18nInitPromise's own comment for
+  // the full race.
   loader: async () => {
-    // Must resolve before anything renders — see i18n.ts's comment on
-    // i18nInitPromise for why an unawaited init caused SSR and the
-    // client's first hydration pass to render two different languages.
-    const [settings] = await Promise.all([loadPublishedThemeSettings(), i18nInitPromise]);
-    return { themeMode: settings.mode as ThemeMode };
+    await i18nInitPromise;
   },
-  head: ({ loaderData }) => ({
+  head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -186,10 +187,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:image",
         content: `${SITE_URL}/icon-512.png`,
       },
-      // "system" defaults to the dark browser-chrome tint, matching :root's
-      // default-dark palette — the OS-resolved color a moment later (see
-      // ThemeBoot) isn't worth a second SSR round-trip just for this.
-      { name: "theme-color", content: loaderData?.themeMode === "light" ? "#ffffff" : "#000000" },
+      { name: "theme-color", content: "#000000" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "BRWAZWNEON" },
@@ -218,12 +216,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        // Only fires when the published website theme mode is "System" (SSR
-        // deliberately leaves data-theme unset in that case, since the server
-        // doesn't know the visitor's OS preference). Runs synchronously before
-        // paint, so there's no flash — light/dark modes are already rendered
-        // straight into <html data-theme> server-side and this script no-ops.
-        children: `(function(){try{var r=document.documentElement;if(r.getAttribute('data-theme'))return;var d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();`,
+        children: `(function(){try{var s=sessionStorage.getItem('brw_theme_settings')||localStorage.getItem('brw_theme_settings');var id=sessionStorage.getItem('brw_theme_preview')||localStorage.getItem('brw_active_theme');if(!s)return;var vars=JSON.parse(s);var root=document.documentElement;if(id){root.dataset.siteTheme=id;root.dataset.theme=id;}Object.keys(vars).forEach(function(k){root.style.setProperty(k,vars[k]);});}catch(e){}})();`,
       },
       {
         type: "application/ld+json",
@@ -269,32 +262,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
-  const { themeMode } = Route.useLoaderData();
-  // "system" is intentionally omitted here — the visitor's OS preference
-  // decides, resolved by the inline script above (or, pre-JS, by the
-  // `html:not([data-theme])` prefers-color-scheme fallback in styles.css).
-  // suppressHydrationWarning is required for that: the script sets this
-  // attribute directly on the live DOM before hydration runs, so the
-  // client's first render legitimately disagrees with the SSR markup for
-  // this one attribute — without it, React "fixes" the mismatch by
-  // deleting the attribute the script just set, undoing system-mode
-  // resolution right after paint.
-  const resolvedTheme = themeMode === "system" ? undefined : themeMode;
   return (
     <html
       lang={lang}
       dir={lang === "ar" ? "rtl" : "ltr"}
       data-build-id={__BUILD_ID__}
-      data-theme={resolvedTheme}
-      // Both this attribute and the inline theme-preview bootstrap script
-      // (in this route's own head scripts, above — sets data-site-theme
-      // and inline custom-property style) mutate <html> directly before
-      // React hydrates, intentionally, so the resolved/previewed theme
-      // paints with no flash. React has no way to know those out-of-band
-      // DOM writes are expected, so it always flags <html> itself as
-      // mismatched; suppressHydrationWarning tells it that's fine for
-      // this element specifically, without silencing mismatches in its
-      // children.
+      // The inline theme-preview bootstrap script (in this route's own
+      // head scripts, above) mutates <html>'s data-theme/data-site-theme
+      // attributes and inline custom-property style directly, before
+      // React hydrates — intentionally, to paint the previewed theme with
+      // no flash. React has no way to know about that out-of-band DOM
+      // write, so it always disagrees with what it would have rendered
+      // here; this tells it that's expected for this element specifically
+      // rather than a real bug (it does not silence mismatches in the
+      // element's children).
       suppressHydrationWarning
     >
       <head>
@@ -310,7 +291,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { themeMode } = Route.useLoaderData();
   const router = useRouter();
   const location = router.state.location;
   const pathname = location.pathname;
@@ -347,7 +327,7 @@ function RootComponent() {
               <IdleBoots />
               <TikTokPixelBoot currentPage={locationHref} />
               <PreviewBadge />
-              <ThemeBoot publishedMode={themeMode} />
+              <ThemeBoot />
               <ThemePreviewBanner />
               <SocialProofGated isAdmin={isAdmin} />
               <TestModeBadge />
