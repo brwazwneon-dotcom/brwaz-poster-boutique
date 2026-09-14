@@ -41,6 +41,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   // category through to Products, which mounts once and stays alive
   // (never unmounts on tab switch), so this can't be a plain initial prop.
   const [productsCategoryFilter, setProductsCategoryFilter] = useState<string | null>(null);
+  // Set by the notification bell (AdminTopbar) — carries the clicked
+  // order through to Orders the same way productsCategoryFilter does.
+  const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
   const switchTab = (t: Tab) => {
     setTab(t);
     setVisitedTabs((prev) => (prev.has(t) ? prev : new Set(prev).add(t)));
@@ -61,6 +64,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               activeTab={tab}
               onOpenCommandPalette={() => setCommandOpen(true)}
               onSignOut={logout}
+              onOpenOrder={(orderId) => {
+                setFocusOrderId(orderId);
+                switchTab("orders");
+              }}
             />
             <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
               {visitedTabs.has("dashboard") && (
@@ -80,7 +87,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               )}
               {visitedTabs.has("orders") && (
                 <div hidden={tab !== "orders"}>
-                  <OrdersTab />
+                  <OrdersTab
+                    focusOrderId={focusOrderId}
+                    onFocusOrderHandled={() => setFocusOrderId(null)}
+                  />
                 </div>
               )}
               {visitedTabs.has("photo-orders") && (

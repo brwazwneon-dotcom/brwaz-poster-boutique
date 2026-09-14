@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, ExternalLink, LogOut, Search, User } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -20,18 +21,49 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { findNavItem, type Tab } from "./nav-config";
 import { AdminThemeToggle } from "./AdminThemeToggle";
+import {
+  getOrderNotificationsAdmin,
+  markOrderNotificationsSeenAdmin,
+} from "@/lib/order-ops.functions";
+
+function timeAgoAr(iso: string): string {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "الآن";
+  if (s < 3600) return `منذ ${Math.floor(s / 60)} د`;
+  if (s < 86400) return `منذ ${Math.floor(s / 3600)} س`;
+  return `منذ ${Math.floor(s / 86400)} يوم`;
+}
 
 export function AdminTopbar({
   activeTab,
   onOpenCommandPalette,
   onSignOut,
+  onOpenOrder,
 }: {
   activeTab: Tab;
   onOpenCommandPalette: () => void;
   onSignOut: () => void;
+  onOpenOrder?: (orderId: string) => void;
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const found = findNavItem(activeTab);
+  const qc = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["admin-order-notifications"],
+    queryFn: () => getOrderNotificationsAdmin(),
+    refetchInterval: 30_000,
+  });
+  const notifications = data?.notifications ?? [];
+  const unreadCount = data?.unreadCount ?? 0;
+
+  const openNotifications = async (open: boolean) => {
+    setNotifOpen(open);
+    if (open && unreadCount > 0) {
+      await markOrderNotificationsSeenAdmin();
+      qc.invalidateQueries({ queryKey: ["admin-order-notifications"] });
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3">
@@ -48,7 +80,11 @@ export function AdminTopbar({
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink href="#" onClick={(e) => e.preventDefault()} className="cursor-default">
+                <BreadcrumbLink
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  className="cursor-default"
+                >
                   {found.group.label}
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -86,21 +122,55 @@ export function AdminTopbar({
 
       <AdminThemeToggle compact />
 
-      <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+      <DropdownMenu open={notifOpen} onOpenChange={openNotifications}>
         <DropdownMenuTrigger asChild>
           <button
             className="relative rounded-sm border border-border p-1.5 text-muted-foreground transition hover:text-foreground"
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuContent align="end" className="w-80">
           <DropdownMenuLabel>Notifications</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-            Not connected yet — no live event feed is wired up.
-          </div>
+          {notifications.length === 0 ? (
+            <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+              No orders yet.
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto">
+              {notifications.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => {
+                    setNotifOpen(false);
+                    onOpenOrder?.(n.id);
+                  }}
+                  className="flex w-full flex-col gap-0.5 border-b border-border px-2 py-2 text-left last:border-0 hover:bg-accent"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold">
+                      {n.status === "new" ? "🔔 طلب جديد" : "طلب"} #
+                      {n.order_number ?? n.id.slice(0, 8)}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {timeAgoAr(n.created_at)}
+                    </span>
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {n.customer_name} · {n.poster_title ?? ""}
+                  </div>
+                  <div className="text-xs font-medium">{n.total_price} EGP</div>
+                </button>
+              ))}
+            </div>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

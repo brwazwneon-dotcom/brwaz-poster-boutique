@@ -893,7 +893,7 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
         select id, order_number, customer_name, phone, governorate, address, frame_type,
                frame_color, size, quantity, poster_title, poster_image, total_price, status,
                payment_method, payment_status, payment_screenshot, payment_reference, notes,
-               created_at
+               confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
         from orders where status = ${data.status} and is_test = false
         order by created_at desc limit 300
       `;
@@ -902,7 +902,7 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
       select id, order_number, customer_name, phone, governorate, address, frame_type,
              frame_color, size, quantity, poster_title, poster_image, total_price, status,
              payment_method, payment_status, payment_screenshot, payment_reference, notes,
-             created_at
+             confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
       from orders where is_test = false
       order by created_at desc limit 300
     `;

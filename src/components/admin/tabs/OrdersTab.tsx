@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listOrdersAdmin, updateOrderStatus } from "@/lib/db-admin.functions";
 import { customerWhatsappLink } from "./shared";
+import { OrderDetailsDrawer } from "./OrderDetailsDrawer";
+import { CONFIRMATION_STATUS_LABEL, type ConfirmationStatus } from "@/lib/order-whatsapp";
 
-type AdminOrder = {
+export type AdminOrder = {
   id: string;
   order_number: string | null;
   customer_name: string;
@@ -23,17 +25,38 @@ type AdminOrder = {
   payment_screenshot: string | null;
   payment_reference: string | null;
   notes: string | null;
+  confirmation_status: ConfirmationStatus;
+  whatsapp_message: string | null;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
   created_at: string;
 };
 
-export const ORDER_STATUSES = ["new", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"];
+export const ORDER_STATUSES = [
+  "new",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+  "returned",
+];
 
-export function OrdersTab() {
+export function OrdersTab({
+  focusOrderId,
+  onFocusOrderHandled,
+}: {
+  // Set by the notification bell (AdminTopbar, via Dashboard) — opens that
+  // order's details drawer directly instead of making the admin search.
+  focusOrderId?: string | null;
+  onFocusOrderHandled?: () => void;
+} = {}) {
   const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [filter, setFilter] = useState<string>("");
   const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [printTarget, setPrintTarget] = useState<AdminOrder[] | null>(null);
+  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
 
   const load = async () => {
     const rows = await listOrdersAdmin({ data: filter ? { status: filter } : {} });
@@ -44,6 +67,13 @@ export function OrdersTab() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
+
+  useEffect(() => {
+    if (!focusOrderId) return;
+    setDetailsOrderId(focusOrderId);
+    onFocusOrderHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusOrderId]);
 
   // Print only fires once the packing-slip markup for printTarget has
   // actually rendered — doing it in the click handler would print the
@@ -66,7 +96,9 @@ export function OrdersTab() {
     });
   const toggleSelectAll = () => {
     if (!orders) return;
-    setSelected((prev) => (prev.size === orders.length ? new Set() : new Set(orders.map((o) => o.id))));
+    setSelected((prev) =>
+      prev.size === orders.length ? new Set() : new Set(orders.map((o) => o.id)),
+    );
   };
   const printSelected = () => {
     if (!orders) return;
@@ -169,6 +201,7 @@ export function OrdersTab() {
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Payment</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Confirmation</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -176,7 +209,11 @@ export function OrdersTab() {
               {orders.map((o) => (
                 <tr key={o.id} className="border-b border-border last:border-0">
                   <td className="px-3 py-2">
-                    <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelected(o.id)} />
+                    <input
+                      type="checkbox"
+                      checked={selected.has(o.id)}
+                      onChange={() => toggleSelected(o.id)}
+                    />
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
                   <td className="px-3 py-2 text-xs">
@@ -243,10 +280,25 @@ export function OrdersTab() {
                       ))}
                     </select>
                   </td>
+                  <td className="px-3 py-2 text-[10px] whitespace-nowrap">
+                    {CONFIRMATION_STATUS_LABEL[o.confirmation_status] ??
+                      CONFIRMATION_STATUS_LABEL.not_sent}
+                  </td>
                   <td className="px-3 py-2">
-                    <button onClick={() => setPrintTarget([o])} className="text-xs text-cyan-500 hover:underline">
-                      Print
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setDetailsOrderId(o.id)}
+                        className="text-xs text-cyan-500 hover:underline"
+                      >
+                        Details
+                      </button>
+                      <button
+                        onClick={() => setPrintTarget([o])}
+                        className="text-xs text-cyan-500 hover:underline"
+                      >
+                        Print
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -256,6 +308,13 @@ export function OrdersTab() {
       )}
 
       {printTarget && <OrderPackingSlips orders={printTarget} />}
+
+      <OrderDetailsDrawer
+        order={orders.find((o) => o.id === detailsOrderId) ?? null}
+        open={detailsOrderId !== null}
+        onOpenChange={(open) => setDetailsOrderId(open ? detailsOrderId : null)}
+        onOrderUpdated={load}
+      />
     </div>
   );
 }
@@ -277,7 +336,10 @@ function OrderPackingSlips({ orders }: { orders: AdminOrder[] }) {
         }
       `}</style>
       {orders.map((o) => (
-        <div key={o.id} style={{ pageBreakAfter: "always", padding: "24px", fontFamily: "sans-serif" }}>
+        <div
+          key={o.id}
+          style={{ pageBreakAfter: "always", padding: "24px", fontFamily: "sans-serif" }}
+        >
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>BRWAZWNEON</h1>
           <p style={{ fontSize: 12, color: "#666" }}>Packing slip</p>
           <hr style={{ margin: "12px 0" }} />
