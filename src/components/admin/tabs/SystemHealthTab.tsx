@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   getSystemHealthAdmin,
   listErrorLogsAdmin,
@@ -11,9 +12,218 @@ import {
   runImageMigrationBatchAdmin,
   retryFailedImageMigrationAdmin,
   verifyMigratedImagesAdmin,
+  listBrokenImagesAdmin,
+  bulkRecoverImagesAdmin,
   type MigrationStatusSummary,
+  type BrokenImageManifestRow,
 } from "@/lib/image-migration.functions";
+import { fileToDataUrl } from "./shared";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
+
+function downloadTextFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(rows: BrokenImageManifestRow[]): string {
+  const headers = [
+    "product_id",
+    "product_name",
+    "category",
+    "subcategory",
+    "old_image_url",
+    "migration_status",
+    "required_action",
+  ] as const;
+  const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [headers.join(",")];
+  for (const row of rows) lines.push(headers.map((h) => escape(row[h])).join(","));
+  return lines.join("\n");
+}
+
+function RecoverBrokenImagesSection() {
+  const [rows, setRows] = useState<BrokenImageManifestRow[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [picked, setPicked] = useState<Record<string, File>>({});
+  const [uploading, setUploading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const load = async () => setRows(await listBrokenImagesAdmin());
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        r.product_name.toLowerCase().includes(q) ||
+        r.category?.toLowerCase().includes(q) ||
+        r.subcategory?.toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
+  const pickedCount = Object.keys(picked).length;
+
+  const exportManifest = async (format: "csv" | "json") => {
+    setExporting(true);
+    try {
+      const all = rows ?? (await listBrokenImagesAdmin());
+      const stamp = new Date().toISOString().slice(0, 10);
+      if (format === "csv") {
+        downloadTextFile(`broken-images-manifest-${stamp}.csv`, toCsv(all), "text/csv");
+      } else {
+        downloadTextFile(
+          `broken-images-manifest-${stamp}.json`,
+          JSON.stringify(all, null, 2),
+          "application/json",
+        );
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const uploadAll = async () => {
+    if (pickedCount === 0) return;
+    setUploading(true);
+    try {
+      const uploads = await Promise.all(
+        Object.entries(picked).map(async ([productId, file]) => ({
+          productId,
+          filename: file.name,
+          dataUrl: await fileToDataUrl(file),
+        })),
+      );
+      const result = await bulkRecoverImagesAdmin({ data: { uploads } });
+      if (result.succeeded > 0) toast.success(`${result.succeeded} image(s) recovered`);
+      if (result.failed > 0) {
+        toast.error(`${result.failed} failed — ${result.errors[0]?.error ?? ""}`);
+      }
+      setPicked({});
+      await load();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (!rows) return <LoadingRows count={3} />;
+
+  return (
+    <div className="mb-6 rounded-sm border border-border p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">
+          Recover broken images{" "}
+          <span className="text-muted-foreground">({rows.length} need attention)</span>
+        </h3>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportManifest("csv")}
+            disabled={exporting}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-50"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => exportManifest("json")}
+            disabled={exporting}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-50"
+          >
+            Export JSON
+          </button>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No broken images — every product has a working image.
+        </p>
+      ) : (
+        <>
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by product or category…"
+              className="flex-1 rounded-sm border border-border bg-background px-3 py-1.5 text-xs"
+            />
+            <button
+              onClick={uploadAll}
+              disabled={uploading || pickedCount === 0}
+              className="shrink-0 rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : `Upload all selected (${pickedCount})`}
+            </button>
+          </div>
+          <div className="max-h-96 overflow-y-auto rounded-sm border border-border">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 border-b border-border bg-card uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Product</th>
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Replacement file</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.product_id} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2">{r.product_name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {r.category}
+                      {r.subcategory ? ` / ${r.subcategory}` : ""}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={
+                          r.migration_status === "broken_source"
+                            ? "text-red-500"
+                            : "text-yellow-500"
+                        }
+                      >
+                        {r.migration_status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {picked[r.product_id] ? (
+                        <span className="text-emerald-500">{picked[r.product_id].name}</span>
+                      ) : (
+                        <label className="cursor-pointer text-cyan-500 hover:underline">
+                          Choose file
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setPicked((prev) => ({ ...prev, [r.product_id]: file }));
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Pick a replacement file for as many rows as you have originals for, then upload them all
+            in one batch — no need to open each product individually.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 function StorageMigrationSection() {
   const [status, setStatus] = useState<MigrationStatusSummary | null>(null);
@@ -85,13 +295,13 @@ function StorageMigrationSection() {
   if (!status) return <LoadingRows count={2} />;
 
   const t = status.total;
-  const totalFiles = t.not_applicable + t.pending + t.migrated + t.failed + t.broken;
+  const totalFiles = t.not_applicable + t.pending + t.migrated + t.failed + t.broken_source;
   const tiles = [
     { label: "Total files", value: totalFiles },
     { label: "Migrated", value: t.migrated, cls: "text-green-500" },
     { label: "Pending", value: t.pending, cls: "text-yellow-500" },
     { label: "Failed", value: t.failed, cls: "text-orange-500" },
-    { label: "Broken (unrecoverable)", value: t.broken, cls: "text-red-500" },
+    { label: "Broken source (unrecoverable)", value: t.broken_source, cls: "text-red-500" },
   ];
 
   return (
@@ -155,11 +365,11 @@ function StorageMigrationSection() {
         </button>
       </div>
       {lastBatch && <p className="mt-2 text-xs text-muted-foreground">{lastBatch}</p>}
-      {t.broken > 0 && (
+      {t.broken_source > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          "Broken" images were confirmed unrecoverable from Vercel Blob (403 even through the
-          authenticated storage API) — these need the original file re-uploaded manually via the
-          Products tab.
+          Broken-source images were confirmed unrecoverable from Vercel Blob (403 even through the
+          authenticated storage API) — original files need to be re-uploaded via "Recover broken
+          images" below.
         </p>
       )}
     </div>
@@ -307,6 +517,7 @@ export function SystemHealthTab() {
       )}
 
       <StorageMigrationSection />
+      <RecoverBrokenImagesSection />
 
       <GeminiKeysStatusSection />
 

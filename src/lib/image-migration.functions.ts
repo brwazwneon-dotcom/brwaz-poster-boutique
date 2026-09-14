@@ -25,7 +25,7 @@ type MigrationCounts = {
   pending: number;
   migrated: number;
   failed: number;
-  broken: number;
+  broken_source: number;
 };
 
 export type MigrationStatusSummary = {
@@ -40,7 +40,7 @@ const EMPTY_COUNTS = (): MigrationCounts => ({
   pending: 0,
   migrated: 0,
   failed: 0,
-  broken: 0,
+  broken_source: 0,
 });
 
 export const getImageMigrationStatusAdmin = createServerFn({ method: "GET" })
@@ -89,7 +89,7 @@ export const retryFailedImageMigrationAdmin = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
   .validator((data: unknown) => (data as { includeBroken?: boolean } | undefined) ?? {})
   .handler(async ({ data }) => {
-    const statuses = data.includeBroken ? ["failed", "broken"] : ["failed"];
+    const statuses = data.includeBroken ? ["failed", "broken_source"] : ["failed"];
     const client = sql();
     for (const table of TABLES) {
       await client(
@@ -111,7 +111,7 @@ async function migrateOneRow(
   table: Table,
   row: MigrationRow,
   urlCache: Map<string, string>,
-): Promise<{ status: "migrated" | "failed" | "broken"; error?: string; newUrl?: string }> {
+): Promise<{ status: "migrated" | "failed" | "broken_source"; error?: string; newUrl?: string }> {
   const sourceUrl = row.legacy_image_url ?? row.image_url;
 
   const cached = urlCache.get(sourceUrl);
@@ -141,7 +141,7 @@ async function migrateOneRow(
     // not "try again later". Anything else (timeout, rate limit) is worth
     // retrying, so it stays 'pending'-eligible via 'failed'.
     const isPermanent = /\b(403|404|Forbidden|Not Found)\b/i.test(message);
-    return { status: isPermanent ? "broken" : "failed", error: message.slice(0, 500) };
+    return { status: isPermanent ? "broken_source" : "failed", error: message.slice(0, 500) };
   }
 }
 
@@ -161,7 +161,7 @@ export const runImageMigrationBatchAdmin = createServerFn({ method: "POST" })
     const urlCache = new Map<string, string>();
     let migrated = 0;
     let failed = 0;
-    let broken = 0;
+    let brokenSource = 0;
     let processed = 0;
 
     for (const table of TABLES) {
@@ -190,13 +190,18 @@ export const runImageMigrationBatchAdmin = createServerFn({ method: "POST" })
             [result.newUrl, row.image_url, row.id],
           );
         } else {
-          if (result.status === "broken") broken += 1;
+          if (result.status === "broken_source") brokenSource += 1;
           else failed += 1;
+          // Always preserve the original URL, not just on the migrated
+          // path — a broken_source/failed row must still be traceable
+          // back to what it used to point at (required_action in the
+          // manifest export reads this).
           await client(
             `update ${table}
              set migration_status = $1,
                  migration_error = $2,
-                 migration_attempted_at = now()
+                 migration_attempted_at = now(),
+                 legacy_image_url = coalesce(legacy_image_url, image_url)
              where id = $3`,
             [result.status, result.error ?? null, row.id],
           );
@@ -204,7 +209,7 @@ export const runImageMigrationBatchAdmin = createServerFn({ method: "POST" })
       }
     }
 
-    return { paused: false, processed, migrated, failed, broken };
+    return { paused: false, processed, migrated, failed, broken: brokenSource };
   });
 
 export const verifyMigratedImagesAdmin = createServerFn({ method: "POST" })
@@ -265,3 +270,106 @@ export const verifyMigratedImagesAdmin = createServerFn({ method: "POST" })
 export function isDeadBlobUrl(url: string | null | undefined): boolean {
   return Boolean(url && url.includes(DEAD_DOMAIN));
 }
+
+export type BrokenImageManifestRow = {
+  product_id: string;
+  product_name: string;
+  category: string | null;
+  subcategory: string | null;
+  old_image_url: string | null;
+  migration_status: string;
+  required_action: string;
+};
+
+const REQUIRED_ACTION: Record<string, string> = {
+  broken_source: "Re-upload the original image file",
+  failed: "Retry migration (transient error, not confirmed unrecoverable)",
+  pending: "Awaiting migration attempt",
+};
+
+// Everything the admin needs to act on without touching the DB directly —
+// backs both the CSV/JSON manifest export and the "Recover broken images"
+// list, so the two never drift out of sync with each other.
+export const listBrokenImagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async (): Promise<BrokenImageManifestRow[]> => {
+    const rows = await sql()`
+      select
+        p.id as product_id,
+        p.title as product_name,
+        coalesce(parent_cat.name, cat.name) as category,
+        case when parent_cat.id is not null then cat.name else null end as subcategory,
+        coalesce(p.legacy_image_url, p.image_url) as old_image_url,
+        p.migration_status
+      from posters p
+      left join categories cat on cat.id = p.category_id
+      left join categories parent_cat on parent_cat.id = cat.parent_id
+      where p.migration_status in ('broken_source', 'failed', 'pending')
+      order by p.title asc
+    `;
+    return (rows as Omit<BrokenImageManifestRow, "required_action">[]).map((r) => ({
+      ...r,
+      required_action: REQUIRED_ACTION[r.migration_status] ?? "Review",
+    }));
+  });
+
+type RecoveryUpload = {
+  productId: string;
+  dataUrl: string;
+  filename: string;
+};
+
+// The "bulk import when originals are provided" pipeline: takes exactly
+// the files the admin has just picked for specific broken products (never
+// auto-matched — a wrong auto-match would silently show the wrong poster
+// under the wrong product) and commits all of them in one batch, each
+// through the same Cloudinary path every other upload in this app uses.
+export const bulkRecoverImagesAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { uploads: RecoveryUpload[] }).uploads)
+  .handler(async ({ data: uploads }) => {
+    const client = sql();
+    let succeeded = 0;
+    let failed = 0;
+    const errors: { productId: string; error: string }[] = [];
+
+    for (const upload of uploads) {
+      const match = /^data:([^;]+);base64,(.+)$/.exec(upload.dataUrl);
+      if (!match) {
+        failed += 1;
+        errors.push({ productId: upload.productId, error: "Invalid image data" });
+        continue;
+      }
+      const buffer = Buffer.from(match[2], "base64");
+      if (buffer.length > 10 * 1024 * 1024) {
+        failed += 1;
+        errors.push({ productId: upload.productId, error: "Image exceeds 10MB" });
+        continue;
+      }
+      try {
+        const safeName = upload.filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[^.]+$/, "");
+        const publicId = `posters/recovered-${upload.productId}-${safeName}`;
+        const result = await cloudinary.uploader.upload(upload.dataUrl, {
+          public_id: publicId,
+          resource_type: "image",
+          overwrite: true,
+        });
+        await client`
+          update posters
+          set image_url = ${result.secure_url},
+              legacy_image_url = coalesce(legacy_image_url, image_url),
+              migration_status = 'migrated',
+              migration_error = null,
+              migration_attempted_at = now()
+          where id = ${upload.productId}
+        `;
+        succeeded += 1;
+      } catch (err) {
+        failed += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({ productId: upload.productId, error: message.slice(0, 300) });
+      }
+    }
+
+    return { succeeded, failed, errors };
+  });
