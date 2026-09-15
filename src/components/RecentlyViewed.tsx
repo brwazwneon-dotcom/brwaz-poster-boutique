@@ -5,7 +5,11 @@ import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { useCart } from "@/lib/cart";
 import { usePricing, priceForFrame } from "@/lib/use-settings";
 import { toast } from "sonner";
-import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
+import {
+  resolveProductArtwork,
+  usePosterResponsiveImages,
+  isValidProductImage,
+} from "@/lib/public-images";
 
 export function RecentlyViewed({
   excludeId,
@@ -20,7 +24,14 @@ export function RecentlyViewed({
   const cart = useCart();
   const pricing = usePricing();
 
-  const list = excludeId ? items.filter((i) => i.id !== excludeId) : items;
+  // Recently Viewed caches {id, title, image_url} in localStorage at view
+  // time and never refetches it — a poster viewed weeks ago can have since
+  // been reset to the placeholder or marked broken server-side. Server
+  // queries already exclude those; this is the client-side backstop for
+  // this one cached-at-the-edge list.
+  const list = (excludeId ? items.filter((i) => i.id !== excludeId) : items).filter(
+    isValidProductImage,
+  );
   const images = usePosterResponsiveImages(
     list.map((p) => p.id),
     "(max-width: 640px) 180px, 220px",

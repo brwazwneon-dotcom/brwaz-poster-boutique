@@ -374,6 +374,15 @@ function StorageMigrationSection() {
           images" below.
         </p>
       )}
+      {t.pending > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          "Start migration" only retries items with a known dead source it can fetch from
+          automatically — it will report "nothing to migrate" for the rest of Pending, which is
+          normal. Every Pending item (including these) is already listed in "Recover broken images"
+          below for a manual upload; each one goes live for customers again the moment you upload
+          its replacement there.
+        </p>
+      )}
     </div>
   );
 }

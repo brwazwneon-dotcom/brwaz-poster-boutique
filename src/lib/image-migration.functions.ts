@@ -172,9 +172,19 @@ export const runImageMigrationBatchAdmin = createServerFn({ method: "POST" })
     let processed = 0;
 
     for (const table of TABLES) {
+      // legacy_image_url is only ever populated when there's a known dead
+      // source worth an automated retry (see the fix-up in
+      // fix_broken_status-style backfills). A row with it null but
+      // migration_status='pending' was reset straight to the placeholder
+      // with no recoverable source at all (e.g. after the Vercel Blob
+      // incident's full reset) — there is nothing for this batch job to
+      // fetch, so it must wait for a real upload through the normal
+      // product-edit form instead (see upsertPoster's own migration_status
+      // handling), not get "migrated" into a Cloudinary copy of the SVG
+      // placeholder.
       const rows = (await client(
         `select id, image_url, legacy_image_url from ${table}
-         where migration_status in ('pending', 'failed')
+         where migration_status in ('pending', 'failed') and legacy_image_url is not null
          order by migration_attempted_at nulls first, created_at asc
          limit $1`,
         [batchSize],

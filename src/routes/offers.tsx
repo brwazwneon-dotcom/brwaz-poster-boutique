@@ -17,7 +17,7 @@ import {
 } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
-import { usePricing, useEnabledFrameVariants } from "@/lib/use-settings";
+import { usePricing, useEnabledFrameVariants, priceForFrame } from "@/lib/use-settings";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { usePosterResponsiveImages } from "@/lib/public-images";
 import { FramedArtwork } from "@/components/FramedArtwork";
@@ -59,6 +59,13 @@ type Bundle = {
   price: number;
   image?: string | null;
   badge?: string | null;
+  // "Buying these one at a time" reference price, derived from the same
+  // per-unit pricing config the rest of the site charges (priceForFrame) —
+  // never a hardcoded number, and left undefined (no struck-through price
+  // shown) for admin-added custom offers, since those can target any
+  // category and there's no single reliable per-unit price to compare
+  // against without risking an unearned/fabricated discount claim.
+  originalPrice?: number;
 };
 
 type CustomOffer = {
@@ -83,6 +90,7 @@ function useBundles(): Bundle[] {
       size: "20x30",
       count: 6,
       price: pricing.offers.bundle6_20x30,
+      originalPrice: priceForFrame(pricing, "pvc", "20x30") * 6,
     },
     {
       key: "bundle-4-30x40",
@@ -91,6 +99,7 @@ function useBundles(): Bundle[] {
       size: "30x40",
       count: 4,
       price: pricing.offers.bundle4_30x40,
+      originalPrice: priceForFrame(pricing, "pvc", "30x40") * 4,
     },
   ];
   const { data: custom = [] } = useQuery<CustomOffer[]>({
@@ -139,6 +148,7 @@ function OffersPage() {
       </div>
       <h1 className="text-display mt-2 text-5xl sm:text-7xl">{t("offers.heading")}</h1>
       <p className="mt-4 max-w-xl text-muted-foreground">{t("offers.description")}</p>
+      <p className="mt-2 max-w-xl text-sm text-foreground/80">{t("offers.introInstruction")}</p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <LiveVisitors variant="offer" />
         <RecentOrdersBadge surface="offer" />
@@ -172,9 +182,21 @@ function OffersPage() {
               <div className="text-display text-5xl">{b.title}</div>
               <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>
               {b.subtitle && <div className="text-xs text-muted-foreground">{b.subtitle}</div>}
-              <div className="text-display mt-4 text-4xl">
-                {b.price} <span className="text-lg text-muted-foreground">{t("egp")}</span>
+              <div className="mt-4 flex items-baseline gap-2">
+                {b.originalPrice && b.originalPrice > b.price && (
+                  <span className="text-lg text-muted-foreground line-through">
+                    {b.originalPrice} {t("egp")}
+                  </span>
+                )}
+                <span className="text-display text-4xl">
+                  {b.price} <span className="text-lg text-muted-foreground">{t("egp")}</span>
+                </span>
               </div>
+              {b.originalPrice && b.originalPrice > b.price && (
+                <div className="text-xs font-semibold text-primary">
+                  {t("offers.youSaved", { amount: b.originalPrice - b.price, egp: t("egp") })}
+                </div>
+              )}
               <span
                 className={cn(
                   "mt-4 inline-flex rounded-sm border px-4 py-2 text-[10px] font-semibold uppercase tracking-widest",
@@ -329,19 +351,37 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
 
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs uppercase tracking-widest">
-              <span>Selected</span>
+              <span>{t("category.selected")}</span>
               <span className={cn(complete ? "text-primary" : "text-muted-foreground")}>
                 {selectedIds.length} / {bundle.count}
               </span>
             </div>
-            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{
-                  width: `${Math.min(100, (selectedIds.length / bundle.count) * 100)}%`,
-                }}
-              />
+            {/* Segmented dots — one per required slot, matching the "● 1/4 ● 2/4 ..." spec
+                exactly, so the customer sees each individual slot fill in as they pick,
+                not just a continuous bar. */}
+            <div className="mt-2 flex gap-1">
+              {Array.from({ length: bundle.count }).map((_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-full transition-colors",
+                    i < selectedIds.length ? "bg-primary" : "bg-muted",
+                  )}
+                />
+              ))}
             </div>
+            <p
+              className={cn(
+                "mt-2 text-sm font-medium",
+                complete ? "text-primary" : "text-foreground",
+              )}
+            >
+              {complete
+                ? t("offers.offerComplete")
+                : selectedIds.length === 0
+                  ? t("offers.startSelecting")
+                  : t("offers.selectMoreToComplete", { count: bundle.count - selectedIds.length })}
+            </p>
           </div>
 
           <div className="mt-4 grid grid-cols-6 gap-1.5">

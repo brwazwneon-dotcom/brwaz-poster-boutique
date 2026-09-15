@@ -784,6 +784,19 @@ export const upsertPoster = createServerFn({ method: "POST" })
       data.edit_settings && typeof data.edit_settings === "object"
         ? JSON.stringify(data.edit_settings)
         : null;
+    // A poster reset to 'pending' (placeholder SVG, no real image — see
+    // neon/migrations/021_image_migration_tracking.sql) or 'broken_source'/
+    // 'failed' stays invisible to customers (VALID_IMAGE_SQL in
+    // db-catalog.server.ts) until something flips its migration_status
+    // back. Without this, an admin re-uploading a product's real photo
+    // through this exact form — the obvious, expected fix — would silently
+    // NOT bring it back in front of customers, since nothing else in this
+    // handler ever touches that column. Any real, working image_url set
+    // here now clears that status automatically.
+    const looksValidImage =
+      imageUrl.length > 0 &&
+      !imageUrl.includes("blob.vercel-storage.com") &&
+      !imageUrl.startsWith("data:image/svg+xml");
 
     if (id) {
       const rows = await withUniqueSlugRetry(
@@ -800,6 +813,12 @@ export const upsertPoster = createServerFn({ method: "POST" })
             webp_srcset = case when ${webpSrcsetSent !== null} then ${webpSrcsetSent} else webp_srcset end,
             avif_srcset = case when ${avifSrcsetSent !== null} then ${avifSrcsetSent} else avif_srcset end,
             edit_settings = case when ${editSettingsSent !== null} then ${editSettingsSent}::jsonb else edit_settings end,
+            migration_status = case
+              when ${looksValidImage} and migration_status in ('pending', 'failed', 'broken_source')
+                then 'migrated'
+              else migration_status
+            end,
+            migration_error = case when ${looksValidImage} then null else migration_error end,
             updated_at = now()
         where id = ${id}
         returning id

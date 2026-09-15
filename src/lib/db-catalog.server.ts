@@ -8,6 +8,17 @@ import type { Category } from "@/lib/use-categories";
 // though the actual runtime values are always plain JSON.
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
+// Every customer-facing query below adds this to its WHERE clause. A
+// poster's migration_status is 'not_applicable' (never needed migrating —
+// the common case) or 'migrated' (successfully re-uploaded) when it has a
+// real, currently-working image; 'pending' means it still only has the
+// placeholder SVG (image_url deliberately reset there, awaiting a real
+// upload — see neon/migrations/021_image_migration_tracking.sql), and
+// 'failed'/'broken_source' mean a real upload was attempted and confirmed
+// unrecoverable. None of those three should ever reach a customer. This is
+// a static literal (not user input), safe to splice directly into SQL.
+const VALID_IMAGE_SQL = "migration_status in ('not_applicable', 'migrated')";
+
 export async function fetchCategoriesFromDb(): Promise<Category[]> {
   const rows = await sql()`
     select id, name, name_ar, slug, image, sort_order, parent_id, description,
@@ -53,7 +64,7 @@ export async function fetchPosterBySlugFromDb(slug: string): Promise<DbPoster | 
            trending_order, pinned, sort_order, created_at, edit_settings,
            seo_title, seo_description, alt_text, webp_srcset, avif_srcset
     from posters
-    where slug = ${slug} and hidden = false
+    where slug = ${slug} and hidden = false and migration_status in ('not_applicable', 'migrated')
     limit 1
   `;
   return (rows[0] as unknown as DbPoster) ?? null;
@@ -93,7 +104,7 @@ export async function fetchPostersByCategoryFromDb(
             trending_order, pinned, sort_order, created_at, edit_settings,
             seo_title, seo_description, alt_text, webp_srcset, avif_srcset
      from posters
-     where category_id = any($1) and hidden = false
+     where category_id = any($1) and hidden = false and ${VALID_IMAGE_SQL}
      order by ${orderBy}
      offset $2 limit $3`,
     [categoryIds, offset, limit],
@@ -132,6 +143,7 @@ export async function fetchBestSellersFromDb(): Promise<DbBestSellerRow[]> {
     from posters p
     left join categories c on c.id = p.category_id
     where p.is_best_seller = true and p.hidden = false
+      and p.migration_status in ('not_applicable', 'migrated')
     order by p.sales_count desc nulls last, p.created_at desc
     limit 200
   `;
@@ -176,6 +188,7 @@ export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
            seo_title, seo_description, alt_text
     from posters
     where trending = true and hidden = false
+      and migration_status in ('not_applicable', 'migrated')
     order by trending_order asc nulls last, created_at desc
     limit 100
   `;
@@ -211,6 +224,7 @@ export async function fetchPostersByIdsFromDb(ids: string[]): Promise<PosterById
            webp_srcset, avif_srcset, badge, sales_count, views_count, is_best_seller
     from posters
     where id = any(${ids}) and hidden = false
+      and migration_status in ('not_applicable', 'migrated')
   `;
   return rows as unknown as PosterByIdRow[];
 }
@@ -278,7 +292,10 @@ export async function fetchRoomTransformationArtworkFromDb(
 ): Promise<RoomArtworkRow | null> {
   if (posterId) {
     const rows = await sql()`
-      select id, title, image_url from posters where id = ${posterId} and hidden = false limit 1
+      select id, title, image_url from posters
+      where id = ${posterId} and hidden = false
+        and migration_status in ('not_applicable', 'migrated')
+      limit 1
     `;
     const row = rows[0] as RoomArtworkRow | undefined;
     if (row) return row;
@@ -286,12 +303,14 @@ export async function fetchRoomTransformationArtworkFromDb(
   const preferred = await sql()`
     select id, title, image_url from posters
     where hidden = false and (is_best_seller = true or trending = true) and image_url is not null
+      and migration_status in ('not_applicable', 'migrated')
     order by sales_count desc nulls last limit 1
   `;
   if (preferred[0]) return preferred[0] as RoomArtworkRow;
   const fallback = await sql()`
     select id, title, image_url from posters
     where hidden = false and image_url is not null
+      and migration_status in ('not_applicable', 'migrated')
     order by created_at desc limit 1
   `;
   return (fallback[0] as RoomArtworkRow) ?? null;
@@ -356,6 +375,7 @@ export async function fetchHomeTrendingCandidatesFromDb(
      from posters p
      left join categories c on c.id = p.category_id
      where p.hidden = false and p.image_url is not null and p.image_url <> ''
+       and p.migration_status in ('not_applicable', 'migrated')
        and (p.trending = true or p.is_best_seller = true or p.featured = true or p.id = any($1))
      order by p.trending desc, p.trending_order asc nulls last, p.views_count desc nulls last, p.created_at desc
      limit $2`,
@@ -426,6 +446,7 @@ export async function fetchShowcaseProductsForCategoriesFromDb(
            sales_count, created_at
     from posters
     where category_id = any(${categoryIds}) and hidden = false
+      and migration_status in ('not_applicable', 'migrated')
     limit 2500
   `;
   return rows as unknown as ShowcaseProductRow[];
@@ -451,6 +472,7 @@ export async function fetchWallOfInspirationPostersFromDb(): Promise<WallOfInspi
     from posters p
     join categories c on c.id = p.category_id
     where p.hidden = false and p.category_id is not null
+      and p.migration_status in ('not_applicable', 'migrated')
     order by p.featured desc, p.trending desc, p.sales_count desc nulls last,
              p.views_count desc nulls last, p.created_at desc
     limit 72
@@ -515,7 +537,7 @@ export async function fetchRelatedPostersFromDb(
   if (tags.length > 0 && results.size < 8) {
     const rows = await sql()(
       `select ${cols} from posters
-       where hidden = false and id <> $1 and tags && $2
+       where hidden = false and ${VALID_IMAGE_SQL} and id <> $1 and tags && $2
        limit 8`,
       [posterId, tags],
     );
@@ -526,7 +548,7 @@ export async function fetchRelatedPostersFromDb(
     const patterns = words.slice(0, 4).map((w) => `%${w}%`);
     const rows = await sql()(
       `select ${cols} from posters
-       where hidden = false and id <> $1 and title ilike any($2)
+       where hidden = false and ${VALID_IMAGE_SQL} and id <> $1 and title ilike any($2)
        limit 8`,
       [posterId, patterns],
     );
@@ -536,7 +558,7 @@ export async function fetchRelatedPostersFromDb(
   if (categoryIds.length > 0 && results.size < 8) {
     const rows = await sql()(
       `select ${cols} from posters
-       where hidden = false and id <> $1 and category_id = any($2)
+       where hidden = false and ${VALID_IMAGE_SQL} and id <> $1 and category_id = any($2)
        order by views_count desc nulls last
        limit 8`,
       [posterId, categoryIds],
@@ -569,15 +591,24 @@ export async function fetchSearchPostersFromDb(
 ): Promise<SearchHitRow[]> {
   const q = query.trim();
   if (!q) return [];
-  const rows = await sql()`
-    select p.id, p.title, p.image_url, p.category_id, c.slug as category_slug,
-           c.name as category_name, p.tags, p.badge
-    from posters p
-    left join categories c on c.id = p.category_id
-    where p.hidden = false and p.title ilike ${"%" + q + "%"}
-    order by p.views_count desc nulls last
-    limit ${limit}
-  `;
+  // Matches title OR any tag (tags is where an admin can put aliases —
+  // "CR7", "رونالدو" — alongside a poster titled "Cristiano Ronaldo"
+  // without a schema change), ranked so a title match outranks a
+  // tag-only match, then by popularity.
+  const pattern = `%${q}%`;
+  const rows = await sql()(
+    `select p.id, p.title, p.image_url, p.category_id, c.slug as category_slug,
+            c.name as category_name, p.tags, p.badge
+     from posters p
+     left join categories c on c.id = p.category_id
+     where p.hidden = false and ${VALID_IMAGE_SQL}
+       and (p.title ilike $1 or exists (
+         select 1 from unnest(p.tags) as tag where tag ilike $1
+       ))
+     order by (p.title ilike $1) desc, p.views_count desc nulls last
+     limit $2`,
+    [pattern, limit],
+  );
   return rows as unknown as SearchHitRow[];
 }
 
@@ -597,7 +628,9 @@ export async function fetchRandomVisiblePostersFromDb(
   limit: number,
 ): Promise<Array<{ id: string; title: string; image_url: string }>> {
   const rows = await sql()`
-    select id, title, image_url from posters where hidden = false limit ${limit}
+    select id, title, image_url from posters
+    where hidden = false and migration_status in ('not_applicable', 'migrated')
+    limit ${limit}
   `;
   return rows as unknown as Array<{ id: string; title: string; image_url: string }>;
 }

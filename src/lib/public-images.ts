@@ -35,6 +35,23 @@ export function resolveProductArtwork(
   return product.image_url ?? "";
 }
 
+// Every server-side catalog query already excludes posters whose
+// migration_status isn't 'not_applicable'/'migrated' (see VALID_IMAGE_SQL
+// in db-catalog.server.ts), so anything fetched fresh is already safe to
+// show. This is the client-side backstop for data that ISN'T refetched
+// fresh — chiefly Recently Viewed, which caches {id, title, image_url} in
+// localStorage at view time and can outlive an image later being reset to
+// the placeholder or marked broken. Checked by URL shape rather than a
+// migration_status field, since that field was never part of what
+// localStorage (or any older cached shape) stores.
+const DEAD_BLOB_DOMAIN = "blob.vercel-storage.com";
+export function isValidProductImage(product: { image_url?: string | null }): boolean {
+  const url = product.image_url;
+  if (!url) return false;
+  if (url.includes(DEAD_BLOB_DOMAIN)) return false;
+  if (url.startsWith("data:image/svg+xml")) return false;
+  return true;
+}
 
 /**
  * Public storefront image rule: use generated display variants only.

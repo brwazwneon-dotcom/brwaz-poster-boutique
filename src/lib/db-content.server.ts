@@ -39,7 +39,7 @@ export async function fetchEnabledHeroBannersFromDb(): Promise<DbHeroBanner[]> {
     select id, image_url, title, subtitle, button_text, button_link, enabled, sort_order,
            webp_srcset, avif_srcset
     from hero_banners
-    where enabled = true
+    where enabled = true and migration_status in ('not_applicable', 'migrated')
     order by sort_order asc
   `;
   return rows as unknown as DbHeroBanner[];
