@@ -285,6 +285,8 @@
     "size_60x90": "60 × 90 cm",
     "size_100x60": "100 × 60 cm",
     "pressToZoom": "Press and hold to zoom {{title}}",
+    "selectAriaLabel": "Select {{title}}",
+    "selectedAriaLabel": "{{title}}, selected as poster {{index}}",
     "views": "views"
   },
   "cart": {

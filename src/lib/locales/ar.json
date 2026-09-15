@@ -319,6 +319,8 @@
     "quickView": "عرض سريع",
     "views": "مشاهدة",
     "pressToZoom": "اضغط مع الاستمرار للتكبير {title}",
+    "selectAriaLabel": "اختيار {{title}}",
+    "selectedAriaLabel": "{{title}}، تم اختياره كبوستر رقم {{index}}",
     "frame_pvc": "PVC عالي الجودة",
     "frame_wood": "برواز خشبي فاخر",
     "color_black": "أسود",

@@ -60,14 +60,7 @@ export async function fetchPosterBySlugFromDb(slug: string): Promise<DbPoster | 
 }
 
 export type CategorySortKey =
-  | "newest"
-  | "popular"
-  | "bestselling"
-  | "az"
-  | "manual"
-  | "trending"
-  | "random"
-  | "ai";
+  "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
 
 // Fixed, non-user-controlled whitelist — the neon() tagged template
 // doesn't support composing raw SQL fragments (${} always binds as a
@@ -199,14 +192,23 @@ export type PosterByIdRow = {
   image_url: string;
   category_id: string | null;
   edit_settings: Json;
+  webp_srcset: string | null;
+  avif_srcset: string | null;
+  badge: string | null;
+  sales_count: number | null;
+  views_count: number | null;
+  is_best_seller: boolean | null;
 };
 
-// Backs the wishlist page — full poster rows for a set of ids, in no
-// particular order (the caller re-sorts/maps as needed).
+// Backs the wishlist page, and any selection UI that needs full poster
+// data for ids that may have scrolled out of the currently-loaded page
+// (see category.$slug.tsx's selectionMeta) — full rows for a set of ids,
+// in no particular order (the caller re-sorts/maps as needed).
 export async function fetchPostersByIdsFromDb(ids: string[]): Promise<PosterByIdRow[]> {
   if (ids.length === 0) return [];
   const rows = await sql()`
-    select id, title, image_url, category_id, edit_settings
+    select id, title, image_url, category_id, edit_settings,
+           webp_srcset, avif_srcset, badge, sales_count, views_count, is_best_seller
     from posters
     where id = any(${ids}) and hidden = false
   `;
@@ -234,7 +236,11 @@ export async function fetchPosterImagesByIdsFromDb(
     avif_srcset: string | null;
   }>) {
     if (row.image_url) {
-      out[row.id] = { url: row.image_url, webpSrcSet: row.webp_srcset, avifSrcSet: row.avif_srcset };
+      out[row.id] = {
+        url: row.image_url,
+        webpSrcSet: row.webp_srcset,
+        avifSrcSet: row.avif_srcset,
+      };
     }
   }
   return out;
@@ -557,7 +563,10 @@ export type SearchHitRow = {
 // (full-text search), but there's no admin-managed search-ranking config
 // to replicate here, so a straightforward substring match on title
 // (ranked by view count) covers the same "find a poster by name" need.
-export async function fetchSearchPostersFromDb(query: string, limit: number): Promise<SearchHitRow[]> {
+export async function fetchSearchPostersFromDb(
+  query: string,
+  limit: number,
+): Promise<SearchHitRow[]> {
   const q = query.trim();
   if (!q) return [];
   const rows = await sql()`

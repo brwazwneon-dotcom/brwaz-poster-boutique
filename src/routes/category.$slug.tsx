@@ -1,7 +1,9 @@
 import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getPostersByIdsPublic } from "@/lib/db-public.functions";
 import {
   useCategories,
   descendantIds,
@@ -237,14 +239,46 @@ function CategoryPage() {
     `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`,
   );
 
+  // Root cause of the reported "ghost selection" bug: this used to look
+  // up each selected id ONLY in `products` (the currently-loaded page).
+  // Switching subcategory/sort changes useInfiniteProducts' query key and
+  // replaces `products` entirely, and scrolling/searching can do the same
+  // — any selected poster not in that fresh page silently vanished from
+  // selectedPosters (even though `selectedIds` itself, the real source of
+  // truth, still had it), so the Customizer preview/thumbnail strip could
+  // shrink, reorder, or empty out from under the customer while their
+  // actual selection was untouched. Fetching the missing ones by id here
+  // (mirroring the same fallback offers.tsx's BundleBuilder already uses)
+  // makes selectedPosters correct regardless of what the grid currently
+  // has loaded — the grid only ever reads selectedIds, never owns it.
+  const productsById = useMemo(() => {
+    const m = new Map<string, NormalizedProduct>();
+    for (const p of products) m.set(p.id, p);
+    return m;
+  }, [products]);
+  const missingIds = useMemo(
+    () => selectedIds.filter((id) => !productsById.has(id)),
+    [selectedIds, productsById],
+  );
+  const { data: selectionFallback = [] } = useQuery({
+    queryKey: ["category-selection-fallback", missingIds],
+    enabled: missingIds.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: () => getPostersByIdsPublic({ data: { ids: missingIds } }),
+  });
+  const fallbackById = useMemo(() => {
+    const m = new Map<string, Poster>();
+    for (const p of selectionFallback) m.set(p.id, p as Poster);
+    return m;
+  }, [selectionFallback]);
+
   const selectedPosters: Poster[] = useMemo(
     () =>
       selectedIds
-        .map((id) => products.find((p) => p.id === id))
-        .filter((p): p is NormalizedProduct => p != null)
-        .map(
-          (p) =>
-            ({
+        .map((id): Poster | null => {
+          const p = productsById.get(id);
+          if (p) {
+            return {
               id: p.id,
               title: p.title,
               image_url: p.cardArtworkUrl,
@@ -255,9 +289,12 @@ function CategoryPage() {
               sales_count: p.salesCount,
               views_count: p.viewsCount,
               is_best_seller: p.isBestSeller,
-            }) as Poster,
-        ),
-    [selectedIds, products],
+            };
+          }
+          return fallbackById.get(id) ?? null;
+        })
+        .filter((p): p is Poster => p != null),
+    [selectedIds, productsById, fallbackById],
   );
 
   if (isCustomSlug) {

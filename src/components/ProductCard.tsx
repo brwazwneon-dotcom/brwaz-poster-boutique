@@ -41,6 +41,11 @@ export const ProductCard = memo(function ProductCard({
         }
       }}
       aria-pressed={selected}
+      aria-label={
+        selected
+          ? t("product.selectedAriaLabel", { title: product.title, index: selectionIndex + 1 })
+          : t("product.selectAriaLabel", { title: product.title })
+      }
       className={cn(
         "group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-sm border-2 bg-muted/20 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         selected
