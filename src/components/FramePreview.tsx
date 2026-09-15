@@ -1,6 +1,4 @@
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
 import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
@@ -48,16 +46,12 @@ export const FramePreview = memo(function FramePreview({
   artwork,
   posterFallbackUrl,
 }: Props) {
-  const { t } = useTranslation();
   const mockups = useFrameMockups();
   const key = pickMockupKey(frameType, color);
   const m: FrameMockup = mockups[key];
   const [posterLoaded, setPosterLoaded] = useState(false);
-  const [mockupLoaded, setMockupLoaded] = useState(false);
-  const [showLoading, setShowLoading] = useState(true);
   const hasPoster = !!posterUrl;
   const useMockup = !bare && !!m.image;
-  const allLoaded = (artwork ? true : posterLoaded) && (!useMockup || mockupLoaded);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -70,21 +64,23 @@ export const FramePreview = memo(function FramePreview({
     };
   }, []);
 
+  // Resets the skeleton whenever the poster itself changes (a different
+  // id, e.g. swapping which card this slot renders). Deliberately no
+  // artificial timeout hiding the skeleton after a fixed delay — it used
+  // to hide at a hardcoded 2s regardless of whether the poster had
+  // actually finished loading. Every card sharing the sitewide
+  // MAX_CONCURRENT=6 image-loader-queue (image-loader-queue.ts) waits its
+  // turn behind however many other images are already mounted (category
+  // grid, Related Products and Recently Viewed can all be on one page at
+  // once), so a card near the back of that queue routinely took longer
+  // than 2s — the skeleton would vanish while the poster still hadn't
+  // loaded, leaving a bare black frame opening that looked exactly like a
+  // broken image. Now the skeleton simply stays until posterLoaded
+  // actually flips true (SafeImage's onLoad below), which is correct
+  // regardless of how long the queue takes.
   useEffect(() => {
-    if (artwork || !hasPoster) {
-      setPosterLoaded(true);
-      setShowLoading(false);
-      return;
-    }
-    setPosterLoaded(false);
-    setShowLoading(true);
-    const id = window.setTimeout(() => setShowLoading(false), 2000);
-    return () => window.clearTimeout(id);
-  }, [artwork, hasPoster]);
-
-  useEffect(() => {
-    setMockupLoaded(false);
-  }, [m.image]);
+    setPosterLoaded(artwork ? true : !hasPoster);
+  }, [artwork, hasPoster, posterUrl]);
 
   void editSettings;
   const skewX = m.skewX ?? 0;
@@ -165,17 +161,27 @@ export const FramePreview = memo(function FramePreview({
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
             }}
-            onLoad={() => { if (posterUrl) setPosterLoaded(true); }}
+            onLoad={() => {
+              if (posterUrl) setPosterLoaded(true);
+            }}
           />
         )}
         {!artwork && !posterLoaded && (
+          // This is now the ONLY loading indicator for the poster itself
+          // (a separate spinner overlay used to cover it, on its own
+          // 2s timeout unrelated to whether the image had actually
+          // loaded — see the timing fix above). Bumped from a barely-
+          // visible 0.06-0.18 gradient to something that actually reads
+          // as "loading" rather than "blank", since it's the only signal
+          // left for however long this card waits behind others in the
+          // shared image-loader-queue.
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
             style={{
               background:
-                "linear-gradient(110deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.06) 100%)",
-              backgroundColor: "rgba(255,255,255,0.08)",
+                "linear-gradient(110deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.28) 45%, rgba(255,255,255,0.10) 100%)",
+              backgroundColor: "rgba(255,255,255,0.12)",
             }}
           />
         )}
@@ -201,20 +207,7 @@ export const FramePreview = memo(function FramePreview({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill select-none"
           draggable={false}
-          onLoad={() => setMockupLoaded(true)}
-          onError={() => setMockupLoaded(true)}
         />
-      )}
-
-      {!bare && !artwork && showLoading && !allLoaded && (
-        <div className="pointer-events-none absolute inset-0 z-[30] flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
-          <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {t("common.loading")}
-            </span>
-          </div>
-        </div>
       )}
     </div>
   );

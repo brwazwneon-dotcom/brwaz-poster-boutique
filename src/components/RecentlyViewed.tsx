@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
@@ -39,6 +41,16 @@ export function RecentlyViewed({
 
   const fromPrice = priceForFrame(pricing, "pvc", "20x30");
 
+  const scroller = useRef<HTMLDivElement | null>(null);
+  // Same step/scroll logic as BestSellers.tsx and TrendingNow.tsx's own
+  // carousels — reused rather than reinvented so all three horizontal
+  // rails behave identically (including in RTL, already correct there).
+  const scroll = (dir: -1 | 1) => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
   if (list.length === 0) return null;
 
   return (
@@ -51,9 +63,30 @@ export function RecentlyViewed({
             </p>
             <h2 className="text-display mt-3 text-3xl sm:text-5xl">{displayTitle}</h2>
           </div>
+          {list.length > 2 && (
+            <div className="hidden gap-2 sm:flex">
+              <button
+                type="button"
+                aria-label={t("common.scrollLeft")}
+                onClick={() => scroll(-1)}
+                className="rounded-sm border border-border p-2.5 hover:bg-accent"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label={t("common.scrollRight")}
+                onClick={() => scroll(1)}
+                className="rounded-sm border border-border p-2.5 hover:bg-accent"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div
+          ref={scroller}
           className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:gap-5 [scrollbar-width:thin]"
           style={{ scrollbarColor: "hsl(var(--border)) transparent" }}
         >
