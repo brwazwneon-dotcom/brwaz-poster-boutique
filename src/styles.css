@@ -589,11 +589,13 @@ body {
   overflow-x: clip;
   max-width: 100vw;
 }
-img,
-video,
-svg {
-  max-width: 100%;
-  height: auto;
+@layer base {
+  img,
+  video,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 @keyframes frame-float {
