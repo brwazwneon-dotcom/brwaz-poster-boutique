@@ -50,7 +50,14 @@ export function SafeImage({
     const ac = new AbortController();
     signalRef.current = ac;
 
-    enqueueImageLoad(displaySrc, fallbackSrc, ac.signal)
+    // Preload the same resized variant the <picture> below will show (only
+    // for the primary src; a retry with the fallback URL has no variants).
+    const responsive =
+      displaySrc === src && (avifSrcSet || webpSrcSet)
+        ? { avifSrcSet, webpSrcSet, sizes }
+        : undefined;
+
+    enqueueImageLoad(displaySrc, fallbackSrc, ac.signal, responsive)
       .then(() => {
         if (mountedRef.current && !ac.signal.aborted) {
           setLoaded(true);
@@ -66,7 +73,7 @@ export function SafeImage({
     return () => {
       ac.abort();
     };
-  }, [displaySrc, fallbackSrc]);
+  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -100,7 +107,7 @@ export function SafeImage({
       {...rest}
       src={errored || !displaySrc ? IMAGE_FALLBACK : displaySrc}
       sizes={sizes}
-      loading={loaded ? "eager" : loading ?? "lazy"}
+      loading={loaded ? "eager" : (loading ?? "lazy")}
       decoding={decoding ?? "async"}
       onError={handleError}
       onLoad={(e) => {

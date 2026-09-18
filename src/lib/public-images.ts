@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPosterImagesByIdsPublic } from "@/lib/db-public.functions";
+import { clearResponsivePending, markResponsivePending } from "@/lib/image-loader-queue";
 
 type Variant = "thumb" | "small" | "medium" | "large";
 type Format = "avif" | "webp";
@@ -24,6 +25,19 @@ export type ResponsiveMap = Record<string, ResponsivePosterImage>;
 // get a render loop (`Maximum update depth exceeded`). See WallOfInspiration
 // and HeroBannerSlider fixes from the same audit for a hit of this pattern.
 const EMPTY_RESPONSIVE_MAP: ResponsiveMap = {};
+
+// While a card's resized variants are still being fetched, tell the image
+// loader not to download the full-size original for it (see
+// image-loader-queue.ts). Marking during render is deliberate — the images
+// enqueue in their own effects, which run before this hook's — and it is
+// idempotent and self-expiring, so a render that never commits is harmless.
+function useHoldOriginalsWhilePending(key: string, waiting: boolean) {
+  if (waiting) markResponsivePending(key);
+  useEffect(() => {
+    if (!waiting) clearResponsivePending(key);
+    return () => clearResponsivePending(key);
+  }, [key, waiting]);
+}
 
 export function resolveProductArtwork(
   product: { id: string; image_url?: string | null },
@@ -74,7 +88,11 @@ export function usePosterImageVariants(
 ) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   const key = uniqueIds.join(",");
-  const { data = EMPTY_RESPONSIVE_MAP } = useQuery({
+  const {
+    data = EMPTY_RESPONSIVE_MAP,
+    isPending,
+    isPlaceholderData,
+  } = useQuery({
     queryKey: ["public-poster-image-variants", variant, format, key],
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
@@ -93,6 +111,10 @@ export function usePosterImageVariants(
       return out;
     },
   });
+  useHoldOriginalsWhilePending(
+    `variants:${variant}:${format}:${key}`,
+    uniqueIds.length > 0 && (isPending || isPlaceholderData),
+  );
   return data;
 }
 
@@ -106,7 +128,11 @@ export function usePosterResponsiveImages(
 ) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   const key = uniqueIds.join(",");
-  const { data = EMPTY_RESPONSIVE_MAP } = useQuery({
+  const {
+    data = EMPTY_RESPONSIVE_MAP,
+    isPending,
+    isPlaceholderData,
+  } = useQuery({
     queryKey: ["public-poster-responsive-images", key, sizes],
     enabled: uniqueIds.length > 0,
     staleTime: 5 * 60_000,
@@ -125,6 +151,10 @@ export function usePosterResponsiveImages(
       return out;
     },
   });
+  useHoldOriginalsWhilePending(
+    `responsive:${key}:${sizes}`,
+    uniqueIds.length > 0 && (isPending || isPlaceholderData),
+  );
   return data;
 }
 

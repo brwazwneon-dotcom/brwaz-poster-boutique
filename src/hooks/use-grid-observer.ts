@@ -10,7 +10,6 @@ const OBSERVER_OPTIONS: IntersectionObserverInit = {
 let sharedObserver: IntersectionObserver | null = null;
 const callbacks = new Map<Element, VisibilityCallback>();
 const observedElements = new Set<Element>();
-let refCount = 0;
 
 function getObserver(): IntersectionObserver {
   if (!sharedObserver) {

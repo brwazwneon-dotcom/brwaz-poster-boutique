@@ -112,7 +112,6 @@ export function MediaLibraryTab() {
       setUsedUrls(used);
       await loadPage();
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMore = async () => {

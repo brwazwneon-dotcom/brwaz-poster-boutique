@@ -5,55 +5,113 @@ import en from "./locales/en.json";
 import ar from "./locales/ar.json";
 
 const SUPPORTED_LANGS = ["ar", "en"];
+const STORAGE_KEY = "brw_preferred_lang";
 
-// i18next's `.init()` is async (it returns a Promise once the detector/
-// resources are resolved) but was previously called fire-and-forget at
-// module scope. SSR reads `i18n.language` synchronously on import, so a
-// server render could land mid-init and see i18next's own pre-init
-// default rather than `fallbackLng` — while by the time the client
-// hydrates a few hundred ms later, init has long since settled to "ar"
-// (no stored preference + LanguageDetector's own fallback). Every piece
-// of header/nav text then mismatches between server and client markup,
-// which is exactly the "Hydration failed" error reproduced by diffing
-// the fetched SSR HTML against the live DOM: SSR rendered in English,
-// the hydrated page in Arabic. Exporting the init promise lets the root
-// route's loader `await` it (see __root.tsx) so both server and client
-// render from the same fully-resolved language before first paint.
+type Lang = "ar" | "en";
+
+function toLang(raw: string | null | undefined): Lang | null {
+  const v = (raw ?? "").toLowerCase();
+  if (v.startsWith("ar")) return "ar";
+  if (v.startsWith("en")) return "en";
+  return null;
+}
+
+// What the visitor actually wants: their stored choice, else the first
+// supported language in their browser's list — the same order the language
+// detector below used to apply (localStorage, then navigator). Read once,
+// before init, because init itself writes to that same storage key.
+function readVisitorPreference(): { stored: string | null; lang: Lang | null } {
+  if (typeof window === "undefined") return { stored: null, lang: null };
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const fromStored = toLang(stored);
+    if (fromStored) return { stored, lang: fromStored };
+    const candidates = [...(navigator.languages ?? []), navigator.language];
+    for (const c of candidates) {
+      const l = toLang(c);
+      if (l) return { stored, lang: l };
+    }
+    return { stored, lang: null };
+  } catch {
+    return { stored: null, lang: null };
+  }
+}
+
+const visitor = readVisitorPreference();
+
+// The server has no way to know a visitor's language (no per-request
+// cookie), so it always renders Arabic, the store's primary language. If the
+// browser were to pick its own language during hydration, an English visitor's
+// first client render would differ from the server HTML: React throws a
+// hydration error (#418), discards the server markup and re-renders the whole
+// page. So both sides start in Arabic (`lng` below skips detection), and
+// `applyVisitorLanguage()` switches to the visitor's language once hydration
+// has finished.
 export const i18nInitPromise = i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: { en: { translation: en }, ar: { translation: ar } },
+    lng: "ar",
     fallbackLng: "ar",
     supportedLngs: SUPPORTED_LANGS,
     nonExplicitSupportedLngs: true,
     detection: {
       order: ["localStorage", "navigator"],
-      lookupLocalStorage: "brw_preferred_lang",
+      lookupLocalStorage: STORAGE_KEY,
       caches: ["localStorage"],
     },
     interpolation: { escapeValue: false },
   })
-  .then(async () => {
-    // i18next-browser-languagedetector's "navigator" source has no real
-    // meaning in Node's SSR environment (no browser locale to read), but
-    // some environments expose a stand-in `navigator` that it can still
-    // read from — resolving to "en" instead of falling through to
-    // fallbackLng. The client's own real navigator/localStorage detection
-    // then resolves independently and can land on "ar", diverging from
-    // whatever the server rendered. Since there's no per-request language
-    // cookie (yet) for the server to read a real user preference from,
-    // force the deterministic, correct-for-the-large-majority answer here:
-    // this store's fallback and primary audience is Arabic. This does
-    // mean a *returning* visitor who explicitly switched to English will
-    // see a brief server-rendered Arabic flash before their stored
-    // preference re-applies client-side — a real but narrower gap than
-    // the sitewide mismatch this replaces, left for a future cookie-based
-    // fix rather than expanding scope here.
-    if (typeof window === "undefined" && i18n.language !== "ar") {
-      await i18n.changeLanguage("ar");
+  .then(() => {
+    // Initialising in Arabic cached "ar" over the visitor's stored choice;
+    // put back exactly what was there before.
+    if (typeof window !== "undefined" && visitor.stored) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, visitor.stored);
+      } catch {
+        /* storage unavailable */
+      }
     }
   });
+
+let applied = false;
+
+// A post-mount effect is not late enough: route pages are lazy components
+// that React hydrates after the root's effects have already run, so a
+// language change made there would make those pages hydrate in the wrong
+// language. React tags every DOM node it has hydrated with an internal
+// `__reactFiber$…` key; server-rendered nodes that don't have one yet are
+// still waiting to be hydrated.
+function serverContentHydrated(): boolean {
+  const main = document.querySelector("main");
+  if (!main) return true;
+  const nodes = main.querySelectorAll("*");
+  const limit = Math.min(nodes.length, 400);
+  for (let i = 0; i < limit; i++) {
+    const keys = Object.keys(nodes[i]);
+    if (!keys.some((k) => k.startsWith("__reactFiber$"))) return false;
+  }
+  return true;
+}
+
+/** Call after mount: switches the UI to the visitor's own language once the
+ *  server-rendered markup has been hydrated (or after a short timeout). */
+export function applyVisitorLanguage() {
+  if (applied || typeof window === "undefined") return;
+  applied = true;
+  const target = visitor.lang;
+  if (!target || target === "ar") return;
+  const started = Date.now();
+  const tick = () => {
+    if (serverContentHydrated() || Date.now() - started > 2500) {
+      if (!i18n.language?.startsWith(target)) void i18n.changeLanguage(target);
+      return;
+    }
+    window.setTimeout(tick, 50);
+  };
+  window.setTimeout(tick, 0);
+}
 
 export default i18n;
 export { SUPPORTED_LANGS };

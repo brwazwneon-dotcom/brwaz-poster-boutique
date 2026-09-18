@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect } from "react";
+import { applyVisitorLanguage } from "@/lib/i18n";
 
 export function useLanguage() {
   const { i18n } = useTranslation();
@@ -17,6 +18,12 @@ export function useLanguage() {
     },
     [i18n],
   );
+
+  // Effects only run after hydration, so this can't cause a server/client
+  // markup mismatch (see i18n.ts). Guarded to run once per page load.
+  useEffect(() => {
+    applyVisitorLanguage();
+  }, []);
 
   useEffect(() => {
     const lang = currentLanguage;
