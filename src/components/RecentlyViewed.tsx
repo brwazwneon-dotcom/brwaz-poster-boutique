@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { FramedArtwork } from "@/components/FramedArtwork";
@@ -13,13 +13,7 @@ import {
   isValidProductImage,
 } from "@/lib/public-images";
 
-export function RecentlyViewed({
-  excludeId,
-  title,
-}: {
-  excludeId?: string;
-  title?: string;
-}) {
+export function RecentlyViewed({ excludeId, title }: { excludeId?: string; title?: string }) {
   const { t } = useTranslation();
   const displayTitle = title ?? t("home.recentlyViewed");
   const { items } = useRecentlyViewed();
@@ -42,6 +36,21 @@ export function RecentlyViewed({
   const fromPrice = priceForFrame(pricing, "pvc", "20x30");
 
   const scroller = useRef<HTMLDivElement | null>(null);
+  // Arrows only make sense when the rail actually overflows; otherwise they
+  // sit there doing nothing (e.g. 3 cards on a wide desktop).
+  const [canScroll, setCanScroll] = useState(false);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) {
+      setCanScroll(false);
+      return;
+    }
+    const update = () => setCanScroll(el.scrollWidth > el.clientWidth + 1);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [list.length]);
   // Same step/scroll logic as BestSellers.tsx and TrendingNow.tsx's own
   // carousels — reused rather than reinvented so all three horizontal
   // rails behave identically (including in RTL, already correct there).
@@ -63,7 +72,7 @@ export function RecentlyViewed({
             </p>
             <h2 className="text-display mt-3 text-3xl sm:text-5xl">{displayTitle}</h2>
           </div>
-          {list.length > 2 && (
+          {canScroll && (
             <div className="hidden gap-2 sm:flex">
               <button
                 type="button"
