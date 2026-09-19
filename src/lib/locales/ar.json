@@ -874,6 +874,7 @@
     "extraPhotosRow": "صور إضافية: {{extra}} × {{unit}} جنيه",
     "maxPhotosReached": "أقصى عدد للصور في الطلب الواحد {{max}} صورة.",
     "allPhotosReady": "كل الصور جاهزة. حسّن أي منها أدناه.",
+    "allPhotosReadyPlain": "كل الصور جاهزة. تقدر تقص أي صورة منها من تحتها.",
     "clickToUpload": "اضغط للرفع",
     "uploadFormats": "JPG · PNG · WEBP · HEIC · حد أقصى {{max}} ميجابايت لكل صورة",
     "lowResWarning": "دقة منخفضة — الجودة قد تتأثر",

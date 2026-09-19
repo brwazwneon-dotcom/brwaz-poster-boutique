@@ -1022,7 +1022,9 @@ function PhotoPrintingPage() {
                           extra: extraCount,
                           price: extraCost,
                         })
-                      : t("photo4x6.allPhotosReady")}
+                      : sizeMode === "4x6"
+                        ? t("photo4x6.allPhotosReady")
+                        : t("photo4x6.allPhotosReadyPlain")}
                 </p>
 
                 <label
@@ -1167,7 +1169,9 @@ function PhotoPrintingPage() {
                           )}
 
                           <div className="mt-3 flex flex-wrap gap-1.5">
-                            {config.aiEnhanceEnabled && (
+                            {/* The AI touch-ups only make sense for the 4x6 bundle; the
+                                larger per-photo sizes keep just crop & edit. */}
+                            {sizeMode === "4x6" && config.aiEnhanceEnabled && (
                               <>
                                 <ActionBtn
                                   icon={<Sparkles className="h-3 w-3" />}
@@ -1201,7 +1205,7 @@ function PhotoPrintingPage() {
                                 />
                               </>
                             )}
-                            {config.aiSuitEnabled && (
+                            {sizeMode === "4x6" && config.aiSuitEnabled && (
                               <ActionBtn
                                 icon={<Shirt className="h-3 w-3" />}
                                 label={t("photo4x6.wearSuit")}
@@ -1404,9 +1408,11 @@ function PhotoPrintingPage() {
                           ? "تأكيد الطلب عبر واتساب"
                           : "Confirm order via WhatsApp"}
                   </button>
-                  <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                    {t("photo4x6.originalEnhancedSent")}
-                  </p>
+                  {sizeMode === "4x6" && (
+                    <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                      {t("photo4x6.originalEnhancedSent")}
+                    </p>
+                  )}
                 </form>
 
                 {/* Mobile sticky summary — only once there's actually something to summarize */}

@@ -956,6 +956,7 @@
     "extraPhotosRow": "Extra photos: {{extra}} × {{unit}} EGP",
     "maxPhotosReached": "You can add up to {{max}} photos per order.",
     "allPhotosReady": "All photos ready. Enhance any of them below.",
+    "allPhotosReadyPlain": "All photos ready. You can crop any of them below.",
     "clickToUpload": "Click to upload",
     "uploadFormats": "JPG · PNG · WEBP · HEIC · Max {{max}}MB each",
     "suit": "Suit",
