@@ -628,9 +628,7 @@ export async function fetchAllCatalogDataFromNeon(): Promise<CatalogData> {
   })) as CatalogProduct[];
 
   const settingsRows = settingRows as Array<{ key: string; value: unknown }>;
-  const config = parseCatalogConfig(
-    settingsRows.find((r) => r.key === CATALOG_CONFIG_KEY)?.value,
-  );
+  const config = parseCatalogConfig(settingsRows.find((r) => r.key === CATALOG_CONFIG_KEY)?.value);
 
   return {
     products,

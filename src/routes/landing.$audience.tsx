@@ -121,9 +121,20 @@ function LandingPage() {
 
   const onWaClick = () => {
     try {
-      trackEvent("Contact", { method: "whatsapp", audience_type: audience, landing_page: `/landing/${audience}` });
-      trackEvent("Lead", { method: "whatsapp", audience_type: audience, landing_page: `/landing/${audience}` });
-      trackCustom("WhatsAppClick", { audience_type: audience, landing_page: `/landing/${audience}` });
+      trackEvent("Contact", {
+        method: "whatsapp",
+        audience_type: audience,
+        landing_page: `/landing/${audience}`,
+      });
+      trackEvent("Lead", {
+        method: "whatsapp",
+        audience_type: audience,
+        landing_page: `/landing/${audience}`,
+      });
+      trackCustom("WhatsAppClick", {
+        audience_type: audience,
+        landing_page: `/landing/${audience}`,
+      });
     } catch {
       /* noop */
     }
@@ -135,7 +146,12 @@ function LandingPage() {
       <section className="relative overflow-hidden border-b border-border">
         {page.hero_image && (
           <div className="absolute inset-0">
-            <img src={page.hero_image} alt="" loading="eager" className="h-full w-full object-cover opacity-25" />
+            <img
+              src={page.hero_image}
+              alt=""
+              loading="eager"
+              className="h-full w-full object-cover opacity-25"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/85 to-background/50" />
           </div>
         )}
@@ -151,12 +167,17 @@ function LandingPage() {
             {titleAr}
           </h1>
           {subtitleAr && (
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground" dir="rtl">
+            <p
+              className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground"
+              dir="rtl"
+            >
               {subtitleAr}
             </p>
           )}
           {subtitleEn && (
-            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{subtitleEn}</p>
+            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+              {subtitleEn}
+            </p>
           )}
           <a
             href={wa}
@@ -185,7 +206,9 @@ function LandingPage() {
       {/* Posters Grid */}
       <section className="container-page py-12">
         {posters.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground">لا توجد صور مضافة لهذه الصفحة بعد.</div>
+          <div className="py-20 text-center text-muted-foreground">
+            لا توجد صور مضافة لهذه الصفحة بعد.
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

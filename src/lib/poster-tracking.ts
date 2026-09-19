@@ -55,19 +55,25 @@ export function trackPosterView(posterId: string): void {
 export async function trackPosterSales(posterIds: string[], qty: number): Promise<void> {
   const clean = Array.from(new Set(posterIds.filter(Boolean)));
   if (clean.length === 0) return;
-  await incrementPosterSalesPublic({ data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) } });
+  await incrementPosterSalesPublic({
+    data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) },
+  });
 }
 
 /** Bump cart-add counts for one or more posters and log events. */
 export function trackPosterCartAdd(posterIds: string[], qty = 1): void {
   const clean = Array.from(new Set(posterIds.filter(Boolean)));
   if (clean.length === 0) return;
-  void incrementPosterCartAddsPublic({ data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) } });
+  void incrementPosterCartAddsPublic({
+    data: { ids: clean, qty: Math.max(1, Math.floor(qty || 1)) },
+  });
   for (const id of clean) logPosterEvent(id, "cart_add");
 }
 
 /** Record seconds a visitor spent viewing a poster (debounced). */
 export function trackPosterViewDuration(posterId: string, seconds: number): void {
   if (!posterId || !seconds || seconds < 1) return;
-  void addPosterViewSecondsPublic({ data: { id: posterId, seconds: Math.max(1, Math.round(seconds)) } });
+  void addPosterViewSecondsPublic({
+    data: { id: posterId, seconds: Math.max(1, Math.round(seconds)) },
+  });
 }

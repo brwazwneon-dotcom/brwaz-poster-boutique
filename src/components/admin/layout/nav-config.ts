@@ -67,7 +67,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     items: [
       { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, keywords: ["home", "summary"] },
-      { id: "analytics", label: "Analytics", icon: LineChart, keywords: ["traffic", "visitors", "search"] },
+      {
+        id: "analytics",
+        label: "Analytics",
+        icon: LineChart,
+        keywords: ["traffic", "visitors", "search"],
+      },
     ],
   },
   {
@@ -87,7 +92,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "products", label: "Products", icon: Package, keywords: ["posters", "upload", "bulk"] },
       { id: "categories", label: "Categories", icon: Tags, keywords: ["subcategories"] },
       { id: "sets", label: "Collections / Sets", icon: Layers, keywords: ["bundles"] },
-      { id: "media", label: "Media Library", icon: Images, keywords: ["assets", "images", "orphaned"] },
+      {
+        id: "media",
+        label: "Media Library",
+        icon: Images,
+        keywords: ["assets", "images", "orphaned"],
+      },
       { id: "mockups", label: "Frame Mockups", icon: Frame, keywords: ["frames", "colors"] },
     ],
   },
@@ -96,9 +106,24 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Content",
     items: [
       { id: "homepage", label: "Homepage", icon: Home, keywords: ["hero", "slider", "highlights"] },
-      { id: "landing-pages", label: "Landing Pages", icon: Rocket, keywords: ["audience", "campaign pages"] },
-      { id: "photo-printing", label: "Photo Printing", icon: Printer, keywords: ["banners", "photo 4x6"] },
-      { id: "before-after", label: "Before / After", icon: SplitSquareHorizontal, keywords: ["comparison"] },
+      {
+        id: "landing-pages",
+        label: "Landing Pages",
+        icon: Rocket,
+        keywords: ["audience", "campaign pages"],
+      },
+      {
+        id: "photo-printing",
+        label: "Photo Printing",
+        icon: Printer,
+        keywords: ["banners", "photo 4x6"],
+      },
+      {
+        id: "before-after",
+        label: "Before / After",
+        icon: SplitSquareHorizontal,
+        keywords: ["comparison"],
+      },
       { id: "offers", label: "Offers", icon: Tag, keywords: ["custom offers", "deals"] },
     ],
   },
@@ -106,14 +131,24 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "marketing",
     label: "Marketing",
     items: [
-      { id: "promotions", label: "Promotions", icon: Ticket, keywords: ["coupons", "discounts", "codes"] },
+      {
+        id: "promotions",
+        label: "Promotions",
+        icon: Ticket,
+        keywords: ["coupons", "discounts", "codes"],
+      },
     ],
   },
   {
     id: "finance",
     label: "Finance",
     items: [
-      { id: "finance", label: "Finance", icon: Wallet, keywords: ["expenses", "profit", "revenue"] },
+      {
+        id: "finance",
+        label: "Finance",
+        icon: Wallet,
+        keywords: ["expenses", "profit", "revenue"],
+      },
     ],
   },
   {
@@ -121,7 +156,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "System",
     items: [
       { id: "health", label: "System Health", icon: Activity, keywords: ["status", "diagnostics"] },
-      { id: "settings", label: "Settings", icon: Settings, keywords: ["config", "storefront", "flags"] },
+      {
+        id: "settings",
+        label: "Settings",
+        icon: Settings,
+        keywords: ["config", "storefront", "flags"],
+      },
     ],
   },
 ];

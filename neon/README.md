@@ -1,6 +1,7 @@
 # BRWAZWNEON 2.0 — Neon migration, Phase 1
 
 ## What's here
+
 - `schema.sql` — the Phase 1 database schema (categories, posters,
   image_variants, site_settings, orders, admin_users). Covers what the
   storefront + a basic admin need to launch. Everything else the old
@@ -48,6 +49,7 @@ days rather than being part of this same step.
 5. Tell me it's there — I'll read it directly from the file.
 
 ## Next steps (once the connection string is in place)
+
 1. Apply `schema.sql` to the new Neon database.
 2. Verify the tables/triggers exist correctly (read-only checks, same
    pattern as the Supabase security migrations).

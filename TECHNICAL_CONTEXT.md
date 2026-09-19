@@ -3,22 +3,25 @@
 > **آخر تحديث:** 26 يوليو 2026  
 > **اسم المشروع:** `brwaz-poster-boutique`  
 > **الموقع الرسمي:** https://brwazwneon.com  
-> **النوع:** متجر إلكتروني متكامل للبوسترات والطباعة الفوتوغرافية مع دعم عربي كامل  
+> **النوع:** متجر إلكتروني متكامل للبوسترات والطباعة الفوتوغرافية مع دعم عربي كامل
 
 ---
 
 ## 1. نظرة عامة على المشروع (Project Overview)
 
 ### 1.1 المفهوم الأساسي
+
 منصة تجارة إلكترونية مصرية متخصصة في بيع البوسترات المطبوعة والإطارات (PVC, Wooden) وخدمات الطباعة الفوتوغرافية. تدعم التصميم المخصص (Custom Design) وتحسين الصور بالذكاء الاصطناعي.
 
 ### 1.2 الفئة المستهدفة
+
 - العملاء في مصر (دعم كامل للغة العربية، عملة EGP، طرق دفع محلية: Instapay, COD)
 - مهتمون بالبوسترات (أفلام، كرة قدم، أنمي، سيارات، ديكور، موسيقى، عائلي)
 - باحثون عن تصميم مخصص للصور الشخصية
 - باحثون عن طباعة صور فوتوغرافية عالية الجودة
 
 ### 1.3 طريقة العمل العامة
+
 1. **التصفح**: متجر إلكتروني بأقسام (فئات، مجموعات، عروض، الأكثر مبيعاً، الرائجة)
 2. **التخصيص**: اختيار الإطار (PVC/Wood)، الحجم (20×30 إلى 100×60 سم)، اللون (أسود/أبيض/خشب)
 3. **السلة والدفع**: سلة تسوق مع خصم الكمية، دفع عبر Instapay أو COD
@@ -32,13 +35,15 @@
 ## 2. التقنيات والبيئة المستخدمة (Technologies & Stack)
 
 ### 2.1 لغات البرمجة
-| اللغة | الاستخدام |
-|-------|-----------|
+
+| اللغة              | الاستخدام                              |
+| ------------------ | -------------------------------------- |
 | **TypeScript 5.8** | كل الكود (99% TS، بدون JavaScript خام) |
-| **CSS** | Tailwind CSS v4 + shadcn/ui |
-| **SQL** | قواعد بيانات Supabase (PostgreSQL) |
+| **CSS**            | Tailwind CSS v4 + shadcn/ui            |
+| **SQL**            | قواعد بيانات Supabase (PostgreSQL)     |
 
 ### 2.2 إطار العمل الأساسي — TanStack Start
+
 ```
 @tanstack/react-router ^1.168.25        ← التوجيه (Routing)
 @tanstack/react-start ^1.167.50         ← SSR + Server Functions
@@ -50,6 +55,7 @@ nitro 3.0.260603-beta                   ← Nitro SSR engine
 ```
 
 ### 2.3 واجهة المستخدم
+
 ```yaml
 UI:
   React 19.2: واجهة المستخدم
@@ -70,6 +76,7 @@ UI:
 ```
 
 ### 2.4 i18n والتدويل
+
 ```
 i18next ^26.3.6           ← إطار التدويل
 react-i18next ^17.0.10   ← React binding
@@ -79,6 +86,7 @@ i18next-browser-languagedetector 8.2.1 ← كشف اللغة
 ```
 
 ### 2.5 قاعدة البيانات — Supabase (PostgreSQL)
+
 ```yaml
 مشروع Supabase:
   Project ID: volrlqjrsxemhjwrnpun
@@ -92,68 +100,71 @@ i18next-browser-languagedetector 8.2.1 ← كشف اللغة
 ```
 
 #### الجداول الأساسية
-| الجدول | الغرض |
-|--------|-------|
-| `posters` | البوسترات (SEO، hidden، trending، pinned، sales_count، edit_settings) |
-| `categories` | الفئات (هرمية: parent_id، slug، image_url، sort_order) |
-| `orders` | الطلبات (حالة، سعر، شحن، ملاحظات) |
-| `order_items` | عناصر الطلب |
-| `cart_items` | عناصر السلة |
-| `wishlists` | المفضلة |
-| `recently_viewed` | المشاهدة مؤخراً |
-| `image_variants` | متغيرات الصور المحسّنة (thumb/small/medium/large × AVIF/WebP) |
-| `site_settings` | إعدادات الموقع (جميع الإعدادات الديناميكية) |
-| `admin_devices` | أجهزة المسؤول للإشعارات |
-| `admin_notifications` | إشعارات المسؤول |
-| `analytics_visits` | زيارات التحليلات |
-| `analytics_poster_events` | أحداث البوسترات |
-| `best_sellers` | الأكثر مبيعاً |
-| `hero_banners` | البانرات الرئيسية |
-| `slider_images` | صور السلايدر |
-| `before_after` | صور قبل/بعد |
-| `reviews` | المراجعات |
-| `photo_orders` | طلبات الطباعة الفوتوغرافية |
-| `photo_4x6_orders` | طلبات الصور 4×6 |
-| `custom_design_orders` | طلبات التصميم المخصص |
-| `backups` | النسخ الاحتياطية |
-| `assistant_requests` | طلبات المساعد الذكي |
-| `collection_showcase_settings` | إعدادات عرض المجموعات |
-| `collection_showcase_images` | صور عرض المجموعات |
-| `sets` | مجموعات الإطارات (Frame Sets) |
-| `system_logs` | سجلات النظام |
-| `perf_metrics` | مقاييس الأداء |
-| `visitor_profiles` | ملفات الزوار للتخصيص |
-| `visitor_interest_scores` | درجات الاهتمام |
-| `visitor_cart_events` | أحداث السلة |
-| `marketing_secrets` | أسرار التسويق (Firebase, Meta CAPI) |
-| `trending_searches` | عمليات البحث الرائجة |
-| `highlights` | النقاط البارزة |
-| `notifications_logs` | سجل الإشعارات |
-| `assistant_config` | إعدادات المساعد |
-| `landing_pages`, `landing_page_posters` | صفحات الهبوط |
-| `custom_offers` | العروض المخصصة |
-| `campaigns` | الحملات التسويقية |
+
+| الجدول                                  | الغرض                                                                 |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `posters`                               | البوسترات (SEO، hidden، trending، pinned، sales_count، edit_settings) |
+| `categories`                            | الفئات (هرمية: parent_id، slug، image_url، sort_order)                |
+| `orders`                                | الطلبات (حالة، سعر، شحن، ملاحظات)                                     |
+| `order_items`                           | عناصر الطلب                                                           |
+| `cart_items`                            | عناصر السلة                                                           |
+| `wishlists`                             | المفضلة                                                               |
+| `recently_viewed`                       | المشاهدة مؤخراً                                                       |
+| `image_variants`                        | متغيرات الصور المحسّنة (thumb/small/medium/large × AVIF/WebP)         |
+| `site_settings`                         | إعدادات الموقع (جميع الإعدادات الديناميكية)                           |
+| `admin_devices`                         | أجهزة المسؤول للإشعارات                                               |
+| `admin_notifications`                   | إشعارات المسؤول                                                       |
+| `analytics_visits`                      | زيارات التحليلات                                                      |
+| `analytics_poster_events`               | أحداث البوسترات                                                       |
+| `best_sellers`                          | الأكثر مبيعاً                                                         |
+| `hero_banners`                          | البانرات الرئيسية                                                     |
+| `slider_images`                         | صور السلايدر                                                          |
+| `before_after`                          | صور قبل/بعد                                                           |
+| `reviews`                               | المراجعات                                                             |
+| `photo_orders`                          | طلبات الطباعة الفوتوغرافية                                            |
+| `photo_4x6_orders`                      | طلبات الصور 4×6                                                       |
+| `custom_design_orders`                  | طلبات التصميم المخصص                                                  |
+| `backups`                               | النسخ الاحتياطية                                                      |
+| `assistant_requests`                    | طلبات المساعد الذكي                                                   |
+| `collection_showcase_settings`          | إعدادات عرض المجموعات                                                 |
+| `collection_showcase_images`            | صور عرض المجموعات                                                     |
+| `sets`                                  | مجموعات الإطارات (Frame Sets)                                         |
+| `system_logs`                           | سجلات النظام                                                          |
+| `perf_metrics`                          | مقاييس الأداء                                                         |
+| `visitor_profiles`                      | ملفات الزوار للتخصيص                                                  |
+| `visitor_interest_scores`               | درجات الاهتمام                                                        |
+| `visitor_cart_events`                   | أحداث السلة                                                           |
+| `marketing_secrets`                     | أسرار التسويق (Firebase, Meta CAPI)                                   |
+| `trending_searches`                     | عمليات البحث الرائجة                                                  |
+| `highlights`                            | النقاط البارزة                                                        |
+| `notifications_logs`                    | سجل الإشعارات                                                         |
+| `assistant_config`                      | إعدادات المساعد                                                       |
+| `landing_pages`, `landing_page_posters` | صفحات الهبوط                                                          |
+| `custom_offers`                         | العروض المخصصة                                                        |
+| `campaigns`                             | الحملات التسويقية                                                     |
 
 ### 2.6 الخدمات السحابية والتكاملات الخارجية
-| الخدمة | الغرض |
-|--------|-------|
-| **Supabase** | قاعدة البيانات، المصادقة، التخزين، RPC |
-| **Vercel** | استضافة (Cloudflare Workers module preset) |
-| **Firebase Cloud Messaging** | إشعارات PUSH للمسؤولين |
-| **Google Gemini API** | تحسين الصور، توليد بيانات وصفية، ذكاء اصطناعي |
-| **OpenRouter** | سيرفر بديل للذكاء الاصطناعي (Llama 3.3, Qwen 2.5) |
-| **Meta Pixel + CAPI** | تتبع الإعلانات (Facebook/Meta Ads) |
-| **Google Analytics 4 (gtag.js)** | تحليلات جوجل |
-| **TikTok Pixel** | تتبع إعلانات تيك توك |
-| **ipapi.co** | كشف الموقع الجغرافي للزوار |
-| **OpenRouter** | بوابة الذكاء الاصطناعي للمساعد الإداري (openai/gpt-4o-mini) |
-| **jsPDF + jspdf-autotable** | توليد PDF (التقارير) |
-| **xlsx** | تصدير Excel |
-| **heic2any** | تحويل صور HEIC |
-| **html2canvas** | التقاط لقطات شاشة للصور |
-| **isomorphic-git** | تكامل Git (نادر الاستخدام) |
+
+| الخدمة                           | الغرض                                                       |
+| -------------------------------- | ----------------------------------------------------------- |
+| **Supabase**                     | قاعدة البيانات، المصادقة، التخزين، RPC                      |
+| **Vercel**                       | استضافة (Cloudflare Workers module preset)                  |
+| **Firebase Cloud Messaging**     | إشعارات PUSH للمسؤولين                                      |
+| **Google Gemini API**            | تحسين الصور، توليد بيانات وصفية، ذكاء اصطناعي               |
+| **OpenRouter**                   | سيرفر بديل للذكاء الاصطناعي (Llama 3.3, Qwen 2.5)           |
+| **Meta Pixel + CAPI**            | تتبع الإعلانات (Facebook/Meta Ads)                          |
+| **Google Analytics 4 (gtag.js)** | تحليلات جوجل                                                |
+| **TikTok Pixel**                 | تتبع إعلانات تيك توك                                        |
+| **ipapi.co**                     | كشف الموقع الجغرافي للزوار                                  |
+| **OpenRouter**                   | بوابة الذكاء الاصطناعي للمساعد الإداري (openai/gpt-4o-mini) |
+| **jsPDF + jspdf-autotable**      | توليد PDF (التقارير)                                        |
+| **xlsx**                         | تصدير Excel                                                 |
+| **heic2any**                     | تحويل صور HEIC                                              |
+| **html2canvas**                  | التقاط لقطات شاشة للصور                                     |
+| **isomorphic-git**               | تكامل Git (نادر الاستخدام)                                  |
 
 ### 2.7 أدوات التطوير
+
 ```yaml
 TypeScript 5.8: لغة البرمجة
 ESLint 9.32: فحص الكود
@@ -166,6 +177,7 @@ vite.config.ts: تكوين Vite أصلي (بديل @lovable.dev/vite-tanstack-co
 ```
 
 ### 2.8 نظام الصور وتحسينها
+
 ```
 Image Variants (image_variants table):
   thumb  (240px) ← AVIF, WebP, original
@@ -184,15 +196,17 @@ Image Variants (image_variants table):
 ## 3. هيكلة الصلاحيات وأمن النظام (Permissions & Access Control)
 
 ### 3.1 أنواع المستخدمين
-| الدور | الوصف |
-|-------|-------|
-| **عام (Public/Anon)** | زائر غير مسجل — يرى المتجر، يضيف للسلة، يقدم طلبات |
-| **مسجل (Authenticated)** | مستخدم مسجل — يضيف للمفضلة، يرى آخر المشاهدة |
-| **مسؤول (Admin)** | دور `admin` في جدول `user_roles` — يدير الموقع بالكامل |
-| **محرر (Editor)** | دور `editor` — صلاحيات محدودة (غير مستخدم حالياً) |
-| **مشاهد (Viewer)** | دور `viewer` — يرى لوحة التحكم فقط (غير مستخدم حالياً) |
+
+| الدور                    | الوصف                                                  |
+| ------------------------ | ------------------------------------------------------ |
+| **عام (Public/Anon)**    | زائر غير مسجل — يرى المتجر، يضيف للسلة، يقدم طلبات     |
+| **مسجل (Authenticated)** | مستخدم مسجل — يضيف للمفضلة، يرى آخر المشاهدة           |
+| **مسؤول (Admin)**        | دور `admin` في جدول `user_roles` — يدير الموقع بالكامل |
+| **محرر (Editor)**        | دور `editor` — صلاحيات محدودة (غير مستخدم حالياً)      |
+| **مشاهد (Viewer)**       | دور `viewer` — يرى لوحة التحكم فقط (غير مستخدم حالياً) |
 
 ### 3.2 المصادقة — Supabase Auth
+
 ```yaml
 النظام: Supabase Auth (بريد إلكتروني + كلمة سر)
 إدارة الجلسة: autoRefreshToken + persistSession
@@ -201,10 +215,11 @@ Image Variants (image_variants table):
   - يتم عبر grant_admin_for_brand_email() function
 كشف الدور: has_role(user_id, role) function
 تقييد: has_role محظور للمستخدمين العامين والمسجلين
-         (يُسمح فقط للجلسات المصادقة عبر auth.uid())
+  (يُسمح فقط للجلسات المصادقة عبر auth.uid())
 ```
 
 ### 3.3 RLS Policies للملفات (Storage)
+
 ```
 custom-designs bucket:    anyone → upload (لرفع الصور للطلب)
 originals bucket:         admin only → upload
@@ -216,6 +231,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 3.4 أمان الخادم
+
 ```
 - Admin API: Bearer token → getClaims → has_role RPC
 - Backup API: x-backup-secret header (constant-time comparison)
@@ -226,6 +242,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 3.5 صلاحيات لوحة التحكم
+
 ```
 - كل تبويبات الإدارة تتطلب auth + admin role
 - إن لم يكن المستخدم مسؤولاً → تظهر رسالة "No admin access"
@@ -237,6 +254,7 @@ photo-4x6 bucket:         anyone → upload
 ## 4. منطق العمل وسير العمليات (Business Logic & Workflow)
 
 ### 4.1 دورة حياة البوستر (Poster Lifecycle)
+
 ```
 1. رفع الصورة الأصلية → Supabase Storage (bucket: originals)
 2. تحسين الصورة تلقائياً → image_variants (thumb/small/medium/large × AVIF/WebP)
@@ -247,6 +265,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 4.2 دورة حياة الطلب (Order Lifecycle)
+
 ```
 1. يختار العميل بوستر + إطار/لون/حجم
 2. يضيف للسلة (مع خصم الكمية)
@@ -262,6 +281,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 4.3 نظام السلة (Cart System)
+
 ```
 تقنية: React Context + localStorage
 مفتاح: brwazwneon_cart_v1
@@ -277,6 +297,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 4.4 نظام المفضلة (Wishlist)
+
 ```
 تقنية: Hybrid (local storage + Supabase sync)
 1. Hydrate من localStorage عند التحميل
@@ -285,6 +306,7 @@ photo-4x6 bucket:         anyone → upload
 ```
 
 ### 4.5 نظام التوصيات والتخصيص (Behavior)
+
 ```
 النظام: Visitor profiles + interest scoring
 حدث  CategoryBrowse: +1-3 للفئة
@@ -298,6 +320,7 @@ RPCs:
 ```
 
 ### 4.6 نظام تحسين الصور بالذكاء الاصطناعي (Photo AI)
+
 ```
 الإجراءات المدعومة:
   - enhance: تحسين عام
@@ -313,6 +336,7 @@ RPCs:
 ```
 
 ### 4.7 نظام توليد البيانات الوصفية (Poster AI)
+
 ```
 المُدخل: image_url, filename, categories, category, badge
 النظام: Gemini + prompt مع SEO copywriter persona
@@ -327,6 +351,7 @@ RPCs:
 ```
 
 ### 4.8 نظام النسخ الاحتياطي (Backups)
+
 ```
 الجدول: pg_cron → /api/public/hooks/backup
 التكرار: يومي (أو يدوي عبر admin)
@@ -337,6 +362,7 @@ RPCs:
 ```
 
 ### 4.9 نظام إشعارات المسؤولين (FCM)
+
 ```
 البنية التحتية: Firebase Cloud Messaging
 Service Worker: /firebase-messaging-sw.js (CDN + firebase compat SDK)
@@ -352,6 +378,7 @@ Service Worker: /firebase-messaging-sw.js (CDN + firebase compat SDK)
 ```
 
 ### 4.10 نظام مراقبة الأخطاء (Error Monitoring)
+
 ```
 Client-side:
   - window.onerror + unhandledrejection → system_logs
@@ -371,28 +398,30 @@ Server-side:
 ```
 
 ### 4.11 نظام تحليلات الموقع
+
 ```
 ثلاث طبقات:
   1. تحليلات داخلية (analytics_visits + analytics_poster_events)
      - trackVisit(path) ← زائر/جلسة/مسار/مصدر/جهاز/موقع
      - markUniqueView(posterId) ← مشاهدة فريدة
      - logPosterEvent(posterId, eventType) ← أحداث البوسترات
-  
+
   2. Meta Pixel + CAPI (خادم + متصفح)
      - أحداث قياسية: PageView, ViewContent, AddToCart, Purchase...
      - أحداث مخصصة: ViewCategory, PhotoPrintingCustomer...
      - Advanced Matching (email, phone)
      - eventID لمنع التكرار
-  
+
   3. Google Analytics 4 (gtag.js)
      - page_view, search, view_item, add_to_cart...
-  
+
   4. TikTok Pixel
      - يتم تحميله عبر script + requestIdleCallback
      - fires page() على تغيير المسار
 ```
 
 ### 4.12 نظام إعدادات الأداء (Performance Flags)
+
 ```
 العلامات المتاحة:
   - emergency_fast_mode: يلغي كل شيء غير أساسي
@@ -411,6 +440,7 @@ Server-side:
 ```
 
 ### 4.13 نظام العرض والتخصيص
+
 ```
 FramePreview (المكوّن الموحّد لعرض البوستر):
   - جميع البوسترات في الموقع تستخدم FramePreview حصراً
@@ -428,6 +458,7 @@ FramePreview (المكوّن الموحّد لعرض البوستر):
 ```
 
 ### 4.14 نظام التحقق من صورة المعرض (Canvas Validation)
+
 ```
 تُستخدم في CategoryGrids لاختيار أفضل الصور للمجموعات:
   1. تحميل الصورة في canvas بحجم 56×56
@@ -439,6 +470,7 @@ FramePreview (المكوّن الموحّد لعرض البوستر):
 ```
 
 ### 4.15 نظام التصميم والسمات (Theme System)
+
 ```
 5 سمات:
   - brw-classic (داكن، افتراضي): خلفية #0a0a0a، ألوان محايدة
@@ -454,9 +486,10 @@ FramePreview (المكوّن الموحّد لعرض البوستر):
 ```
 
 ### 4.16 نظام إعدادات الإطار (Frame Mockup Settings)
+
 ```
 الإطارات المتاحة: black (بلاستيك كلاسيك)، white (أبيض كلاسيك)، wood (خشب)
-المواضع: top، left، width، height (نسب مئوية), rotate, skewX, skewY, 
+المواضع: top، left، width، height (نسب مئوية), rotate, skewX, skewY,
           borderRadius, scale, perspective, rotateX, rotateY, flipX, flipY
 المصدر: site_settings (key: "frame_mockups")
 الإعدادات الافتراضية: MOCKUP_DEFAULTS في use-settings.ts
@@ -468,6 +501,7 @@ FramePreview (المكوّن الموحّد لعرض البوستر):
 ## 5. الإعدادات الخاصة والقيود (Special Configurations & Constraints)
 
 ### 5.1 متغيرات البيئة (Environment Variables)
+
 ```
 مفاتيح Supabase:
   SUPABASE_URL، SUPABASE_PUBLISHABLE_KEY، SUPABASE_ANON_KEY
@@ -493,6 +527,7 @@ FramePreview (المكوّن الموحّد لعرض البوستر):
 ```
 
 ### 5.2 قواعد التحقق من صحة البيانات
+
 ```
 Validation في صفحة السلة (Checkout):
   - اسم العميل: يجب ألا يكون فارغاً
@@ -508,12 +543,13 @@ Validation في صفحة السلة (Checkout):
   - إلزام فئة فرعية إن كانت الفئة الرئيسية تتطلبها
 
 تحقق تحسين الصور:
-  - يجب أن يكون إدخال data:image/... 
+  - يجب أن يكون إدخال data:image/...
   - أقصى حجم 8MB
   - يجب أن تحتوي الصورة على شخص (لا ينطبق على suit)
 ```
 
 ### 5.3 قواعد الأسعار (Pricing Defaults)
+
 ```yaml
 إطارات PVC:
   20×30: 80 EGP    30×40: 120 EGP    40×60: 200 EGP
@@ -540,6 +576,7 @@ Validation في صفحة السلة (Checkout):
 ```
 
 ### 5.4 قيود الأداء
+
 ```
 - أقصى 2500 منتج للفحص التلقائي للمجموعات
 - دفعات 80 ID لاستعلام image_variants
@@ -552,6 +589,7 @@ Validation في صفحة السلة (Checkout):
 ```
 
 ### 5.5 قيود إضافية
+
 ```
 - أقصى حجم للرفع: 25MB لكل ملف (Custom Design)
 - أقصى 20 ملفاً (Custom Design)
@@ -570,6 +608,7 @@ Validation في صفحة السلة (Checkout):
 ### 6.1 الإنجازات الأخيرة
 
 تم بنجاح:
+
 1. **توحيد خط أنابيب العرض** — جميع البوسترات (ProductCard, CategoryGrids, FramedArtwork, ShopByCollection, PersonalRails, RecentlyViewed, RelatedPosters) تستخدم `FramePreview` حصراً. تم إزالة المكوّن `ProductFrameArtwork` بالكامل.
 
 2. **CSS إلزامي في FramePreview** — `object-fit:cover`، `transform:none`، `scale:1`، `line-height:0`، `display:block`، `width:100%`، `height:100%` مثبّتة في كود `FramePreview.tsx` نفسها (وليس من خلال Tailwind فقط).
@@ -584,13 +623,15 @@ Validation في صفحة السلة (Checkout):
 5. **ما زال قائماً** — لا يمكن التحقق البصري من الإنتاج عبر headless Chrome لأن Supabase تمنع جلب البيانات في وضع الرأس (bot detection). التحقق المحلي مكتمل.
 
 ### 6.2 الفروق المتبقية
-| الخاصية | البطاقة (Grid) | المعاينة (Selected Preview) |
-|---------|----------------|-------------------------------|
-| دقة الصورة | thumbnail (240px) | medium (640px) |
-| الهندسة | متطابقة | متطابقة |
-| المصدر | `cardArtworkUrl` | `resolveProductArtwork(poster, imageMap)` |
+
+| الخاصية    | البطاقة (Grid)    | المعاينة (Selected Preview)               |
+| ---------- | ----------------- | ----------------------------------------- |
+| دقة الصورة | thumbnail (240px) | medium (640px)                            |
+| الهندسة    | متطابقة           | متطابقة                                   |
+| المصدر     | `cardArtworkUrl`  | `resolveProductArtwork(poster, imageMap)` |
 
 ### 6.3 المهام القادمة
+
 1. **التحقق البصري للإنتاج** — المستخدم بحاجة لفتح `https://brwazwneon.com/category/movies` في متصفح حقيقي والتحقق من تطابق البطاقة مع المعاينة.
 
 2. **تحسين جودة الصور في الشبكة** — اختيارياً: تغيير `ProductCard` لاستخدام `small` (320px) بدلاً من `thumb` (240px) لجودة أفضل مع الحفاظ على الهندسة.
@@ -604,12 +645,14 @@ Validation في صفحة السلة (Checkout):
 ## 7. كل ما تم بناؤه في التطبيق (Complete Work History)
 
 ### 7.1 البنية التحتية الأساسية
+
 - مشروع **TanStack Start** + **Vite** + **React 19**
 - تكامل كامل مع **Supabase** (Auth, Database, Storage, RPC, Realtime)
 - تكامل مع **Vercel** (نشر Production مع Cloudflare Workers)
 - نظام **Nitro SSR** مع دعم Cloudflare module preset
 
 ### 7.2 مكونات واجهة المستخدم
+
 - **46 مكوناً من shadcn/ui** (جميعها مخصصة للسمة الداكنة الفاتحة)
 - **35+ مكوناً مخصصاً** للمتجر:
   - SiteHeader (رأس متجاوب مع قائمة منسدلة للموبايل)
@@ -660,6 +703,7 @@ Validation في صفحة السلة (Checkout):
   - AppPreloader (محمل الموارد المسبق)
 
 ### 7.3 المسارات والصفحات
+
 - **/** — الصفحة الرئيسية (25+ قسماً قابلاً للتكوين)
 - **/category/$slug** — صفحة الفئة مع معاينة وتخصيص
 - **/cart** — سلة التسوق والدفع الكامل
@@ -681,6 +725,7 @@ Validation في صفحة السلة (Checkout):
 - **/api/public/hooks/backup** — API النسخ الاحتياطي
 
 ### 7.4 مكتبات الخدمة والمنطق
+
 - **إدارة السلة** — CartProvider + localStorage + خصم الكمية
 - **إدارة المفضلة** — WishlistProvider + hybrid sync
 - **آخر المشاهدة** — RecentlyViewedProvider + localStorage + Supabase
@@ -699,6 +744,7 @@ Validation في صفحة السلة (Checkout):
 - **أدوات مساعدة** — utils (cn, formatCurrency, slugify, etc.)
 
 ### 7.5 الذكاء الاصطناعي والتكاملات
+
 - **AI Gateway** — OpenRouter للمساعد الإداري (openai/gpt-4o-mini، عبر src/lib/ai-gateway.server.ts)
 - **Gemini API** — 10 مفاتيح مع priority queue + cooldown + OpenRouter fallback
 - **مساعد إداري** — 20+ أداة (استعلامات، إجراءات، توليد، تشخيص)
@@ -707,6 +753,7 @@ Validation في صفحة السلة (Checkout):
 - **مساعد بحث** — بحث نصي كامل مع اقتراحات
 
 ### 7.6 لوحة التحكم الإدارية (56 تبويباً)
+
 - Analytics, Reports, Realtime Analytics
 - Behavior Management, Posters CRUD
 - AI Upload, AI Settings
@@ -732,6 +779,7 @@ Validation في صفحة السلة (Checkout):
 - Branding, Appearance, Settings
 
 ### 7.7 بنية قاعدة البيانات (90 تهجيرة)
+
 - **الأساس** (24 يونيو): roles, posters, categories, orders, auth
 - **التوسع** (يونيو-يوليو): photo_orders, wishlists, reviews, sets, best_sellers, hero_banners
 - **SEO والبحث** (يونيو): pg_trgm للبحث النصي، أعمدة SEO
@@ -747,6 +795,7 @@ Validation في صفحة السلة (Checkout):
 ## ملخص المسار الحالي
 
 **ما تم تحقيقه:**
+
 - ✅ مشروع e-commerce كامل الخدمات (Posters, Frames, Custom Design, Photo Printing)
 - ✅ دفع Instapay + COD مع شحن في مصر
 - ✅ عرض بوسترات موحّد (FramePreview) مع هندسة متطابقة عبر جميع المكونات
@@ -759,5 +808,6 @@ Validation في صفحة السلة (Checkout):
 - ✅ نسخ احتياطي مشفر تلقائي
 
 **المهمة الحالية:**
+
 - التحقق البصري من تطابق الهندسة بين بطاقة الشبكة ومعاينة المنتج المحدد على `https://brwazwneon.com`
 - اختيارياً: تحسين دقة الصور في الشبكة من `thumb` (240px) إلى `small` (320px)

@@ -318,7 +318,9 @@ function CustomerDetailPanel({
             </div>
 
             <div className="mb-4">
-              <label className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">Tags</label>
+              <label className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                Tags
+              </label>
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {editing.tags.map((t) => (
                   <span
@@ -326,7 +328,10 @@ function CustomerDetailPanel({
                     className="flex items-center gap-1 rounded-sm bg-accent px-2 py-0.5 text-xs"
                   >
                     {t}
-                    <button onClick={() => removeTag(t)} className="text-muted-foreground hover:text-foreground">
+                    <button
+                      onClick={() => removeTag(t)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
                       ✕
                     </button>
                   </span>
@@ -343,7 +348,10 @@ function CustomerDetailPanel({
                   }}
                   className="w-48 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
                 />
-                <button onClick={addTag} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+                <button
+                  onClick={addTag}
+                  className="rounded-sm border border-border px-3 py-1.5 text-xs"
+                >
                   Add
                 </button>
               </div>
@@ -376,10 +384,17 @@ function CustomerDetailPanel({
             ) : (
               <div className="space-y-2">
                 {orders.map((o) => (
-                  <div key={o.id} className="flex items-center justify-between rounded-sm border border-border p-2.5 text-sm">
+                  <div
+                    key={o.id}
+                    className="flex items-center justify-between rounded-sm border border-border p-2.5 text-sm"
+                  >
                     <div className="flex items-center gap-2">
                       {o.poster_image && (
-                        <img src={o.poster_image} alt="" className="h-10 w-8 rounded-sm object-cover" />
+                        <img
+                          src={o.poster_image}
+                          alt=""
+                          className="h-10 w-8 rounded-sm object-cover"
+                        />
                       )}
                       <div>
                         <div className="text-xs font-medium">{o.poster_title}</div>

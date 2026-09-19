@@ -21,16 +21,23 @@ function toBase64Url(bytes: Uint8Array): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 function fromBase64Url(s: string): Uint8Array {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(s.length + ((4 - (s.length % 4)) % 4), "=");
+  const b64 = s
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(s.length + ((4 - (s.length % 4)) % 4), "=");
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, [
-    "deriveBits",
-  ]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
   const bits = await crypto.subtle.deriveBits(
     { name: "PBKDF2", salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
     key,
@@ -45,9 +52,13 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const iterations = Number(parts[1]);
   const salt = fromBase64Url(parts[2]);
   const expected = fromBase64Url(parts[3]);
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, [
-    "deriveBits",
-  ]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
   const bits = new Uint8Array(
     await crypto.subtle.deriveBits(
       { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
@@ -81,14 +92,19 @@ export async function createSessionToken(adminId: string): Promise<string> {
   return `${payload}.${sig}`;
 }
 
-export async function verifySessionToken(token: string | undefined): Promise<{ id: string } | null> {
+export async function verifySessionToken(
+  token: string | undefined,
+): Promise<{ id: string } | null> {
   if (!token) return null;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
   const expectedSig = await hmac(payload);
   if (sig !== expectedSig) return null;
   try {
-    const data = JSON.parse(new TextDecoder().decode(fromBase64Url(payload))) as { id: string; exp: number };
+    const data = JSON.parse(new TextDecoder().decode(fromBase64Url(payload))) as {
+      id: string;
+      exp: number;
+    };
     if (Date.now() > data.exp) return null;
     return { id: data.id };
   } catch {
@@ -96,7 +112,9 @@ export async function verifySessionToken(token: string | undefined): Promise<{ i
   }
 }
 
-export async function findAdminByEmail(email: string): Promise<{ id: string; password_hash: string } | null> {
+export async function findAdminByEmail(
+  email: string,
+): Promise<{ id: string; password_hash: string } | null> {
   const rows = await sql()`
     select id, password_hash from admin_users where email = ${email.toLowerCase().trim()} limit 1
   `;

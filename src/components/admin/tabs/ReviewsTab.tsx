@@ -127,10 +127,16 @@ export function ReviewsTab() {
             </label>
           </div>
           <div className="flex gap-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            <button
+              onClick={save}
+              className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
               Save
             </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Cancel
             </button>
           </div>
@@ -139,7 +145,10 @@ export function ReviewsTab() {
 
       <div className="space-y-2">
         {reviews.map((r) => (
-          <div key={r.id} className="flex items-start justify-between gap-3 rounded-sm border border-border p-3">
+          <div
+            key={r.id}
+            className="flex items-start justify-between gap-3 rounded-sm border border-border p-3"
+          >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-medium">
                 {r.customer_name}
@@ -155,13 +164,21 @@ export function ReviewsTab() {
                   </span>
                 )}
               </div>
-              {r.review_text && <p className="mt-1 truncate text-xs text-muted-foreground">{r.review_text}</p>}
+              {r.review_text && (
+                <p className="mt-1 truncate text-xs text-muted-foreground">{r.review_text}</p>
+              )}
             </div>
             <div className="flex shrink-0 gap-2">
-              <button onClick={() => toggleApproved(r)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => toggleApproved(r)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 {r.approved ? "Unapprove" : "Approve"}
               </button>
-              <button onClick={() => setEditing(r)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(r)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
               <button onClick={() => remove(r.id)} className="text-xs text-red-500 hover:underline">

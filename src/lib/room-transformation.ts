@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { getSiteSettingsPublic, getRoomTransformationArtworkPublic } from "@/lib/db-public.functions";
+import {
+  getSiteSettingsPublic,
+  getRoomTransformationArtworkPublic,
+} from "@/lib/db-public.functions";
 import type { ResponsivePosterImage } from "@/lib/public-images";
 
 export const ROOM_TRANSFORMATION_KEY = "homepage_room_transformation";
@@ -201,9 +204,14 @@ export function useRoomTransformationArtwork(settings: RoomTransformationSetting
     enabled: settings.enabled,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<RoomArtwork | null> => {
-      const row = await getRoomTransformationArtworkPublic({ data: { posterId: settings.posterId } });
+      const row = await getRoomTransformationArtworkPublic({
+        data: { posterId: settings.posterId },
+      });
       if (!row) return null;
-      const image: ResponsivePosterImage = { src: row.image_url, sizes: "(max-width: 640px) 72vw, 360px" };
+      const image: ResponsivePosterImage = {
+        src: row.image_url,
+        sizes: "(max-width: 640px) 72vw, 360px",
+      };
       return { posterId: row.id, title: row.title, image };
     },
   });

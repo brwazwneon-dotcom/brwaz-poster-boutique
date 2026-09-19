@@ -224,7 +224,9 @@ export default defineConfig(async ({ command, mode }) => {
     define: envDefine,
     ...(isDevBuild
       ? {
-          environments: { client: { define: { "process.env.NODE_ENV": JSON.stringify("development") } } },
+          environments: {
+            client: { define: { "process.env.NODE_ENV": JSON.stringify("development") } },
+          },
           esbuild: { keepNames: true },
         }
       : {}),
@@ -250,7 +252,13 @@ export default defineConfig(async ({ command, mode }) => {
     // requests. React core only — including @tanstack/react-start would pull
     // its node:async_hooks server entry into the client bundle and crash hydration.
     optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+      ],
       ignoreOutdatedRequests: true,
     },
     server: { host: "::" as const, port: 8080 },

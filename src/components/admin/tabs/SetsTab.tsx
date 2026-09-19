@@ -80,7 +80,11 @@ export function SetsTab() {
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[160px_1fr]">
           <div>
             {editing.image_url ? (
-              <img src={editing.image_url} alt="" className="aspect-square w-full rounded-sm object-cover" />
+              <img
+                src={editing.image_url}
+                alt=""
+                className="aspect-square w-full rounded-sm object-cover"
+              />
             ) : (
               <div className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -141,7 +145,10 @@ export function SetsTab() {
                 placeholder="Old price (optional)"
                 value={editing.old_price ?? ""}
                 onChange={(e) =>
-                  setEditing({ ...editing, old_price: e.target.value ? Number(e.target.value) : null })
+                  setEditing({
+                    ...editing,
+                    old_price: e.target.value ? Number(e.target.value) : null,
+                  })
                 }
                 className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
               />
@@ -165,10 +172,16 @@ export function SetsTab() {
               </label>
             </div>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -178,7 +191,10 @@ export function SetsTab() {
 
       <div className="space-y-2">
         {sets.map((s) => (
-          <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+          <div
+            key={s.id}
+            className="flex items-center justify-between rounded-sm border border-border p-3"
+          >
             <div className="flex items-center gap-3">
               {s.image_url ? (
                 <img src={s.image_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
@@ -194,10 +210,16 @@ export function SetsTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => toggleEnabled(s)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => toggleEnabled(s)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 {s.enabled ? "Disable" : "Enable"}
               </button>
-              <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(s)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
               <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">

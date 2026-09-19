@@ -29,7 +29,11 @@ export function getBatchSize(): number {
   return 12;
 }
 
-export function useInfiniteProducts(categoryIds: string[], sortConfig: SortConfig, queryKey: string) {
+export function useInfiniteProducts(
+  categoryIds: string[],
+  sortConfig: SortConfig,
+  queryKey: string,
+) {
   const [products, setProducts] = useState<NormalizedProduct[]>([]);
   const [state, setState] = useState<RequestState>("idle");
   const [error, setError] = useState<Error | null>(null);

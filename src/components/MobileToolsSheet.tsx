@@ -124,7 +124,9 @@ export function MobileToolsSheet({ enabled = true }: MobileToolsSheetProps) {
           {tools.map((tool) => {
             const content = (
               <div className="flex items-center gap-3 rounded-lg px-4 py-3.5 hover:bg-[#f7f7f7] transition-colors min-h-[52px]">
-                <span className={cn("flex h-10 w-10 items-center justify-center rounded-full", tool.bg)}>
+                <span
+                  className={cn("flex h-10 w-10 items-center justify-center rounded-full", tool.bg)}
+                >
                   <tool.icon className={cn("h-5 w-5", tool.color)} />
                 </span>
                 <div className="flex flex-col">

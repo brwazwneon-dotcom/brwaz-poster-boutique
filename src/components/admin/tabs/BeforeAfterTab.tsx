@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { listBeforeAfterAdmin, upsertBeforeAfter, deleteBeforeAfter } from "@/lib/db-admin.functions";
+import {
+  listBeforeAfterAdmin,
+  upsertBeforeAfter,
+  deleteBeforeAfter,
+} from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminBeforeAfter } from "./shared";
@@ -102,7 +106,9 @@ export function BeforeAfterTab() {
                   </div>
                 )}
                 <button
-                  onClick={() => (side === "before" ? beforeFileRef : afterFileRef).current?.click()}
+                  onClick={() =>
+                    (side === "before" ? beforeFileRef : afterFileRef).current?.click()
+                  }
                   disabled={uploadingSide !== null}
                   className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
                 >
@@ -156,10 +162,16 @@ export function BeforeAfterTab() {
             </label>
           </div>
           <div className="flex gap-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            <button
+              onClick={save}
+              className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
               Save
             </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Cancel
             </button>
           </div>
@@ -168,7 +180,10 @@ export function BeforeAfterTab() {
 
       <div className="space-y-2">
         {items.map((it) => (
-          <div key={it.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+          <div
+            key={it.id}
+            className="flex items-center justify-between rounded-sm border border-border p-3"
+          >
             <div className="flex items-center gap-3">
               <div className="flex gap-1">
                 <img src={it.before_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
@@ -183,19 +198,30 @@ export function BeforeAfterTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => toggleActive(it)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => toggleActive(it)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 {it.active ? "Disable" : "Enable"}
               </button>
-              <button onClick={() => setEditing(it)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(it)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
-              <button onClick={() => remove(it.id)} className="text-xs text-red-500 hover:underline">
+              <button
+                onClick={() => remove(it.id)}
+                className="text-xs text-red-500 hover:underline"
+              >
                 Delete
               </button>
             </div>
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-muted-foreground">No before/after pairs yet.</p>}
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">No before/after pairs yet.</p>
+        )}
       </div>
     </div>
   );

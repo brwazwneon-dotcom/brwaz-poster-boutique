@@ -1,4 +1,8 @@
-import { logVisitPublic, logPosterEventPublic, logSearchQueryPublic } from "@/lib/db-public.functions";
+import {
+  logVisitPublic,
+  logPosterEventPublic,
+  logSearchQueryPublic,
+} from "@/lib/db-public.functions";
 import { isPreviewMode } from "./preview-mode";
 
 const VISITOR_KEY = "brw-visitor-id";

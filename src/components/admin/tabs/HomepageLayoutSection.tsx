@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, GripVertical, Loader2, RotateCcw, Save, RefreshCw } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  GripVertical,
+  Loader2,
+  RotateCcw,
+  Save,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getAllSiteSettingsAdmin, setSiteSetting } from "@/lib/db-admin.functions";
 import {
@@ -125,7 +134,9 @@ export function HomepageLayoutSection() {
     try {
       await setSiteSetting({ data: { key: HOME_SECTIONS_DRAFT_KEY, value: next } });
       setSavedSnapshot(serialize(next));
-      toast.success(`Sync complete — ${added.length} section(s) added: ${toAdd.map((e) => e.label).join(", ")}`);
+      toast.success(
+        `Sync complete — ${added.length} section(s) added: ${toAdd.map((e) => e.label).join(", ")}`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to sync homepage sections");
     }
@@ -215,8 +226,8 @@ export function HomepageLayoutSection() {
           </p>
           {missingRegistrySections.length > 0 && (
             <p className="mt-1 text-xs text-amber-600">
-              {missingRegistrySections.length} registered section(s) not yet in this layout — use Sync to add
-              them.
+              {missingRegistrySections.length} registered section(s) not yet in this layout — use
+              Sync to add them.
             </p>
           )}
           <p className={cn("mt-2 text-xs", dirty ? "text-amber-600" : "text-muted-foreground")}>

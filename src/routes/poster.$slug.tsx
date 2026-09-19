@@ -78,7 +78,7 @@ export const Route = createFileRoute("/poster/$slug")({
   head: ({ loaderData, params }) => {
     const poster = loaderData?.poster;
     const title = poster
-      ? (poster.seo_title || `${poster.title} — Framed Poster | BRWAZWNEON`)
+      ? poster.seo_title || `${poster.title} — Framed Poster | BRWAZWNEON`
       : "Poster — BRWAZWNEON";
     const description =
       poster?.seo_description ||

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getAllSiteSettingsAdmin, setSiteSetting, listPostersAdmin } from "@/lib/db-admin.functions";
+import {
+  getAllSiteSettingsAdmin,
+  setSiteSetting,
+  listPostersAdmin,
+} from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import {
@@ -55,13 +59,23 @@ function MockupArtworkPreview({ mockup, posterUrl }: { mockup: FrameMockup; post
         )}
       </div>
       {mockup.image && (
-        <img src={mockup.image} alt="" className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill" />
+        <img
+          src={mockup.image}
+          alt=""
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill"
+        />
       )}
     </div>
   );
 }
 
-const MOCKUP_NUMBER_FIELDS: Array<{ key: keyof FrameMockup; label: string; step?: number; min?: number; max?: number }> = [
+const MOCKUP_NUMBER_FIELDS: Array<{
+  key: keyof FrameMockup;
+  label: string;
+  step?: number;
+  min?: number;
+  max?: number;
+}> = [
   { key: "top", label: "Top (%)", step: 0.1 },
   { key: "left", label: "Left (%)", step: 0.1 },
   { key: "width", label: "Width (%)", step: 0.1 },
@@ -165,7 +179,9 @@ export function FrameMockupsTab() {
       <div className="mt-4 grid gap-6 sm:grid-cols-[220px_1fr]">
         <div>
           <MockupArtworkPreview mockup={current} posterUrl={sampleUrl} />
-          <p className="mt-2 text-center text-[10px] text-muted-foreground">Live preview (sample product photo)</p>
+          <p className="mt-2 text-center text-[10px] text-muted-foreground">
+            Live preview (sample product photo)
+          </p>
         </div>
 
         <div className="space-y-4">
@@ -205,7 +221,9 @@ export function FrameMockupsTab() {
                   type="number"
                   step={f.step ?? 1}
                   value={(current[f.key] as number | undefined) ?? 0}
-                  onChange={(e) => update({ [f.key]: Number(e.target.value) } as Partial<FrameMockup>)}
+                  onChange={(e) =>
+                    update({ [f.key]: Number(e.target.value) } as Partial<FrameMockup>)
+                  }
                   className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
                 />
               </label>
@@ -214,11 +232,19 @@ export function FrameMockupsTab() {
 
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={Boolean(current.flipX)} onChange={(e) => update({ flipX: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={Boolean(current.flipX)}
+                onChange={(e) => update({ flipX: e.target.checked })}
+              />
               Flip horizontal
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={Boolean(current.flipY)} onChange={(e) => update({ flipY: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={Boolean(current.flipY)}
+                onChange={(e) => update({ flipY: e.target.checked })}
+              />
               Flip vertical
             </label>
             <label className="flex items-center gap-2 text-sm">
@@ -239,7 +265,10 @@ export function FrameMockupsTab() {
             >
               {saving ? "Saving…" : "Save"}
             </button>
-            <button onClick={resetToDefault} className="rounded-sm border border-border px-4 py-2 text-xs">
+            <button
+              onClick={resetToDefault}
+              className="rounded-sm border border-border px-4 py-2 text-xs"
+            >
               Reset to default
             </button>
           </div>

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { listCustomOffersAdmin, upsertCustomOffer, deleteCustomOffer } from "@/lib/db-admin.functions";
+import {
+  listCustomOffersAdmin,
+  upsertCustomOffer,
+  deleteCustomOffer,
+} from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCustomOffer } from "./shared";
@@ -81,7 +85,11 @@ export function CustomOffersTab() {
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[160px_1fr]">
           <div>
             {editing.image_url ? (
-              <img src={editing.image_url} alt="" className="aspect-square w-full rounded-sm object-cover" />
+              <img
+                src={editing.image_url}
+                alt=""
+                className="aspect-square w-full rounded-sm object-cover"
+              />
             ) : (
               <div className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -157,10 +165,16 @@ export function CustomOffersTab() {
               Enabled
             </label>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -170,7 +184,10 @@ export function CustomOffersTab() {
 
       <div className="space-y-2">
         {offers.map((o) => (
-          <div key={o.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+          <div
+            key={o.id}
+            className="flex items-center justify-between rounded-sm border border-border p-3"
+          >
             <div className="flex items-center gap-3">
               {o.image_url ? (
                 <img src={o.image_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
@@ -185,10 +202,16 @@ export function CustomOffersTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => toggleEnabled(o)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => toggleEnabled(o)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 {o.enabled ? "Disable" : "Enable"}
               </button>
-              <button onClick={() => setEditing(o)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(o)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
               <button onClick={() => remove(o.id)} className="text-xs text-red-500 hover:underline">
@@ -197,7 +220,9 @@ export function CustomOffersTab() {
             </div>
           </div>
         ))}
-        {offers.length === 0 && <p className="text-sm text-muted-foreground">No custom offers yet.</p>}
+        {offers.length === 0 && (
+          <p className="text-sm text-muted-foreground">No custom offers yet.</p>
+        )}
       </div>
     </div>
   );

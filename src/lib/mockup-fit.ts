@@ -31,7 +31,17 @@ export function computeMockupFit(ratio: number | null): MockupFit {
 /** Reduce a decimal ratio to a friendly "W:H" string, e.g. 0.667 -> "2:3". */
 export function friendlyRatio(ratio: number): string {
   const candidates: Array<[number, number]> = [
-    [1, 1], [2, 3], [3, 2], [3, 4], [4, 3], [4, 5], [5, 4], [9, 16], [16, 9], [1, 2], [2, 1],
+    [1, 1],
+    [2, 3],
+    [3, 2],
+    [3, 4],
+    [4, 3],
+    [4, 5],
+    [5, 4],
+    [9, 16],
+    [16, 9],
+    [1, 2],
+    [2, 1],
   ];
   let best: [number, number] = [Math.round(ratio * 100), 100];
   let bestErr = Infinity;

@@ -38,7 +38,8 @@ import { LoadingRows, LoadingForm } from "@/components/admin/layout/LoadingState
 // "fast to load" are otherwise in tension. See src/lib/responsive-image.ts
 // for what this actually does (WebP/AVIF variants at several widths,
 // uploaded, returned as ready-to-store srcset strings).
-const uploadResponsiveSrcSets = (file: File) => uploadResponsiveSrcSetsShared(file, uploadPosterImage);
+const uploadResponsiveSrcSets = (file: File) =>
+  uploadResponsiveSrcSetsShared(file, uploadPosterImage);
 
 export function HomepageTab() {
   const confirm = useConfirm();
@@ -120,113 +121,143 @@ export function HomepageTab() {
           </button>
         </div>
 
-      {editing && (
-        <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
-          <div>
-            {editing.image_url ? (
-              <img src={editing.image_url} alt="" className="aspect-[16/7] w-full rounded-sm object-cover" />
-            ) : (
-              <div className="flex aspect-[16/7] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
-                No image
-              </div>
-            )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
-            >
-              {uploading ? "Uploading…" : "Upload image"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                if (e.target.files?.[0]) handleFile(e.target.files[0]);
-                e.target.value = "";
-              }}
-            />
-          </div>
-          <div className="space-y-3">
-            <input
-              placeholder="Title (optional)"
-              value={editing.title ?? ""}
-              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Subtitle (optional)"
-              value={editing.subtitle ?? ""}
-              onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })}
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Button text (optional)"
-              value={editing.button_text ?? ""}
-              onChange={(e) => setEditing({ ...editing, button_text: e.target.value })}
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="Button link (optional, e.g. /category/football)"
-              value={editing.button_link ?? ""}
-              onChange={(e) => setEditing({ ...editing, button_link: e.target.value })}
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-            />
-            <label className="flex items-center gap-2 text-sm">
+        {editing && (
+          <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
+            <div>
+              {editing.image_url ? (
+                <img
+                  src={editing.image_url}
+                  alt=""
+                  className="aspect-[16/7] w-full rounded-sm object-cover"
+                />
+              ) : (
+                <div className="flex aspect-[16/7] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
+                  No image
+                </div>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="mt-2 w-full rounded-sm border border-border px-2 py-1.5 text-xs disabled:opacity-50"
+              >
+                {uploading ? "Uploading…" : "Upload image"}
+              </button>
               <input
-                type="checkbox"
-                checked={editing.enabled !== false}
-                onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                  e.target.value = "";
+                }}
               />
-              Enabled
-            </label>
-            <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-                Save
-              </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
-                Cancel
-              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                placeholder="Title (optional)"
+                value={editing.title ?? ""}
+                onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Subtitle (optional)"
+                value={editing.subtitle ?? ""}
+                onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Button text (optional)"
+                value={editing.button_text ?? ""}
+                onChange={(e) => setEditing({ ...editing, button_text: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Button link (optional, e.g. /category/football)"
+                value={editing.button_link ?? ""}
+                onChange={(e) => setEditing({ ...editing, button_link: e.target.value })}
+                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editing.enabled !== false}
+                  onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={save}
+                  className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditing(null)}
+                  className="rounded-sm border border-border px-3 py-1.5 text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="space-y-2">
-        {banners
-          .slice()
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((b) => (
-            <div key={b.id} className="flex items-center justify-between rounded-sm border border-border p-3">
-              <div className="flex items-center gap-3">
-                <img src={b.image_url} alt="" className="h-12 w-20 rounded-sm object-cover" />
-                <div>
-                  <div className="text-sm font-medium">{b.title || "(no title)"}</div>
-                  <div className="text-xs text-muted-foreground">{b.enabled ? "Enabled" : "Disabled"}</div>
+        <div className="space-y-2">
+          {banners
+            .slice()
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((b) => (
+              <div
+                key={b.id}
+                className="flex items-center justify-between rounded-sm border border-border p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <img src={b.image_url} alt="" className="h-12 w-20 rounded-sm object-cover" />
+                  <div>
+                    <div className="text-sm font-medium">{b.title || "(no title)"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {b.enabled ? "Enabled" : "Disabled"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => move(b, -1)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    onClick={() => move(b, 1)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    onClick={() => toggleEnabled(b)}
+                    className="text-xs text-cyan-500 hover:underline"
+                  >
+                    {b.enabled ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    onClick={() => setEditing(b)}
+                    className="text-xs text-cyan-500 hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => remove(b.id)}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => move(b, -1)} className="text-xs text-muted-foreground hover:text-foreground">
-                  ↑
-                </button>
-                <button onClick={() => move(b, 1)} className="text-xs text-muted-foreground hover:text-foreground">
-                  ↓
-                </button>
-                <button onClick={() => toggleEnabled(b)} className="text-xs text-cyan-500 hover:underline">
-                  {b.enabled ? "Disable" : "Enable"}
-                </button>
-                <button onClick={() => setEditing(b)} className="text-xs text-cyan-500 hover:underline">
-                  Edit
-                </button>
-                <button onClick={() => remove(b.id)} className="text-xs text-red-500 hover:underline">
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        {banners.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
-      </div>
+            ))}
+          {banners.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
+        </div>
       </div>
 
       <div className="mt-10 border-t border-border pt-8">
@@ -317,7 +348,11 @@ function SliderImagesSection() {
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[200px_1fr]">
           <div>
             {editing.image_url ? (
-              <img src={editing.image_url} alt="" className="aspect-[16/7] w-full rounded-sm object-cover" />
+              <img
+                src={editing.image_url}
+                alt=""
+                className="aspect-[16/7] w-full rounded-sm object-cover"
+              />
             ) : (
               <div className="flex aspect-[16/7] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -363,10 +398,16 @@ function SliderImagesSection() {
               Enabled
             </label>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -379,22 +420,36 @@ function SliderImagesSection() {
           .slice()
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((s) => (
-            <div key={s.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+            <div
+              key={s.id}
+              className="flex items-center justify-between rounded-sm border border-border p-3"
+            >
               <div className="flex items-center gap-3">
                 <img src={s.image_url} alt="" className="h-12 w-20 rounded-sm object-cover" />
                 <div>
                   <div className="text-sm font-medium">{s.title || "(no title)"}</div>
-                  <div className="text-xs text-muted-foreground">{s.enabled ? "Enabled" : "Disabled"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.enabled ? "Enabled" : "Disabled"}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => toggleEnabled(s)} className="text-xs text-cyan-500 hover:underline">
+                <button
+                  onClick={() => toggleEnabled(s)}
+                  className="text-xs text-cyan-500 hover:underline"
+                >
                   {s.enabled ? "Disable" : "Enable"}
                 </button>
-                <button onClick={() => setEditing(s)} className="text-xs text-cyan-500 hover:underline">
+                <button
+                  onClick={() => setEditing(s)}
+                  className="text-xs text-cyan-500 hover:underline"
+                >
                   Edit
                 </button>
-                <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline">
+                <button
+                  onClick={() => remove(s.id)}
+                  className="text-xs text-red-500 hover:underline"
+                >
                   Delete
                 </button>
               </div>
@@ -479,7 +534,11 @@ function HighlightsSection() {
         <div className="mb-6 grid gap-4 rounded-sm border border-border bg-card p-4 sm:grid-cols-[120px_1fr]">
           <div>
             {editing.image_url ? (
-              <img src={editing.image_url} alt="" className="aspect-square w-full rounded-full object-cover" />
+              <img
+                src={editing.image_url}
+                alt=""
+                className="aspect-square w-full rounded-full object-cover"
+              />
             ) : (
               <div className="flex aspect-square items-center justify-center rounded-full border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -525,10 +584,16 @@ function HighlightsSection() {
               Enabled
             </label>
             <div className="flex gap-2">
-              <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+              <button
+                onClick={save}
+                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
                 Save
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-sm border border-border px-3 py-1.5 text-xs"
+              >
                 Cancel
               </button>
             </div>
@@ -540,20 +605,33 @@ function HighlightsSection() {
         {items.map((h) => (
           <div key={h.id} className="w-24 rounded-sm border border-border p-2 text-center">
             {h.image_url ? (
-              <img src={h.image_url} alt="" className="mx-auto h-14 w-14 rounded-full object-cover" />
+              <img
+                src={h.image_url}
+                alt=""
+                className="mx-auto h-14 w-14 rounded-full object-cover"
+              />
             ) : (
               <div className="mx-auto h-14 w-14 rounded-full border border-dashed border-border" />
             )}
             <div className="mt-1 truncate text-[10px] font-medium">{h.title}</div>
             <div className="text-[9px] text-muted-foreground">{h.enabled ? "On" : "Off"}</div>
             <div className="mt-1 flex justify-center gap-1.5">
-              <button onClick={() => toggleEnabled(h)} className="text-[10px] text-cyan-500 hover:underline">
+              <button
+                onClick={() => toggleEnabled(h)}
+                className="text-[10px] text-cyan-500 hover:underline"
+              >
                 {h.enabled ? "Hide" : "Show"}
               </button>
-              <button onClick={() => setEditing(h)} className="text-[10px] text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(h)}
+                className="text-[10px] text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
-              <button onClick={() => remove(h.id)} className="text-[10px] text-red-500 hover:underline">
+              <button
+                onClick={() => remove(h.id)}
+                className="text-[10px] text-red-500 hover:underline"
+              >
                 Del
               </button>
             </div>
@@ -612,7 +690,10 @@ function TrustFaqSection() {
   const updateFaq = (id: string, patch: Partial<FAQItem>) => {
     save({
       ...content,
-      faq: { ...content.faq, items: content.faq.items.map((f) => (f.id === id ? { ...f, ...patch } : f)) },
+      faq: {
+        ...content.faq,
+        items: content.faq.items.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+      },
     });
   };
 
@@ -655,7 +736,9 @@ function TrustFaqSection() {
         ))}
       </div>
 
-      <h3 className="mt-6 text-xs font-semibold uppercase tracking-widest text-muted-foreground">FAQ</h3>
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        FAQ
+      </h3>
       <div className="mt-2 space-y-2">
         {content.faq.items.map((f) => (
           <div key={f.id} className="rounded-sm border border-border p-2.5">

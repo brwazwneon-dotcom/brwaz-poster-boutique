@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Eye, GripVertical, Loader2, RotateCcw, Save, RefreshCw } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  GripVertical,
+  Loader2,
+  RotateCcw,
+  Save,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -119,7 +128,9 @@ export function HomepageLayoutTab() {
     }
     setSavedSnapshot(serialize(next));
     await queryClient.invalidateQueries({ queryKey: ["admin-homepage-layout"] });
-    toast.success(`Sync complete — ${added.length} section(s) added: ${toAdd.map((e) => e.label).join(", ")}`);
+    toast.success(
+      `Sync complete — ${added.length} section(s) added: ${toAdd.map((e) => e.label).join(", ")}`,
+    );
   };
 
   const moveTo = (from: number, to: number) => {
@@ -224,12 +235,12 @@ export function HomepageLayoutTab() {
             Reorder, enable, and hide sections in a draft. Visitors only see changes after Publish.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {draft.length} section(s) &middot;{" "}
-            {HOME_SECTION_REGISTRY.length} registered
+            {draft.length} section(s) &middot; {HOME_SECTION_REGISTRY.length} registered
           </p>
           {missingRegistrySections.length > 0 && (
             <p className="mt-1 text-xs text-amber-600">
-              {missingRegistrySections.length} registered section(s) not yet in this layout — use Sync to add them.
+              {missingRegistrySections.length} registered section(s) not yet in this layout — use
+              Sync to add them.
             </p>
           )}
           <p className={cn("mt-2 text-xs", dirty ? "text-amber-600" : "text-muted-foreground")}>

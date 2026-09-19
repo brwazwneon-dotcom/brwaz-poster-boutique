@@ -21,7 +21,8 @@ const SESSION_COOKIE = "brwaz_admin_session";
 export const bootstrapAdmin = createServerFn({ method: "POST" })
   .validator((data: unknown) => {
     const d = data as { email?: unknown; password?: unknown };
-    if (typeof d.email !== "string" || !d.email.includes("@")) throw new Error("Valid email required");
+    if (typeof d.email !== "string" || !d.email.includes("@"))
+      throw new Error("Valid email required");
     if (typeof d.password !== "string" || d.password.length < 8) {
       throw new Error("Password must be at least 8 characters");
     }
@@ -80,9 +81,11 @@ export const adminSessionCheck = createServerFn({ method: "GET" }).handler(async
 });
 
 /** Middleware for every other Neon-backed admin server function. */
-export const requireAdminSessionNeon = createMiddleware({ type: "function" }).server(async ({ next }) => {
-  const token = getCookie(SESSION_COOKIE);
-  const session = await verifySessionToken(token);
-  if (!session) throw new Error("Unauthorized");
-  return next({ context: { adminId: session.id } });
-});
+export const requireAdminSessionNeon = createMiddleware({ type: "function" }).server(
+  async ({ next }) => {
+    const token = getCookie(SESSION_COOKIE);
+    const session = await verifySessionToken(token);
+    if (!session) throw new Error("Unauthorized");
+    return next({ context: { adminId: session.id } });
+  },
+);

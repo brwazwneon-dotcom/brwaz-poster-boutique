@@ -29,7 +29,9 @@ export function AnalyticsTab() {
               key={d.id}
               onClick={() => setDays(d.id)}
               className={`rounded-sm border px-3 py-1.5 text-xs ${
-                days === d.id ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                days === d.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border"
               }`}
             >
               {d.label}
@@ -46,17 +48,21 @@ export function AnalyticsTab() {
             Reads the tracking already running on every storefront visit ({" "}
             <code className="rounded-sm bg-accent px-1">analytics_visits</code>,{" "}
             <code className="rounded-sm bg-accent px-1">analytics_poster_events</code>,{" "}
-            <code className="rounded-sm bg-accent px-1">search_queries</code> ) — no new tracking, just
-            surfacing what's already there.
+            <code className="rounded-sm bg-accent px-1">search_queries</code> ) — no new tracking,
+            just surfacing what's already there.
           </p>
 
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Visits by day
           </h3>
           {data.byDay.length === 0 ? (
-            <p className="mb-6 text-sm text-muted-foreground">No visits recorded in this range yet.</p>
+            <p className="mb-6 text-sm text-muted-foreground">
+              No visits recorded in this range yet.
+            </p>
           ) : (
-            <VisitsChart byDay={data.byDay as { day: string; visitors: number; visits: number }[]} />
+            <VisitsChart
+              byDay={data.byDay as { day: string; visitors: number; visits: number }[]}
+            />
           )}
 
           <div className="mt-6 grid gap-6 sm:grid-cols-2">
@@ -77,7 +83,9 @@ export function AnalyticsTab() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(data.bySource as { source: string; visitors: number; visits: number }[]).map((s) => (
+                      {(
+                        data.bySource as { source: string; visitors: number; visits: number }[]
+                      ).map((s) => (
                         <tr key={s.source} className="border-b border-border last:border-0">
                           <td className="px-3 py-2 capitalize">{s.source}</td>
                           <td className="px-3 py-2">{s.visitors}</td>
@@ -98,15 +106,25 @@ export function AnalyticsTab() {
                 <p className="text-sm text-muted-foreground">No product views recorded yet.</p>
               ) : (
                 <div className="space-y-1.5">
-                  {(data.topProducts as { id: string; title: string; image_url: string; views: number }[]).map(
-                    (p) => (
-                      <div key={p.id} className="flex items-center gap-2 rounded-sm border border-border p-1.5">
-                        <img src={p.image_url} alt="" className="h-8 w-6 rounded-sm object-cover" />
-                        <span className="flex-1 truncate text-xs">{p.title}</span>
-                        <span className="text-xs font-medium text-muted-foreground">{p.views} views</span>
-                      </div>
-                    ),
-                  )}
+                  {(
+                    data.topProducts as {
+                      id: string;
+                      title: string;
+                      image_url: string;
+                      views: number;
+                    }[]
+                  ).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-sm border border-border p-1.5"
+                    >
+                      <img src={p.image_url} alt="" className="h-8 w-6 rounded-sm object-cover" />
+                      <span className="flex-1 truncate text-xs">{p.title}</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {p.views} views
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -122,7 +140,10 @@ export function AnalyticsTab() {
               ) : (
                 <ul className="space-y-1 text-sm">
                   {(data.topSearches as { query: string; n: number }[]).map((s) => (
-                    <li key={s.query} className="flex justify-between rounded-sm border border-border px-2.5 py-1.5">
+                    <li
+                      key={s.query}
+                      className="flex justify-between rounded-sm border border-border px-2.5 py-1.5"
+                    >
                       <span dir="ltr">{s.query}</span>
                       <span className="text-xs text-muted-foreground">{s.n}×</span>
                     </li>
@@ -135,10 +156,13 @@ export function AnalyticsTab() {
                 Zero-result searches
               </h3>
               <p className="mb-2 text-[11px] text-muted-foreground">
-                What customers looked for and didn't find — candidates for new products or categories.
+                What customers looked for and didn't find — candidates for new products or
+                categories.
               </p>
               {data.zeroResultSearches.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None — every search found something.</p>
+                <p className="text-sm text-muted-foreground">
+                  None — every search found something.
+                </p>
               ) : (
                 <ul className="space-y-1 text-sm">
                   {(data.zeroResultSearches as { query: string; n: number }[]).map((s) => (

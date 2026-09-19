@@ -101,7 +101,8 @@ export function MediaLibraryTab() {
         used.add(ba.before_url);
         used.add(ba.after_url);
       }
-      for (const lp of landingPages as AdminLandingPage[]) if (lp.hero_image) used.add(lp.hero_image);
+      for (const lp of landingPages as AdminLandingPage[])
+        if (lp.hero_image) used.add(lp.hero_image);
       const settingsMap = new Map(
         (settings as Array<{ key: string; value: unknown }>).map((r) => [r.key, r.value]),
       );
@@ -124,7 +125,11 @@ export function MediaLibraryTab() {
   };
 
   const remove = async (url: string) => {
-    if (usedUrls.has(url) && !(await confirm("This image is used by a product or banner. Delete anyway?"))) return;
+    if (
+      usedUrls.has(url) &&
+      !(await confirm("This image is used by a product or banner. Delete anyway?"))
+    )
+      return;
     if (!usedUrls.has(url) && !(await confirm("Delete this image permanently?"))) return;
     try {
       await deleteMediaAssetAdmin({ data: { url } });
@@ -153,7 +158,11 @@ export function MediaLibraryTab() {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Media library</h2>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={onlyOrphaned} onChange={(e) => setOnlyOrphaned(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={onlyOrphaned}
+            onChange={(e) => setOnlyOrphaned(e.target.checked)}
+          />
           Unused only
         </label>
       </div>
@@ -163,7 +172,10 @@ export function MediaLibraryTab() {
       ) : (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
           {visible.map((b) => (
-            <div key={b.url} className="group relative overflow-hidden rounded-sm border border-border">
+            <div
+              key={b.url}
+              className="group relative overflow-hidden rounded-sm border border-border"
+            >
               <img src={b.url} alt="" className="aspect-square w-full object-cover" />
               {!usedUrls.has(b.url) && (
                 <span className="absolute left-1 top-1 rounded-sm bg-amber-500/90 px-1 py-0.5 text-[9px] font-medium text-black">
@@ -171,10 +183,16 @@ export function MediaLibraryTab() {
                 </span>
               )}
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/70 p-1 opacity-0 transition group-hover:opacity-100">
-                <button onClick={() => copyUrl(b.url)} className="text-[10px] text-white hover:underline">
+                <button
+                  onClick={() => copyUrl(b.url)}
+                  className="text-[10px] text-white hover:underline"
+                >
                   Copy
                 </button>
-                <button onClick={() => remove(b.url)} className="text-[10px] text-red-400 hover:underline">
+                <button
+                  onClick={() => remove(b.url)}
+                  className="text-[10px] text-red-400 hover:underline"
+                >
                   Delete
                 </button>
               </div>

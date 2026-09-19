@@ -38,14 +38,17 @@ function TrackOrderPage() {
     setLoading(true);
     setResult(null);
     try {
-      const found = await trackOrderPublic({ data: { orderNumber: orderNumber.trim(), phone: phone.trim() } });
+      const found = await trackOrderPublic({
+        data: { orderNumber: orderNumber.trim(), phone: phone.trim() },
+      });
       setResult(found ?? "not_found");
     } finally {
       setLoading(false);
     }
   };
 
-  const StatusIcon = result && result !== "not_found" ? (STATUS_ICON[result.status] ?? Package) : Package;
+  const StatusIcon =
+    result && result !== "not_found" ? (STATUS_ICON[result.status] ?? Package) : Package;
 
   return (
     <div className="container-page py-16">
@@ -111,7 +114,9 @@ function TrackOrderPage() {
             </div>
             <div className="mt-4 space-y-1 text-sm text-muted-foreground">
               <div>{result.item_label}</div>
-              <div>{result.total_price} {t("egp")}</div>
+              <div>
+                {result.total_price} {t("egp")}
+              </div>
               <div>{new Date(result.created_at).toLocaleDateString()}</div>
             </div>
           </div>

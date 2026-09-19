@@ -30,7 +30,8 @@ export function PromotionsTab() {
 
   const save = async () => {
     if (!editing?.code?.trim()) return toast.error("Code is required");
-    if (!editing?.discount_value || editing.discount_value <= 0) return toast.error("Discount value is required");
+    if (!editing?.discount_value || editing.discount_value <= 0)
+      return toast.error("Discount value is required");
     try {
       await upsertCouponAdmin({
         data: {
@@ -108,7 +109,9 @@ export function PromotionsTab() {
           <div className="flex gap-2">
             <select
               value={editing.discount_type ?? "percent"}
-              onChange={(e) => setEditing({ ...editing, discount_type: e.target.value as "percent" | "fixed" })}
+              onChange={(e) =>
+                setEditing({ ...editing, discount_type: e.target.value as "percent" | "fixed" })
+              }
               className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="percent">Percent off</option>
@@ -128,7 +131,12 @@ export function PromotionsTab() {
             min={0}
             placeholder="Usage limit (blank = unlimited)"
             value={editing.usage_limit ?? ""}
-            onChange={(e) => setEditing({ ...editing, usage_limit: e.target.value ? Number(e.target.value) : null })}
+            onChange={(e) =>
+              setEditing({
+                ...editing,
+                usage_limit: e.target.value ? Number(e.target.value) : null,
+              })
+            }
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
           />
           <input
@@ -137,7 +145,10 @@ export function PromotionsTab() {
             placeholder="Per-customer limit (blank = unlimited)"
             value={editing.per_customer_limit ?? ""}
             onChange={(e) =>
-              setEditing({ ...editing, per_customer_limit: e.target.value ? Number(e.target.value) : null })
+              setEditing({
+                ...editing,
+                per_customer_limit: e.target.value ? Number(e.target.value) : null,
+              })
             }
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
           />
@@ -147,7 +158,10 @@ export function PromotionsTab() {
             placeholder="Minimum order amount (optional)"
             value={editing.min_order_amount ?? ""}
             onChange={(e) =>
-              setEditing({ ...editing, min_order_amount: e.target.value ? Number(e.target.value) : null })
+              setEditing({
+                ...editing,
+                min_order_amount: e.target.value ? Number(e.target.value) : null,
+              })
             }
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
           />
@@ -172,10 +186,16 @@ export function PromotionsTab() {
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
           />
           <div className="flex gap-2 sm:col-span-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            <button
+              onClick={save}
+              className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
               Save
             </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Cancel
             </button>
           </div>
@@ -189,11 +209,16 @@ export function PromotionsTab() {
       ) : (
         <div className="space-y-2">
           {coupons.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+            <div
+              key={c.id}
+              className="flex items-center justify-between rounded-sm border border-border p-3"
+            >
               <div>
                 <div className="font-mono text-sm font-medium">{c.code}</div>
                 <div className="text-xs text-muted-foreground">
-                  {c.discount_type === "percent" ? `${c.discount_value}% off` : `${c.discount_value} EGP off`}
+                  {c.discount_type === "percent"
+                    ? `${c.discount_value}% off`
+                    : `${c.discount_value} EGP off`}
                   {" · used "}
                   {c.used_count}
                   {c.usage_limit ? ` / ${c.usage_limit}` : ""}
@@ -202,13 +227,22 @@ export function PromotionsTab() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => toggleEnabled(c)} className="text-xs text-cyan-500 hover:underline">
+                <button
+                  onClick={() => toggleEnabled(c)}
+                  className="text-xs text-cyan-500 hover:underline"
+                >
                   {c.enabled ? "Disable" : "Enable"}
                 </button>
-                <button onClick={() => setEditing(c)} className="text-xs text-cyan-500 hover:underline">
+                <button
+                  onClick={() => setEditing(c)}
+                  className="text-xs text-cyan-500 hover:underline"
+                >
                   Edit
                 </button>
-                <button onClick={() => remove(c.id)} className="text-xs text-red-500 hover:underline">
+                <button
+                  onClick={() => remove(c.id)}
+                  className="text-xs text-red-500 hover:underline"
+                >
                   Delete
                 </button>
               </div>

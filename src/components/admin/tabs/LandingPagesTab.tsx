@@ -58,7 +58,8 @@ export function LandingPagesTab() {
   };
 
   const remove = async (p: AdminLandingPage) => {
-    if (!(await confirm(`Delete the "${p.audience_key}" landing page? This can't be undone.`))) return;
+    if (!(await confirm(`Delete the "${p.audience_key}" landing page? This can't be undone.`)))
+      return;
     await deleteLandingPage({ data: { id: p.id } });
     toast.success("Deleted");
     load();
@@ -81,7 +82,12 @@ export function LandingPagesTab() {
   const availableCategories = categories.filter((c) => !usedKeys.has(c.slug));
   const hasGeneral = usedKeys.has("general");
 
-  const createFor = (opts: { audienceKey: string; categoryId: string | null; titleEn: string; titleAr: string }) => {
+  const createFor = (opts: {
+    audienceKey: string;
+    categoryId: string | null;
+    titleEn: string;
+    titleAr: string;
+  }) => {
     setEditing({
       id: "",
       audience_key: opts.audienceKey,
@@ -111,9 +117,9 @@ export function LandingPagesTab() {
           <h2 className="text-lg font-semibold">Landing Pages</h2>
           <p className="text-xs text-muted-foreground">
             Ad campaign destinations at /landing/&#123;audience&#125; — used as Meta Ads links. Each
-            page pulls its posters automatically (category or trending/best-seller mix) unless set to
-            manual. Make one per category for targeted ads, plus one "General" page for an umbrella
-            campaign across everything.
+            page pulls its posters automatically (category or trending/best-seller mix) unless set
+            to manual. Make one per category for targeted ads, plus one "General" page for an
+            umbrella campaign across everything.
           </p>
         </div>
         {(availableCategories.length > 0 || !hasGeneral) && (
@@ -123,10 +129,21 @@ export function LandingPagesTab() {
               const v = e.target.value;
               if (!v) return;
               if (v === "__general__") {
-                createFor({ audienceKey: "general", categoryId: null, titleEn: "All Posters", titleAr: "كل البوسترات" });
+                createFor({
+                  audienceKey: "general",
+                  categoryId: null,
+                  titleEn: "All Posters",
+                  titleAr: "كل البوسترات",
+                });
               } else {
                 const cat = categories.find((c) => c.id === v);
-                if (cat) createFor({ audienceKey: cat.slug, categoryId: cat.id, titleEn: cat.name, titleAr: cat.name_ar || cat.name });
+                if (cat)
+                  createFor({
+                    audienceKey: cat.slug,
+                    categoryId: cat.id,
+                    titleEn: cat.name,
+                    titleAr: cat.name_ar || cat.name,
+                  });
               }
             }}
             className="rounded-sm border border-border bg-background px-3 py-1.5 text-xs"
@@ -145,7 +162,9 @@ export function LandingPagesTab() {
       {editing ? (
         <div className="mb-6 space-y-4 rounded-sm border border-border bg-card p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-widest">{editing.audience_key}</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-widest">
+              {editing.audience_key}
+            </h3>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -186,9 +205,15 @@ export function LandingPagesTab() {
           </div>
 
           <div>
-            <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Hero image</p>
+            <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">
+              Hero image
+            </p>
             {editing.hero_image ? (
-              <img src={editing.hero_image} alt="" className="aspect-[3/1] w-full rounded-sm object-cover" />
+              <img
+                src={editing.hero_image}
+                alt=""
+                className="aspect-[3/1] w-full rounded-sm object-cover"
+              />
             ) : (
               <div className="flex aspect-[3/1] items-center justify-center rounded-sm border border-dashed border-border text-xs text-muted-foreground">
                 No image
@@ -230,7 +255,10 @@ export function LandingPagesTab() {
             <select
               value={editing.display_mode}
               onChange={(e) =>
-                setEditing({ ...editing, display_mode: e.target.value as AdminLandingPage["display_mode"] })
+                setEditing({
+                  ...editing,
+                  display_mode: e.target.value as AdminLandingPage["display_mode"],
+                })
               }
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             >
@@ -241,7 +269,9 @@ export function LandingPagesTab() {
             {editing.display_mode === "category" && (
               <select
                 value={editing.source_category_id ?? ""}
-                onChange={(e) => setEditing({ ...editing, source_category_id: e.target.value || null })}
+                onChange={(e) =>
+                  setEditing({ ...editing, source_category_id: e.target.value || null })
+                }
                 className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">Select category…</option>
@@ -258,7 +288,9 @@ export function LandingPagesTab() {
               max={200}
               placeholder="Poster limit"
               value={editing.poster_limit}
-              onChange={(e) => setEditing({ ...editing, poster_limit: Number(e.target.value) || 24 })}
+              onChange={(e) =>
+                setEditing({ ...editing, poster_limit: Number(e.target.value) || 24 })
+              }
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
             />
           </div>
@@ -270,7 +302,10 @@ export function LandingPagesTab() {
               onChange={(e) =>
                 setEditing({
                   ...editing,
-                  manual_poster_ids: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                  manual_poster_ids: e.target.value
+                    .split("\n")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
                 })
               }
               rows={4}
@@ -300,10 +335,16 @@ export function LandingPagesTab() {
           </details>
 
           <div className="flex gap-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            <button
+              onClick={save}
+              className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
               Save
             </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Cancel
             </button>
           </div>
@@ -312,7 +353,10 @@ export function LandingPagesTab() {
 
       <div className="space-y-2">
         {pages.map((p) => (
-          <div key={p.id} className="flex items-center justify-between rounded-sm border border-border p-3">
+          <div
+            key={p.id}
+            className="flex items-center justify-between rounded-sm border border-border p-3"
+          >
             <div>
               <div className="text-sm font-medium">
                 /landing/{p.audience_key} — {p.title_en || p.audience_key}
@@ -323,10 +367,16 @@ export function LandingPagesTab() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => copyLink(p.audience_key)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => copyLink(p.audience_key)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Copy ad link
               </button>
-              <button onClick={() => setEditing(p)} className="text-xs text-cyan-500 hover:underline">
+              <button
+                onClick={() => setEditing(p)}
+                className="text-xs text-cyan-500 hover:underline"
+              >
                 Edit
               </button>
               <button onClick={() => remove(p)} className="text-xs text-red-500 hover:underline">

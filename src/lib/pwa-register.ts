@@ -33,7 +33,9 @@ async function clearAppCaches() {
       keys
         .filter(
           (key) =>
-            key.startsWith("brwazwneon-") || key.startsWith("brw-app-shell-") || key.startsWith("workbox-"),
+            key.startsWith("brwazwneon-") ||
+            key.startsWith("brw-app-shell-") ||
+            key.startsWith("workbox-"),
         )
         .map((key) => caches.delete(key)),
     );

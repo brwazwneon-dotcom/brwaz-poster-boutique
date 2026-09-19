@@ -41,7 +41,8 @@ export function FinanceTab() {
   const [range, setRange] = useState<DashboardRange>("this_month");
   const [report, setReport] = useState<ProfitReport | null>(null);
 
-  const loadExpenses = async () => setExpenses((await listExpensesAdmin({ data: { days: 90 } })) as Expense[]);
+  const loadExpenses = async () =>
+    setExpenses((await listExpensesAdmin({ data: { days: 90 } })) as Expense[]);
   const loadReport = async () => setReport(await getProfitReportAdmin({ data: { range } }));
 
   useEffect(() => {
@@ -88,14 +89,18 @@ export function FinanceTab() {
       <h2 className="mb-4 text-lg font-semibold">Finance</h2>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Profit</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Profit
+        </h3>
         <div className="flex gap-1">
           {RANGE_OPTIONS.map((r) => (
             <button
               key={r.id}
               onClick={() => setRange(r.id)}
               className={`rounded-sm border px-3 py-1.5 text-xs ${
-                range === r.id ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                range === r.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border"
               }`}
             >
               {r.label}
@@ -116,11 +121,15 @@ export function FinanceTab() {
               <div className="text-xs text-muted-foreground">Revenue ({report.orders} orders)</div>
             </div>
             <div className="rounded-sm border border-border p-4">
-              <div className="text-lg font-semibold">{report.totalExpenses.toLocaleString()} EGP</div>
+              <div className="text-lg font-semibold">
+                {report.totalExpenses.toLocaleString()} EGP
+              </div>
               <div className="text-xs text-muted-foreground">Logged expenses</div>
             </div>
             <div className="rounded-sm border border-border p-4">
-              <div className={`text-lg font-semibold ${report.netProfit >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+              <div
+                className={`text-lg font-semibold ${report.netProfit >= 0 ? "text-emerald-500" : "text-red-500"}`}
+              >
                 {report.netProfit.toLocaleString()} EGP
               </div>
               <div className="text-xs text-muted-foreground">Net profit (revenue − expenses)</div>
@@ -133,7 +142,10 @@ export function FinanceTab() {
           {(report.expensesByCategory as { category: string; total: string }[]).length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {(report.expensesByCategory as { category: string; total: string }[]).map((e) => (
-                <span key={e.category} className="rounded-sm border border-border px-2 py-1 text-xs capitalize">
+                <span
+                  key={e.category}
+                  className="rounded-sm border border-border px-2 py-1 text-xs capitalize"
+                >
                   {e.category}: {Number(e.total).toLocaleString()} EGP
                 </span>
               ))}
@@ -143,7 +155,9 @@ export function FinanceTab() {
       )}
 
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Expenses</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Expenses
+        </h3>
         <button
           onClick={() => setEditing({ amount: 0, category: "other", expense_date: todayISO() })}
           className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
@@ -194,10 +208,16 @@ export function FinanceTab() {
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm sm:col-span-2"
           />
           <div className="flex gap-2 sm:col-span-2">
-            <button onClick={save} className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+            <button
+              onClick={save}
+              className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
               Save
             </button>
-            <button onClick={() => setEditing(null)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Cancel
             </button>
           </div>
@@ -223,15 +243,25 @@ export function FinanceTab() {
             <tbody>
               {expenses.map((e) => (
                 <tr key={e.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2 text-xs">{new Date(e.expense_date).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {new Date(e.expense_date).toLocaleDateString()}
+                  </td>
                   <td className="px-3 py-2 text-xs capitalize">{e.category}</td>
                   <td className="px-3 py-2 font-medium">{Number(e.amount).toLocaleString()} EGP</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{e.description || "—"}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {e.description || "—"}
+                  </td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={() => setEditing(e)} className="mr-3 text-xs text-cyan-500 hover:underline">
+                    <button
+                      onClick={() => setEditing(e)}
+                      className="mr-3 text-xs text-cyan-500 hover:underline"
+                    >
                       Edit
                     </button>
-                    <button onClick={() => remove(e.id)} className="text-xs text-red-500 hover:underline">
+                    <button
+                      onClick={() => remove(e.id)}
+                      className="text-xs text-red-500 hover:underline"
+                    >
                       Delete
                     </button>
                   </td>

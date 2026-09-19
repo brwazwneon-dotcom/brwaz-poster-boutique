@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { getExecutiveDashboardAdmin, getAlertsAdmin, type DashboardRange, type AdminAlert } from "@/lib/db-admin.functions";
+import {
+  getExecutiveDashboardAdmin,
+  getAlertsAdmin,
+  type DashboardRange,
+  type AdminAlert,
+} from "@/lib/db-admin.functions";
 import type { Tab } from "@/components/admin/layout/nav-config";
 import { LoadingTiles } from "@/components/admin/layout/LoadingState";
 
@@ -34,15 +39,7 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
   );
 }
 
-function Tile({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: React.ReactNode;
-}) {
+function Tile({ label, value, sub }: { label: string; value: string; sub?: React.ReactNode }) {
   return (
     <div className="rounded-sm border border-border p-4">
       <div className="text-2xl font-semibold">{value}</div>
@@ -116,7 +113,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
               key={r.id}
               onClick={() => setRange(r.id)}
               className={`rounded-sm border px-3 py-1.5 text-xs ${
-                range === r.id ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                range === r.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border"
               }`}
             >
               {r.label}
@@ -134,7 +133,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
             a store with no orders or traffic yet will correctly show zeros, not sample data.
           </p>
 
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Sales</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Sales
+          </h3>
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile
               label="Orders"
@@ -147,7 +148,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
               sub={<DeltaBadge current={data.revenue} previous={data.revenuePrev} />}
             />
             <Tile label="Average order value" value={formatEGP(data.averageOrderValue)} />
-            <Tile label="Cancelled / Returned" value={`${data.cancelledOrders} / ${data.returnedOrders}`} />
+            <Tile
+              label="Cancelled / Returned"
+              value={`${data.cancelledOrders} / ${data.returnedOrders}`}
+            />
           </div>
 
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -159,7 +163,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
             <Tile label="Website visitors" value={String(data.visitors)} />
             <Tile
               label="Conversion rate"
-              value={data.conversionRate === null ? "—" : `${(data.conversionRate * 100).toFixed(1)}%`}
+              value={
+                data.conversionRate === null ? "—" : `${(data.conversionRate * 100).toFixed(1)}%`
+              }
             />
           </div>
 

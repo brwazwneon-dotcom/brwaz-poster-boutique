@@ -56,7 +56,11 @@ export function PosterGallery({
       { kind: "frame", url: posterUrl, label: t("posterGallery.framePreview") },
     ];
     extras.forEach((e) => {
-      base.push({ kind: "image", url: e.image_url, label: e.label || e.kind || t("posterGallery.image") });
+      base.push({
+        kind: "image",
+        url: e.image_url,
+        label: e.label || e.kind || t("posterGallery.image"),
+      });
     });
     return base;
   }, [extras, posterUrl, t]);

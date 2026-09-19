@@ -37,9 +37,7 @@ export function BeforeAfter({
         {t("beforeAfter.label")}
       </div>
       <h2 className="text-display text-3xl sm:text-4xl mt-2">{t("beforeAfter.title")}</h2>
-      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        {t("beforeAfter.description")}
-      </p>
+      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("beforeAfter.description")}</p>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         {items.map((it) => (

@@ -219,7 +219,10 @@ export function isSpecialDedicatedCard(card: CollectionCard, category?: Category
   return slug === "custom" || slug === "custom-design" || slug === "photo-printing";
 }
 
-export function resolveCoverSource(card: CollectionCard, categories: Category[]): CoverSource | null {
+export function resolveCoverSource(
+  card: CollectionCard,
+  categories: Category[],
+): CoverSource | null {
   const category = findCategoryForCard(card, categories);
   return category ? { key: category.id, categoryId: category.id } : null;
 }
@@ -426,14 +429,21 @@ function themeForCard(card: CollectionCard) {
 }
 
 /** Tracks whether an element is near the viewport via IntersectionObserver. */
-function useInViewport(rootMargin = "200px 0px"): [React.RefObject<HTMLDivElement | null>, boolean] {
+function useInViewport(
+  rootMargin = "200px 0px",
+): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(true);
   useEffect(() => {
     const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") { setInView(true); return; }
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
     const io = new IntersectionObserver(
-      ([entry]) => { setInView(entry.isIntersecting); },
+      ([entry]) => {
+        setInView(entry.isIntersecting);
+      },
       { rootMargin },
     );
     io.observe(el);
@@ -521,7 +531,8 @@ export function CollectionCover({
   const theme = themeForCard(card);
   const settings = showcase?.settings;
   const shouldRotate = !!settings?.rotation_enabled && valid.length > 1 && inViewport;
-  const isPhotoPrinting = card.id === "photo-printing" || normalizeSlug(card.link) === "photo-printing";
+  const isPhotoPrinting =
+    card.id === "photo-printing" || normalizeSlug(card.link) === "photo-printing";
 
   const handleImageError = (url: string) => {
     if (import.meta.env.DEV) {
@@ -622,7 +633,9 @@ export function CollectionCover({
   }, [nextUrl, currentUrl]);
 
   // Clear preload cache when pool changes
-  useEffect(() => { preloaded.current = new Set(); }, [showcase?.images, fallbackPrimary]);
+  useEffect(() => {
+    preloaded.current = new Set();
+  }, [showcase?.images, fallbackPrimary]);
 
   const prefersReducedMotion = useRef(
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -753,7 +766,10 @@ export function ShopByCollection() {
   const { data: categories = [] } = useCategories();
   const home = data ?? { visible: false, cards: DEFAULT_COLLECTIONS };
   function dedupKey(s: string) {
-    return s.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/s$/g, "");
+    return s
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .replace(/s$/g, "");
   }
   const baseCards = home.cards.filter((c) => c.enabled !== false);
   const existingSlugs = new Set(
@@ -818,9 +834,7 @@ export function ShopByCollection() {
             <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
               {t("home.curatedCollectionsKicker")}
             </p>
-            <h2 className="text-display mt-3 text-4xl sm:text-6xl">
-              {t("home.shopByCollection")}
-            </h2>
+            <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("home.shopByCollection")}</h2>
           </div>
         </div>
 
