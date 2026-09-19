@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ import {
 import { createPhoto4x6Order } from "@/lib/db-orders.functions";
 import { whatsappLink } from "@/lib/whatsapp";
 import { PHOTO_VOLUME_TIERS, photoUnitPrice } from "@/lib/photo-volume-pricing";
+import { useCart } from "@/lib/cart";
 import { PhotoVolumeOffers } from "@/components/PhotoVolumeOffers";
 import {
   useSiteSettings,
@@ -331,6 +332,9 @@ function PhotoPrintingPage() {
   const media = usePhotoPrintingMediaConfig();
   const albums = usePhotoAlbumsPublic();
   const search = useSearch({ from: "/photo-printing" });
+  const navigate = useNavigate();
+  const { setPhotoPrint } = useCart();
+  const [cartAdding, setCartAdding] = useState(false);
   const [sizeMode, setSizeMode] = useState<SizeMode>("4x6");
   const [pkg, setPkg] = useState<Photo4x6Package>(config.packages[0]);
   const [looseQty, setLooseQty] = useState(LOOSE_SIZE_MIN_QTY);
@@ -528,6 +532,133 @@ function PhotoPrintingPage() {
       ? pkg.label
       : (LOOSE_SIZES.find((s) => s.key === sizeMode)?.labelEn ?? sizeMode);
 
+  const selectedAlbumList = () =>
+    Object.entries(albumQty)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => ({ id, qty }));
+
+  // Uploads every photo (and its enhanced / suit version) to storage and
+  // returns their URLs. Shared by "Place order" and "Add to cart".
+  const uploadPics = async () => {
+    const originals: string[] = [];
+    const enhanced: string[] = [];
+    const suits: string[] = [];
+    const selected: Record<string, PicVersion> = {};
+    let done = 0;
+    const totalPics = pics.length;
+
+    for (let i = 0; i < pics.length; i++) {
+      const p = pics[i];
+      const filenamePrefix = String(i).padStart(3, "0");
+
+      let originalDataUrl = p.originalDataUrl;
+      let enhancedDataUrl = p.enhancedDataUrl;
+      let suitDataUrl = p.suitDataUrl;
+
+      // Apply the crop/zoom/rotate the customer confirmed in the editor,
+      // baking it into whichever version they'll actually print (the one
+      // they have selected) before it's uploaded — non-destructive until
+      // this exact point, matching the admin poster editor's own model.
+      if (p.cropSettings && !isDefaultEdit(p.cropSettings)) {
+        const activeSrc =
+          p.selected === "suit" && p.suitDataUrl
+            ? p.suitDataUrl
+            : p.selected === "enhanced" && p.enhancedDataUrl
+              ? p.enhancedDataUrl
+              : p.originalDataUrl;
+        try {
+          const img = await loadImageForEdit(activeSrc);
+          const outH = 2000;
+          const outW = Math.round(outH * p.cropSettings.ratio);
+          const blob = await renderEditToBlob(img, p.cropSettings, outW, outH, 0.9);
+          const croppedDataUrl = await blobToDataUrl(blob);
+          if (p.selected === "suit") suitDataUrl = croppedDataUrl;
+          else if (p.selected === "enhanced") enhancedDataUrl = croppedDataUrl;
+          else originalDataUrl = croppedDataUrl;
+        } catch {
+          /* fall back to the uncropped version rather than blocking checkout */
+        }
+      }
+
+      const orig = await uploadCustomerPhoto({
+        data: {
+          dataUrl: originalDataUrl,
+          filename: `${filenamePrefix}-orig.jpg`,
+          folder: "photo-printing",
+        },
+      });
+      originals.push(orig.url);
+      if (enhancedDataUrl) {
+        const uploaded = await uploadCustomerPhoto({
+          data: {
+            dataUrl: enhancedDataUrl,
+            filename: `${filenamePrefix}-enhanced.jpg`,
+            folder: "photo-printing",
+          },
+        });
+        enhanced.push(uploaded.url);
+      }
+      if (suitDataUrl) {
+        const uploaded = await uploadCustomerPhoto({
+          data: {
+            dataUrl: suitDataUrl,
+            filename: `${filenamePrefix}-suit.jpg`,
+            folder: "photo-printing",
+          },
+        });
+        suits.push(uploaded.url);
+      }
+      selected[String(i)] = p.selected;
+      done++;
+      setProgress(Math.round((done / totalPics) * 100));
+    }
+    return { originals, enhanced, suits, selected };
+  };
+
+  // Puts the photos (uploaded now) in the cart, so the customer can also add
+  // framed posters and pay for everything in one checkout.
+  const addToCart = async () => {
+    if (submitting) return;
+    if (pics.length < requiredCount)
+      return toast.error(t("photo4x6.uploadPhotosCount", { total: requiredCount }));
+    setCartAdding(true);
+    setSubmitting(true);
+    setProgress(0);
+    try {
+      const { originals, enhanced, suits, selected } = await uploadPics();
+      setPhotoPrint({
+        sizeMode,
+        packageKey: sizeMode === "4x6" ? pkg.key : undefined,
+        label: sizeLabel,
+        photoCount: printCount,
+        price: subtotal + albumsTotal,
+        thumbs: originals.slice(0, 4),
+        originalPaths: originals,
+        enhancedPaths: enhanced,
+        suitPaths: suits,
+        selectedVersions: selected,
+        selectedAlbums: selectedAlbumList(),
+        notes: notes.trim() || null,
+      });
+      try {
+        trackCustom("photo_added_to_cart", { size: sizeMode, photos: printCount, total: subtotal });
+      } catch {
+        /* noop */
+      }
+      setPics([]);
+      setNotes("");
+      setAlbumQty({});
+      toast.success(t("photo4x6.addedToCart"), {
+        action: { label: t("photo4x6.viewCart"), onClick: () => navigate({ to: "/cart" }) },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("photo4x6.submissionFailed"));
+    } finally {
+      setSubmitting(false);
+      setCartAdding(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pics.length < requiredCount)
@@ -545,82 +676,8 @@ function PhotoPrintingPage() {
       /* noop */
     }
     try {
-      const originals: string[] = [];
-      const enhanced: string[] = [];
-      const suits: string[] = [];
-      const selected: Record<string, PicVersion> = {};
-      let done = 0;
-      const totalPics = pics.length;
-
-      for (let i = 0; i < pics.length; i++) {
-        const p = pics[i];
-        const filenamePrefix = String(i).padStart(3, "0");
-
-        let originalDataUrl = p.originalDataUrl;
-        let enhancedDataUrl = p.enhancedDataUrl;
-        let suitDataUrl = p.suitDataUrl;
-
-        // Apply the crop/zoom/rotate the customer confirmed in the editor,
-        // baking it into whichever version they'll actually print (the one
-        // they have selected) before it's uploaded — non-destructive until
-        // this exact point, matching the admin poster editor's own model.
-        if (p.cropSettings && !isDefaultEdit(p.cropSettings)) {
-          const activeSrc =
-            p.selected === "suit" && p.suitDataUrl
-              ? p.suitDataUrl
-              : p.selected === "enhanced" && p.enhancedDataUrl
-                ? p.enhancedDataUrl
-                : p.originalDataUrl;
-          try {
-            const img = await loadImageForEdit(activeSrc);
-            const outH = 2000;
-            const outW = Math.round(outH * p.cropSettings.ratio);
-            const blob = await renderEditToBlob(img, p.cropSettings, outW, outH, 0.9);
-            const croppedDataUrl = await blobToDataUrl(blob);
-            if (p.selected === "suit") suitDataUrl = croppedDataUrl;
-            else if (p.selected === "enhanced") enhancedDataUrl = croppedDataUrl;
-            else originalDataUrl = croppedDataUrl;
-          } catch {
-            /* fall back to the uncropped version rather than blocking checkout */
-          }
-        }
-
-        const orig = await uploadCustomerPhoto({
-          data: {
-            dataUrl: originalDataUrl,
-            filename: `${filenamePrefix}-orig.jpg`,
-            folder: "photo-printing",
-          },
-        });
-        originals.push(orig.url);
-        if (enhancedDataUrl) {
-          const uploaded = await uploadCustomerPhoto({
-            data: {
-              dataUrl: enhancedDataUrl,
-              filename: `${filenamePrefix}-enhanced.jpg`,
-              folder: "photo-printing",
-            },
-          });
-          enhanced.push(uploaded.url);
-        }
-        if (suitDataUrl) {
-          const uploaded = await uploadCustomerPhoto({
-            data: {
-              dataUrl: suitDataUrl,
-              filename: `${filenamePrefix}-suit.jpg`,
-              folder: "photo-printing",
-            },
-          });
-          suits.push(uploaded.url);
-        }
-        selected[String(i)] = p.selected;
-        done++;
-        setProgress(Math.round((done / totalPics) * 100));
-      }
-
-      const selectedAlbums = Object.entries(albumQty)
-        .filter(([, qty]) => qty > 0)
-        .map(([id, qty]) => ({ id, qty }));
+      const { originals, enhanced, suits, selected } = await uploadPics();
+      const selectedAlbums = selectedAlbumList();
 
       const result = await createPhoto4x6Order({
         data: {
@@ -800,6 +857,7 @@ function PhotoPrintingPage() {
             basePrices={pricing.photo}
             activeSize={sizeMode === "4x6" ? null : sizeMode}
             activeQty={printCount}
+            minQty={LOOSE_SIZE_MIN_QTY}
             onPick={(size, qty) => {
               setSizeMode(size);
               setLooseQty(Math.max(LOOSE_SIZE_MIN_QTY, qty));
@@ -935,9 +993,9 @@ function PhotoPrintingPage() {
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-3 rounded-sm bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
                 {lang.startsWith("ar")
-                  ? `أقل عدد للطلب بهذا المقاس ${LOOSE_SIZE_MIN_QTY} صورة.`
+                  ? `أقل عدد للطباعة بهذا المقاس ${LOOSE_SIZE_MIN_QTY} صورة.`
                   : `Minimum order for this size is ${LOOSE_SIZE_MIN_QTY} photos.`}
               </p>
               <p className="mt-4 text-xs text-muted-foreground">
@@ -1449,11 +1507,23 @@ function PhotoPrintingPage() {
                   )}
 
                   <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => void addToCart()}
+                    className="mt-6 w-full rounded-sm border border-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+                  >
+                    {cartAdding ? t("photo4x6.addingToCart") : t("photo4x6.addToCart")}
+                  </button>
+                  <p className="mt-2 text-center text-[11px] leading-relaxed text-muted-foreground">
+                    {t("photo4x6.addToCartHint")}
+                  </p>
+
+                  <button
                     type="submit"
                     disabled={submitting}
-                    className="mt-6 w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                    className="mt-4 w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
                   >
-                    {submitting
+                    {submitting && !cartAdding
                       ? t("photo4x6.placingOrder")
                       : paymentMethod === "cod"
                         ? t("photo4x6.placeOrderCod")

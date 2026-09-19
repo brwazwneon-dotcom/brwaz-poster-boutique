@@ -166,6 +166,10 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         selected_versions: Record<string, string>;
         selected_albums?: SelectedAlbumInput[];
         payment_method?: PaymentMethod;
+        // Set when the same checkout also placed framed-poster orders (which
+        // already carry the shipping charge), so this order isn't charged
+        // shipping a second time. Only honoured if that order really exists.
+        shipping_with_frames?: boolean;
       },
   )
   .handler(async ({ data }) => {
@@ -182,6 +186,19 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     const { albumsTotal, snapshot: albumsSnapshot } = await resolveSelectedAlbums(
       data.selected_albums,
     );
+
+    // The frames rows of a combined checkout are inserted just before this
+    // call. Trust the client's claim only if an order from this phone number
+    // was created moments ago; otherwise charge shipping as usual.
+    let shippingCoveredByFrames = false;
+    if (data.shipping_with_frames) {
+      const recent = await sql()`
+        select 1 from orders
+        where phone = ${data.phone} and created_at > now() - interval '15 minutes'
+        limit 1
+      `;
+      shippingCoveredByFrames = recent.length > 0;
+    }
 
     let photoCount: number;
     let subtotal: number;
@@ -212,7 +229,9 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
 
       const fee = Number(settings.shipping_fee) || 89;
       const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
-      const shipping = computeShippingServer(subtotal + albumsTotal, fee, freeThreshold);
+      const shipping = shippingCoveredByFrames
+        ? 0
+        : computeShippingServer(subtotal + albumsTotal, fee, freeThreshold);
       const totalPrice = subtotal + albumsTotal + shipping;
 
       const rows = await sql()`
@@ -256,7 +275,9 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     const packageSubtotal = pkg.price + extraPhotos * extraUnitPrice;
     const fee = Number(settings.shipping_fee) || 89;
     const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
-    const shipping = computeShippingServer(packageSubtotal + albumsTotal, fee, freeThreshold);
+    const shipping = shippingCoveredByFrames
+      ? 0
+      : computeShippingServer(packageSubtotal + albumsTotal, fee, freeThreshold);
     const totalPrice = packageSubtotal + albumsTotal + shipping;
 
     const rows = await sql()`

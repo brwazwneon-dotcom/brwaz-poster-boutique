@@ -17,6 +17,7 @@ export function PhotoVolumeOffers({
   basePrices,
   activeSize,
   activeQty,
+  minQty,
   onPick,
 }: {
   sizes: SizeInfo[];
@@ -25,6 +26,8 @@ export function PhotoVolumeOffers({
   activeSize: LoosePhotoSize | null;
   /** Photos currently in the order (only meaningful when activeSize is set). */
   activeQty: number;
+  /** Fewest photos that can be ordered in these sizes. */
+  minQty: number;
   onPick: (size: LoosePhotoSize, qty: number) => void;
 }) {
   const { t } = useTranslation();
@@ -39,6 +42,16 @@ export function PhotoVolumeOffers({
           <h3 className="text-display mt-2 text-2xl sm:text-3xl">{t("photo4x6.offersTitle")}</h3>
         </div>
         <p className="text-xs text-muted-foreground">{t("photo4x6.offersSubtitle")}</p>
+      </div>
+
+      <div className="mt-4 flex items-start gap-3 rounded-sm border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+        <span aria-hidden="true" className="text-lg leading-none">
+          ⓘ
+        </span>
+        <p className="leading-relaxed">
+          <span className="font-semibold">{t("photo4x6.minNoticeTitle", { min: minQty })}</span>{" "}
+          <span className="text-muted-foreground">{t("photo4x6.minNoticeBody")}</span>
+        </p>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">

@@ -4,6 +4,7 @@ import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { PhotoPrintingPromoBanner } from "@/components/PhotoPrintingPromoBanner";
+import { PhotoPrintCartCard } from "@/components/PhotoPrintCartCard";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -234,7 +235,7 @@ const GOVERNORATES = [
 ];
 
 function CartPage() {
-  const { items, remove, setQty, update, clear, total } = useCart();
+  const { items, remove, setQty, update, clear, total, photoPrint, setPhotoPrint } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
   const photo4x6 = usePhoto4x6Config();
@@ -329,12 +330,21 @@ function CartPage() {
   const tapeUnit = pricing.doubleFaceTapePrice;
   const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
   const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
-  const shipping = computeShipping(discountedSubtotal + tapeTotal, settings);
-  const grand = discountedSubtotal + packagingFee + tapeTotal + shipping;
-  const remainingForFree = Math.max(0, settings.freeShippingThreshold - discountedSubtotal);
+  // A photo-printing order waiting in the cart counts toward the same
+  // shipping charge / free-shipping threshold as the framed posters.
+  const photoSubtotal = photoPrint?.price ?? 0;
+  const shipping = computeShipping(discountedSubtotal + tapeTotal + photoSubtotal, settings);
+  const grand = discountedSubtotal + packagingFee + tapeTotal + photoSubtotal + shipping;
+  const remainingForFree = Math.max(
+    0,
+    settings.freeShippingThreshold - (discountedSubtotal + photoSubtotal),
+  );
   const freeShipPct =
     settings.freeShippingThreshold > 0
-      ? Math.min(100, Math.round((discountedSubtotal / settings.freeShippingThreshold) * 100))
+      ? Math.min(
+          100,
+          Math.round(((discountedSubtotal + photoSubtotal) / settings.freeShippingThreshold) * 100),
+        )
       : 100;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -428,7 +438,7 @@ function CartPage() {
   };
 
   const handlePlaceOrderClick = () => {
-    if (items.length === 0) return toast.error(t("cart.empty"));
+    if (items.length === 0 && !photoPrint) return toast.error(t("cart.empty"));
     if (!name || !phone || !governorate || !address)
       return toast.error(t("cart.fillDeliveryFields"));
     if (!EG_PHONE_RE.test(phone.trim()))
@@ -444,6 +454,7 @@ function CartPage() {
     if (
       photo4x6.enabled &&
       photo4x6.upsellEnabled &&
+      !photoPrint &&
       !photoUpsellShown &&
       typeof sessionStorage !== "undefined" &&
       sessionStorage.getItem("photo4x6_upsell_shown") !== "1"
@@ -458,7 +469,7 @@ function CartPage() {
 
   const handleOrder = async () => {
     if (submittingRef.current) return;
-    if (items.length === 0) return toast.error(t("cart.empty"));
+    if (items.length === 0 && !photoPrint) return toast.error(t("cart.empty"));
     if (!name || !phone || !governorate || !address)
       return toast.error(t("cart.fillDeliveryFields"));
     if (!EG_PHONE_RE.test(phone.trim()))
@@ -665,7 +676,7 @@ function CartPage() {
       const { createOrderRows } = await import("@/lib/db-orders.functions");
       let error: unknown = null;
       try {
-        await createOrderRows({ data: { rows } });
+        if (rows.length > 0) await createOrderRows({ data: { rows } });
       } catch (e) {
         error = e instanceof Error ? e : new Error(String(e));
       }
@@ -684,6 +695,44 @@ function CartPage() {
         operation: "insert",
         result: { insertedRows: rows.length },
       });
+
+      // The photo-printing order from the same checkout. The server prices it
+      // from the stored package / size prices, and skips its shipping charge
+      // when the framed-poster rows above already carry it.
+      if (photoPrint) {
+        try {
+          const { createPhoto4x6Order } = await import("@/lib/db-orders.functions");
+          await createPhoto4x6Order({
+            data: {
+              customer_name: name.trim(),
+              phone: phone.trim(),
+              governorate,
+              address: address.trim(),
+              ...(photoPrint.sizeMode === "4x6"
+                ? { package_key: photoPrint.packageKey }
+                : { size_key: photoPrint.sizeMode, quantity: photoPrint.photoCount }),
+              notes: photoPrint.notes,
+              original_paths: photoPrint.originalPaths,
+              enhanced_paths: photoPrint.enhancedPaths,
+              suit_paths: photoPrint.suitPaths,
+              selected_versions: photoPrint.selectedVersions,
+              selected_albums: photoPrint.selectedAlbums,
+              payment_method: paymentMethod,
+              shipping_with_frames: rows.length > 0,
+            },
+          });
+          setPhotoPrint(null);
+        } catch (e) {
+          const reason = e instanceof Error ? e.message : String(e);
+          if (rows.length > 0) {
+            // The framed posters were already placed: empty them from the
+            // cart so trying again can't order them twice.
+            clear();
+            throw new Error(`تم تسجيل طلب البراويز، لكن طلب طباعة الصور لم يكتمل: ${reason}`);
+          }
+          throw e;
+        }
+      }
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
       // Skip notifications for test orders unless caller opts in via ?send_test_notification=1.
@@ -831,7 +880,7 @@ function CartPage() {
         {settings.freeShippingThreshold} EGP
       </p>
 
-      {items.length === 0 ? (
+      {items.length === 0 && !photoPrint ? (
         <div className="mt-8">
           <div className="rounded-sm border border-dashed border-border p-16 text-center">
             <p className="text-muted-foreground">{t("cart.empty")}</p>
@@ -1120,12 +1169,17 @@ function CartPage() {
                 </div>
               </div>
             ))}
-            <button
-              onClick={clear}
-              className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
-            >
-              {t("cart.clearCart")}
-            </button>
+            {photoPrint && (
+              <PhotoPrintCartCard line={photoPrint} onRemove={() => setPhotoPrint(null)} />
+            )}
+            {items.length > 0 && (
+              <button
+                onClick={clear}
+                className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                {t("cart.clearCart")}
+              </button>
+            )}
           </div>
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -1421,6 +1475,14 @@ function CartPage() {
                     <span className="text-muted-foreground">📦 {t("cart.packagingFee")}</span>
                     <span>
                       {packagingFee} {t("egp")}
+                    </span>
+                  </div>
+                )}
+                {photoSubtotal > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">📷 {t("photo4x6.cartTitle")}</span>
+                    <span>
+                      {photoSubtotal} {t("egp")}
                     </span>
                   </div>
                 )}

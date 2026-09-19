@@ -35,7 +35,34 @@ export type CartItem = {
   editSettings?: EditSettings;
 };
 
+/**
+ * A photo-printing order waiting in the cart, next to any framed posters.
+ * The photos are already uploaded (only their URLs are kept here), and the
+ * price is what the customer was shown — the server recomputes it from the
+ * stored package / size prices when the order is placed.
+ */
+export type PhotoPrintLine = {
+  id: string;
+  /** "4x6" bundle, or a per-photo size. */
+  sizeMode: "4x6" | "10x15" | "13x18" | "15x20";
+  packageKey?: string;
+  label: string;
+  photoCount: number;
+  /** Photos + albums, as shown to the customer. */
+  price: number;
+  thumbs: string[];
+  originalPaths: string[];
+  enhancedPaths: string[];
+  suitPaths: string[];
+  selectedVersions: Record<string, string>;
+  selectedAlbums: Array<{ id: string; qty: number }>;
+  notes: string | null;
+};
+
 type CartCtx = {
+  /** The photo-printing order in the cart, if any (one at a time). */
+  photoPrint: PhotoPrintLine | null;
+  setPhotoPrint: (line: Omit<PhotoPrintLine, "id"> | null) => void;
   items: CartItem[];
   add: (item: Omit<CartItem, "id" | "qty">) => void;
   remove: (id: string) => void;
@@ -51,9 +78,11 @@ type CartCtx = {
 
 const Ctx = createContext<CartCtx | null>(null);
 const STORAGE_KEY = "brwazwneon_cart_v1";
+const PHOTO_STORAGE_KEY = "brwazwneon_photo_print_v1";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [photoPrint, setPhotoPrintState] = useState<PhotoPrintLine | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -63,7 +92,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    try {
+      const raw = localStorage.getItem(PHOTO_STORAGE_KEY);
+      if (raw) setPhotoPrintState(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
   }, []);
+
+  const setPhotoPrint = (line: Omit<PhotoPrintLine, "id"> | null) => {
+    const next = line ? { ...line, id: crypto.randomUUID() } : null;
+    try {
+      if (next) localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(next));
+      else localStorage.removeItem(PHOTO_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    setPhotoPrintState(next);
+    if (next) {
+      try {
+        trackEvent("AddToCart", {
+          content_ids: [`photo-print-${next.sizeMode}`],
+          content_name: `Photo Printing ${next.label}`,
+          content_type: "product",
+          content_category: "Photo Printing",
+          value: next.price,
+          currency: "EGP",
+        });
+      } catch {
+        /* noop */
+      }
+    }
+  };
 
   const persist = (next: CartItem[]) => {
     if (typeof window !== "undefined") {
@@ -88,6 +148,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartCtx>(
     () => ({
+      photoPrint,
+      setPhotoPrint,
       items,
       add: (item) => {
         try {
@@ -211,9 +273,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems((prev) => persist(prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))),
       clear: () => setItems(persist([])),
       total: items.reduce((s, i) => s + i.price * i.qty, 0),
-      count: items.reduce((s, i) => s + i.qty, 0),
+      count: items.reduce((s, i) => s + i.qty, 0) + (photoPrint ? 1 : 0),
     }),
-    [items],
+    [items, photoPrint],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
