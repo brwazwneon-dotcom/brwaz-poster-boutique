@@ -777,19 +777,12 @@ function PhotoPrintingPage() {
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {lang.startsWith("ar")
-              ? "باقات صور 4×6، أو أي مقاس تاني بالعدد اللي تحتاجه."
-              : "4×6 bundles, or any other size in exactly the quantity you need."}
+              ? "اختار المقاس والعدد اللي تحتاجه، أو باقات صور 4×6."
+              : "Pick any size in the quantity you need, or a 4×6 bundle."}
           </p>
 
           {/* Size mode switcher */}
           <div className="mt-6 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSizeMode("4x6")}
-              className={`rounded-sm border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${sizeMode === "4x6" ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-            >
-              4×6 {lang.startsWith("ar") ? "(باقات)" : "(bundles)"}
-            </button>
             {LOOSE_SIZES.map((s) => (
               <button
                 key={s.key}
@@ -800,6 +793,13 @@ function PhotoPrintingPage() {
                 {lang.startsWith("ar") ? s.labelAr : s.labelEn}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setSizeMode("4x6")}
+              className={`rounded-sm border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${sizeMode === "4x6" ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
+            >
+              4×6 {lang.startsWith("ar") ? "(باقات)" : "(bundles)"}
+            </button>
           </div>
 
           {sizeMode === "4x6" ? (
