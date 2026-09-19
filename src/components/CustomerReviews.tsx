@@ -280,7 +280,7 @@ function ReviewCard({
             )}
           </div>
           <div className="text-right text-[10px] uppercase tracking-widest text-muted-foreground">
-            {relativeDate(review.created_at)}
+            {relativeDate(review.created_at, t)}
           </div>
         </div>
 
