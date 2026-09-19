@@ -42,6 +42,8 @@ import {
   usePhoto4x6Config,
   usePricing,
   usePhotoPrintingMediaConfig,
+  PHOTO_PRINTING_MEDIA_KEY,
+  parsePhotoPrintingMediaConfig,
   usePhotoAlbumsPublic,
   readPostOrderMessageEnabled,
   type Photo4x6Package,
@@ -67,13 +69,22 @@ export const Route = createFileRoute("/photo-printing")({
   validateSearch: (s: Record<string, unknown>): { from?: string } => ({
     from: typeof s.from === "string" ? s.from : undefined,
   }),
-  loader: async () => {
+  loader: async ({ context }) => {
     // Fetched server-side only so the FAQ structured-data block below can
     // mirror the admin-edited FAQ text exactly, instead of the static
     // defaults going stale the moment someone edits the FAQ from the
     // dashboard. The page itself still reads FAQ content client-side via
     // usePhotoPrintingContent() like every other section on this route.
-    const settings = await getSiteSettingsPublic({ data: { keys: [PHOTO_PRINTING_CONTENT_KEY] } });
+    const settings = await getSiteSettingsPublic({
+      data: { keys: [PHOTO_PRINTING_CONTENT_KEY, PHOTO_PRINTING_MEDIA_KEY] },
+    });
+    // The admin-managed page images are needed by the very first render (the
+    // Premium Materials picture), so seed the query cache with them here; the
+    // router hands that cache to the browser.
+    context.queryClient.setQueryData(
+      ["photo-printing-media"],
+      parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY]),
+    );
     return { content: normalizePhotoPrintingContent(settings[PHOTO_PRINTING_CONTENT_KEY]) };
   },
   head: ({ loaderData }) => {
@@ -1441,7 +1452,7 @@ function PhotoPrintingPage() {
       <BeforeAfter location="photo-printing" />
 
       <div id="quality">
-        <ProductInfoSections variant="photo" />
+        <ProductInfoSections variant="photo" photoImage={media.materialsImage} />
       </div>
 
       {/* ============ REVIEWS ============ */}

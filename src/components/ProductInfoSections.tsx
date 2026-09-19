@@ -2,11 +2,34 @@ import { useTranslation } from "react-i18next";
 
 type Variant = "pvc" | "wood" | "photo" | "all";
 
-export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) {
+// Serve Cloudinary uploads at the width they are actually shown, in a modern
+// format, instead of the full-size upload.
+function resizedImageUrl(url: string, width: number): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !url.includes("res.cloudinary.com")) return url;
+  const rest = url.slice(at + marker.length);
+  const alreadyTransformed = !/^v\d+\//.test(rest) && /^[a-z]{1,3}_[^/]+\//.test(rest);
+  if (alreadyTransformed) return url;
+  return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_${width}/${rest}`;
+}
+
+export function ProductInfoSections({
+  variant = "all",
+  photoImage,
+}: {
+  variant?: Variant;
+  /** Picture shown beside the Photo Printing card when it is the only card. */
+  photoImage?: { imageUrl: string; altText: string } | null;
+}) {
   const { t } = useTranslation();
   const showPvc = variant === "all" || variant === "pvc";
   const showWood = variant === "all" || variant === "wood";
   const showPhoto = variant === "all" || variant === "photo";
+  // With only one card in the three-column grid, the other two columns would
+  // be an empty dark block: fill them with the picture if there is one,
+  // otherwise let the card use the full width.
+  const photoOnly = variant === "photo";
 
   return (
     <section className="border-t border-border bg-background">
@@ -55,6 +78,7 @@ export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) 
           )}
           {showPhoto && (
             <MaterialCard
+              className={photoOnly && !photoImage ? "md:col-span-3" : undefined}
               tag={t("productInfo.photoTag")}
               title={t("productInfo.photoTitle")}
               intro={t("productInfo.photoIntro")}
@@ -66,6 +90,17 @@ export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) 
                 t("productInfo.photoFeature5"),
               ]}
             />
+          )}
+          {photoOnly && photoImage && (
+            <div className="relative min-h-[260px] bg-background md:col-span-2">
+              <img
+                src={resizedImageUrl(photoImage.imageUrl, 1400)}
+                alt={photoImage.altText}
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            </div>
           )}
         </div>
 
@@ -101,14 +136,16 @@ function MaterialCard({
   title,
   intro,
   features,
+  className,
 }: {
   tag: string;
   title: string;
   intro: string;
   features: string[];
+  className?: string;
 }) {
   return (
-    <div className="bg-background p-8">
+    <div className={className ? `bg-background p-8 ${className}` : "bg-background p-8"}>
       <div className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">{tag}</div>
       <h3 className="text-display mt-3 text-3xl">{title}</h3>
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{intro}</p>

@@ -475,9 +475,16 @@ export type PhotoPrintingPageImage = {
   updatedAt: string;
 };
 
+export type PhotoPrintingMaterialsImage = {
+  imageUrl: string;
+  altText: string;
+};
+
 export type PhotoPrintingMediaConfig = {
   banners: PhotoPrintingBanner[];
   images: PhotoPrintingPageImage[];
+  /** Picture shown next to the "Photo Printing" card in the Premium Materials section. */
+  materialsImage?: PhotoPrintingMaterialsImage | null;
 };
 
 export const PHOTO_PRINTING_MEDIA_KEY = "photo_printing_media";
@@ -544,7 +551,14 @@ export function parsePhotoPrintingMediaConfig(raw: unknown): PhotoPrintingMediaC
         .filter((item): item is PhotoPrintingPageImage => !!item)
         .sort((a, b) => a.sortOrder - b.sortOrder)
     : [];
-  return { banners, images };
+  const rawMaterials = value.materialsImage as
+    Partial<PhotoPrintingMaterialsImage> | null | undefined;
+  const materialsUrl =
+    rawMaterials && typeof rawMaterials === "object" ? asString(rawMaterials.imageUrl) : "";
+  const materialsImage = materialsUrl
+    ? { imageUrl: materialsUrl, altText: asString(rawMaterials?.altText) }
+    : null;
+  return { banners, images, materialsImage };
 }
 
 export function usePhotoPrintingMediaConfig(): PhotoPrintingMediaConfig {

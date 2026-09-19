@@ -83,6 +83,7 @@ function PhotoPrintingMediaSection() {
   const [saving, setSaving] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingMaterials, setUploadingMaterials] = useState(false);
   const [draftBanner, setDraftBanner] = useState<DraftBannerFiles>(emptyDraft);
 
   const load = async () => {
@@ -251,6 +252,31 @@ function PhotoPrintingMediaSection() {
       "Image deleted",
     );
 
+  const uploadMaterialsImage = async (file: File | null) => {
+    if (!file) return;
+    setUploadingMaterials(true);
+    try {
+      const imageUrl = await uploadFile(file);
+      await saveConfig(
+        { ...data0, materialsImage: { imageUrl, altText: data0.materialsImage?.altText ?? "" } },
+        "Materials image saved",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingMaterials(false);
+    }
+  };
+
+  const saveMaterialsAlt = (altText: string) => {
+    const current = data0.materialsImage;
+    if (!current || altText === current.altText) return;
+    return saveConfig({ ...data0, materialsImage: { ...current, altText } }, "Description saved");
+  };
+
+  const removeMaterialsImage = () =>
+    saveConfig({ ...data0, materialsImage: null }, "Materials image removed");
+
   if (data === null) return <LoadingRows />;
 
   return (
@@ -260,6 +286,76 @@ function PhotoPrintingMediaSection() {
         <p className="mt-1 text-xs text-muted-foreground">
           Live settings — changes appear on /photo-printing without a rebuild.
         </p>
+      </div>
+
+      <div className="rounded-sm border border-border bg-card p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Premium Materials picture
+        </h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Shown next to the &quot;Photo Printing&quot; card in the Premium Materials section at the
+          bottom of /photo-printing. Wide pictures work best (about 2:1). Without one, the card
+          simply uses the full width.
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,220px)_1fr]">
+          <div className="flex aspect-[2/1] items-center justify-center overflow-hidden rounded-sm border border-dashed border-border bg-background text-[11px] text-muted-foreground">
+            {data0.materialsImage ? (
+              <SafeImage
+                src={data0.materialsImage.imageUrl}
+                alt={data0.materialsImage.altText}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              "No picture yet"
+            )}
+          </div>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">
+                <Upload className="h-4 w-4" />
+                {uploadingMaterials
+                  ? "Uploading…"
+                  : data0.materialsImage
+                    ? "Replace picture"
+                    : "Upload picture"}
+                <input
+                  type="file"
+                  accept="image/avif,image/webp,image/*"
+                  className="hidden"
+                  disabled={uploadingMaterials || saving}
+                  onChange={(event) => {
+                    void uploadMaterialsImage(event.target.files?.[0] ?? null);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              {data0.materialsImage ? (
+                <button
+                  type="button"
+                  onClick={() => void removeMaterialsImage()}
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs hover:bg-accent disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Remove
+                </button>
+              ) : null}
+            </div>
+            {data0.materialsImage ? (
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Picture description (for accessibility &amp; Google)
+                </span>
+                <input
+                  key={data0.materialsImage.imageUrl}
+                  defaultValue={data0.materialsImage.altText}
+                  onBlur={(event) => void saveMaterialsAlt(event.target.value.trim())}
+                  className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="e.g. Original FUJIFILM photo prints"
+                />
+              </label>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <div className="rounded-sm border border-border bg-card p-4">
