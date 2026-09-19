@@ -12,7 +12,8 @@
 // they still work exactly as before via /category/$slug.
 
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { getPosterBySlugPublic } from "@/lib/db-public.functions";
+import { getPosterBySlugPublic, getSiteSettingsPublic } from "@/lib/db-public.functions";
+import { PRICING_DEFAULTS, PRICING_KEYS } from "@/lib/use-settings";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { RelatedPosters } from "@/components/RelatedPosters";
@@ -31,25 +32,48 @@ import { Customizer, type Poster } from "@/routes/category.$slug";
 
 const BASE_URL = "https://brwazwneon.com";
 
+const FRAME_PRICE_KEYS = Object.keys(PRICING_KEYS).filter((k) => k.startsWith("frame_"));
+
+// Lowest and highest frame price across every frame type and size, from the
+// same admin-managed settings the storefront prices come from (falling back
+// to the built-in defaults for any that aren't set).
+function framePriceRange(settings: Record<string, unknown>) {
+  const defaults = PRICING_DEFAULTS.frame as Record<string, Record<string, number | undefined>>;
+  const prices: number[] = [];
+  for (const key of FRAME_PRICE_KEYS) {
+    const [, type, size] = key.split("_");
+    const raw = settings[key];
+    const n = typeof raw === "number" ? raw : Number(raw);
+    const price = Number.isFinite(n) && n > 0 ? n : (defaults[type]?.[size] ?? 0);
+    if (price > 0) prices.push(price);
+  }
+  if (prices.length === 0) return null;
+  return { low: Math.min(...prices), high: Math.max(...prices), count: prices.length };
+}
+
 export const Route = createFileRoute("/poster/$slug")({
   loader: async ({ params, context }) => {
     // The page needs the categories to render its main product area. Fetched
     // here (and handed to the browser by the router's dehydrate/hydrate), the
     // server HTML already contains that area at its final size, instead of a
     // short "category could not be loaded" placeholder that later jumps open.
-    const [poster] = await Promise.all([
+    const [poster, , settings] = await Promise.all([
       getPosterBySlugPublic({ data: { slug: params.slug } }),
       context.queryClient.ensureQueryData({
         queryKey: CATEGORIES_QUERY_KEY,
         queryFn: fetchCategories,
         staleTime: 60_000,
       }),
+      // Only feeds the price range in the page's structured data, so a
+      // failure here must never take the page down.
+      getSiteSettingsPublic({ data: { keys: FRAME_PRICE_KEYS } }).catch(() => ({})),
     ]);
     if (!poster) throw notFound();
+    const priceRange = framePriceRange(settings as Record<string, unknown>);
     // No image_variants pipeline yet on the new database (Phase 4) — the
     // original image_url doubles as the OG image for now.
     const ogImage = poster.image_url ?? undefined;
-    return { poster, ogImage };
+    return { poster, ogImage, priceRange };
   },
   head: ({ loaderData, params }) => {
     const poster = loaderData?.poster;
@@ -90,11 +114,20 @@ export const Route = createFileRoute("/poster/$slug")({
                 description,
                 url,
                 brand: { "@type": "Brand", name: "BRWAZWNEON" },
-                // offers.price intentionally omitted — final price depends
-                // on the frame/size the customer picks on this page (see
-                // Customizer), there is no single fixed price for a poster
-                // the way schema.org/Product normally expects. Revisit if
-                // the business wants a "starting at X EGP" figure published.
+                // The final price depends on the frame and size the customer
+                // picks (see Customizer), so there is no single price: publish
+                // the real low-to-high range across all frame types and sizes.
+                offers: loaderData?.priceRange
+                  ? {
+                      "@type": "AggregateOffer",
+                      priceCurrency: "EGP",
+                      lowPrice: String(loaderData.priceRange.low),
+                      highPrice: String(loaderData.priceRange.high),
+                      offerCount: loaderData.priceRange.count,
+                      availability: "https://schema.org/InStock",
+                      url,
+                    }
+                  : undefined,
               }),
             },
             {
