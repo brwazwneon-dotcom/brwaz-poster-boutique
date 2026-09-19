@@ -80,6 +80,15 @@ export function CustomerReviews({
     return () => cancelAnimationFrame(id);
   }, []);
 
+  // While the reviews are loading, hold the section's place. Rendering nothing
+  // and then popping in a tall section makes everything below it (which may
+  // already be on screen) jump down.
+  if (isLoading) {
+    return (
+      <section aria-hidden="true" className="min-h-[900px] border-t border-border bg-background" />
+    );
+  }
+
   if (displayed.length === 0) return null;
 
   return (

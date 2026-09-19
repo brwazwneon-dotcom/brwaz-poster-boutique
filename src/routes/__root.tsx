@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import i18n, { i18nInitPromise } from "@/lib/i18n";
+import { getRouterI18n } from "@/lib/request-i18n";
 
 import appCss from "../styles.css?url";
 import { logSystemEvent } from "../lib/error-logger";
@@ -260,6 +261,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  // The language instance for this request (per-request on the server), so
+  // everything below renders in the visitor's language from the first byte.
+  return (
+    <I18nextProvider i18n={getRouterI18n(router, i18n)}>
+      <RootHtml>{children}</RootHtml>
+    </I18nextProvider>
+  );
+}
+
+function RootHtml({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
   return (
@@ -305,7 +317,7 @@ function RootComponent() {
   }, []);
 
   return (
-    <I18nextProvider i18n={i18n}>
+    <I18nextProvider i18n={getRouterI18n(router, i18n)}>
       <QueryClientProvider client={queryClient}>
         <CartProvider>
           <WishlistProvider>

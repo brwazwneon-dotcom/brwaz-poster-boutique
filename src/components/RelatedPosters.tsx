@@ -65,7 +65,7 @@ export function RelatedPosters({
   const tags = (poster.tags ?? []).filter(Boolean);
   const words = keywords(poster.title);
 
-  const { data: related = [] } = useQuery({
+  const { data: related = [], isLoading } = useQuery({
     queryKey: ["related-posters", poster.id, catIds.join(","), tags.join(","), words.join(",")],
     enabled: !!poster.id,
     staleTime: 5 * 60_000,
@@ -81,6 +81,18 @@ export function RelatedPosters({
     related.map((p) => p.id),
     "(max-width: 640px) 180px, (max-width: 1024px) 25vw, 20vw",
   );
+
+  // Hold this section's place while it loads. Rendering nothing and then
+  // popping in a tall section pushes everything below it (already on screen)
+  // down the page.
+  if (isLoading) {
+    return (
+      <section
+        aria-hidden="true"
+        className="min-h-[560px] border-t border-border bg-background sm:min-h-[860px] lg:min-h-[1200px]"
+      />
+    );
+  }
 
   if (related.length === 0) return null;
 
