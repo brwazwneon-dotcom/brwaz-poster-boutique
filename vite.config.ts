@@ -186,6 +186,19 @@ export default defineConfig(async ({ command, mode }) => {
     const { nitro } = await import("nitro/vite");
     internalPlugins.push(
       nitro({
+        // Baseline security headers for every response. The site uses no
+        // camera, microphone or location APIs and embeds nothing, so those
+        // are switched off and other sites can't frame it.
+        routeRules: {
+          "/**": {
+            headers: {
+              "X-Content-Type-Options": "nosniff",
+              "Referrer-Policy": "strict-origin-when-cross-origin",
+              "X-Frame-Options": "SAMEORIGIN",
+              "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+            },
+          },
+        },
         defaultPreset: "cloudflare-module",
         ...(process.env.NITRO_PRESET ? { preset: process.env.NITRO_PRESET } : {}),
       }),

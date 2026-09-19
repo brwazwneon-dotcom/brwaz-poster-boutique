@@ -140,6 +140,19 @@ function SearchPage() {
         </div>
       ) : (
         <>
+          {term && isFetching && results.length === 0 ? (
+            // Hold the results' space while the search runs; otherwise the
+            // page is short and the footer, already on screen, jumps down
+            // when the results arrive.
+            <div
+              aria-hidden="true"
+              className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+            >
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="aspect-[3/4] animate-pulse rounded-sm bg-muted/30" />
+              ))}
+            </div>
+          ) : null}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {visibleResults.map((p) => {
               const image = images[p.id];
