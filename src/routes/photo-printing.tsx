@@ -36,6 +36,8 @@ import {
 } from "@/lib/poster-edit";
 import { createPhoto4x6Order } from "@/lib/db-orders.functions";
 import { whatsappLink } from "@/lib/whatsapp";
+import { PHOTO_VOLUME_TIERS, photoUnitPrice } from "@/lib/photo-volume-pricing";
+import { PhotoVolumeOffers } from "@/components/PhotoVolumeOffers";
 import {
   useSiteSettings,
   computeShipping,
@@ -381,15 +383,24 @@ function PhotoPrintingPage() {
   // for a loose size). Mirrors createPhoto4x6Order.
   const requiredCount = sizeMode === "4x6" ? pkg.photos : Math.max(LOOSE_SIZE_MIN_QTY, looseQty);
   const printCount = Math.max(requiredCount, pics.length);
-  const extraCount = printCount - requiredCount;
+  // Extras only exist for the 4x6 bundle. A loose size is simply priced per
+  // photo for everything in the order, at the volume-offer price that the
+  // total number of photos unlocks (see photo-volume-pricing.ts).
+  const extraCount = sizeMode === "4x6" ? printCount - requiredCount : 0;
   const extraUnitPrice =
-    sizeMode === "4x6"
-      ? pkg.photos > 0
-        ? Math.ceil(pkg.price / pkg.photos)
-        : 0
-      : pricing.photo[sizeMode];
+    sizeMode === "4x6" && pkg.photos > 0 ? Math.ceil(pkg.price / pkg.photos) : 0;
   const extraCost = extraCount * extraUnitPrice;
-  const baseSubtotal = sizeMode === "4x6" ? pkg.price : pricing.photo[sizeMode] * requiredCount;
+  const regularUnitPrice = sizeMode === "4x6" ? 0 : pricing.photo[sizeMode];
+  const looseUnitPrice =
+    sizeMode === "4x6" ? 0 : photoUnitPrice(sizeMode, printCount, regularUnitPrice);
+  const volumeSavings = (regularUnitPrice - looseUnitPrice) * printCount;
+  const nextTier =
+    sizeMode === "4x6"
+      ? undefined
+      : PHOTO_VOLUME_TIERS[sizeMode].find(
+          (tier) => tier.minQty > printCount && tier.price < looseUnitPrice,
+        );
+  const baseSubtotal = sizeMode === "4x6" ? pkg.price : looseUnitPrice * printCount;
   const subtotal = baseSubtotal + extraCost;
   const albumsTotal = albums.reduce((sum, a) => sum + (albumQty[a.id] ?? 0) * a.price, 0);
   const shipping = computeShipping(subtotal + albumsTotal, settings);
@@ -781,6 +792,25 @@ function PhotoPrintingPage() {
               : "Pick any size in the quantity you need, or a 4×6 bundle."}
           </p>
 
+          <PhotoVolumeOffers
+            sizes={LOOSE_SIZES.map((s) => ({
+              key: s.key,
+              label: lang.startsWith("ar") ? s.labelAr : s.labelEn,
+            }))}
+            basePrices={pricing.photo}
+            activeSize={sizeMode === "4x6" ? null : sizeMode}
+            activeQty={printCount}
+            onPick={(size, qty) => {
+              setSizeMode(size);
+              setLooseQty(Math.max(LOOSE_SIZE_MIN_QTY, qty));
+              try {
+                trackCustom("photo_size_selected", { size, quantity: qty, source: "volume_offer" });
+              } catch {
+                /* noop */
+              }
+            }}
+          />
+
           {/* Size mode switcher */}
           <div className="mt-6 flex flex-wrap gap-2">
             {LOOSE_SIZES.map((s) => (
@@ -861,10 +891,15 @@ function PhotoPrintingPage() {
                   : LOOSE_SIZES.find((s) => s.key === sizeMode)?.labelEn}
               </div>
               <div className="mt-4 flex items-end gap-2">
-                <span className="text-display text-5xl">{pricing.photo[sizeMode]}</span>
+                <span className="text-display text-5xl">{looseUnitPrice}</span>
                 <span className="pb-2 text-xs uppercase tracking-widest text-muted-foreground">
                   {t("egp")} {lang.startsWith("ar") ? "/ صورة" : "/ photo"}
                 </span>
+                {looseUnitPrice < regularUnitPrice && (
+                  <span className="pb-2 text-sm text-muted-foreground line-through">
+                    {regularUnitPrice}
+                  </span>
+                )}
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <span className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -907,9 +942,21 @@ function PhotoPrintingPage() {
               </p>
               <p className="mt-4 text-xs text-muted-foreground">
                 {lang.startsWith("ar")
-                  ? `${looseQty} صورة × ${pricing.photo[sizeMode]} جنيه = ${pricing.photo[sizeMode] * looseQty} جنيه`
-                  : `${looseQty} photos × ${pricing.photo[sizeMode]} EGP = ${pricing.photo[sizeMode] * looseQty} EGP`}
+                  ? `${printCount} صورة × ${looseUnitPrice} جنيه = ${baseSubtotal} جنيه`
+                  : `${printCount} photos × ${looseUnitPrice} EGP = ${baseSubtotal} EGP`}
               </p>
+              {nextTier && (
+                <button
+                  type="button"
+                  onClick={() => setLooseQty(Math.max(looseQty, nextTier.minQty))}
+                  className="mt-3 w-full rounded-sm border border-primary/40 bg-primary/10 px-3 py-2 text-start text-xs font-semibold text-primary transition hover:bg-primary/20"
+                >
+                  {t("photo4x6.nextTierHint", {
+                    more: nextTier.minQty - printCount,
+                    price: nextTier.price,
+                  })}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1319,8 +1366,14 @@ function PhotoPrintingPage() {
                   <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
                     <Row
                       label={t("photo4x6.package", { label: sizeLabel })}
-                      value={`${baseSubtotal} ${t("egp")}`}
+                      value={`${baseSubtotal + volumeSavings} ${t("egp")}`}
                     />
+                    {volumeSavings > 0 && (
+                      <Row
+                        label={t("photo4x6.volumeSavings")}
+                        value={`− ${volumeSavings} ${t("egp")}`}
+                      />
+                    )}
                     {extraCount > 0 && (
                       <Row
                         label={t("photo4x6.extraPhotosRow", {

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { sql } from "@/lib/neon.server";
 import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
+import { photoUnitPrice } from "@/lib/photo-volume-pricing";
 
 export type OrderRowInput = {
   guest_session_id: string | null;
@@ -200,8 +201,11 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         "shipping_fee",
         "free_shipping_threshold",
       ]);
-      const unitPrice = Number(settings[priceKey]) || 0;
-      if (unitPrice <= 0) throw new Error("This size is not available right now");
+      const regularPrice = Number(settings[priceKey]) || 0;
+      if (regularPrice <= 0) throw new Error("This size is not available right now");
+      // Volume offers: the more photos, the lower the price of every photo.
+      // Mirrors the Photo Printing page (same shared function).
+      const unitPrice = photoUnitPrice(data.size_key, qty, regularPrice);
       photoCount = qty;
       subtotal = unitPrice * qty;
       packageKeyToStore = `size_${data.size_key}`;
