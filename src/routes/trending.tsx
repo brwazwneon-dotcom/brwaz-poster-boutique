@@ -144,9 +144,7 @@ function TrendingPage() {
           <Flame className="mr-1 inline h-3 w-3" /> {t("trending.label")}
         </p>
         <h1 className="text-display mt-3 text-4xl sm:text-6xl">{t("trending.heading")}</h1>
-        <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-          The framed posters everyone is talking about. Fresh picks, updated constantly.
-        </p>
+        <p className="mt-3 max-w-xl text-sm text-muted-foreground">{t("trending.description")}</p>
       </section>
 
       <section className="container-page pb-6">

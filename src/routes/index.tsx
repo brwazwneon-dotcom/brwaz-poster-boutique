@@ -290,7 +290,7 @@ function HeroBannerSection() {
         </div>
 
         <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:text-xs">
-          {[t("nav.customDesign"), t("photoPrinting.title"), "Preview Before Printing"].map((t) => (
+          {[t("nav.customDesign"), t("photoPrinting.title"), t("quality.proDesigner")].map((t) => (
             <li key={t} className="flex items-center gap-2">
               <span className="text-foreground">✔</span>
               {t}

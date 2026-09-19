@@ -11,11 +11,11 @@ import {
   useIsAdminSession,
   EG_NAMES,
   EG_CITIES,
-  SALE_MESSAGES,
+  SALE_MESSAGE_KEYS,
   pick,
   randomInt,
-  timeAgo,
 } from "@/lib/social-proof";
+import { relativeMinutes } from "@/lib/relative-time";
 type Poster = { id: string; title: string; image_url: string };
 type Notice = {
   id: string;
@@ -80,7 +80,7 @@ export function SalesNotifications() {
         id: Math.random().toString(36).slice(2),
         name: cfg.sales.useFakeNames ? pick(EG_NAMES) : "Someone",
         city: pick(EG_CITIES),
-        message: pick(SALE_MESSAGES),
+        message: pick(SALE_MESSAGE_KEYS),
         minsAgo: randomInt(1, 42),
         poster,
       };
@@ -135,9 +135,9 @@ export function SalesNotifications() {
               {t("socialProof.from")} {notice.city}
             </span>
           </div>
-          <div className="truncate text-[12px] leading-snug text-white/80">{notice.message}</div>
+          <div className="truncate text-[12px] leading-snug text-white/80">{t(notice.message)}</div>
           <div className="mt-1 text-[10px] uppercase tracking-widest text-white/50">
-            {timeAgo(notice.minsAgo)}
+            {relativeMinutes(t, notice.minsAgo)}
           </div>
         </div>
         <button

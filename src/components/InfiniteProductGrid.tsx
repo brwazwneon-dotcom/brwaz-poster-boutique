@@ -141,7 +141,7 @@ export function InfiniteProductGrid({
             onClick={onLoadMore}
             className="rounded-sm border border-border px-6 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
           >
-            Load next batch manually
+            {t("category.loadNextBatch")}
           </button>
         </div>
       )}

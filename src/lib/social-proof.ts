@@ -119,6 +119,20 @@ export const SALE_MESSAGES = [
   "purchased 3 Black Poster Frames",
 ];
 
+// Translation keys for the same eight messages, so the visitor-facing popup
+// can show them in the visitor's language (SALE_MESSAGES stays as the English
+// text the admin preview uses).
+export const SALE_MESSAGE_KEYS = [
+  "socialProof.sale1",
+  "socialProof.sale2",
+  "socialProof.sale3",
+  "socialProof.sale4",
+  "socialProof.sale5",
+  "socialProof.sale6",
+  "socialProof.sale7",
+  "socialProof.sale8",
+];
+
 export function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }

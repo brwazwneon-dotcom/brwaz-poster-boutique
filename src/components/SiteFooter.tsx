@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFooterMenu } from "@/lib/footer-menu";
-import { BRANCH, SOCIAL } from "@/lib/site";
+import { SOCIAL } from "@/lib/site";
 import { Instagram, Facebook, MessageCircle, MapPin } from "lucide-react";
 
 const LOGO_PNG_FALLBACK = "/assets/brwazwneon-logo.png";
@@ -43,7 +43,7 @@ export function SiteFooter() {
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">{t("footer.description")}</p>
           <p className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" /> {BRANCH}
+            <MapPin className="h-3.5 w-3.5" /> {t("footer.branchAvailable")}
           </p>
           <div className="mt-5 flex items-center gap-2">
             <a

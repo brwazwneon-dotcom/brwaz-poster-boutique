@@ -112,7 +112,7 @@ function BestSellersPage() {
     <div className="min-h-screen bg-background">
       <section className="container-page pt-16 pb-8">
         <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
-          <Flame className="mr-1 inline h-3 w-3" /> All Best Sellers
+          <Flame className="mr-1 inline h-3 w-3" /> {t("bestSellers.allBestSellers")}
         </p>
         <h1 className="text-display mt-3 text-4xl sm:text-6xl">
           {cfg.title || t("bestSellers.heading")}

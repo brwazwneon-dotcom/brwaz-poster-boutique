@@ -8,6 +8,9 @@
  * standard "Verified Purchase" trust chip only when they come from the database.
  */
 
+import type { TFunction } from "i18next";
+import { relativeFromDate } from "@/lib/relative-time";
+
 const FIRST_NAMES = [
   "Ahmed",
   "Mohamed",
@@ -177,22 +180,9 @@ export function buildInsertableReviews(count = 10) {
   }));
 }
 
-/** "Yesterday", "2 days ago", "3 weeks ago" — bilingual-friendly, English UI copy. */
-export function relativeDate(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const diff = Date.now() - then;
-  const day = 24 * 60 * 60 * 1000;
-  const days = Math.max(0, Math.floor(diff / day));
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
-  if (days < 30) {
-    const w = Math.round(days / 7);
-    return w === 1 ? "1 week ago" : `${w} weeks ago`;
-  }
-  const m = Math.round(days / 30);
-  return m === 1 ? "1 month ago" : `${m} months ago`;
+/** "Yesterday", "2 days ago", "3 weeks ago" — in the visitor's language. */
+export function relativeDate(iso: string, t: TFunction): string {
+  return relativeFromDate(t, iso);
 }
 
 /** Fisher-Yates shuffle (in-place clone). */

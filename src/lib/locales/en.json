@@ -165,7 +165,8 @@
     "followUs": "Follow Us",
     "contact": "Contact",
     "branches": "Branches",
-    "allRightsReserved": "All rights reserved."
+    "allRightsReserved": "All rights reserved.",
+    "branchAvailable": "Alexandria Branch Available"
   },
   "home": {
     "heroTitle": "Turn Your Room Into A Piece Of Art",
@@ -591,7 +592,8 @@
     "step": "Step",
     "moreIn": "More in",
     "previousPoster": "Previous Poster",
-    "nextPoster": "Next Poster"
+    "nextPoster": "Next Poster",
+    "loadNextBatch": "Load next batch manually"
   },
   "offers": {
     "title": "Special Offers",
@@ -675,7 +677,8 @@
     "emptyState": "No results match your search yet.",
     "pageTitle": "Best Sellers — BRWAZWNEON",
     "resultsCount": "{filtered} of {total}",
-    "title": "Best Sellers"
+    "title": "Best Sellers",
+    "allBestSellers": "All Best Sellers"
   },
   "sets": {
     "curatedBundles": "Curated bundles",
@@ -1034,7 +1037,8 @@
     "serverError": "Server error. Please try again later.",
     "sessionExpired": "Your session has expired. Please sign in again.",
     "unauthorized": "You are not authorized to access this page.",
-    "notFound": "Not found"
+    "notFound": "Not found",
+    "goHome": "Go home"
   },
   "socialProof": {
     "someoneBought": "someone just bought",
@@ -1047,7 +1051,15 @@
     "checkingOffer": "{{count}} customers are checking this offer now",
     "viewingPoster": "{{count}} people are viewing this poster now",
     "soldRecently": "{{count}} sold in the last 7 days",
-    "from": "from"
+    "from": "from",
+    "sale1": "purchased a framed poster",
+    "sale2": "ordered 2 framed posters",
+    "sale3": "ordered a custom portrait",
+    "sale4": "bought a football poster",
+    "sale5": "ordered anime posters",
+    "sale6": "purchased 4 posters",
+    "sale7": "bought a premium frame",
+    "sale8": "purchased 3 Black Poster Frames"
   },
   "announcement": {
     "freeShipping": "Free shipping on orders over 500 EGP",
@@ -1187,5 +1199,20 @@
       "cancelled": "Cancelled",
       "returned": "Returned"
     }
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago",
+    "weeksAgo_one": "{{count}} week ago",
+    "weeksAgo_other": "{{count}} weeks ago",
+    "monthsAgo_one": "{{count}} month ago",
+    "monthsAgo_other": "{{count}} months ago"
   }
 }
