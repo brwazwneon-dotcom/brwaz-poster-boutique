@@ -1196,7 +1196,12 @@ function CartPage() {
                 </div>
               )}
               <div className="mt-5 space-y-3">
-                <Field label={t("checkout.fullName")} value={name} onChange={setName} />
+                <Field
+                  label={t("checkout.fullName")}
+                  value={name}
+                  onChange={setName}
+                  autoComplete="name"
+                />
                 <label className="block">
                   <span className="text-xs uppercase tracking-widest text-muted-foreground">
                     {t("checkout.phone")}
@@ -1223,6 +1228,7 @@ function CartPage() {
                     {t("checkout.governorate")}
                   </span>
                   <select
+                    autoComplete="address-level1"
                     value={governorate}
                     onChange={(e) => setGovernorate(e.target.value)}
                     className="mt-1 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
@@ -1240,6 +1246,7 @@ function CartPage() {
                   value={address}
                   onChange={setAddress}
                   textarea
+                  autoComplete="street-address"
                 />
               </div>
               <div className="mt-5 border-t border-border pt-4">
@@ -1638,14 +1645,17 @@ function Field({
   onChange,
   type = "text",
   textarea = false,
+  autoComplete,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   textarea?: boolean;
+  autoComplete?: string;
 }) {
   const props = {
+    autoComplete,
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       onChange(e.target.value),
