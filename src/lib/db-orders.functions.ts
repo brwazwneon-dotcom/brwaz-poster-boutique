@@ -106,6 +106,10 @@ type Photo4x6PackageInput = { key: string; photos: number; price: number; label:
 const LOOSE_SIZE_KEYS = ["10x15", "13x18", "15x20"] as const;
 type LooseSizeKey = (typeof LOOSE_SIZE_KEYS)[number];
 const LOOSE_SIZE_MIN_QTY = 25;
+// A package or size sets the minimum number of photos; the customer may
+// print more (extras are charged per photo), up to this safety limit.
+// Keep in sync with MAX_PHOTOS in routes/photo-printing.tsx.
+const MAX_PHOTOS_PER_ORDER = 200;
 const PAYMENT_METHODS = ["cod", "instapay", "vodafone_cash"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -165,7 +169,8 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (data.original_paths.length === 0) throw new Error("At least one photo is required");
-    if (data.original_paths.length > 50) throw new Error("Too many photos in one order");
+    if (data.original_paths.length > MAX_PHOTOS_PER_ORDER)
+      throw new Error("Too many photos in one order");
     if (!/^01\d{9}$/.test(data.phone)) throw new Error("Invalid phone number");
     const paymentMethod: PaymentMethod = PAYMENT_METHODS.includes(
       data.payment_method as PaymentMethod,
@@ -184,10 +189,10 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     if (data.size_key) {
       if (!LOOSE_SIZE_KEYS.includes(data.size_key)) throw new Error("Invalid size selected");
       const qty = Math.trunc(Number(data.quantity));
-      if (!Number.isFinite(qty) || qty < LOOSE_SIZE_MIN_QTY || qty > 50)
+      if (!Number.isFinite(qty) || qty < LOOSE_SIZE_MIN_QTY || qty > MAX_PHOTOS_PER_ORDER)
         throw new Error(`Minimum order for this size is ${LOOSE_SIZE_MIN_QTY} photos`);
       if (data.original_paths.length !== qty) {
-        throw new Error(`This selection requires exactly ${qty} photos`);
+        throw new Error(`Photo count does not match the quantity (${qty})`);
       }
       const priceKey = `photo_${data.size_key}`;
       const settings = await fetchSiteSettingsFromDb([
@@ -235,13 +240,20 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     const config = settings.photo_4x6_config as { packages?: Photo4x6PackageInput[] } | null;
     const pkg = config?.packages?.find((p) => p.key === data.package_key);
     if (!pkg) throw new Error("Invalid package selected");
-    if (data.original_paths.length !== pkg.photos) {
-      throw new Error(`This package requires exactly ${pkg.photos} photos`);
+    if (data.original_paths.length < pkg.photos) {
+      throw new Error(`This package requires at least ${pkg.photos} photos`);
     }
+    // Photos beyond the package are charged at the package's own per-photo
+    // rate, computed here from the stored package — never trusted from the
+    // client. Mirrors extraUnitPrice in routes/photo-printing.tsx.
+    const uploadedCount = data.original_paths.length;
+    const extraPhotos = uploadedCount - pkg.photos;
+    const extraUnitPrice = pkg.photos > 0 ? Math.ceil(pkg.price / pkg.photos) : 0;
+    const packageSubtotal = pkg.price + extraPhotos * extraUnitPrice;
     const fee = Number(settings.shipping_fee) || 89;
     const freeThreshold = Number(settings.free_shipping_threshold) || 1600;
-    const shipping = computeShippingServer(pkg.price + albumsTotal, fee, freeThreshold);
-    const totalPrice = pkg.price + albumsTotal + shipping;
+    const shipping = computeShippingServer(packageSubtotal + albumsTotal, fee, freeThreshold);
+    const totalPrice = packageSubtotal + albumsTotal + shipping;
 
     const rows = await sql()`
       insert into photo_4x6_orders (
@@ -250,7 +262,7 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         selected_albums, albums_total, payment_method
       ) values (
         ${data.customer_name}, ${data.phone}, ${data.governorate}, ${data.address},
-        ${data.package_key}, ${pkg.photos}, ${totalPrice}, ${data.notes},
+        ${data.package_key}, ${uploadedCount}, ${totalPrice}, ${data.notes},
         ${data.original_paths}, ${data.enhanced_paths}, ${data.suit_paths},
         ${JSON.stringify(data.selected_versions)}, ${JSON.stringify(albumsSnapshot)}, ${albumsTotal},
         ${paymentMethod}

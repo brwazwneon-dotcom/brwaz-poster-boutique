@@ -202,6 +202,9 @@ const LOOSE_SIZES: { key: Exclude<SizeMode, "4x6">; labelEn: string; labelAr: st
 // Minimum order quantity for the loose, per-photo sizes (10×15/13×18/15×20).
 // 4x6 bundles are unaffected — their quantity is fixed by the package.
 const LOOSE_SIZE_MIN_QTY = 25;
+// Upper safety limit on photos in one order. A package or size sets the
+// minimum; a customer may print more, and extras are charged per photo.
+const MAX_PHOTOS = 200;
 
 // Print aspect ratio (width / height) per size, fed to the shared
 // crop/zoom/rotate editor (@/lib/poster-edit, already built for the admin
@@ -372,13 +375,26 @@ function PhotoPrintingPage() {
     [media.images],
   );
 
+  // The package / chosen quantity is the minimum to upload; a customer who
+  // wants more just adds more photos. Extras are charged at the same per-photo
+  // rate (package price / package photos for a bundle, the size's own price
+  // for a loose size). Mirrors createPhoto4x6Order.
   const requiredCount = sizeMode === "4x6" ? pkg.photos : Math.max(LOOSE_SIZE_MIN_QTY, looseQty);
-  const subtotal = sizeMode === "4x6" ? pkg.price : pricing.photo[sizeMode] * requiredCount;
+  const printCount = Math.max(requiredCount, pics.length);
+  const extraCount = printCount - requiredCount;
+  const extraUnitPrice =
+    sizeMode === "4x6"
+      ? pkg.photos > 0
+        ? Math.ceil(pkg.price / pkg.photos)
+        : 0
+      : pricing.photo[sizeMode];
+  const extraCost = extraCount * extraUnitPrice;
+  const baseSubtotal = sizeMode === "4x6" ? pkg.price : pricing.photo[sizeMode] * requiredCount;
+  const subtotal = baseSubtotal + extraCost;
   const albumsTotal = albums.reduce((sum, a) => sum + (albumQty[a.id] ?? 0) * a.price, 0);
   const shipping = computeShipping(subtotal + albumsTotal, settings);
   const total = subtotal + albumsTotal + shipping;
   const remaining = Math.max(0, requiredCount - pics.length);
-  const over = pics.length > requiredCount;
 
   const setAlbumQuantity = (id: string, qty: number) => {
     setAlbumQty((prev) => {
@@ -401,7 +417,9 @@ function PhotoPrintingPage() {
       /* noop */
     }
     const next: Pic[] = [];
-    for (const f of Array.from(files)) {
+    const room = Math.max(0, MAX_PHOTOS - pics.length);
+    if (files.length > room) toast.error(t("photo4x6.maxPhotosReached", { max: MAX_PHOTOS }));
+    for (const f of Array.from(files).slice(0, room)) {
       if (f.size > MAX_FILE_MB * 1024 * 1024) {
         toast.error(t("photo4x6.fileTooLarge", { name: f.name, max: MAX_FILE_MB }));
         continue;
@@ -503,13 +521,6 @@ function PhotoPrintingPage() {
     e.preventDefault();
     if (pics.length < requiredCount)
       return toast.error(t("photo4x6.uploadPhotosCount", { total: requiredCount }));
-    if (pics.length > requiredCount)
-      return toast.error(
-        t("photo4x6.removeExtraPhotos", {
-          total: requiredCount,
-          extra: pics.length - requiredCount,
-        }),
-      );
     if (!name.trim() || !phone.trim() || !governorate || !address.trim())
       return toast.error(t("cart.fillDeliveryFields"));
     if (!/^01\d{9}$/.test(phone.trim()))
@@ -608,7 +619,7 @@ function PhotoPrintingPage() {
           address: address.trim(),
           ...(sizeMode === "4x6"
             ? { package_key: pkg.key }
-            : { size_key: sizeMode, quantity: requiredCount }),
+            : { size_key: sizeMode, quantity: printCount }),
           notes: notes.trim() || null,
           original_paths: originals,
           enhanced_paths: enhanced,
@@ -636,7 +647,7 @@ function PhotoPrintingPage() {
         `Phone: ${phone}`,
         `Governorate: ${governorate}`,
         `Address: ${address}`,
-        `Size: ${sizeLabel} (${requiredCount} photos)`,
+        `Size: ${sizeLabel} (${printCount} photos)`,
         ...albumsLines,
         ...(notes.trim() ? [`Customer notes: ${notes.trim()}`] : []),
         `Payment: ${paymentLabel}${paymentMethod !== "cod" ? ` (to ${content.payment.instapayVodafonePhone})` : ""}`,
@@ -874,7 +885,7 @@ function PhotoPrintingPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const next = Math.min(50, looseQty + 1);
+                      const next = Math.min(MAX_PHOTOS, looseQty + 1);
                       setLooseQty(next);
                       try {
                         trackCustom("photo_size_selected", { size: sizeMode, quantity: next });
@@ -1005,10 +1016,11 @@ function PhotoPrintingPage() {
                 <p className="mt-2 text-sm text-muted-foreground">
                   {remaining > 0
                     ? t("photo4x6.morePhotosNeeded", { count: remaining, total: requiredCount })
-                    : over
-                      ? t("photo4x6.tooManyPhotos", {
-                          count: pics.length,
-                          extra: pics.length - requiredCount,
+                    : extraCount > 0
+                      ? t("photo4x6.extraPhotosNote", {
+                          photos: pics.length,
+                          extra: extraCount,
+                          price: extraCost,
                         })
                       : t("photo4x6.allPhotosReady")}
                 </p>
@@ -1303,8 +1315,17 @@ function PhotoPrintingPage() {
                   <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
                     <Row
                       label={t("photo4x6.package", { label: sizeLabel })}
-                      value={`${subtotal} ${t("egp")}`}
+                      value={`${baseSubtotal} ${t("egp")}`}
                     />
+                    {extraCount > 0 && (
+                      <Row
+                        label={t("photo4x6.extraPhotosRow", {
+                          extra: extraCount,
+                          unit: extraUnitPrice,
+                        })}
+                        value={`${extraCost} ${t("egp")}`}
+                      />
+                    )}
                     {albumsTotal > 0 && (
                       <Row
                         label={lang.startsWith("ar") ? "ألبومات الصور" : "Photo albums"}
