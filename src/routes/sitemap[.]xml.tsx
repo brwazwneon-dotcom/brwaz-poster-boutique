@@ -22,7 +22,6 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/trending", changefreq: "daily", priority: "0.8" },
           { path: "/custom-design", changefreq: "monthly", priority: "0.7" },
           { path: "/photo-printing", changefreq: "monthly", priority: "0.7" },
-          { path: "/photo-4x6", changefreq: "monthly", priority: "0.7" },
           { path: "/search", changefreq: "monthly", priority: "0.5" },
         ];
 
@@ -46,13 +45,17 @@ export const Route = createFileRoute("/sitemap.xml")({
           // Posters get their own permanent URL via the /poster/$slug route.
           // Paginate in batches of 1000 rather than a single query — a
           // catalog in the hundreds/thousands of posters would otherwise
-          // silently truncate the sitemap.
+          // silently truncate the sitemap. Same visibility rule as the
+          // /poster/$slug page itself (hidden = false AND a usable image):
+          // listing a poster that page answers with a 404 for would hand
+          // search engines dead URLs.
           let from = 0;
           const pageSize = 1000;
           for (;;) {
             const posterPage = await sql()(
               `select slug, updated_at from posters
                where hidden = false and slug is not null
+                 and migration_status in ('not_applicable', 'migrated')
                order by created_at desc offset $1 limit $2`,
               [from, pageSize],
             );

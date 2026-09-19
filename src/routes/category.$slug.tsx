@@ -346,7 +346,9 @@ function CategoryPage() {
           <h1 className="text-display text-4xl sm:text-6xl">{category?.name ?? "…"}</h1>
           <p className="text-sm text-muted-foreground">{t("category.tapToSelect")}</p>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        {/* The badges appear after load; reserving their height keeps the
+            rest of the page from jumping down when they do. */}
+        <div className="mt-4 flex min-h-[60px] flex-wrap content-start items-center gap-3 sm:min-h-[30px]">
           <LiveVisitors variant="product" />
           <RecentOrdersBadge surface="product" />
         </div>
@@ -644,7 +646,7 @@ export function Customizer({
         </div>
         <button
           onClick={onClear}
-          className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+          className="-my-2 py-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
         >
           {t("common.clearAll")}
         </button>

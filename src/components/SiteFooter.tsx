@@ -79,10 +79,10 @@ export function SiteFooter() {
           <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
             {t("footer.shop")}
           </h4>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-0 text-sm sm:space-y-2">
             {shopLinks.map((l) => (
               <li key={l.id}>
-                <a href={l.href} className="hover:underline">
+                <a href={l.href} className="inline-block py-2 hover:underline sm:py-0">
                   {l.label}
                 </a>
               </li>
@@ -93,14 +93,14 @@ export function SiteFooter() {
           <h4 className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
             {t("footer.help")}
           </h4>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-0 text-sm sm:space-y-2">
             <li>
-              <Link to="/offers" className="hover:underline">
+              <Link to="/offers" className="inline-block py-2 hover:underline sm:py-0">
                 {t("nav.specialOffers")}
               </Link>
             </li>
             <li>
-              <Link to="/cart" className="hover:underline">
+              <Link to="/cart" className="inline-block py-2 hover:underline sm:py-0">
                 {t("nav.cart")}
               </Link>
             </li>

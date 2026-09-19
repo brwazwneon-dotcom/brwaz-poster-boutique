@@ -50,7 +50,11 @@ export function InfiniteProductGrid({
     return () => observer.disconnect();
   }, []);
 
-  if (state === "loading" && products.length === 0) {
+  // "idle" with no products is the moment before the first batch starts
+  // (server render and hydration). Showing the skeleton then, not only once
+  // loading begins, keeps the page at its loaded height from the first paint
+  // so the sections below don't jump down when the products arrive.
+  if ((state === "loading" || state === "idle") && products.length === 0) {
     return (
       <div
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"

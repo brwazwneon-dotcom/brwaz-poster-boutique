@@ -7,7 +7,7 @@ import ar from "./locales/ar.json";
 const SUPPORTED_LANGS = ["ar", "en"];
 const STORAGE_KEY = "brw_preferred_lang";
 
-type Lang = "ar" | "en";
+export type Lang = "ar" | "en";
 
 function toLang(raw: string | null | undefined): Lang | null {
   const v = (raw ?? "").toLowerCase();
@@ -47,12 +47,21 @@ const visitor = readVisitorPreference();
 // page. So both sides start in Arabic (`lng` below skips detection), and
 // `applyVisitorLanguage()` switches to the visitor's language once hydration
 // has finished.
+//
+// The server now picks the language per request (see resolveRequestLanguage
+// and router.tsx), so an English visitor normally gets English HTML straight
+// away. The browser starts in whatever language the server rendered
+// (<html lang>), which keeps hydration identical, and only switches after
+// hydration when the visitor's stored choice differs from that.
+const renderedLang: Lang | null =
+  typeof document !== "undefined" ? toLang(document.documentElement.lang) : null;
+
 export const i18nInitPromise = i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: { en: { translation: en }, ar: { translation: ar } },
-    lng: "ar",
+    lng: renderedLang ?? "ar",
     fallbackLng: "ar",
     supportedLngs: SUPPORTED_LANGS,
     nonExplicitSupportedLngs: true,
@@ -64,16 +73,60 @@ export const i18nInitPromise = i18n
     interpolation: { escapeValue: false },
   })
   .then(() => {
-    // Initialising in Arabic cached "ar" over the visitor's stored choice;
-    // put back exactly what was there before.
-    if (typeof window !== "undefined" && visitor.stored) {
+    if (typeof window === "undefined") return;
+    // Initialising cached the rendered language over the visitor's stored
+    // choice; put back exactly what was there before.
+    if (visitor.stored) {
       try {
         window.localStorage.setItem(STORAGE_KEY, visitor.stored);
       } catch {
         /* storage unavailable */
       }
     }
+    // From here on, every real language change also updates the cookie.
+    i18n.on("languageChanged", writeLanguageCookie);
   });
+
+const COOKIE_NAME = "brw_lang";
+
+/** Language for a server request: the visitor's saved choice (cookie), else
+ *  the highest-priority Arabic/English entry of Accept-Language, else Arabic
+ *  (also what crawlers, which send no preference, get). */
+export function resolveRequestLanguage(
+  cookie: string | null | undefined,
+  acceptLanguage: string | null | undefined,
+): Lang {
+  const fromCookie = new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=(ar|en)\\b`).exec(cookie ?? "");
+  if (fromCookie) return fromCookie[1] as Lang;
+  if (acceptLanguage) {
+    const ranked = acceptLanguage
+      .split(",")
+      .map((part, index) => {
+        const [tag, ...params] = part.trim().split(";");
+        const qParam = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+        return { lang: toLang(tag), q: qParam ? parseFloat(qParam.slice(2)) : 1, index };
+      })
+      .filter((c) => c.lang && !Number.isNaN(c.q) && c.q > 0)
+      .sort((a, b) => b.q - a.q || a.index - b.index);
+    if (ranked.length > 0) return ranked[0].lang as Lang;
+  }
+  return "ar";
+}
+
+/** A separate i18n instance for one server request, so concurrent requests
+ *  in different languages can't overwrite each other's language. Shares the
+ *  loaded translations with the main instance. */
+export function createRequestI18n(lang: Lang) {
+  return i18n.cloneInstance({ lng: lang });
+}
+
+// Remember the language in a cookie so the server can render it next time.
+function writeLanguageCookie(lang: string) {
+  if (typeof document === "undefined") return;
+  const value = lang.toLowerCase().startsWith("ar") ? "ar" : "en";
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
+  document.cookie = `${COOKIE_NAME}=${value}; path=/; max-age=31536000; samesite=lax${secure}`;
+}
 
 let applied = false;
 
@@ -101,7 +154,11 @@ export function applyVisitorLanguage() {
   if (applied || typeof window === "undefined") return;
   applied = true;
   const target = visitor.lang;
-  if (!target || target === "ar") return;
+  if (!target || i18n.language?.startsWith(target)) {
+    // Already showing their language: just make sure the server can see it.
+    writeLanguageCookie(i18n.language ?? "ar");
+    return;
+  }
   const started = Date.now();
   const tick = () => {
     if (serverContentHydrated() || Date.now() - started > 2500) {

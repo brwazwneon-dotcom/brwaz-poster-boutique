@@ -20,19 +20,31 @@ import { CustomerReviews } from "@/components/CustomerReviews";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
 import { usePerformanceFlags } from "@/lib/performance-flags";
-import { useCategories } from "@/lib/use-categories";
+import { CATEGORIES_QUERY_KEY, fetchCategories, useCategories } from "@/lib/use-categories";
 import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { track as behavior } from "@/lib/behavior";
 import { trackEvent } from "@/lib/meta-pixel";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Customizer, type Poster } from "@/routes/category.$slug";
 
 const BASE_URL = "https://brwazwneon.com";
 
 export const Route = createFileRoute("/poster/$slug")({
-  loader: async ({ params }) => {
-    const poster = await getPosterBySlugPublic({ data: { slug: params.slug } });
+  loader: async ({ params, context }) => {
+    // The page needs the categories to render its main product area. Fetched
+    // here (and handed to the browser by the router's dehydrate/hydrate), the
+    // server HTML already contains that area at its final size, instead of a
+    // short "category could not be loaded" placeholder that later jumps open.
+    const [poster] = await Promise.all([
+      getPosterBySlugPublic({ data: { slug: params.slug } }),
+      context.queryClient.ensureQueryData({
+        queryKey: CATEGORIES_QUERY_KEY,
+        queryFn: fetchCategories,
+        staleTime: 60_000,
+      }),
+    ]);
     if (!poster) throw notFound();
     // No image_variants pipeline yet on the new database (Phase 4) — the
     // original image_url doubles as the OG image for now.
@@ -104,6 +116,7 @@ export const Route = createFileRoute("/poster/$slug")({
 });
 
 function PosterPage() {
+  const { t } = useTranslation();
   const { poster } = Route.useLoaderData();
   const { data: categories = [] } = useCategories();
   const category = categories.find((c) => c.id === poster.category_id) ?? null;
@@ -161,14 +174,19 @@ function PosterPage() {
   return (
     <>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <nav className="mb-6 text-xs text-muted-foreground">
-          <Link to="/" className="hover:underline">
-            Home
+        <h1 className="sr-only">{poster.title}</h1>
+        <nav className="mb-4 text-xs text-muted-foreground">
+          <Link to="/" className="inline-block py-2 hover:underline">
+            {t("nav.home")}
           </Link>
           {category && (
             <>
               {" / "}
-              <Link to="/category/$slug" params={{ slug: category.slug }} className="hover:underline">
+              <Link
+                to="/category/$slug"
+                params={{ slug: category.slug }}
+                className="inline-block py-2 hover:underline"
+              >
                 {category.name}
               </Link>
             </>
