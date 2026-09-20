@@ -307,7 +307,7 @@ export function OrdersTab({
                           <div className="text-muted-foreground">
                             {frameCount} {frameCount === 1 ? "frame" : "frames"}
                             {g.frames[0]
-                              ? ` · ${g.frames[0].size} · ${g.frames[0].frame_type}`
+                              ? ` · ${[...new Set(g.frames.map((r) => r.size))].join(" / ")} · ${g.frames[0].frame_type}`
                               : ""}
                             {g.tapeQty > 0 ? ` · + ${g.tapeQty} double-face tape` : ""}
                           </div>
