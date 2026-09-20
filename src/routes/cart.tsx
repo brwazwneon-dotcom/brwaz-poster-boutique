@@ -5,6 +5,7 @@ import { BestSellers } from "@/components/BestSellers";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { PhotoPrintingPromoBanner } from "@/components/PhotoPrintingPromoBanner";
 import { PhotoPrintCartCard } from "@/components/PhotoPrintCartCard";
+import { uploadPaymentProof } from "@/lib/payment-proof";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -579,12 +580,21 @@ function CartPage() {
       });
     }
     try {
-      // TEMPORARY (Phase 1): payment-screenshot upload is disabled until
-      // object storage is wired up on the new infrastructure (Phase 4).
-      // Instapay orders still go through — the admin follows up over
-      // WhatsApp for proof of payment in the meantime, same as any order
-      // where a customer doesn't attach a screenshot today.
-      const screenshotPath: string | null = null;
+      // The customer's InstaPay screenshot is uploaded first and its URL saved
+      // on the order, so the admin can check the payment. If the upload fails
+      // nothing has been created yet, so the customer can simply try again.
+      let screenshotPath: string | null = null;
+      if (paymentMethod === "instapay" && screenshot) {
+        try {
+          screenshotPath = await uploadPaymentProof(screenshot);
+        } catch (uploadError) {
+          throw new Error(
+            uploadError instanceof Error
+              ? `تعذّر رفع صورة التحويل: ${uploadError.message}`
+              : "تعذّر رفع صورة التحويل، حاول مرة تانية",
+          );
+        }
+      }
 
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
@@ -604,10 +614,22 @@ function CartPage() {
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
-      const rows = items.map((i) => {
-        const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
+      const lineDiscounts = items.map((i) => Math.round(i.price * i.qty * discountRatio));
+      // Rounding every share can leave the rows 1–2 EGP away from the discount
+      // the customer was shown; the difference goes on the last item.
+      if (lineDiscounts.length > 0) {
+        lineDiscounts[lineDiscounts.length - 1] +=
+          bundle.amount - lineDiscounts.reduce((sum, d) => sum + d, 0);
+      }
+      // Packaging for the bundle offers that are applied automatically (a full
+      // set of 6 or 4 frames) is charged in the total but belongs to no single
+      // item: put it on the first row so the rows add up to what was charged.
+      const autoOfferPackaging = autoOfferSets * pricing.packagingFee;
+      const rows = items.map((i, index) => {
+        const linePackaging =
+          (i.bundle ? pricing.packagingFee * i.qty : 0) + (index === 0 ? autoOfferPackaging : 0);
         const lineGross = i.price * i.qty;
-        const lineDiscount = Math.round(lineGross * discountRatio);
+        const lineDiscount = lineDiscounts[index];
         const lineNet = lineGross - lineDiscount;
         return {
           guest_session_id: guestSessionId,

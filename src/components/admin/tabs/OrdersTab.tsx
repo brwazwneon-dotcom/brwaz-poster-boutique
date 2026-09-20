@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { listOrdersAdmin, updateOrderStatus } from "@/lib/db-admin.functions";
+import {
+  listCheckoutPhotoOrdersAdmin,
+  listOrdersAdmin,
+  updateOrderStatus,
+} from "@/lib/db-admin.functions";
 import { customerWhatsappLink } from "./shared";
 import { OrderDetailsDrawer } from "./OrderDetailsDrawer";
 import { CONFIRMATION_STATUS_LABEL, type ConfirmationStatus } from "@/lib/order-whatsapp";
@@ -36,6 +40,33 @@ export type AdminOrder = {
   /** customer + created_at, built inside Postgres: same value for every row of one checkout. */
   checkout_key?: string;
 };
+
+/** A photo-printing order (its own table). Placed together with a frames order it belongs to the same checkout. */
+export type PhotoOrderLite = {
+  id: string;
+  order_number: string | null;
+  phone: string;
+  package_key: string;
+  photo_count: number;
+  total_price: number | string;
+  status: string;
+  created_at: string;
+};
+
+export function photoOrderLabel(p: PhotoOrderLite): string {
+  const size = p.package_key.startsWith("size_") ? p.package_key.slice(5) : p.package_key;
+  return `${p.photo_count} photos · ${size}`;
+}
+
+// The cart saves the frames first and the photo print a moment later, with
+// the same phone number.
+export function photoOrdersForGroup(group: OrderGroup, photos: PhotoOrderLite[]): PhotoOrderLite[] {
+  const start = new Date(group.primary.created_at).getTime();
+  return photos.filter((p) => {
+    const at = new Date(p.created_at).getTime();
+    return p.phone === group.primary.phone && at >= start - 2_000 && at <= start + 3 * 60_000;
+  });
+}
 
 // The cart's "double face tape" add-on is saved as its own row with this title.
 export const TAPE_TITLE = "Double Face Tape";
@@ -100,10 +131,15 @@ export function OrdersTab({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [printTarget, setPrintTarget] = useState<OrderGroup[] | null>(null);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
+  const [photoOrders, setPhotoOrders] = useState<PhotoOrderLite[]>([]);
 
   const load = async () => {
-    const rows = await listOrdersAdmin({ data: filter ? { status: filter } : {} });
+    const [rows, photos] = await Promise.all([
+      listOrdersAdmin({ data: filter ? { status: filter } : {} }),
+      listCheckoutPhotoOrdersAdmin().catch(() => []),
+    ]);
     setOrders(rows as AdminOrder[]);
+    setPhotoOrders(photos as PhotoOrderLite[]);
   };
 
   useEffect(() => {
@@ -259,6 +295,8 @@ export function OrdersTab({
               {groups.map((g) => {
                 const o = g.primary;
                 const proof = g.rows.find((r) => r.payment_screenshot)?.payment_screenshot ?? null;
+                const photosOf = photoOrdersForGroup(g, photoOrders);
+                const photoTotal = photosOf.reduce((n, ph) => n + (Number(ph.total_price) || 0), 0);
                 const shown = g.frames.slice(0, 4);
                 const frameCount = g.frames.reduce((n, r) => n + (Number(r.quantity) || 0), 0);
                 const extraTitles = g.frames.length > 1 ? ` +${g.frames.length - 1} more` : "";
@@ -311,6 +349,12 @@ export function OrdersTab({
                               : ""}
                             {g.tapeQty > 0 ? ` · + ${g.tapeQty} double-face tape` : ""}
                           </div>
+                          {photosOf.map((ph) => (
+                            <div key={ph.id} className="text-primary">
+                              📷 Photo print: {photoOrderLabel(ph)} · {ph.total_price} EGP
+                              {ph.order_number ? ` (${ph.order_number})` : ""}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </td>
@@ -331,12 +375,19 @@ export function OrdersTab({
                         </a>
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-medium">{g.total} EGP</td>
+                    <td className="px-3 py-2 font-medium">
+                      {g.total + photoTotal} EGP
+                      {photoTotal > 0 && (
+                        <div className="text-[10px] font-normal text-muted-foreground">
+                          incl. {photoTotal} photo print
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-xs">
                       <div>
                         {o.payment_method} / {o.payment_status}
                       </div>
-                      {proof && (
+                      {proof?.startsWith("https://") && (
                         <a
                           href={proof}
                           target="_blank"
@@ -394,6 +445,10 @@ export function OrdersTab({
         order={orders.find((o) => o.id === detailsOrderId) ?? null}
         open={detailsOrderId !== null}
         onOpenChange={(open) => setDetailsOrderId(open ? detailsOrderId : null)}
+        photoOrders={(() => {
+          const g = groups.find((gr) => gr.rows.some((r) => r.id === detailsOrderId));
+          return g ? photoOrdersForGroup(g, photoOrders) : [];
+        })()}
         onOrderUpdated={load}
       />
     </div>

@@ -949,6 +949,18 @@ export const deletePoster = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------
+// Photo-printing orders, lightweight, so the Orders list can show the photo
+// print that was placed in the same checkout as a frames order.
+export const listCheckoutPhotoOrdersAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    return sql()`
+      select id, order_number, phone, package_key, photo_count, total_price, status, created_at
+      from photo_4x6_orders
+      order by created_at desc limit 300
+    `;
+  });
+
 export const listOrdersAdmin = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { status?: string } | undefined) ?? {})
   .middleware([requireAdminSessionNeon])

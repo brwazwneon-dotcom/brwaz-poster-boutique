@@ -321,3 +321,35 @@ export const updateOrderConfirmationAdmin = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+// ---------------------------------------------------------------
+// Payment check — the admin looks at the customer's payment screenshot and
+// marks the WHOLE checkout as paid (or the proof as rejected). The change is
+// applied to every row of the checkout and logged once on the timeline.
+// ---------------------------------------------------------------
+export const setOrderPaymentAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) => data as { ids: string[]; decision: "paid" | "rejected" | "pending" },
+  )
+  .handler(async ({ data, context }) => {
+    if (!["paid", "rejected", "pending"].includes(data.decision)) {
+      throw new Error("Invalid payment decision");
+    }
+    if (!data.ids.length) throw new Error("No orders to update");
+    const client = sql();
+    const actor = await currentAdminEmail(client, context.adminId);
+    if (data.decision === "paid") {
+      await client`
+        update orders set payment_status = 'paid', payment_verified_at = now()
+        where id = any(${data.ids})
+      `;
+    } else {
+      await client`
+        update orders set payment_status = ${data.decision}, payment_verified_at = null
+        where id = any(${data.ids})
+      `;
+    }
+    await logTimelineInternal(client, data.ids[0], `payment_${data.decision}`, { actor });
+    return { ok: true };
+  });

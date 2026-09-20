@@ -36,6 +36,15 @@ export type OrderRowInput = {
   utm_campaign?: string | null;
 };
 
+// The payment screenshot is shown to the admin as a link, so only accept the
+// URL of an image we uploaded ourselves — never an arbitrary string from the
+// browser (e.g. a `javascript:` link).
+function safeProofUrl(url: unknown): string | null {
+  return typeof url === "string" && /^https:\/\/res\.cloudinary\.com\/[^\s"'<>]+$/.test(url)
+    ? url
+    : null;
+}
+
 // Public — checkout is anonymous, same as before. Runs entirely
 // server-side now (previously a direct client insert into Supabase),
 // so the price-guard trigger is the last line of defense, not the only
@@ -82,7 +91,7 @@ export const createOrderRows = createServerFn({ method: "POST" })
             ${r.frame_type}, ${r.frame_color}, ${r.size}, ${r.quantity}, ${r.selected_poster},
             ${r.poster_title}, ${r.poster_image}, ${r.notes}, ${r.subtotal}, ${r.packaging_fee},
             ${r.shipping_cost}, ${r.total_price}, ${r.status}, ${r.payment_method},
-            ${r.payment_status}, ${r.payment_screenshot}, ${r.is_test},
+            ${r.payment_status}, ${safeProofUrl(r.payment_screenshot)}, ${r.is_test},
             ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}
           )
           returning id, order_number

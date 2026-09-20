@@ -10,6 +10,7 @@ import {
   updateOrderNoteAdmin,
   deleteOrderNoteAdmin,
   updateOrderConfirmationAdmin,
+  setOrderPaymentAdmin,
   type OrderTimelineEvent,
   type OrderNote,
 } from "@/lib/order-ops.functions";
@@ -24,18 +25,26 @@ import {
   type ConfirmationStatus,
 } from "@/lib/order-whatsapp";
 import { customerWhatsappLink } from "./shared";
-import { checkoutNumberLabel, type AdminOrder } from "./OrdersTab";
+import {
+  checkoutNumberLabel,
+  photoOrderLabel,
+  type AdminOrder,
+  type PhotoOrderLite,
+} from "./OrdersTab";
 
 export function OrderDetailsDrawer({
   order,
   open,
   onOpenChange,
   onOrderUpdated,
+  photoOrders = [],
 }: {
   order: AdminOrder | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOrderUpdated: () => void;
+  /** Photo-printing orders placed in the same checkout (their own table). */
+  photoOrders?: PhotoOrderLite[];
 }) {
   // The clicked row is one frame — `group` is every `orders` row from the
   // same checkout (same customer_id + created_at; see getOrderGroupAdmin),
@@ -87,7 +96,9 @@ export function OrderDetailsDrawer({
   if (!order || !primary) return null;
   const items = group ?? [order];
   const groupIds = items.map((i) => i.id);
-  const groupTotal = items.reduce((sum, i) => sum + Number(i.total_price), 0);
+  const framesTotal = items.reduce((sum, i) => sum + Number(i.total_price), 0);
+  const photoTotal = photoOrders.reduce((sum, p) => sum + (Number(p.total_price) || 0), 0);
+  const groupTotal = framesTotal + photoTotal;
   const sumOf = (pick: (i: AdminOrder) => unknown) =>
     items.reduce((n, i) => n + (Number(pick(i)) || 0), 0);
   const itemsSubtotal = sumOf((i) => i.subtotal);
@@ -110,6 +121,25 @@ export function OrderDetailsDrawer({
     });
     setMessage(text);
     setConfirmation("prepared", text);
+  };
+
+  // Marks the whole checkout as paid / proof rejected after looking at the
+  // customer's payment screenshot.
+  const setPayment = async (decision: "paid" | "rejected" | "pending") => {
+    if (!primaryId) return;
+    setSaving(true);
+    try {
+      await setOrderPaymentAdmin({ data: { ids: groupIds, decision } });
+      const reloaded = (await getOrderGroupAdmin({ data: { orderId: primaryId } })) as AdminOrder[];
+      if (reloaded.length > 0) setGroup(reloaded);
+      onOrderUpdated();
+      refresh(primaryId);
+      toast.success(decision === "paid" ? "Payment marked as paid" : "Payment updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update payment");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const setConfirmation = async (status: ConfirmationStatus, msg?: string) => {
@@ -211,6 +241,21 @@ export function OrderDetailsDrawer({
                 <div className="shrink-0 text-xs text-muted-foreground">{i.total_price} EGP</div>
               </div>
             ))}
+            {photoOrders.map((ph) => (
+              <div key={ph.id} className="flex items-center gap-3 rounded-sm bg-primary/5 p-2">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-sm border border-border text-xl">
+                  📷
+                </div>
+                <div className="flex-1">
+                  <div>Photo printing</div>
+                  <div className="text-xs text-muted-foreground">
+                    {photoOrderLabel(ph)} · {ph.order_number ?? ""} · see the Photo Orders tab for
+                    the files
+                  </div>
+                </div>
+                <div className="shrink-0 text-xs text-muted-foreground">{ph.total_price} EGP</div>
+              </div>
+            ))}
             <div className="space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
               {itemsSubtotal > 0 && (
                 <div className="flex justify-between">
@@ -234,19 +279,51 @@ export function OrderDetailsDrawer({
             <div className="border-t border-border pt-2 text-sm font-semibold">
               TOTAL: {groupTotal} EGP
             </div>
-            <div className="text-xs text-muted-foreground">
-              {primary.payment_method} / {primary.payment_status}
+            <div className="space-y-2 border-t border-border pt-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Payment</span>
+                <span className="font-medium">
+                  {primary.payment_method} / {primary.payment_status}
+                </span>
+              </div>
+              {proofUrl?.startsWith("https://") ? (
+                <a
+                  href={proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-fit"
+                  title="Open the payment screenshot"
+                >
+                  <img
+                    src={proofUrl}
+                    alt="Payment screenshot"
+                    className="max-h-56 rounded-sm border border-border object-contain"
+                  />
+                </a>
+              ) : primary.payment_method === "instapay" ? (
+                <div className="text-amber-500">
+                  No payment screenshot was saved for this order.
+                </div>
+              ) : null}
+              {primary.payment_method !== "cod" && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setPayment("paid")}
+                    disabled={saving || primary.payment_status === "paid"}
+                    className="rounded-sm border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-500 disabled:opacity-50"
+                  >
+                    ✅ Payment verified
+                  </button>
+                  <button
+                    onClick={() => setPayment("rejected")}
+                    disabled={saving || primary.payment_status === "rejected"}
+                    className="rounded-sm border border-red-500/40 px-3 py-1.5 text-xs text-red-500 disabled:opacity-50"
+                  >
+                    ❌ Proof rejected
+                  </button>
+                </div>
+              )}
             </div>
-            {proofUrl && (
-              <a
-                href={proofUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block text-xs text-cyan-500 hover:underline"
-              >
-                View payment proof
-              </a>
-            )}
           </section>
 
           {/* ---- WhatsApp confirmation ---- */}
