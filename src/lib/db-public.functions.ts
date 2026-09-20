@@ -12,6 +12,7 @@ import {
   fetchRandomVisiblePostersFromDb,
   fetchRelatedPostersFromDb,
   fetchRoomTransformationArtworkFromDb,
+  fetchRoomWallPostersFromDb,
   fetchSearchPostersFromDb,
   fetchShowcaseProductsForCategoriesFromDb,
   fetchSiteSettingsFromDb,
@@ -348,6 +349,15 @@ export const getRoomTransformationArtworkPublic = createServerFn({ method: "GET"
   )
   .handler(async ({ data }) => {
     return fetchRoomTransformationArtworkFromDb(data.posterId);
+  });
+
+// Public — posters shown on the homepage gallery wall (up to 6).
+export const getRoomWallPostersPublic = createServerFn({ method: "GET" })
+  .validator(
+    (data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null },
+  )
+  .handler(async ({ data }) => {
+    return fetchRoomWallPostersFromDb(data.posterId, 6);
   });
 
 // Public — client error capture (window.onerror / unhandledrejection /

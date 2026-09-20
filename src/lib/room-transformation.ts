@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getSiteSettingsPublic,
   getRoomTransformationArtworkPublic,
+  getRoomWallPostersPublic,
 } from "@/lib/db-public.functions";
 import type { ResponsivePosterImage } from "@/lib/public-images";
 
@@ -213,6 +214,22 @@ export function useRoomTransformationArtwork(settings: RoomTransformationSetting
         sizes: "(max-width: 640px) 72vw, 360px",
       };
       return { posterId: row.id, title: row.title, image };
+    },
+  });
+}
+
+export type RoomWallPoster = { id: string; title: string; imageUrl: string };
+
+// Up to six posters for the gallery wall: the admin's pick first, then the
+// best sellers, then the newest.
+export function useRoomWallPosters(settings: RoomTransformationSettings) {
+  return useQuery({
+    queryKey: ["room-wall-posters", settings.posterId],
+    enabled: settings.enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<RoomWallPoster[]> => {
+      const rows = await getRoomWallPostersPublic({ data: { posterId: settings.posterId } });
+      return rows.map((row) => ({ id: row.id, title: row.title, imageUrl: row.image_url }));
     },
   });
 }

@@ -26,6 +26,11 @@ import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
 import { InfiniteProductGrid } from "@/components/InfiniteProductGrid";
 
 export const Route = createFileRoute("/offers")({
+  // `?bundle=bundle-6-20x30` opens the page with that bundle already picked
+  // (used by the homepage gallery-wall offer).
+  validateSearch: (s: Record<string, unknown>): { bundle?: string } => ({
+    bundle: typeof s.bundle === "string" && s.bundle ? s.bundle : undefined,
+  }),
   head: () => {
     const title = "Offers — BRWAZWNEON";
     const description =
@@ -138,7 +143,8 @@ type PosterSelectionMeta = Pick<Poster, "id" | "title" | "image_url">;
 function OffersPage() {
   const { t } = useTranslation();
   const bundles = useBundles();
-  const [bundleKey, setBundleKey] = useState<Bundle["key"] | null>(null);
+  const { bundle: bundleFromLink } = Route.useSearch();
+  const [bundleKey, setBundleKey] = useState<Bundle["key"] | null>(bundleFromLink ?? null);
   const bundle = bundles.find((b) => b.key === bundleKey) ?? null;
 
   return (

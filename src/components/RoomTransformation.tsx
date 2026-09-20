@@ -1,50 +1,69 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { SafeImage } from "@/components/SafeImage";
 import {
   ROOM_CTA_DESTINATIONS,
   ROOM_FRAME_STYLES,
   ROOM_PRESETS,
-  useRoomTransformationArtwork,
   useRoomTransformationSettings,
+  useRoomWallPosters,
 } from "@/lib/room-transformation";
+import { WALL_LAYOUTS } from "@/lib/room-wall-layouts";
+import { priceForFrame, usePricing } from "@/lib/use-settings";
+import "./room-wall.css";
+
+const BUNDLE_KEY = "bundle-6-20x30";
+
+// Serve Cloudinary uploads at the size they are shown, in a modern format.
+function thumb(url: string, width: number): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !url.includes("res.cloudinary.com")) return url;
+  const rest = url.slice(at + marker.length);
+  if (!/^v\d+\//.test(rest) && /^[a-z]{1,3}_[^/]+\//.test(rest)) return url;
+  return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_${width}/${rest}`;
+}
 
 export function RoomTransformation() {
   const { i18n } = useTranslation();
   const settings = useRoomTransformationSettings();
-  const artworkQuery = useRoomTransformationArtwork(settings);
-  const sectionRef = useRef<HTMLElement | null>(null);
+  const postersQuery = useRoomWallPosters(settings);
+  const pricing = usePricing();
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [near, setNear] = useState(false);
+  const [count, setCount] = useState<3 | 6>(6);
   const isAr = i18n.language?.startsWith("ar");
 
   useEffect(() => {
-    const el = sectionRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), {
-      rootMargin: "420px 0px",
+      rootMargin: "300px 0px",
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [settings.enabled]);
 
+  // The frames hang one by one as the room scrolls into view: nothing at
+  // 85% of the way down the screen, everything once it is near the top. No
+  // pinned/sticky scrolling, so there is no extra scroll distance.
   useEffect(() => {
     if (!near) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setProgress(1);
       return;
     }
     let frame = 0;
     const update = () => {
-      const el = sectionRef.current;
+      const el = stageRef.current;
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const travel = Math.max(1, rect.height - window.innerHeight);
-      const next = clamp((0 - rect.top) / travel, 0, 1);
-      setProgress((prev) => (Math.abs(prev - next) > 0.006 ? next : prev));
+      const top = el.getBoundingClientRect().top;
+      const start = window.innerHeight * 0.85;
+      const end = window.innerHeight * 0.15;
+      const next = clamp((start - top) / (start - end), 0, 1);
+      setProgress((prev) => (Math.abs(prev - next) > 0.008 ? next : prev));
     };
     const onScroll = () => {
       if (frame) return;
@@ -63,117 +82,204 @@ export function RoomTransformation() {
     };
   }, [near]);
 
-  const motion = useMemo(() => computeMotion(progress), [progress]);
-  const room = ROOM_PRESETS[settings.roomPreset];
-  const frameStyle = ROOM_FRAME_STYLES[settings.frameStyle];
-  const artwork = artworkQuery.data;
-  const cta = ROOM_CTA_DESTINATIONS[settings.ctaDestination];
-
   if (!settings.enabled) return null;
 
+  const room = ROOM_PRESETS[settings.roomPreset];
+  const frameStyle = ROOM_FRAME_STYLES[settings.frameStyle];
+  const cta = ROOM_CTA_DESTINATIONS[settings.ctaDestination];
   const heading = isAr ? settings.headingAr : settings.headingEn;
   const subheading = isAr ? settings.subheadingAr : settings.subheadingEn;
+  const posters = postersQuery.data ?? [];
+  const layout = WALL_LAYOUTS[count];
+  const step = count === 6 ? 0.13 : 0.3;
+  const glow = ease(clamp((progress - 0.55) / 0.4, 0, 1));
+  const filled = progress > 0.7;
+
+  // Bundle offer (6 frames 20x30) — the same numbers the /offers page shows.
+  const unit = priceForFrame(pricing, "pvc", "20x30");
+  const bundlePrice = pricing.offers.bundle6_20x30;
+  const regular6 = unit * 6;
+  const saving = Math.max(0, regular6 - bundlePrice);
+  const regular3 = unit * 3;
 
   return (
     <section
-      ref={sectionRef}
-      className="room-transformation-section border-t border-border bg-background text-foreground"
+      className="border-t border-border bg-background text-foreground"
       aria-labelledby="room-transformation-title"
-      style={
-        {
-          "--room-wall": room.wall,
-          "--frame-color": frameStyle.frame,
-          "--frame-mat": frameStyle.mat,
-          "--frame-border": frameStyle.border,
-          "--room-light": motion.light,
-          "--room-warmth": motion.warmth,
-          "--room-object-position": room.objectPosition,
-          "--room-mobile-object-position": room.mobileObjectPosition,
-          "--wall-frame-left": room.frame.left,
-          "--wall-frame-top": room.frame.top,
-          "--wall-frame-width": room.frame.width,
-          "--wall-frame-mobile-left": room.frame.mobileLeft,
-          "--wall-frame-mobile-top": room.frame.mobileTop,
-          "--wall-frame-mobile-width": room.frame.mobileWidth,
-        } as CSSProperties
-      }
     >
-      <div className="room-transformation-sticky container-page">
-        <div className="grid min-h-[92svh] items-center gap-8 py-12 lg:grid-cols-[1.18fr_0.82fr] lg:gap-12 lg:py-16">
-          <div
-            className="room-transformation-stage"
-            aria-label={
-              isAr ? "غرفة قبل وبعد إضافة البرواز" : "Room before and after framed artwork"
-            }
-          >
-            <picture className="room-transformation-photo">
-              <source media="(max-width: 767px)" type="image/avif" srcSet={room.mobileAvif} />
-              <source media="(max-width: 767px)" type="image/webp" srcSet={room.mobileWebp} />
-              <source type="image/avif" srcSet={room.desktopAvif} />
-              <source type="image/webp" srcSet={room.desktopWebp} />
-              <img
-                src={room.desktopWebp}
-                alt={
-                  isAr
-                    ? "غرفة معيشة فاخرة بجدار فارغ وإضاءة طبيعية"
-                    : "Luxury Scandinavian living room with an empty wall and natural sunlight"
-                }
-                loading="lazy"
-                decoding="async"
-              />
-            </picture>
-            <div className="room-transformation-photo-dim" style={{ opacity: motion.beforeDim }} />
-            <div className="room-transformation-sunlight" style={{ opacity: motion.sunlight }} />
-            <div className="room-transformation-label" style={{ opacity: 1 - motion.afterLabel }}>
-              {isAr ? "قبل" : "Before"}
-            </div>
-            <div
-              className="room-transformation-label room-transformation-label-after"
-              style={{ opacity: motion.afterLabel }}
-            >
-              {isAr ? "بعد" : "After"}
+      <div className="container-page py-12 lg:py-16">
+        <div className="grid items-start gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:gap-12">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">
+                {isAr ? "اختار شكل الحيطة" : "Choose your wall"}
+              </span>
+              <div
+                role="group"
+                aria-label={isAr ? "عدد البراويز" : "Number of frames"}
+                className="inline-flex overflow-hidden rounded-sm border border-border"
+              >
+                {([3, 6] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={count === n}
+                    onClick={() => setCount(n)}
+                    className={`px-5 py-2 text-xs font-semibold uppercase tracking-widest transition ${count === n ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"}`}
+                  >
+                    {isAr ? `${n} براويز` : `${n} frames`}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="room-transformation-wall">
-              <div className="room-transformation-ambient" style={{ opacity: motion.ambient }} />
-              <div
-                className="room-transformation-frame-wrap"
-                style={{
-                  opacity: motion.frameOpacity,
-                  transform: `translate3d(-50%, calc(-50% + ${motion.frameY}%), 0) rotateX(${motion.rotateX}deg) rotateZ(${motion.rotateZ}deg) scale(${motion.scale})`,
-                }}
-              >
-                <div
-                  className="room-transformation-frame-shadow"
-                  style={{ opacity: motion.shadow }}
-                />
-                <div className="room-transformation-frame">
-                  <div className="room-transformation-glass" style={{ opacity: motion.sweep }} />
-                  {artwork ? (
-                    <SafeImage
-                      src={artwork.image.src}
-                      avifSrcSet={artwork.image.avifSrcSet}
-                      webpSrcSet={artwork.image.webpSrcSet}
-                      sizes={artwork.image.sizes}
-                      alt={
-                        isAr
-                          ? `لوحة ${artwork.title} داخل برواز على الحائط`
-                          : `${artwork.title} framed artwork on the wall`
-                      }
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#1f1f1f,#555,#111)] text-center text-[10px] uppercase tracking-[0.25em] text-white/75">
-                      BRWAZWNEON
-                    </div>
-                  )}
+            <div
+              ref={stageRef}
+              className="rw-stage"
+              role="img"
+              aria-label={
+                isAr
+                  ? "حيطة فاضية بتتملي براويز واحد ورا التاني"
+                  : "An empty wall filling up with framed posters one by one"
+              }
+              style={
+                {
+                  "--wall": room.wall,
+                  "--frame": frameStyle.frame,
+                  "--mat": frameStyle.mat,
+                  "--glow": glow,
+                } as CSSProperties
+              }
+            >
+              <div className="rw-wall" />
+              <div className="rw-light" />
+              <div className="rw-glow" />
+              <div className="rw-baseboard" />
+              <div className="rw-floor" />
+              <div className="rw-console">
+                <div className="rw-console-shadow" />
+                <div className="rw-console-top" />
+                <div className="rw-console-body" />
+                <div className="rw-lamp">
+                  <div className="rw-lamp-base" />
                 </div>
+                <div className="rw-books" />
+                <div className="rw-vase" />
               </div>
+
+              {layout.map((f, i) => {
+                const e = ease(clamp((progress - i * step) / 0.3, 0, 1));
+                const poster = posters.length > 0 ? posters[i % posters.length] : null;
+                return (
+                  <div
+                    key={`${count}-${i}`}
+                    className="rw-frame"
+                    style={
+                      {
+                        "--e": e,
+                        "--ar": f.aspect,
+                        "--ml": f.m.l,
+                        "--mt": f.m.t,
+                        "--mw": f.m.w,
+                        "--dl": f.d.l,
+                        "--dt": f.d.t,
+                        "--dw": f.d.w,
+                      } as CSSProperties
+                    }
+                  >
+                    <div className="rw-mat">
+                      {poster && (
+                        <img
+                          className="rw-art"
+                          src={thumb(poster.imageUrl, 420)}
+                          alt={poster.title}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="rw-vignette" />
+              <div className="rw-label">
+                {filled ? (isAr ? "بعد" : "After") : isAr ? "قبل" : "Before"}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-sm border border-border bg-card p-5">
+              {count === 6 ? (
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.35em] text-primary">
+                      {isAr ? "عرض الباقة" : "Bundle offer"}
+                    </div>
+                    <div className="text-display mt-1 text-2xl">
+                      {isAr ? "6 براويز · 20×30 سم" : "6 frames · 20×30 cm"}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isAr
+                        ? `يعني ${Math.round(bundlePrice / 6)} جنيه للبرواز الواحد`
+                        : `That is about ${Math.round(bundlePrice / 6)} EGP per frame`}
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    {saving > 0 && (
+                      <div className="text-sm text-muted-foreground line-through">
+                        {regular6} {isAr ? "جنيه" : "EGP"}
+                      </div>
+                    )}
+                    <div className="text-display text-4xl leading-none">
+                      {bundlePrice}{" "}
+                      <span className="text-base text-muted-foreground">
+                        {isAr ? "جنيه" : "EGP"}
+                      </span>
+                    </div>
+                    {saving > 0 && (
+                      <div className="mt-1 text-xs font-semibold text-primary">
+                        {isAr ? `وفّر ${saving} جنيه` : `Save ${saving} EGP`}
+                      </div>
+                    )}
+                  </div>
+                  <Link
+                    to="/offers"
+                    search={{ bundle: BUNDLE_KEY }}
+                    className="inline-flex w-full justify-center rounded-sm bg-primary px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:brightness-110 sm:w-auto"
+                  >
+                    {isAr ? "اطلب الباقة" : "Get the bundle"}
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">
+                      {isAr ? "3 براويز" : "3 frames"}
+                    </div>
+                    <div className="text-display mt-1 text-2xl">
+                      {isAr ? `3 × 20×30 سم = ${regular3} جنيه` : `3 × 20×30 cm = ${regular3} EGP`}
+                    </div>
+                    {saving > 0 && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {isAr
+                          ? `زوّدهم لـ 6 وخد الباقة بـ ${bundlePrice} جنيه بدل ${regular6}، وفّر ${saving} جنيه`
+                          : `Go to 6 and get the bundle for ${bundlePrice} EGP instead of ${regular6} — save ${saving} EGP`}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCount(6)}
+                    className="inline-flex w-full justify-center rounded-sm border border-primary px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-primary transition hover:bg-primary hover:text-primary-foreground sm:w-auto"
+                  >
+                    {isAr ? "شوف حيطة الـ 6" : "See the 6-frame wall"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="relative z-10 max-w-md lg:justify-self-end" dir={isAr ? "rtl" : "ltr"}>
+          <div className="max-w-md lg:justify-self-end lg:pt-10" dir={isAr ? "rtl" : "ltr"}>
             <p className="text-[10px] uppercase tracking-[0.45em] text-muted-foreground">
               Room Transformation
             </p>
@@ -186,13 +292,7 @@ export function RoomTransformation() {
             <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base sm:leading-8">
               {subheading}
             </p>
-            <div
-              className="mt-7 flex flex-col gap-3 transition duration-700 sm:flex-row lg:flex-col xl:flex-row"
-              style={{
-                opacity: motion.finalText,
-                transform: `translate3d(0, ${(1 - motion.finalText) * 10}px, 0)`,
-              }}
-            >
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
               <a
                 href={cta.href}
                 className="inline-flex justify-center rounded-sm bg-primary px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:brightness-110"
@@ -213,29 +313,6 @@ export function RoomTransformation() {
       </div>
     </section>
   );
-}
-
-function computeMotion(progress: number) {
-  const enter = ease(clamp((progress - 0.08) / 0.38, 0, 1));
-  const settle = ease(clamp((progress - 0.42) / 0.2, 0, 1));
-  const transform = ease(clamp((progress - 0.54) / 0.34, 0, 1));
-  const snap = Math.sin(settle * Math.PI) * 0.9;
-  return {
-    frameOpacity: clamp(enter * 1.15, 0, 1),
-    frameY: 46 - enter * 46 - snap,
-    rotateX: 2.2 - enter * 2.2,
-    rotateZ: -2.6 + enter * 2.6,
-    scale: 0.94 + settle * 0.06,
-    shadow: clamp(enter * 0.56 + transform * 0.22, 0, 0.78),
-    ambient: transform,
-    finalText: clamp((progress - 0.68) / 0.24, 0, 1),
-    afterLabel: clamp((progress - 0.72) / 0.14, 0, 1),
-    sweep: clamp((progress - 0.82) / 0.12, 0, 1),
-    beforeDim: String(0.42 - transform * 0.3),
-    sunlight: clamp((progress - 0.64) / 0.26, 0, 1),
-    light: String(0.88 + transform * 0.12),
-    warmth: String(transform),
-  };
 }
 
 function ease(t: number) {

@@ -1,0 +1,352 @@
+/*
+ * Homepage gallery wall: a room drawn in CSS with a genuinely empty wall.
+ * Everything is sized in `cqw` (1% of the stage width) so the scene keeps its
+ * proportions at any width. Light comes from a window at the top-left, so
+ * shadows fall to the bottom-right.
+ */
+
+.rw-stage {
+  --wall: #e7e1d7;
+  --frame: #050505;
+  --mat: #f7f5ef;
+  --glow: 0;
+  /* stage height, floor line and the console table, in cqw (phone values) */
+  --H: 88;
+  --floor: 76;
+  --con-l: 6;
+  --con-w: 88;
+  --con-t: 64;
+  --k: 1.5;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  container-type: inline-size;
+  aspect-ratio: 100 / 88;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) * 2.5);
+  background: var(--wall);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+@media (min-width: 768px) {
+  .rw-stage {
+    --H: 68.75;
+    --floor: 58;
+    --con-l: 22;
+    --con-w: 56;
+    --con-t: 47;
+    --k: 1;
+    aspect-ratio: 100 / 68.75;
+  }
+}
+
+/* ---------- wall ---------- */
+.rw-wall {
+  position: absolute;
+  inset: 0 0 calc((var(--H) - var(--floor)) * 1cqw) 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.06)), var(--wall);
+}
+
+/* light falling through a window: soft wash + the window's shadow bars */
+.rw-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 90% at 0% 0%, rgba(255, 246, 224, 0.6), transparent 70%),
+    linear-gradient(
+      105deg,
+      transparent 0 34%,
+      rgba(255, 255, 255, 0.14) 34% 44%,
+      transparent 44% 54%,
+      rgba(255, 255, 255, 0.1) 54% 62%,
+      transparent 62%
+    );
+}
+
+.rw-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 85% 80% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.16));
+}
+
+.rw-baseboard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc((var(--floor) - 1.6) * 1cqw);
+  height: 1.6cqw;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wall) 70%, #fff), var(--wall));
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.4) inset;
+}
+
+/* ---------- floor ---------- */
+.rw-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--floor) * 1cqw);
+  bottom: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 35%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 7cqw),
+    linear-gradient(180deg, #b78d62, #94693f);
+}
+
+/* ---------- console table + things standing on it ---------- */
+.rw-console {
+  position: absolute;
+  left: calc(var(--con-l) * 1cqw);
+  width: calc(var(--con-w) * 1cqw);
+  top: calc(var(--con-t) * 1cqw);
+  height: calc((var(--floor) - var(--con-t)) * 1cqw);
+}
+
+.rw-console-top {
+  position: absolute;
+  left: -0.8cqw;
+  right: -0.8cqw;
+  top: 0;
+  height: 1.6cqw;
+  border-radius: 0.3cqw;
+  background: linear-gradient(180deg, #7a5230, #5d3d22);
+  box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.3);
+}
+
+.rw-console-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1.6cqw;
+  bottom: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 1px),
+      rgba(0, 0, 0, 0.35) 0 calc(50% + 1px),
+      transparent 0
+    ),
+    linear-gradient(180deg, #6b4629, #4d321c);
+  box-shadow: inset 0 0.5cqw 0.8cqw rgba(0, 0, 0, 0.35);
+}
+
+.rw-console-body::before,
+.rw-console-body::after {
+  content: "";
+  position: absolute;
+  top: 38%;
+  width: 4%;
+  height: 0.5cqw;
+  border-radius: 1cqw;
+  background: #d8b878;
+}
+
+.rw-console-body::before {
+  left: 42%;
+}
+
+.rw-console-body::after {
+  right: 42%;
+}
+
+.rw-console-shadow {
+  position: absolute;
+  left: 2%;
+  right: -3%;
+  bottom: -1.2cqw;
+  height: 2.4cqw;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.32);
+  filter: blur(0.9cqw);
+}
+
+/* lamp (left) */
+.rw-lamp {
+  position: absolute;
+  bottom: calc(100% - 1.4cqw);
+  left: 7%;
+  width: calc(4cqw * var(--k));
+  height: calc(9cqw * var(--k));
+}
+
+.rw-lamp::before {
+  /* shade */
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 55%;
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+  background: linear-gradient(90deg, #efe2c6, #fff5dc 50%, #e6d6b4);
+  box-shadow: 0 0 calc(2.5cqw * var(--glow)) rgba(255, 220, 150, 0.9);
+}
+
+.rw-lamp::after {
+  /* stem + base */
+  content: "";
+  position: absolute;
+  left: calc(50% - 0.25cqw);
+  width: 0.5cqw;
+  top: 52%;
+  bottom: 0;
+  background: #2a2521;
+  border-radius: 0.3cqw;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.rw-lamp-base {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 0;
+  height: 0.7cqw;
+  border-radius: 0.4cqw;
+  background: #2a2521;
+}
+
+/* warm pool of light around the lamp, brighter as the wall fills up */
+.rw-glow {
+  position: absolute;
+  left: calc((var(--con-l) + var(--con-w) * 0.07 - 6) * 1cqw);
+  top: calc((var(--con-t) - 20) * 1cqw);
+  width: calc(16cqw * var(--k));
+  height: calc(26cqw * var(--k));
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: calc(var(--glow) * 0.55);
+  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.55), transparent);
+  mix-blend-mode: screen;
+}
+
+/* vase with branches (right) */
+.rw-vase {
+  position: absolute;
+  bottom: calc(100% - 1.4cqw);
+  right: 8%;
+  width: calc(3cqw * var(--k));
+  height: calc(5cqw * var(--k));
+  border-radius: 45% 45% 30% 30%;
+  background: linear-gradient(90deg, #d9cdb8, #fbf6ea 45%, #c9bca4);
+  box-shadow: 0.3cqw 0.4cqw 0.6cqw rgba(0, 0, 0, 0.25);
+}
+
+.rw-vase::before,
+.rw-vase::after {
+  content: "";
+  position: absolute;
+  bottom: 85%;
+  left: 48%;
+  width: 0.25cqw;
+  height: calc(7cqw * var(--k));
+  background: #4d5a3a;
+  transform-origin: bottom center;
+  border-radius: 1cqw;
+}
+
+.rw-vase::before {
+  transform: rotate(-16deg);
+}
+
+.rw-vase::after {
+  height: calc(5.5cqw * var(--k));
+  transform: rotate(14deg);
+}
+
+/* books (middle) */
+.rw-books {
+  position: absolute;
+  bottom: calc(100% - 1.4cqw);
+  left: 44%;
+  width: calc(6cqw * var(--k));
+  height: calc(2.2cqw * var(--k));
+  border-radius: 0.2cqw;
+  background: linear-gradient(180deg, #e9e2d3 0 45%, #2f3b4a 45% 100%);
+  box-shadow: 0.3cqw 0.4cqw 0.6cqw rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- frames ---------- */
+.rw-frame {
+  --e: 0;
+  position: absolute;
+  aspect-ratio: var(--ar);
+  left: calc(var(--ml) * 1cqw);
+  top: calc(var(--mt) * 1cqw);
+  width: calc(var(--mw) * 1cqw);
+  padding: max(2px, 0.55cqw);
+  background: var(--frame);
+  opacity: clamp(0, calc(var(--e) * 1.6), 1);
+  transform: translateY(calc((1 - var(--e)) * -3cqw)) rotate(calc((1 - var(--e)) * -2.5deg))
+    scale(calc(0.95 + var(--e) * 0.05));
+  transform-origin: 50% 0;
+  /* shadow falls to the bottom-right (light from the top-left window) */
+  box-shadow:
+    0.15cqw 0.3cqw 0.4cqw rgba(0, 0, 0, 0.4),
+    0.9cqw 1.5cqw 2.2cqw rgba(0, 0, 0, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  will-change: transform, opacity;
+}
+
+@media (min-width: 768px) {
+  .rw-frame {
+    left: calc(var(--dl) * 1cqw);
+    top: calc(var(--dt) * 1cqw);
+    width: calc(var(--dw) * 1cqw);
+  }
+}
+
+.rw-mat {
+  width: 100%;
+  height: 100%;
+  padding: 8%;
+  background: var(--mat);
+  box-shadow: inset 0 0 0.6cqw rgba(0, 0, 0, 0.22);
+}
+
+.rw-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: linear-gradient(135deg, #202020, #4a4a4a);
+}
+
+/* glass reflection */
+.rw-frame::after {
+  content: "";
+  position: absolute;
+  inset: max(2px, 0.55cqw);
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.26) 0,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, 0) 62%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+}
+
+/* ---------- label ---------- */
+.rw-label {
+  position: absolute;
+  top: 2.4cqw;
+  inset-inline-start: 2.4cqw;
+  z-index: 3;
+  padding: 0.5em 1em;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.72);
+  color: #fff;
+  font-size: max(10px, 1.7cqw);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-frame {
+    will-change: auto;
+  }
+}

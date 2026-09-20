@@ -282,6 +282,53 @@ export async function fetchPosterImagesFromDb(posterId: string): Promise<PosterI
 
 export type RoomArtworkRow = { id: string; title: string; image_url: string };
 
+// Posters for the homepage "gallery wall" (up to `limit`): the one the admin
+// picked first (if any), then best-sellers / trending, then the newest, each
+// with an image, without duplicates.
+export async function fetchRoomWallPostersFromDb(
+  posterId: string | null,
+  limit: number,
+): Promise<RoomArtworkRow[]> {
+  const out: RoomArtworkRow[] = [];
+  const seen = new Set<string>();
+  const add = (rows: unknown[]) => {
+    for (const row of rows as RoomArtworkRow[]) {
+      if (out.length >= limit || seen.has(row.id) || !row.image_url) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+  };
+  if (posterId) {
+    add(
+      await sql()`
+      select id, title, image_url from posters
+      where id = ${posterId} and hidden = false and image_url is not null
+        and migration_status in ('not_applicable', 'migrated')
+      limit 1
+    `,
+    );
+  }
+  add(
+    await sql()`
+    select id, title, image_url from posters
+    where hidden = false and (is_best_seller = true or trending = true) and image_url is not null
+      and migration_status in ('not_applicable', 'migrated')
+    order by sales_count desc nulls last limit ${limit}
+  `,
+  );
+  if (out.length < limit) {
+    add(
+      await sql()`
+      select id, title, image_url from posters
+      where hidden = false and image_url is not null
+        and migration_status in ('not_applicable', 'migrated')
+      order by created_at desc limit ${limit * 2}
+    `,
+    );
+  }
+  return out;
+}
+
 // Simplified vs. the old Supabase version (which ranked candidates from a
 // separate best_sellers table + image_variants for responsive srcsets):
 // no best_sellers table or variants pipeline exist on Neon yet, so this
