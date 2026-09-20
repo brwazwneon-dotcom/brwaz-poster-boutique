@@ -24,7 +24,7 @@ import {
   type ConfirmationStatus,
 } from "@/lib/order-whatsapp";
 import { customerWhatsappLink } from "./shared";
-import type { AdminOrder } from "./OrdersTab";
+import { checkoutNumberLabel, type AdminOrder } from "./OrdersTab";
 
 export function OrderDetailsDrawer({
   order,
@@ -67,9 +67,18 @@ export function OrderDetailsDrawer({
     setTimeline(null);
     setNotes(null);
     (async () => {
-      const rows = (await getOrderGroupAdmin({ data: { orderId: clickedId } })) as AdminOrder[];
+      // If the group can't be loaded, fall back to the clicked row so the
+      // drawer is never empty.
+      let rows: AdminOrder[] = order ? [order] : [];
+      try {
+        const loaded = (await getOrderGroupAdmin({ data: { orderId: clickedId } })) as AdminOrder[];
+        if (loaded.length > 0) rows = loaded;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not load the whole order");
+      }
+      if (rows.length === 0) return;
       setGroup(rows);
-      setMessage(rows[0]?.whatsapp_message ?? "");
+      setMessage(rows[0].whatsapp_message ?? "");
       await refresh(rows[0].id);
       logOrderEventAdmin({ data: { orderId: rows[0].id, stage: "admin_viewed" } });
     })();
@@ -79,6 +88,12 @@ export function OrderDetailsDrawer({
   const items = group ?? [order];
   const groupIds = items.map((i) => i.id);
   const groupTotal = items.reduce((sum, i) => sum + Number(i.total_price), 0);
+  const sumOf = (pick: (i: AdminOrder) => unknown) =>
+    items.reduce((n, i) => n + (Number(pick(i)) || 0), 0);
+  const itemsSubtotal = sumOf((i) => i.subtotal);
+  const packagingTotal = sumOf((i) => i.packaging_fee);
+  const shippingTotal = sumOf((i) => i.shipping_cost);
+  const proofUrl = items.find((i) => i.payment_screenshot)?.payment_screenshot ?? null;
 
   const prepareMessage = () => {
     const text = buildWhatsAppTemplate(templateKey, {
@@ -141,7 +156,7 @@ export function OrderDetailsDrawer({
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>
-            Order #{items.map((i) => i.order_number ?? i.id.slice(0, 8)).join(", #")} —{" "}
+            Order {checkoutNumberLabel(items)} —{" "}
             {CONFIRMATION_STATUS_LABEL[primary.confirmation_status] ??
               CONFIRMATION_STATUS_LABEL.not_sent}
           </SheetTitle>
@@ -176,7 +191,7 @@ export function OrderDetailsDrawer({
           {/* ---- Items / pricing ---- */}
           <section className="space-y-2 rounded-sm border border-border p-3">
             <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Order Items {items.length > 1 ? `(${items.length} frames)` : ""}
+              Order Items {items.length > 1 ? `(${items.length} lines)` : ""}
             </h3>
             {items.map((i) => (
               <div key={i.id} className="flex items-center gap-3">
@@ -196,12 +211,42 @@ export function OrderDetailsDrawer({
                 <div className="shrink-0 text-xs text-muted-foreground">{i.total_price} EGP</div>
               </div>
             ))}
+            <div className="space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+              {itemsSubtotal > 0 && (
+                <div className="flex justify-between">
+                  <span>Items (after discounts)</span>
+                  <span>{itemsSubtotal} EGP</span>
+                </div>
+              )}
+              {packagingTotal > 0 && (
+                <div className="flex justify-between">
+                  <span>Packaging</span>
+                  <span>{packagingTotal} EGP</span>
+                </div>
+              )}
+              {shippingTotal > 0 && (
+                <div className="flex justify-between">
+                  <span>Shipping</span>
+                  <span>{shippingTotal} EGP</span>
+                </div>
+              )}
+            </div>
             <div className="border-t border-border pt-2 text-sm font-semibold">
               TOTAL: {groupTotal} EGP
             </div>
             <div className="text-xs text-muted-foreground">
               {primary.payment_method} / {primary.payment_status}
             </div>
+            {proofUrl && (
+              <a
+                href={proofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block text-xs text-cyan-500 hover:underline"
+              >
+                View payment proof
+              </a>
+            )}
           </section>
 
           {/* ---- WhatsApp confirmation ---- */}

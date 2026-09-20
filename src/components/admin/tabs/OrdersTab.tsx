@@ -18,6 +18,9 @@ export type AdminOrder = {
   quantity: number;
   poster_title: string | null;
   poster_image: string | null;
+  subtotal?: number | string | null;
+  packaging_fee?: number | string | null;
+  shipping_cost?: number | string | null;
   total_price: number;
   status: string;
   payment_method: string;
@@ -30,7 +33,47 @@ export type AdminOrder = {
   confirmed_at: string | null;
   confirmed_by: string | null;
   created_at: string;
+  /** customer + created_at, built inside Postgres: same value for every row of one checkout. */
+  checkout_key?: string;
 };
+
+// The cart's "double face tape" add-on is saved as its own row with this title.
+export const TAPE_TITLE = "Double Face Tape";
+
+// One checkout (one customer submitting one cart) is stored as one row per
+// cart item. The admin works with the checkout as a single order.
+export type OrderGroup = {
+  key: string;
+  rows: AdminOrder[];
+  primary: AdminOrder;
+  total: number;
+  frames: AdminOrder[];
+  tapeQty: number;
+};
+
+export function groupOrders(rows: AdminOrder[]): OrderGroup[] {
+  const map = new Map<string, OrderGroup>();
+  for (const row of rows) {
+    const key = row.checkout_key ?? row.id;
+    let group = map.get(key);
+    if (!group) {
+      group = { key, rows: [], primary: row, total: 0, frames: [], tapeQty: 0 };
+      map.set(key, group);
+    }
+    group.rows.push(row);
+    group.total += Number(row.total_price) || 0;
+    if (row.poster_title === TAPE_TITLE) group.tapeQty += Number(row.quantity) || 0;
+    else group.frames.push(row);
+  }
+  return [...map.values()];
+}
+
+/** "BRW-1012" for one row, "BRW-1012 → BRW-1016" for a checkout of several. */
+export function checkoutNumberLabel(rows: AdminOrder[]): string {
+  const numbers = rows.map((r) => r.order_number ?? r.id.slice(0, 8));
+  if (numbers.length <= 1) return numbers[0] ?? "";
+  return `${numbers[0]} → ${numbers[numbers.length - 1]}`;
+}
 
 export const ORDER_STATUSES = [
   "new",
@@ -55,7 +98,7 @@ export function OrdersTab({
   const [filter, setFilter] = useState<string>("");
   const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [printTarget, setPrintTarget] = useState<AdminOrder[] | null>(null);
+  const [printTarget, setPrintTarget] = useState<OrderGroup[] | null>(null);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
 
   const load = async () => {
@@ -94,17 +137,16 @@ export function OrdersTab({
       else next.add(id);
       return next;
     });
+  const groups = orders ? groupOrders(orders) : [];
   const toggleSelectAll = () => {
-    if (!orders) return;
     setSelected((prev) =>
-      prev.size === orders.length ? new Set() : new Set(orders.map((o) => o.id)),
+      prev.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)),
     );
   };
   const printSelected = () => {
-    if (!orders) return;
-    const rows = orders.filter((o) => selected.has(o.id));
-    if (rows.length === 0) return;
-    setPrintTarget(rows);
+    const chosen = groups.filter((g) => selected.has(g.key));
+    if (chosen.length === 0) return;
+    setPrintTarget(chosen);
   };
 
   const exportOrders = async () => {
@@ -112,23 +154,28 @@ export function OrdersTab({
     setExporting(true);
     try {
       const XLSX = await import("xlsx");
-      const rows = orders.map((o) => ({
-        "Order Number": o.order_number ?? o.id.slice(0, 8),
-        Date: new Date(o.created_at).toLocaleString(),
-        Customer: o.customer_name,
-        Phone: o.phone,
-        Governorate: o.governorate,
-        Address: o.address,
-        Poster: o.poster_title ?? "",
-        "Frame Type": o.frame_type,
-        "Frame Color": o.frame_color,
-        Size: o.size,
-        Quantity: o.quantity,
-        Total: Number(o.total_price ?? 0),
-        "Payment Method": o.payment_method,
-        "Payment Status": o.payment_status,
-        Status: o.status,
-      }));
+      // One line per item, with the checkout it belongs to and its total.
+      const rows = groups.flatMap((g) =>
+        g.rows.map((o, index) => ({
+          Checkout: checkoutNumberLabel(g.rows),
+          "Checkout Total": index === 0 ? g.total : "",
+          "Order Number": o.order_number ?? o.id.slice(0, 8),
+          Date: new Date(o.created_at).toLocaleString(),
+          Customer: o.customer_name,
+          Phone: o.phone,
+          Governorate: o.governorate,
+          Address: o.address,
+          Poster: o.poster_title ?? "",
+          "Frame Type": o.frame_type,
+          "Frame Color": o.frame_color,
+          Size: o.size,
+          Quantity: o.quantity,
+          "Item Total": Number(o.total_price ?? 0),
+          "Payment Method": o.payment_method,
+          "Payment Status": o.payment_status,
+          Status: o.status,
+        })),
+      );
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Orders");
@@ -138,9 +185,9 @@ export function OrdersTab({
     }
   };
 
-  const changeStatus = async (id: string, status: string) => {
+  const changeStatus = async (group: OrderGroup, status: string) => {
     try {
-      await updateOrderStatus({ data: { id, status } });
+      await updateOrderStatus({ data: { ids: group.rows.map((r) => r.id), status } });
       toast.success("Order updated");
       load();
     } catch (err) {
@@ -165,7 +212,10 @@ export function OrdersTab({
             </option>
           ))}
         </select>
-        <span className="text-xs text-muted-foreground">{orders.length} orders</span>
+        <span className="text-xs text-muted-foreground">
+          {groups.length} orders
+          {groups.length !== orders.length ? ` · ${orders.length} items` : ""}
+        </span>
         <button
           onClick={printSelected}
           disabled={selected.size === 0}
@@ -191,12 +241,12 @@ export function OrdersTab({
                 <th className="px-3 py-2">
                   <input
                     type="checkbox"
-                    checked={orders.length > 0 && selected.size === orders.length}
+                    checked={groups.length > 0 && selected.size === groups.length}
                     onChange={toggleSelectAll}
                   />
                 </th>
                 <th className="px-3 py-2">Order</th>
-                <th className="px-3 py-2">Item</th>
+                <th className="px-3 py-2">Items</th>
                 <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Payment</th>
@@ -206,108 +256,139 @@ export function OrdersTab({
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(o.id)}
-                      onChange={() => toggleSelected(o.id)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
-                  <td className="px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      {o.poster_image ? (
-                        <a href={o.poster_image} target="_blank" rel="noreferrer">
-                          <img
-                            src={o.poster_image}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-sm border border-border object-cover"
-                          />
-                        </a>
-                      ) : (
-                        <div className="h-10 w-10 shrink-0 rounded-sm border border-dashed border-border" />
+              {groups.map((g) => {
+                const o = g.primary;
+                const proof = g.rows.find((r) => r.payment_screenshot)?.payment_screenshot ?? null;
+                const shown = g.frames.slice(0, 4);
+                const frameCount = g.frames.reduce((n, r) => n + (Number(r.quantity) || 0), 0);
+                const extraTitles = g.frames.length > 1 ? ` +${g.frames.length - 1} more` : "";
+                return (
+                  <tr key={g.key} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(g.key)}
+                        onChange={() => toggleSelected(g.key)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {checkoutNumberLabel(g.rows)}
+                      {g.rows.length > 1 && (
+                        <div className="font-sans text-[10px] text-muted-foreground">
+                          {g.rows.length} items
+                        </div>
                       )}
-                      <span>
-                        {o.poster_title} · {o.size} · {o.frame_type}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div>{o.customer_name}</div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>
-                        {o.phone} · {o.governorate}
-                      </span>
-                      <a
-                        href={customerWhatsappLink(o.phone)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-cyan-500 hover:underline"
-                        title="Message on WhatsApp"
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 -space-x-2">
+                          {shown.map((r) =>
+                            r.poster_image ? (
+                              <a key={r.id} href={r.poster_image} target="_blank" rel="noreferrer">
+                                <img
+                                  src={r.poster_image}
+                                  alt=""
+                                  className="h-10 w-10 rounded-sm border border-border object-cover"
+                                />
+                              </a>
+                            ) : (
+                              <div
+                                key={r.id}
+                                className="h-10 w-10 rounded-sm border border-dashed border-border bg-background"
+                              />
+                            ),
+                          )}
+                        </div>
+                        <div>
+                          <div>
+                            {g.frames[0]?.poster_title ?? ""}
+                            {extraTitles}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {frameCount} {frameCount === 1 ? "frame" : "frames"}
+                            {g.frames[0]
+                              ? ` · ${g.frames[0].size} · ${g.frames[0].frame_type}`
+                              : ""}
+                            {g.tapeQty > 0 ? ` · + ${g.tapeQty} double-face tape` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div>{o.customer_name}</div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>
+                          {o.phone} · {o.governorate}
+                        </span>
+                        <a
+                          href={customerWhatsappLink(o.phone)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-cyan-500 hover:underline"
+                          title="Message on WhatsApp"
+                        >
+                          WA
+                        </a>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 font-medium">{g.total} EGP</td>
+                    <td className="px-3 py-2 text-xs">
+                      <div>
+                        {o.payment_method} / {o.payment_status}
+                      </div>
+                      {proof && (
+                        <a
+                          href={proof}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-cyan-500 hover:underline"
+                        >
+                          View payment proof
+                        </a>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={o.status}
+                        onChange={(e) => changeStatus(g, e.target.value)}
+                        className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
                       >
-                        WA
-                      </a>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 font-medium">{o.total_price} EGP</td>
-                  <td className="px-3 py-2 text-xs">
-                    <div>
-                      {o.payment_method} / {o.payment_status}
-                    </div>
-                    {o.payment_screenshot && (
-                      <a
-                        href={o.payment_screenshot}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-cyan-500 hover:underline"
-                      >
-                        View payment proof
-                      </a>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={o.status}
-                      onChange={(e) => changeStatus(o.id, e.target.value)}
-                      className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                    >
-                      {ORDER_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2 text-[10px] whitespace-nowrap">
-                    {CONFIRMATION_STATUS_LABEL[o.confirmation_status] ??
-                      CONFIRMATION_STATUS_LABEL.not_sent}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setDetailsOrderId(o.id)}
-                        className="text-xs text-cyan-500 hover:underline"
-                      >
-                        Details
-                      </button>
-                      <button
-                        onClick={() => setPrintTarget([o])}
-                        className="text-xs text-cyan-500 hover:underline"
-                      >
-                        Print
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {ORDER_STATUSES.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-[10px] whitespace-nowrap">
+                      {CONFIRMATION_STATUS_LABEL[o.confirmation_status] ??
+                        CONFIRMATION_STATUS_LABEL.not_sent}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setDetailsOrderId(o.id)}
+                          className="text-xs text-cyan-500 hover:underline"
+                        >
+                          Details
+                        </button>
+                        <button
+                          onClick={() => setPrintTarget([g])}
+                          className="text-xs text-cyan-500 hover:underline"
+                        >
+                          Print
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {printTarget && <OrderPackingSlips orders={printTarget} />}
+      {printTarget && <OrderPackingSlips groups={printTarget} />}
 
       <OrderDetailsDrawer
         order={orders.find((o) => o.id === detailsOrderId) ?? null}
@@ -319,10 +400,14 @@ export function OrdersTab({
   );
 }
 
-// Packing-slip print layout. Kept out of normal flow (only rendered
-// while actually printing) and isolated via @media print so the rest of
-// the admin UI never shows up in the printout.
-function OrderPackingSlips({ orders }: { orders: AdminOrder[] }) {
+// Packing-slip print layout — one slip per checkout, listing every item.
+// Kept out of normal flow (only rendered while actually printing) and
+// isolated via @media print so the rest of the admin UI never shows up in
+// the printout.
+function OrderPackingSlips({ groups }: { groups: OrderGroup[] }) {
+  const cell = { fontWeight: 700, paddingRight: 12 } as const;
+  const sum = (rows: AdminOrder[], pick: (r: AdminOrder) => unknown) =>
+    rows.reduce((n, r) => n + (Number(pick(r)) || 0), 0);
   return (
     <div className="print-area">
       <style>{`
@@ -335,76 +420,104 @@ function OrderPackingSlips({ orders }: { orders: AdminOrder[] }) {
           .print-area { display: none; }
         }
       `}</style>
-      {orders.map((o) => (
-        <div
-          key={o.id}
-          style={{ pageBreakAfter: "always", padding: "24px", fontFamily: "sans-serif" }}
-        >
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>BRWAZWNEON</h1>
-          <p style={{ fontSize: 12, color: "#666" }}>Packing slip</p>
-          <hr style={{ margin: "12px 0" }} />
-          <table style={{ width: "100%", fontSize: 14 }}>
-            <tbody>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Order</td>
-                <td>{o.order_number}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Customer</td>
-                <td>{o.customer_name}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Phone</td>
-                <td>{o.phone}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Governorate</td>
-                <td>{o.governorate}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12, verticalAlign: "top" }}>Address</td>
-                <td>{o.address}</td>
-              </tr>
-            </tbody>
-          </table>
-          <hr style={{ margin: "12px 0" }} />
-          {o.poster_image && (
-            <img
-              src={o.poster_image}
-              alt=""
-              style={{ maxWidth: 240, maxHeight: 240, objectFit: "contain", marginBottom: 12 }}
-            />
-          )}
-          <table style={{ width: "100%", fontSize: 14 }}>
-            <tbody>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Item</td>
-                <td>{o.poster_title}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Frame</td>
-                <td>
-                  {o.frame_type} · {o.frame_color} · {o.size}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Quantity</td>
-                <td>{o.quantity}</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Total</td>
-                <td>{o.total_price} EGP</td>
-              </tr>
-              <tr>
-                <td style={{ fontWeight: 700, paddingRight: 12 }}>Payment</td>
-                <td>
-                  {o.payment_method} ({o.payment_status})
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ))}
+      {groups.map((g) => {
+        const o = g.primary;
+        const packaging = sum(g.rows, (r) => r.packaging_fee);
+        const shipping = sum(g.rows, (r) => r.shipping_cost);
+        return (
+          <div
+            key={g.key}
+            style={{ pageBreakAfter: "always", padding: "24px", fontFamily: "sans-serif" }}
+          >
+            <h1 style={{ fontSize: 20, fontWeight: 700 }}>BRWAZWNEON</h1>
+            <p style={{ fontSize: 12, color: "#666" }}>Packing slip</p>
+            <hr style={{ margin: "12px 0" }} />
+            <table style={{ width: "100%", fontSize: 14 }}>
+              <tbody>
+                <tr>
+                  <td style={cell}>Order</td>
+                  <td>{checkoutNumberLabel(g.rows)}</td>
+                </tr>
+                <tr>
+                  <td style={cell}>Customer</td>
+                  <td>{o.customer_name}</td>
+                </tr>
+                <tr>
+                  <td style={cell}>Phone</td>
+                  <td>{o.phone}</td>
+                </tr>
+                <tr>
+                  <td style={cell}>Governorate</td>
+                  <td>{o.governorate}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...cell, verticalAlign: "top" }}>Address</td>
+                  <td>{o.address}</td>
+                </tr>
+              </tbody>
+            </table>
+            <hr style={{ margin: "12px 0" }} />
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "1px solid #999" }}>
+                  <th style={{ padding: "4px 6px" }}></th>
+                  <th style={{ padding: "4px 6px" }}>Item</th>
+                  <th style={{ padding: "4px 6px" }}>Frame</th>
+                  <th style={{ padding: "4px 6px" }}>Qty</th>
+                  <th style={{ padding: "4px 6px" }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.rows.map((r) => (
+                  <tr key={r.id} style={{ borderBottom: "1px solid #ddd" }}>
+                    <td style={{ padding: "4px 6px" }}>
+                      {r.poster_image && (
+                        <img
+                          src={r.poster_image}
+                          alt=""
+                          style={{ width: 56, height: 56, objectFit: "cover" }}
+                        />
+                      )}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>{r.poster_title}</td>
+                    <td style={{ padding: "4px 6px" }}>
+                      {r.frame_type} · {r.frame_color} · {r.size}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>{r.quantity}</td>
+                    <td style={{ padding: "4px 6px" }}>{r.total_price} EGP</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table style={{ width: "100%", fontSize: 14, marginTop: 12 }}>
+              <tbody>
+                {packaging > 0 && (
+                  <tr>
+                    <td style={cell}>Packaging</td>
+                    <td>{packaging} EGP</td>
+                  </tr>
+                )}
+                {shipping > 0 && (
+                  <tr>
+                    <td style={cell}>Shipping</td>
+                    <td>{shipping} EGP</td>
+                  </tr>
+                )}
+                <tr>
+                  <td style={cell}>Total</td>
+                  <td>{g.total} EGP</td>
+                </tr>
+                <tr>
+                  <td style={cell}>Payment</td>
+                  <td>
+                    {o.payment_method} ({o.payment_status})
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </div>
   );
 }

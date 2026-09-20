@@ -328,13 +328,20 @@ function CartPage() {
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
   const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
-  const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
   const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
   // A photo-printing order waiting in the cart counts toward the same
   // shipping charge / free-shipping threshold as the framed posters.
   const photoSubtotal = photoPrint?.price ?? 0;
-  const shipping = computeShipping(discountedSubtotal + tapeTotal + photoSubtotal, settings);
-  const grand = discountedSubtotal + packagingFee + tapeTotal + photoSubtotal + shipping;
+  // Everything that depends on the double-face-tape answer. A function so
+  // handleOrder can work out the totals for the answer the tape popup has JUST
+  // given — React state set in the same click isn't visible to it yet.
+  const totalsFor = (tape: boolean | null) => {
+    const tapeTotal = tape === true ? frameCount * tapeUnit : 0;
+    const shipping = computeShipping(discountedSubtotal + tapeTotal + photoSubtotal, settings);
+    const grand = discountedSubtotal + packagingFee + tapeTotal + photoSubtotal + shipping;
+    return { tapeTotal, shipping, grand };
+  };
+  const { tapeTotal, shipping, grand } = totalsFor(tapeChoice);
   const remainingForFree = Math.max(
     0,
     settings.freeShippingThreshold - (discountedSubtotal + photoSubtotal),
@@ -467,8 +474,13 @@ function CartPage() {
     void handleOrder();
   };
 
-  const handleOrder = async () => {
+  const handleOrder = async (tapeAnswer?: boolean) => {
     if (submittingRef.current) return;
+    // The tape popup passes its answer in directly: reading `tapeChoice` here
+    // would see the value from before the click, and the order would be saved
+    // without the tape the customer just paid for.
+    const useTape = typeof tapeAnswer === "boolean" ? tapeAnswer : tapeChoice;
+    const { tapeTotal, shipping, grand } = totalsFor(useTape);
     if (items.length === 0 && !photoPrint) return toast.error(t("cart.empty"));
     if (!name || !phone || !governorate || !address)
       return toast.error(t("cart.fillDeliveryFields"));
@@ -628,7 +640,7 @@ function CartPage() {
         };
       });
       // Append the double-face-tape line as its own order row when chosen.
-      if (tapeChoice === true && tapeTotal > 0) {
+      if (useTape === true && tapeTotal > 0) {
         rows.push({
           guest_session_id: guestSessionId,
           customer_name: name,
@@ -1583,9 +1595,7 @@ function CartPage() {
                 onClick={() => {
                   setTapeChoice(true);
                   setTapeOpen(false);
-                  setTimeout(() => {
-                    void handleOrder();
-                  }, 0);
+                  void handleOrder(true);
                 }}
                 className="w-full rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
               >
@@ -1595,9 +1605,7 @@ function CartPage() {
                 onClick={() => {
                   setTapeChoice(false);
                   setTapeOpen(false);
-                  setTimeout(() => {
-                    void handleOrder();
-                  }, 0);
+                  void handleOrder(false);
                 }}
                 className="w-full rounded-sm border border-border px-4 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-accent"
               >

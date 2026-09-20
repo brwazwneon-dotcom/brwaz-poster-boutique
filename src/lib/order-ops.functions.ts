@@ -140,31 +140,24 @@ export const getOrderGroupAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .validator((data: unknown) => data as { orderId: string })
   .handler(async ({ data }) => {
-    const client = sql();
-    const anchor = await client`
-      select customer_id, created_at from orders where id = ${data.orderId}
+    // Matched entirely inside Postgres. created_at has microsecond precision,
+    // so reading it into JS (millisecond Dates) and passing it back never
+    // equals the stored value — that made the group come back empty. Rows
+    // saved before customers existed (no customer_id) group by phone instead.
+    const rows = await sql()`
+      select o.id, o.order_number, o.customer_name, o.phone, o.governorate, o.address,
+             o.frame_type, o.frame_color, o.size, o.quantity, o.poster_title, o.poster_image,
+             o.subtotal, o.packaging_fee, o.shipping_cost, o.total_price, o.status,
+             o.payment_method, o.payment_status, o.payment_screenshot, o.payment_reference,
+             o.notes, o.confirmation_status, o.whatsapp_message, o.confirmed_at,
+             o.confirmed_by, o.created_at
+      from orders o
+      join orders a on a.id = ${data.orderId}
+      where coalesce(o.customer_id::text, o.phone) = coalesce(a.customer_id::text, a.phone)
+        and o.created_at = a.created_at
+      order by o.order_number
     `;
-    if (anchor.length === 0) throw new Error("Order not found");
-    const { customer_id, created_at } = anchor[0] as {
-      customer_id: string | null;
-      created_at: string;
-    };
-    const rows = customer_id
-      ? await client`
-          select id, order_number, customer_name, phone, governorate, address, frame_type,
-                 frame_color, size, quantity, poster_title, poster_image, total_price, status,
-                 payment_method, payment_status, payment_screenshot, payment_reference, notes,
-                 confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
-          from orders where customer_id = ${customer_id} and created_at = ${created_at}
-          order by poster_title
-        `
-      : await client`
-          select id, order_number, customer_name, phone, governorate, address, frame_type,
-                 frame_color, size, quantity, poster_title, poster_image, total_price, status,
-                 payment_method, payment_status, payment_screenshot, payment_reference, notes,
-                 confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
-          from orders where id = ${data.orderId}
-        `;
+    if (rows.length === 0) throw new Error("Order not found");
     return rows;
   });
 

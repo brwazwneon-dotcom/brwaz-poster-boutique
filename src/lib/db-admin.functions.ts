@@ -48,11 +48,42 @@ async function withUniqueSlugRetry<T extends Record<string, unknown>>(
 // ---------------------------------------------------------------
 export type DashboardRange = "today" | "yesterday" | "7d" | "30d" | "this_month" | "last_month";
 
+// The store's days are Cairo days. Cutting them at UTC midnight made every
+// order placed in the first 2–3 hours after Cairo midnight count as "yesterday".
+const STORE_TIME_ZONE = "Africa/Cairo";
+
+function storeOffsetMs(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STORE_TIME_ZONE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(at);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const wallClockAsUtc = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+    part("second"),
+  );
+  return wallClockAsUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
 function computeRangeBounds(range: DashboardRange, now = new Date()) {
-  const startOfDay = (d: Date) =>
-    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const offset = storeOffsetMs(now);
+  // `local` reads as Cairo wall-clock time through its UTC getters.
+  const local = new Date(now.getTime() + offset);
+  // The real instant at which a Cairo calendar date starts.
+  const storeMidnight = (year: number, month: number, day: number) =>
+    new Date(Date.UTC(year, month, day) - offset);
   const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
-  const todayStart = startOfDay(now);
+  const todayStart = storeMidnight(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
 
   switch (range) {
     case "yesterday":
@@ -77,14 +108,18 @@ function computeRangeBounds(range: DashboardRange, now = new Date()) {
         prevEnd: addDays(todayStart, -30),
       };
     case "this_month": {
-      const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-      const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      const y = local.getUTCFullYear();
+      const m = local.getUTCMonth();
+      const curStart = storeMidnight(y, m, 1);
+      const prevStart = storeMidnight(y, m - 1, 1);
       return { curStart, curEnd: addDays(todayStart, 1), prevStart, prevEnd: curStart };
     }
     case "last_month": {
-      const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-      const curEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-      const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+      const y = local.getUTCFullYear();
+      const m = local.getUTCMonth();
+      const curStart = storeMidnight(y, m - 1, 1);
+      const curEnd = storeMidnight(y, m, 1);
+      const prevStart = storeMidnight(y, m - 2, 1);
       return { curStart, curEnd, prevStart, prevEnd: curStart };
     }
     case "today":
@@ -106,16 +141,23 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
     const client = sql();
 
     const [orderStats, newCustomers, returningCustomers, visitors] = await Promise.all([
+      // An "order" is a whole checkout (all its cart-item rows), so counts are
+      // distinct checkout keys; revenue is still the sum of every row.
       client`
+        with o as (
+          select total_price, status, created_at,
+                 coalesce(customer_id::text, phone) || '|' || created_at::text as k
+          from orders
+          where is_test = false
+        )
         select
-          count(*) filter (where created_at >= ${curStart} and created_at < ${curEnd})::int as cur_orders,
+          count(distinct k) filter (where created_at >= ${curStart} and created_at < ${curEnd})::int as cur_orders,
           coalesce(sum(total_price) filter (where created_at >= ${curStart} and created_at < ${curEnd}), 0)::numeric as cur_revenue,
-          count(*) filter (where status = 'cancelled' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_cancelled,
-          count(*) filter (where status = 'returned' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_returned,
-          count(*) filter (where created_at >= ${prevStart} and created_at < ${prevEnd})::int as prev_orders,
+          count(distinct k) filter (where status = 'cancelled' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_cancelled,
+          count(distinct k) filter (where status = 'returned' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_returned,
+          count(distinct k) filter (where created_at >= ${prevStart} and created_at < ${prevEnd})::int as prev_orders,
           coalesce(sum(total_price) filter (where created_at >= ${prevStart} and created_at < ${prevEnd}), 0)::numeric as prev_revenue
-        from orders
-        where is_test = false
+        from o
       `,
       client`
         select count(*)::int as n from customers
@@ -181,7 +223,11 @@ export const getAlertsAdmin = createServerFn({ method: "GET" })
   .handler(async () => {
     const client = sql();
     const [pendingOrders, pendingPhotoOrders, needsReview] = await Promise.all([
-      client`select count(*)::int as n from orders where is_test = false and status = 'new'`,
+      // Counted per checkout (a 5-frame order is ONE order waiting), not per row.
+      client`
+        select count(distinct coalesce(customer_id::text, phone) || '|' || created_at::text)::int as n
+        from orders where is_test = false and status = 'new'
+      `,
       client`select count(*)::int as n from photo_orders where status = 'new'`,
       client`select count(*)::int as n from posters where review_status is distinct from 'approved'`,
     ]);
@@ -907,23 +953,30 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { status?: string } | undefined) ?? {})
   .middleware([requireAdminSessionNeon])
   .handler(async ({ data }) => {
+    // One checkout = several rows (one per cart item) sharing customer +
+    // created_at. `checkout_key` is that pair built inside Postgres, at full
+    // precision, so the admin can show each checkout as ONE order.
     if (data.status) {
       return sql()`
         select id, order_number, customer_name, phone, governorate, address, frame_type,
-               frame_color, size, quantity, poster_title, poster_image, total_price, status,
+               frame_color, size, quantity, poster_title, poster_image, subtotal, packaging_fee,
+               shipping_cost, total_price, status,
                payment_method, payment_status, payment_screenshot, payment_reference, notes,
-               confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
+               confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at,
+               coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key
         from orders where status = ${data.status} and is_test = false
-        order by created_at desc limit 300
+        order by created_at desc, order_number limit 300
       `;
     }
     return sql()`
       select id, order_number, customer_name, phone, governorate, address, frame_type,
-             frame_color, size, quantity, poster_title, poster_image, total_price, status,
+             frame_color, size, quantity, poster_title, poster_image, subtotal, packaging_fee,
+             shipping_cost, total_price, status,
              payment_method, payment_status, payment_screenshot, payment_reference, notes,
-             confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at
+             confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at,
+             coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key
       from orders where is_test = false
-      order by created_at desc limit 300
+      order by created_at desc, order_number limit 300
     `;
   });
 
@@ -939,10 +992,13 @@ const VALID_ORDER_STATUSES = new Set([
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => data as { id: string; status: string })
+  // `ids` = every row of one checkout, so the whole order changes together.
+  .validator((data: unknown) => data as { id?: string; ids?: string[]; status: string })
   .handler(async ({ data }) => {
     if (!VALID_ORDER_STATUSES.has(data.status)) throw new Error("Invalid status");
-    await sql()`update orders set status = ${data.status} where id = ${data.id}`;
+    const ids = data.ids && data.ids.length > 0 ? data.ids : data.id ? [data.id] : [];
+    if (ids.length === 0) throw new Error("No order selected");
+    await sql()`update orders set status = ${data.status} where id = any(${ids}::uuid[])`;
     return { ok: true };
   });
 
