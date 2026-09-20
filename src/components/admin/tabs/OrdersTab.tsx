@@ -439,7 +439,7 @@ export function OrdersTab({
         </div>
       )}
 
-      {printTarget && <OrderPackingSlips groups={printTarget} />}
+      {printTarget && <OrderPackingSlips groups={printTarget} photoOrders={photoOrders} />}
 
       <OrderDetailsDrawer
         order={orders.find((o) => o.id === detailsOrderId) ?? null}
@@ -459,7 +459,13 @@ export function OrdersTab({
 // Kept out of normal flow (only rendered while actually printing) and
 // isolated via @media print so the rest of the admin UI never shows up in
 // the printout.
-function OrderPackingSlips({ groups }: { groups: OrderGroup[] }) {
+function OrderPackingSlips({
+  groups,
+  photoOrders,
+}: {
+  groups: OrderGroup[];
+  photoOrders: PhotoOrderLite[];
+}) {
   const cell = { fontWeight: 700, paddingRight: 12 } as const;
   const sum = (rows: AdminOrder[], pick: (r: AdminOrder) => unknown) =>
     rows.reduce((n, r) => n + (Number(pick(r)) || 0), 0);
@@ -479,6 +485,8 @@ function OrderPackingSlips({ groups }: { groups: OrderGroup[] }) {
         const o = g.primary;
         const packaging = sum(g.rows, (r) => r.packaging_fee);
         const shipping = sum(g.rows, (r) => r.shipping_cost);
+        const photos = photoOrdersForGroup(g, photoOrders);
+        const photoTotal = photos.reduce((n, ph) => n + (Number(ph.total_price) || 0), 0);
         return (
           <div
             key={g.key}
@@ -542,6 +550,17 @@ function OrderPackingSlips({ groups }: { groups: OrderGroup[] }) {
                     <td style={{ padding: "4px 6px" }}>{r.total_price} EGP</td>
                   </tr>
                 ))}
+                {photos.map((ph) => (
+                  <tr key={ph.id} style={{ borderBottom: "1px solid #ddd" }}>
+                    <td style={{ padding: "4px 6px" }}>📷</td>
+                    <td style={{ padding: "4px 6px" }} colSpan={2}>
+                      Photo printing — {photoOrderLabel(ph)}
+                      {ph.order_number ? ` (${ph.order_number})` : ""}
+                    </td>
+                    <td style={{ padding: "4px 6px" }}>1</td>
+                    <td style={{ padding: "4px 6px" }}>{ph.total_price} EGP</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             <table style={{ width: "100%", fontSize: 14, marginTop: 12 }}>
@@ -560,7 +579,7 @@ function OrderPackingSlips({ groups }: { groups: OrderGroup[] }) {
                 )}
                 <tr>
                   <td style={cell}>Total</td>
-                  <td>{g.total} EGP</td>
+                  <td>{g.total + photoTotal} EGP</td>
                 </tr>
                 <tr>
                   <td style={cell}>Payment</td>

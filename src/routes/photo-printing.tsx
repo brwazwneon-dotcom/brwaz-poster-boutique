@@ -1546,7 +1546,13 @@ function PhotoPrintingPage() {
                   >
                     <div>
                       <div className="text-sm font-semibold">
-                        {pics.length} {t("photo4x6.printing")}
+                        {pics.length}{" "}
+                        {sizeMode === "4x6"
+                          ? t("photo4x6.printing")
+                          : (() => {
+                              const loose = LOOSE_SIZES.find((s) => s.key === sizeMode);
+                              return lang.startsWith("ar") ? loose?.labelAr : loose?.labelEn;
+                            })()}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {total} {t("egp")}
