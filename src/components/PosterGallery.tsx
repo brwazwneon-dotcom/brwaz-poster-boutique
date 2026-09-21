@@ -30,6 +30,12 @@ type Props = {
   frameType: FrameTypeId;
   color: FrameColorId;
   editSettings?: unknown;
+  /**
+   * Fill the height of the parent instead of growing with the frame's width.
+   * The frame is then the largest one that fits the space left by the
+   * thumbnails, so it is always shown whole. The parent needs a definite height.
+   */
+  fit?: boolean;
 };
 
 export function PosterGallery({
@@ -41,6 +47,7 @@ export function PosterGallery({
   frameType,
   color,
   editSettings,
+  fit,
 }: Props) {
   const { t } = useTranslation();
   const { data: extras = [] } = useQuery({
@@ -81,9 +88,19 @@ export function PosterGallery({
   const current = slides[Math.min(index, slides.length - 1)];
 
   return (
-    <div>
-      <div className="relative">
+    <div className={cn(fit && "flex min-h-0 flex-1 flex-col")}>
+      {/* In fit mode this is a size container: its box comes from the parent
+          and never from the images inside it. */}
+      <div
+        className={cn(
+          "relative",
+          fit &&
+            "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-3 [container-type:size]",
+        )}
+        data-preview-stage={fit ? "" : undefined}
+      >
         <FramePreview
+          fit={fit}
           posterUrl={current.url}
           avifSrcSet={current.kind === "frame" ? avifSrcSet : undefined}
           webpSrcSet={current.kind === "frame" ? webpSrcSet : undefined}
@@ -128,7 +145,13 @@ export function PosterGallery({
       </div>
 
       {slides.length > 1 && (
-        <div className="mt-3 grid grid-cols-5 gap-2">
+        <div
+          className={cn(
+            fit
+              ? "mt-2 flex shrink-0 justify-center gap-2 overflow-x-auto"
+              : "mt-3 grid grid-cols-5 gap-2",
+          )}
+        >
           {slides.map((s, i) => (
             <button
               key={i}
@@ -136,6 +159,7 @@ export function PosterGallery({
               onClick={() => setIndex(i)}
               className={cn(
                 "relative aspect-square overflow-hidden rounded-sm border-2 bg-card transition",
+                fit && "h-11 w-11 shrink-0",
                 i === index ? "border-primary" : "border-transparent hover:border-border",
               )}
               title={s.label}

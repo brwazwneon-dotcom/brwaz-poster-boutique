@@ -445,6 +445,7 @@ function CategoryPage() {
                 category={category}
                 configurator={configurator}
                 onClose={() => setActivePosterId(null)}
+                fitHeight
               />
             ) : (
               <div className="rounded-sm border border-border bg-card p-8 text-center">
@@ -525,6 +526,7 @@ export function Customizer({
   configurator,
   onClose,
   onAdded,
+  fitHeight,
 }: {
   poster: Poster;
   category: Category;
@@ -533,6 +535,13 @@ export function Customizer({
   onClose?: () => void;
   /** Called after the poster was added to the cart. */
   onAdded?: () => void;
+  /**
+   * The parent gives this panel a fixed height (side panel, bottom sheet).
+   * Layout is then header → preview (takes the space left) → options (scrolls)
+   * → price bar, so the whole frame is always visible and the price bar never
+   * covers it. Without it the panel grows with its content (product page).
+   */
+  fitHeight?: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -580,11 +589,51 @@ export function Customizer({
     `\nQuantity: ${quantity}` +
     `\nTotal: ${total} EGP`;
 
+  const shippingInfo = (className: string) => (
+    <div
+      className={cn(
+        "flex-col gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Truck className="h-3.5 w-3.5 shrink-0" />
+        <span>{t("product.shippingInfo")}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Clock className="h-3.5 w-3.5 shrink-0" />
+        <span>{t("product.productionTime")}</span>
+      </div>
+    </div>
+  );
+
+  // Remounted per poster: a new poster starts from its own loading skeleton,
+  // so the previous image can never stay on screen.
+  const gallery = (
+    <PosterGallery
+      key={poster.id}
+      fit={fitHeight}
+      posterId={poster.id}
+      posterUrl={poster.image_url ?? ""}
+      avifSrcSet={poster.avif_srcset ?? undefined}
+      webpSrcSet={poster.webp_srcset ?? undefined}
+      title={poster.title}
+      frameType={frameType}
+      color={color}
+      editSettings={poster.edit_settings}
+    />
+  );
+
   return (
-    <div className="flex h-full flex-col rounded-sm border border-border bg-card">
+    <div
+      className={cn(
+        "flex h-full flex-col rounded-sm border border-border bg-card",
+        fitHeight && "min-h-0 overflow-hidden",
+      )}
+    >
       <div
         className={cn(
-          "flex items-start justify-between gap-3 border-b border-border py-3 pl-5",
+          "flex shrink-0 items-start justify-between gap-3 border-b border-border py-3 pl-5",
           onClose ? "pr-5" : "pr-14",
         )}
       >
@@ -608,157 +657,189 @@ export function Customizer({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
-        <div className="mx-auto w-full max-w-[min(240px,30vh)] sm:max-w-[min(340px,36vh)]">
-          {/* Remounted per poster: a new poster starts from its own loading
-              skeleton, so the previous image can never stay on screen. */}
-          <PosterGallery
-            key={poster.id}
-            posterId={poster.id}
-            posterUrl={poster.image_url ?? ""}
-            avifSrcSet={poster.avif_srcset ?? undefined}
-            webpSrcSet={poster.webp_srcset ?? undefined}
-            title={poster.title}
-            frameType={frameType}
-            color={color}
-            editSettings={poster.edit_settings}
-          />
-        </div>
-        {(poster.sales_count ?? 0) > 0 || (poster.views_count ?? 0) > 0 || poster.is_best_seller ? (
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-            {(poster.sales_count ?? 0) > 0 && <span>✔ {formatCount(poster.sales_count)} sold</span>}
-            {(poster.views_count ?? 0) > 0 && (
-              <span>👁 {formatCount(poster.views_count)} views</span>
-            )}
-            {poster.is_best_seller ? (
-              <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
-                ⭐ {t("category.bestSeller")}
-              </span>
-            ) : null}
+      <div
+        className={cn(
+          fitHeight
+            ? "flex min-h-0 flex-1 flex-col [@media(max-height:520px)]:flex-row"
+            : "flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]",
+        )}
+      >
+        {/* Preview: takes whatever height the header, options and price bar
+            leave. The frame inside is sized from this box (never the other
+            way round), so it fits whole for any poster or mockup shape. */}
+        {fitHeight ? (
+          <div className="flex min-h-[60%] flex-[1_1_0] flex-col px-5 pb-2 pt-4 [@media(max-height:520px)]:min-h-0 [@media(max-height:520px)]:flex-[0_0_45%]">
+            {gallery}
           </div>
-        ) : null}
-
-        <OptionGroup label={t("product.frameType")}>
-          <div className="grid w-full grid-cols-2 gap-2">
-            {FRAME_TYPES.map((f) => (
-              <FrameTypeCard
-                key={f.id}
-                active={frameType === f.id}
-                label={t(`product.frame_${f.id}` as const)}
-                thumb={mockups[f.id === "wood" ? "wood" : "black"]?.image}
-                onClick={() => setFrameType(f.id)}
-              />
-            ))}
+        ) : (
+          <div className="mx-auto w-full max-w-[min(240px,30vh)] sm:max-w-[min(340px,36vh)]">
+            {gallery}
           </div>
-        </OptionGroup>
-
-        {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
-          <OptionGroup label={t("product.frameColor")}>
-            <div className="flex flex-wrap gap-2">
-              {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map(
-                (c) => (
-                  <ColorSwatch
-                    key={c.id}
-                    id={c.id}
-                    swatch={c.swatch}
-                    label={t(`product.color_${c.id}` as const)}
-                    active={color === c.id}
-                    onClick={() => setColor(c.id)}
-                  />
-                ),
+        )}
+        <div
+          className={cn(
+            fitHeight &&
+              "min-h-0 shrink overflow-y-auto px-5 pb-4 [scrollbar-width:thin] [@media(max-height:520px)]:flex-1",
+          )}
+        >
+          {(poster.sales_count ?? 0) > 0 ||
+          (poster.views_count ?? 0) > 0 ||
+          poster.is_best_seller ? (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+              {(poster.sales_count ?? 0) > 0 && (
+                <span>✔ {formatCount(poster.sales_count)} sold</span>
               )}
+              {(poster.views_count ?? 0) > 0 && (
+                <span>👁 {formatCount(poster.views_count)} views</span>
+              )}
+              {poster.is_best_seller ? (
+                <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
+                  ⭐ {t("category.bestSeller")}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          <OptionGroup label={t("product.frameType")}>
+            <div className="grid w-full grid-cols-2 gap-2">
+              {FRAME_TYPES.map((f) => (
+                <FrameTypeCard
+                  key={f.id}
+                  active={frameType === f.id}
+                  label={t(`product.frame_${f.id}` as const)}
+                  thumb={mockups[f.id === "wood" ? "wood" : "black"]?.image}
+                  onClick={() => setFrameType(f.id)}
+                />
+              ))}
             </div>
           </OptionGroup>
-        )}
 
-        <OptionGroup label={t("product.size")}>
-          <div className="grid w-full grid-cols-3 gap-2">
-            {sizeOptions.map((sid) => (
-              <SizeCard
-                key={sid}
-                label={sid.replace("x", "×")}
-                ariaLabel={`${t(`product.size_${sid}` as const)} — ${priceOf(sid)} EGP`}
-                price={priceOf(sid)}
-                popular={sid === MOST_POPULAR_SIZE}
-                popularLabel={t("product.mostPopular")}
-                active={size === sid}
-                onClick={() => setSize(sid)}
-              />
-            ))}
-          </div>
-        </OptionGroup>
-        <SizeGuide availableIds={sizeOptions} />
+          {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
+            <OptionGroup label={t("product.frameColor")}>
+              <div className="flex flex-wrap gap-2">
+                {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map(
+                  (c) => (
+                    <ColorSwatch
+                      key={c.id}
+                      id={c.id}
+                      swatch={c.swatch}
+                      label={t(`product.color_${c.id}` as const)}
+                      active={color === c.id}
+                      onClick={() => setColor(c.id)}
+                    />
+                  ),
+                )}
+              </div>
+            </OptionGroup>
+          )}
 
-        <OptionGroup label={t("product.quantity")}>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setQuantity(quantity - 1)}
-              disabled={quantity <= 1}
-              className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
-              aria-label={t("product.decreaseQty")}
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <div className="min-w-[3rem] text-center text-lg font-semibold tabular-nums">
-              {quantity}
+          <OptionGroup label={t("product.size")}>
+            <div className="grid w-full grid-cols-3 gap-2">
+              {sizeOptions.map((sid) => (
+                <SizeCard
+                  key={sid}
+                  label={sid.replace("x", "×")}
+                  ariaLabel={`${t(`product.size_${sid}` as const)} — ${priceOf(sid)} EGP`}
+                  price={priceOf(sid)}
+                  popular={sid === MOST_POPULAR_SIZE}
+                  popularLabel={t("product.mostPopular")}
+                  active={size === sid}
+                  onClick={() => setSize(sid)}
+                />
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setQuantity(quantity + 1)}
-              disabled={quantity >= 99}
-              className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
-              aria-label={t("product.increaseQty")}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-        </OptionGroup>
+          </OptionGroup>
+          <SizeGuide availableIds={sizeOptions} />
+
+          <OptionGroup label={t("product.quantity")}>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuantity(quantity - 1)}
+                disabled={quantity <= 1}
+                className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
+                aria-label={t("product.decreaseQty")}
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <div className="min-w-[3rem] text-center text-lg font-semibold tabular-nums">
+                {quantity}
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuantity(quantity + 1)}
+                disabled={quantity >= 99}
+                className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
+                aria-label={t("product.increaseQty")}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </OptionGroup>
+          {fitHeight && shippingInfo("mt-5 flex")}
+        </div>
       </div>
 
-      <div className="sticky bottom-0 border-t border-border bg-card px-5 py-4">
-        <div className="mb-3 flex items-end justify-between">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-              {t("product.total")}
-            </div>
-            <div className="text-display text-3xl leading-none tabular-nums">
-              {total} <span className="text-base text-muted-foreground">EGP</span>
-            </div>
-          </div>
-          {quantity > 1 && (
-            <div className="text-xs text-muted-foreground">
-              {t("product.eachPrice", { price: unit })} × {quantity}
-            </div>
+      <div
+        data-preview-footer=""
+        className={cn(
+          "border-t border-border bg-card px-5 py-4",
+          fitHeight ? "shrink-0" : "sticky bottom-0",
+        )}
+      >
+        {/* Short landscape screens put the price and the buttons side by side
+            so the bar takes as little height as possible. */}
+        <div
+          className={cn(
+            fitHeight &&
+              "[@media(max-height:520px)]:flex [@media(max-height:520px)]:items-end [@media(max-height:520px)]:gap-4",
           )}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+        >
+          <div
+            className={cn(
+              "mb-3 flex items-end justify-between",
+              fitHeight &&
+                "[@media(max-height:520px)]:mb-0 [@media(max-height:520px)]:shrink-0 [@media(max-height:520px)]:gap-3",
+            )}
           >
-            <Check className="h-4 w-4" /> {t("product.addToCart")}
-          </button>
-          <a
-            href={whatsappLink(waMsg)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                {t("product.total")}
+              </div>
+              <div className="text-display text-3xl leading-none tabular-nums">
+                {total} <span className="text-base text-muted-foreground">EGP</span>
+              </div>
+            </div>
+            {quantity > 1 && (
+              <div className="text-xs text-muted-foreground">
+                {t("product.eachPrice", { price: unit })} × {quantity}
+              </div>
+            )}
+          </div>
+          <div
+            className={cn(
+              "grid grid-cols-2 gap-2",
+              fitHeight && "[@media(max-height:520px)]:min-w-0 [@media(max-height:520px)]:flex-1",
+            )}
           >
-            {t("nav.whatsappOrder")}
-          </a>
-        </div>
-        <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Truck className="h-3.5 w-3.5 shrink-0" />
-            <span>{t("product.shippingInfo")}</span>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
+            >
+              <Check className="h-4 w-4" /> {t("product.addToCart")}
+            </button>
+            <a
+              href={whatsappLink(waMsg)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+            >
+              {t("nav.whatsappOrder")}
+            </a>
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5 shrink-0" />
-            <span>{t("product.productionTime")}</span>
-          </div>
         </div>
+        {!fitHeight && shippingInfo("mt-3 flex")}
       </div>
     </div>
   );
@@ -798,7 +879,7 @@ function MobileCustomizerBar({
       {/* The sheet's own close button gets a thumb-sized hit area. */}
       <SheetContent
         side="bottom"
-        className="h-[92vh] overflow-hidden p-0 [&>button:first-child]:right-1 [&>button:first-child]:top-2 [&>button:first-child]:flex [&>button:first-child]:h-11 [&>button:first-child]:w-11 [&>button:first-child]:items-center [&>button:first-child]:justify-center"
+        className="h-[92vh] overflow-hidden p-0 supports-[height:1dvh]:h-[92dvh] [&>button:first-child]:right-1 [&>button:first-child]:top-2 [&>button:first-child]:flex [&>button:first-child]:h-11 [&>button:first-child]:w-11 [&>button:first-child]:items-center [&>button:first-child]:justify-center"
         style={{ zIndex: 80 }}
       >
         <div className="h-full">
@@ -807,6 +888,7 @@ function MobileCustomizerBar({
             category={category}
             configurator={configurator}
             onAdded={() => setOpen(false)}
+            fitHeight
           />
         </div>
       </SheetContent>

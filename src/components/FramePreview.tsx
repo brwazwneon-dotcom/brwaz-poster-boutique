@@ -21,6 +21,15 @@ type Props = {
   color?: FrameColorId;
   className?: string;
   aspectClassName?: string;
+  /**
+   * Size the frame from the space its parent gives it instead of from its own
+   * width: the largest box of `ratio` (width / height) that fits inside the
+   * parent, which must be a size container (`container-type: size`). The images
+   * inside are absolutely positioned, so their intrinsic size never takes part.
+   */
+  fit?: boolean;
+  /** Frame width / height. Only used with `fit`; the default matches `aspect-[2/3]`. */
+  ratio?: number;
   bare?: boolean;
   loading?: "lazy" | "eager";
   fetchPriority?: "high" | "low" | "auto";
@@ -39,6 +48,8 @@ export const FramePreview = memo(function FramePreview({
   color = "black",
   className,
   aspectClassName = "aspect-[2/3]",
+  fit,
+  ratio = 2 / 3,
   bare,
   loading = "lazy",
   fetchPriority,
@@ -109,15 +120,21 @@ export const FramePreview = memo(function FramePreview({
     <div
       ref={rootRef}
       className={cn(
-        "relative isolate w-full overflow-hidden",
-        aspectClassName,
+        "relative isolate overflow-hidden",
+        fit ? "shrink-0" : ["w-full", aspectClassName],
         bare
           ? "bg-black/80 p-[7%] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_12px_18px_rgba(0,0,0,0.35)]"
-          : "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
+          : fit
+            ? "drop-shadow-[0_8px_12px_rgba(0,0,0,0.5)]"
+            : "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
         className,
       )}
       style={{
         backgroundColor: "transparent",
+        ...(fit && {
+          aspectRatio: String(ratio),
+          width: `min(100cqw, calc(100cqh * ${ratio}))`,
+        }),
       }}
       title={title}
     >
