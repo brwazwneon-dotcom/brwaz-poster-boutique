@@ -37,7 +37,7 @@ export function SizeGuide({ availableIds }: { availableIds?: readonly string[] }
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-sm border border-border px-4 py-3 text-xs uppercase tracking-[0.25em] hover:bg-accent"
+        className="flex min-h-[44px] w-full items-center justify-between rounded-sm border border-border px-4 py-3 text-xs uppercase tracking-[0.25em] hover:bg-accent"
       >
         <span className="inline-flex items-center gap-2">
           <Ruler className="h-4 w-4" /> {t("nav.sizeGuide")}
@@ -100,7 +100,7 @@ function TabBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-[11px] uppercase tracking-widest transition",
+        "inline-flex min-h-[44px] items-center gap-1.5 rounded-sm border px-3 py-1.5 text-[11px] uppercase tracking-widest transition",
         active
           ? "border-primary bg-primary/10 text-foreground"
           : "border-border text-muted-foreground hover:bg-accent",
