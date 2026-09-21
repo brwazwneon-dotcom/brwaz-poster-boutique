@@ -18,6 +18,7 @@ export function SafeImage({
   loading,
   decoding,
   sizes,
+  fetchPriority,
   ...rest
 }: Props) {
   const [errored, setErrored] = useState(false);
@@ -57,7 +58,9 @@ export function SafeImage({
         ? { avifSrcSet, webpSrcSet, sizes }
         : undefined;
 
-    enqueueImageLoad(displaySrc, fallbackSrc, ac.signal, responsive)
+    enqueueImageLoad(displaySrc, fallbackSrc, ac.signal, responsive, {
+      priority: fetchPriority === "high",
+    })
       .then(() => {
         if (mountedRef.current && !ac.signal.aborted) {
           setLoaded(true);
@@ -73,7 +76,7 @@ export function SafeImage({
     return () => {
       ac.abort();
     };
-  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes]);
+  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes, fetchPriority]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -107,6 +110,7 @@ export function SafeImage({
       {...rest}
       src={errored || !displaySrc ? IMAGE_FALLBACK : displaySrc}
       sizes={sizes}
+      fetchPriority={fetchPriority}
       loading={loaded ? "eager" : (loading ?? "lazy")}
       decoding={decoding ?? "async"}
       onError={handleError}

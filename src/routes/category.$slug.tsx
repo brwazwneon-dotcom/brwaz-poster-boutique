@@ -1,9 +1,7 @@
-import { createFileRoute, Link, Navigate, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, notFound, useNavigate } from "@tanstack/react-router";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getPostersByIdsPublic } from "@/lib/db-public.functions";
 import {
   useCategories,
   descendantIds,
@@ -24,8 +22,6 @@ import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { FramedArtwork } from "@/components/FramedArtwork";
 import { formatCount } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
@@ -39,7 +35,13 @@ import { useRecentlyViewed } from "@/lib/recently-viewed";
 import { trackPosterView } from "@/lib/poster-tracking";
 import { track as behavior } from "@/lib/behavior";
 import { DEFAULT_EDIT_SETTINGS, normalizeEditSettings } from "@/lib/poster-edit";
-import { usePricing, priceForFrame, useEnabledFrameVariants } from "@/lib/use-settings";
+import {
+  usePricing,
+  priceForFrame,
+  useEnabledFrameVariants,
+  useFrameMockups,
+} from "@/lib/use-settings";
+import { usePosterConfig, MOST_POPULAR_SIZE, type PosterConfigurator } from "@/lib/poster-config";
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Minus, Plus, Truck, Clock } from "lucide-react";
@@ -150,6 +152,20 @@ export const Route = createFileRoute("/category/$slug")({
   ),
 });
 
+// True from the `lg` breakpoint up, where the options panel sits beside the grid
+// and the phone bar / bottom sheet must not appear as well.
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
+
 function CategoryPage() {
   const { slug } = Route.useParams();
   const isCustomSlug = slug === "custom";
@@ -166,7 +182,12 @@ function CategoryPage() {
   const category = isCustomSlug ? undefined : categories.find((c) => c.slug === slug);
   const catLoading = categoriesLoading;
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // ONE active poster drives the preview, the option panel and the cart. The
+  // grid highlights it, the panel shows it — nothing else holds a selection.
+  const [activePosterId, setActivePosterId] = useState<string | null>(null);
+  // Frame / size / colour / quantity, shared by the panel and the phone bar.
+  const configurator = usePosterConfig();
+  const isDesktop = useIsDesktop();
   // Default the sort selector to what the admin configured for this category.
   const initialSort = (category?.sort_mode as SortKey | undefined) || "newest";
   const [sort, setSort] = useState<SortKey>(initialSort);
@@ -239,63 +260,49 @@ function CategoryPage() {
     `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`,
   );
 
-  // Root cause of the reported "ghost selection" bug: this used to look
-  // up each selected id ONLY in `products` (the currently-loaded page).
-  // Switching subcategory/sort changes useInfiniteProducts' query key and
-  // replaces `products` entirely, and scrolling/searching can do the same
-  // — any selected poster not in that fresh page silently vanished from
-  // selectedPosters (even though `selectedIds` itself, the real source of
-  // truth, still had it), so the Customizer preview/thumbnail strip could
-  // shrink, reorder, or empty out from under the customer while their
-  // actual selection was untouched. Fetching the missing ones by id here
-  // (mirroring the same fallback offers.tsx's BundleBuilder already uses)
-  // makes selectedPosters correct regardless of what the grid currently
-  // has loaded — the grid only ever reads selectedIds, never owns it.
+  // The active poster always comes from the grid's loaded products, so the
+  // preview can only ever show a poster that is really listed (deleted or
+  // hidden posters are never returned by the catalog query).
   const productsById = useMemo(() => {
     const m = new Map<string, NormalizedProduct>();
     for (const p of products) m.set(p.id, p);
     return m;
   }, [products]);
-  const missingIds = useMemo(
-    () => selectedIds.filter((id) => !productsById.has(id)),
-    [selectedIds, productsById],
-  );
-  const { data: selectionFallback = [] } = useQuery({
-    queryKey: ["category-selection-fallback", missingIds],
-    enabled: missingIds.length > 0,
-    staleTime: 5 * 60_000,
-    queryFn: () => getPostersByIdsPublic({ data: { ids: missingIds } }),
-  });
-  const fallbackById = useMemo(() => {
-    const m = new Map<string, Poster>();
-    for (const p of selectionFallback) m.set(p.id, p as Poster);
-    return m;
-  }, [selectionFallback]);
-
-  const selectedPosters: Poster[] = useMemo(
+  const activeFromGrid = activePosterId ? productsById.get(activePosterId) : undefined;
+  const activePoster: Poster | null = useMemo(
     () =>
-      selectedIds
-        .map((id): Poster | null => {
-          const p = productsById.get(id);
-          if (p) {
-            return {
-              id: p.id,
-              title: p.title,
-              image_url: p.cardArtworkUrl,
-              webp_srcset: p.webpSrcSet,
-              avif_srcset: p.avifSrcSet,
-              category_id: p.categoryId,
-              badge: p.badge,
-              sales_count: p.salesCount,
-              views_count: p.viewsCount,
-              is_best_seller: p.isBestSeller,
-            };
+      activeFromGrid
+        ? {
+            id: activeFromGrid.id,
+            title: activeFromGrid.title,
+            image_url: activeFromGrid.cardArtworkUrl,
+            webp_srcset: activeFromGrid.webpSrcSet,
+            avif_srcset: activeFromGrid.avifSrcSet,
+            category_id: activeFromGrid.categoryId,
+            badge: activeFromGrid.badge,
+            sales_count: activeFromGrid.salesCount,
+            views_count: activeFromGrid.viewsCount,
+            is_best_seller: activeFromGrid.isBestSeller,
           }
-          return fallbackById.get(id) ?? null;
-        })
-        .filter((p): p is Poster => p != null),
-    [selectedIds, productsById, fallbackById],
+        : null,
+    [activeFromGrid],
   );
+
+  // A different category, sub-category or sort is a different list: drop the
+  // selection right away so no preview of the old context is left behind.
+  const listKey = `${category?.id ?? slug}|${sort}|${activeSubId}`;
+  useEffect(() => {
+    setActivePosterId(null);
+  }, [listKey]);
+  // Safety net: once the list has finished loading, an active poster that is
+  // not in it (e.g. after a reload of the list) is cleared, not kept as a ghost.
+  const listSettled =
+    paginationState === "end" || (paginationState === "idle" && products.length > 0);
+  useEffect(() => {
+    if (activePosterId && listSettled && !productsById.has(activePosterId)) {
+      setActivePosterId(null);
+    }
+  }, [activePosterId, listSettled, productsById]);
 
   if (isCustomSlug) {
     return <Navigate to="/custom-design" replace />;
@@ -303,7 +310,10 @@ function CategoryPage() {
 
   if (!catLoading && !category) throw notFound();
 
-  const toggle = (id: string) => {
+  const selectPoster = (id: string) => {
+    // Clicking the active poster again keeps it active; any other poster
+    // replaces it immediately.
+    if (id === activePosterId) return;
     const p = products.find((x) => x.id === id);
     if (!p) return;
     if (category) {
@@ -333,7 +343,8 @@ function CategoryPage() {
         /* noop */
       }
     }
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setActivePosterId(id);
+    configurator.setQuantity(1);
   };
 
   return (
@@ -418,8 +429,9 @@ function CategoryPage() {
                 products={products}
                 state={paginationState}
                 error={paginationError}
-                selectedIds={selectedIds}
-                onToggle={toggle}
+                selectedIds={activePosterId ? [activePosterId] : []}
+                onToggle={selectPoster}
+                selectionMode="single"
                 onLoadMore={loadMore}
                 onRetry={retry}
               />
@@ -427,19 +439,19 @@ function CategoryPage() {
           </div>
 
           <aside className="hidden lg:block lg:sticky lg:top-[90px] lg:self-start lg:h-[calc(100vh-110px)]">
-            {selectedPosters.length > 0 && category ? (
+            {activePoster && category ? (
               <Customizer
-                posters={selectedPosters}
+                poster={activePoster}
                 category={category}
-                onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
-                onClear={() => setSelectedIds([])}
+                configurator={configurator}
+                onClose={() => setActivePosterId(null)}
               />
             ) : (
               <div className="rounded-sm border border-border bg-card p-8 text-center">
                 <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   {t("category.step")} 1
                 </div>
-                <p className="mt-3 text-lg">{t("category.selectPosters")}</p>
+                <p className="mt-3 text-lg">{t("product.selectAPosterFirst")}</p>
                 <p className="mt-2 text-sm text-muted-foreground">{t("category.tapToSelect")}</p>
                 <Link
                   to="/offers"
@@ -451,12 +463,11 @@ function CategoryPage() {
             )}
           </aside>
 
-          {selectedPosters.length > 0 && category && (
+          {activePoster && category && !isDesktop && (
             <MobileCustomizerBar
-              posters={selectedPosters}
+              poster={activePoster}
               category={category}
-              onRemove={(id) => setSelectedIds((prev) => prev.filter((x) => x !== id))}
-              onClear={() => setSelectedIds([])}
+              configurator={configurator}
             />
           )}
         </div>
@@ -481,365 +492,222 @@ function CategoryPage() {
           </div>
         )}
       </div>
-      {selectedPosters[0] && (
+      {activePoster && (
         <RelatedPosters
-          poster={selectedPosters[0]}
+          poster={activePoster}
           categorySlug={category?.slug}
           categoryName={category?.name}
         />
       )}
-      {selectedPosters[0] && <FrameComparison />}
-      {selectedPosters[0] && <BeforeAfter location="product" />}
+      {activePoster && <FrameComparison />}
+      {activePoster && <BeforeAfter location="product" />}
       {!perf.emergency_fast_mode && <RecentlyViewed />}
-      {!perf.emergency_fast_mode && <CustomerReviews posterId={selectedPosters[0]?.id} />}
+      {!perf.emergency_fast_mode && <CustomerReviews posterId={activePoster?.id} />}
       {!perf.emergency_fast_mode && <ProductInfoSections variant="all" />}
     </>
   );
 }
 
+/**
+ * The product configurator for ONE poster: preview → frame type → colour →
+ * size → quantity → live price → add to cart.
+ *
+ * `poster` is the single source of truth for what is shown and what is added
+ * to the cart; `configurator` holds the frame / size / colour / quantity
+ * choices. Both come from the parent (category page) or, on a product page,
+ * from this component's own state. There is no list of "selected posters" and
+ * no separate preview index, so the preview can never disagree with the
+ * selection.
+ */
 export function Customizer({
-  posters,
+  poster,
   category,
-  onRemove,
-  onClear,
+  configurator,
+  onClose,
+  onAdded,
 }: {
-  posters: Poster[];
+  poster: Poster;
   category: Category;
-  onRemove: (id: string) => void;
-  onClear: () => void;
+  configurator?: PosterConfigurator;
+  /** Clears the selection (shows a close button when provided). */
+  onClose?: () => void;
+  /** Called after the poster was added to the cart. */
+  onAdded?: () => void;
 }) {
   const { t } = useTranslation();
-  type PerPoster = { frameType: FrameTypeId; size: SizeId; color: FrameColorId };
-  const normalizeCombo = (c: PerPoster): PerPoster => {
-    const { frameType } = c;
-    let { size, color } = c;
-    if (frameType === "wood") {
-      color = "wood";
-    } else if (color === "wood") {
-      color = "black";
-    }
-    const allowed = sizesForFrame(frameType);
-    if (!allowed.includes(size)) size = allowed[0];
-    return { frameType, size, color };
-  };
-  const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
-  const [size, setSize] = useState<SizeId>("30x40");
-  const [color, setColor] = useState<FrameColorId>("black");
-  const [applyAll, setApplyAll] = useState(true);
-  const [perPoster, setPerPoster] = useState<Record<string, PerPoster>>({});
-  const enabledVariants = useEnabledFrameVariants();
-  const [quantity, setQuantity] = useState(1);
-  const [previewIndex, setPreviewIndex] = useState(0);
-  useEffect(() => {
-    if (previewIndex > posters.length - 1) setPreviewIndex(0);
-  }, [posters.length, previewIndex]);
-  // Seed per-poster settings for any newly added poster from the current
-  // shared defaults so each image starts with sensible values.
-  useEffect(() => {
-    setPerPoster((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const p of posters) {
-        if (!next[p.id]) {
-          next[p.id] = { frameType, size, color };
-          changed = true;
-        }
-      }
-      // Prune removed
-      for (const id of Object.keys(next)) {
-        if (!posters.find((p) => p.id === id)) {
-          delete next[id];
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-    // Only depend on posters length + ids
-  }, [posters.map((p) => p.id).join(","), frameType, size, color]);
+  const navigate = useNavigate();
+  const own = usePosterConfig();
+  const { config, setFrameType, setSize, setColor, setQuantity } = configurator ?? own;
+  const { frameType, size, color, quantity } = config;
 
-  const primaryIdEarly = posters[previewIndex]?.id ?? posters[0]?.id ?? "";
-  const current: PerPoster = perPoster[primaryIdEarly] ?? { frameType, size, color };
-
-  const applyPatch = (patch: Partial<PerPoster>) => {
-    setPerPoster((prev) => {
-      const next = { ...prev };
-      if (applyAll) {
-        for (const p of posters) {
-          const base = next[p.id] ?? { frameType, size, color };
-          next[p.id] = normalizeCombo({ ...base, ...patch });
-        }
-      } else {
-        const base = next[primaryIdEarly] ?? { frameType, size, color };
-        next[primaryIdEarly] = normalizeCombo({ ...base, ...patch });
-      }
-      return next;
-    });
-    if (applyAll) {
-      if (patch.frameType !== undefined) setFrameType(patch.frameType);
-      if (patch.size !== undefined) setSize(patch.size);
-      if (patch.color !== undefined) setColor(patch.color);
-    }
-  };
-
-  const handleFrameType = (next: FrameTypeId) => {
-    const base = current;
-    const combo = normalizeCombo({
-      frameType: next,
-      size: base.size,
-      color: base.color,
-    });
-    applyPatch(combo);
-  };
   const { add } = useCart();
   const pricing = usePricing();
+  const mockups = useFrameMockups();
+  const enabledVariants = useEnabledFrameVariants();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
-  const unitFor = (id: string) => {
-    const s = perPoster[id] ?? { frameType, size, color };
-    return priceForFrame(pricing, s.frameType, s.size) + (isCustom ? pricing.customDesignFee : 0);
-  };
-  const postersUnitSum = posters.reduce((sum, p) => sum + unitFor(p.id), 0);
-  const total = postersUnitSum * quantity;
-
-  const primary = posters[previewIndex] ?? posters[0];
-  const goPrev = () => setPreviewIndex((i) => (i - 1 + posters.length) % posters.length);
-  const goNext = () => setPreviewIndex((i) => (i + 1) % posters.length);
+  const customFee = isCustom ? pricing.customDesignFee : 0;
+  const priceOf = (sid: SizeId) => priceForFrame(pricing, frameType, sid) + customFee;
+  const unit = priceOf(size);
+  const total = unit * quantity;
+  const sizeOptions = sizesForFrame(frameType);
 
   const handleAdd = () => {
+    // Everything below comes from the poster and options on screen right now.
     for (let n = 0; n < quantity; n++) {
-      posters.forEach((poster) => {
-        const s = perPoster[poster.id] ?? { frameType, size, color };
-        add({
-          posterId: poster.id,
-          title: poster.title,
-          image: poster.image_url ?? "",
-          categoryId: category.id,
-          categoryName: category.name,
-          frameType: s.frameType,
-          size: s.size,
-          color: s.color,
-          price: unitFor(poster.id),
-          editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
-        });
+      add({
+        posterId: poster.id,
+        title: poster.title,
+        image: poster.image_url ?? "",
+        categoryId: category.id,
+        categoryName: category.name,
+        frameType,
+        size,
+        color,
+        price: unit,
+        editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
       });
     }
-    const totalItems = posters.length * quantity;
-    toast.success(t("product.addToCart", { count: totalItems }));
-    onClear();
+    toast.success(t("product.addedToCart"), {
+      action: { label: t("product.viewCart"), onClick: () => navigate({ to: "/cart" }) },
+    });
+    setQuantity(1);
+    onAdded?.();
   };
 
   const waMsg =
     `Hi BRWAZWNEON, I'd like to order:\n` +
-    posters
-      .map((p, i) => {
-        const s = perPoster[p.id] ?? { frameType, size, color };
-        return `${i + 1}. ${p.title} — ${FRAME_TYPES.find((f) => f.id === s.frameType)?.label}, ${SIZES.find((x) => x.id === s.size)?.label}, ${FRAME_COLORS.find((c) => c.id === s.color)?.label}`;
-      })
-      .join("\n") +
+    `1. ${poster.title} — ${FRAME_TYPES.find((f) => f.id === frameType)?.label}, ${SIZES.find((x) => x.id === size)?.label}, ${FRAME_COLORS.find((c) => c.id === color)?.label}` +
     `\nQuantity: ${quantity}` +
     `\nTotal: ${total} EGP`;
 
   return (
     <div className="flex h-full flex-col rounded-sm border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          {posters.length} {t("category.selected")}
-        </div>
-        <button
-          onClick={onClear}
-          className="-my-2 py-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
-        >
-          {t("common.clearAll")}
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-5 py-3 [scrollbar-width:thin]">
-        <div className="relative mx-auto flex w-full items-center justify-center gap-2">
-          {posters.length > 1 && (
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label={t("category.previousPoster")}
-              className="absolute left-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          )}
-          <div className="w-full max-w-[min(340px,36vh)]">
-            <PosterGallery
-              key={primary.id}
-              posterId={primary.id}
-              posterUrl={primary.image_url ?? ""}
-              avifSrcSet={primary.avif_srcset ?? undefined}
-              webpSrcSet={primary.webp_srcset ?? undefined}
-              title={primary.title}
-              frameType={current.frameType}
-              color={current.color}
-              editSettings={primary.edit_settings}
-            />
-          </div>
-          {posters.length > 1 && (
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label={t("category.nextPoster")}
-              className="absolute right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 shadow hover:bg-accent"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-        {posters.length > 1 && (
-          <div className="mt-2 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            Preview {previewIndex + 1} / {posters.length} · {primary.title}
-          </div>
+      <div
+        className={cn(
+          "flex items-start justify-between gap-3 border-b border-border py-3 pl-5",
+          onClose ? "pr-5" : "pr-14",
         )}
-        {(primary.sales_count ?? 0) > 0 ||
-        (primary.views_count ?? 0) > 0 ||
-        primary.is_best_seller ? (
+      >
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+            {t("product.posterLabel")}
+          </div>
+          <div className="truncate text-base font-semibold" title={poster.title}>
+            {poster.title}
+          </div>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("product.clearSelection")}
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
+        <div className="mx-auto w-full max-w-[min(240px,30vh)] sm:max-w-[min(340px,36vh)]">
+          {/* Remounted per poster: a new poster starts from its own loading
+              skeleton, so the previous image can never stay on screen. */}
+          <PosterGallery
+            key={poster.id}
+            posterId={poster.id}
+            posterUrl={poster.image_url ?? ""}
+            avifSrcSet={poster.avif_srcset ?? undefined}
+            webpSrcSet={poster.webp_srcset ?? undefined}
+            title={poster.title}
+            frameType={frameType}
+            color={color}
+            editSettings={poster.edit_settings}
+          />
+        </div>
+        {(poster.sales_count ?? 0) > 0 || (poster.views_count ?? 0) > 0 || poster.is_best_seller ? (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-            {(primary.sales_count ?? 0) > 0 && (
-              <span>✔ {formatCount(primary.sales_count)} sold</span>
+            {(poster.sales_count ?? 0) > 0 && <span>✔ {formatCount(poster.sales_count)} sold</span>}
+            {(poster.views_count ?? 0) > 0 && (
+              <span>👁 {formatCount(poster.views_count)} views</span>
             )}
-            {(primary.views_count ?? 0) > 0 && (
-              <span>👁 {formatCount(primary.views_count)} views</span>
-            )}
-            {primary.is_best_seller ? (
+            {poster.is_best_seller ? (
               <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
                 ⭐ {t("category.bestSeller")}
               </span>
             ) : null}
           </div>
         ) : null}
-        {posters.length > 1 && (
-          <div className="mt-3 grid grid-cols-5 gap-2">
-            {posters.map((p, i) => {
-              const s = perPoster[p.id] ?? { frameType, size, color };
-              return (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "group relative aspect-[2/3] overflow-hidden rounded-sm border transition",
-                    i === previewIndex
-                      ? "border-primary ring-2 ring-primary"
-                      : "border-transparent hover:border-border",
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setPreviewIndex(i)}
-                    aria-label={`Preview ${p.title}`}
-                    className="absolute inset-0 z-10"
-                  />
-                  <FramedArtwork
-                    posterUrl={p.image_url ?? ""}
-                    avifSrcSet={p.avif_srcset ?? undefined}
-                    webpSrcSet={p.webp_srcset ?? undefined}
-                    title={p.title}
-                    frameType={s.frameType}
-                    color={s.color}
-                    editSettings={p.edit_settings}
-                    className="h-full w-full"
-                  />
-                  <span className="pointer-events-none absolute bottom-0 inset-x-0 z-10 bg-background/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-widest">
-                    {s.size}
-                  </span>
-                  <button
-                    onClick={() => onRemove(p.id)}
-                    aria-label={`Remove ${p.title}`}
-                    className="absolute right-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 opacity-0 transition group-hover:opacity-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {posters.length > 1 && (
-          <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-sm border border-border bg-background/60 px-3 py-2">
-            <span className="text-[11px] font-semibold uppercase tracking-widest">
-              {applyAll
-                ? t("category.sameOptionsForAll")
-                : `${t("category.editing")}: ${primary.title}`}
-            </span>
-            <input
-              type="checkbox"
-              checked={applyAll}
-              onChange={(e) => setApplyAll(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />
-          </label>
-        )}
 
         <OptionGroup label={t("product.frameType")}>
-          {FRAME_TYPES.map((f) => (
-            <OptionButton
-              key={f.id}
-              active={current.frameType === f.id}
-              onClick={() => handleFrameType(f.id)}
-            >
-              {t(`product.frame_${f.id}` as const)}
-            </OptionButton>
-          ))}
+          <div className="grid w-full grid-cols-2 gap-2">
+            {FRAME_TYPES.map((f) => (
+              <FrameTypeCard
+                key={f.id}
+                active={frameType === f.id}
+                label={t(`product.frame_${f.id}` as const)}
+                thumb={mockups[f.id === "wood" ? "wood" : "black"]?.image}
+                onClick={() => setFrameType(f.id)}
+              />
+            ))}
+          </div>
         </OptionGroup>
 
-        <OptionGroup label={t("product.size")}>
-          {sizesForFrame(current.frameType).map((sid) => {
-            const s = SIZES.find((x) => x.id === sid)!;
-            return (
-              <OptionButton
-                key={s.id}
-                active={current.size === s.id}
-                onClick={() => applyPatch({ size: s.id })}
-              >
-                {t(`product.size_${s.id}` as const)}
-              </OptionButton>
-            );
-          })}
-        </OptionGroup>
-        <SizeGuide availableIds={sizesForFrame(current.frameType)} />
-
-        {current.frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
+        {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
           <OptionGroup label={t("product.frameColor")}>
-            {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map(
-              (c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => applyPatch({ color: c.id })}
-                  className={cn(
-                    "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
-                    current.color === c.id
-                      ? "border-primary bg-accent"
-                      : "border-border hover:border-muted-foreground",
-                  )}
-                >
-                  <span
-                    className="h-5 w-5 rounded-full border border-border"
-                    style={{ backgroundColor: c.swatch }}
+            <div className="flex flex-wrap gap-2">
+              {FRAME_COLORS.filter((c) => c.id !== "wood" && enabledVariants.includes(c.id)).map(
+                (c) => (
+                  <ColorSwatch
+                    key={c.id}
+                    id={c.id}
+                    swatch={c.swatch}
+                    label={t(`product.color_${c.id}` as const)}
+                    active={color === c.id}
+                    onClick={() => setColor(c.id)}
                   />
-                  {t(`product.color_${c.id}` as const)}
-                </button>
-              ),
-            )}
+                ),
+              )}
+            </div>
           </OptionGroup>
         )}
+
+        <OptionGroup label={t("product.size")}>
+          <div className="grid w-full grid-cols-3 gap-2">
+            {sizeOptions.map((sid) => (
+              <SizeCard
+                key={sid}
+                label={sid.replace("x", "×")}
+                ariaLabel={`${t(`product.size_${sid}` as const)} — ${priceOf(sid)} EGP`}
+                price={priceOf(sid)}
+                popular={sid === MOST_POPULAR_SIZE}
+                popularLabel={t("product.mostPopular")}
+                active={size === sid}
+                onClick={() => setSize(sid)}
+              />
+            ))}
+          </div>
+        </OptionGroup>
+        <SizeGuide availableIds={sizeOptions} />
 
         <OptionGroup label={t("product.quantity")}>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+              onClick={() => setQuantity(quantity - 1)}
+              disabled={quantity <= 1}
+              className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
               aria-label={t("product.decreaseQty")}
             >
               <Minus className="h-4 w-4" />
             </button>
-            <div className="min-w-[3rem] text-center text-lg font-semibold">{quantity}</div>
+            <div className="min-w-[3rem] text-center text-lg font-semibold tabular-nums">
+              {quantity}
+            </div>
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.min(99, q + 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-sm border border-border hover:bg-accent"
+              onClick={() => setQuantity(quantity + 1)}
+              disabled={quantity >= 99}
+              className="flex h-11 w-11 items-center justify-center rounded-sm border border-border hover:bg-accent disabled:opacity-40"
               aria-label={t("product.increaseQty")}
             >
               <Plus className="h-4 w-4" />
@@ -849,37 +717,45 @@ export function Customizer({
       </div>
 
       <div className="sticky bottom-0 border-t border-border bg-card px-5 py-4">
-        <div className="mb-3 flex items-baseline justify-between">
-          <div className="text-display text-3xl leading-none">
-            {total} <span className="text-base text-muted-foreground">EGP</span>
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              {t("product.total")}
+            </div>
+            <div className="text-display text-3xl leading-none tabular-nums">
+              {total} <span className="text-base text-muted-foreground">EGP</span>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {postersUnitSum} EGP × {quantity}
-          </div>
+          {quantity > 1 && (
+            <div className="text-xs text-muted-foreground">
+              {t("product.eachPrice", { price: unit })} × {quantity}
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
             onClick={handleAdd}
-            className="rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-2"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
           >
-            <Check className="h-4 w-4" /> {t("category.addToCart", { count: posters.length })}
+            <Check className="h-4 w-4" /> {t("product.addToCart")}
           </button>
           <a
             href={whatsappLink(waMsg)}
             target="_blank"
             rel="noreferrer"
-            className="rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-sm border border-border px-4 py-3 text-center text-xs font-semibold uppercase tracking-widest hover:bg-accent"
           >
             {t("nav.whatsappOrder")}
           </a>
         </div>
-        <div className="mt-4 space-y-2 border-t border-border pt-4">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Truck className="h-3.5 w-3.5" />
+        <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Truck className="h-3.5 w-3.5 shrink-0" />
             <span>{t("product.shippingInfo")}</span>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>{t("product.productionTime")}</span>
           </div>
         </div>
@@ -888,26 +764,24 @@ export function Customizer({
   );
 }
 
+/** Phone bar: the active poster, its live price and one button that opens the configurator. */
 function MobileCustomizerBar({
-  posters,
+  poster,
   category,
-  onRemove,
-  onClear,
+  configurator,
 }: {
-  posters: Poster[];
+  poster: Poster;
   category: Category;
-  onRemove: (id: string) => void;
-  onClear: () => void;
+  configurator: PosterConfigurator;
 }) {
   const [open, setOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
   const isRtl = i18n.language?.startsWith("ar");
-  // Quick estimate at default 30x40 PVC for the bar
-  const estUnit = priceForFrame(pricing, "pvc", "30x40") + (isCustom ? pricing.customDesignFee : 0);
-  const estTotal = estUnit * posters.length;
-  const priceLabel = `${estTotal} EGP`;
+  const { frameType, size, quantity } = configurator.config;
+  const total =
+    (priceForFrame(pricing, frameType, size) + (isCustom ? pricing.customDesignFee : 0)) * quantity;
 
   const customizeAction: BarAction = {
     kind: "customize",
@@ -915,32 +789,24 @@ function MobileCustomizerBar({
     onClick: () => setOpen(true),
   };
 
-  const cartAction: BarAction = {
-    kind: "cart",
-    label: t("category.customize"),
-    onClick: () => setOpen(true),
-  };
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <StickyProductBar
-        content={{
-          price: priceLabel,
-          size: `${posters.length} ${t("category.selected")}`,
-        }}
+        content={{ price: `${total} EGP`, size: poster.title }}
         primary={customizeAction}
-        secondary={cartAction}
       />
-      <SheetContent side="bottom" className="h-[92vh] overflow-hidden p-0" style={{ zIndex: 80 }}>
+      {/* The sheet's own close button gets a thumb-sized hit area. */}
+      <SheetContent
+        side="bottom"
+        className="h-[92vh] overflow-hidden p-0 [&>button:first-child]:right-1 [&>button:first-child]:top-2 [&>button:first-child]:flex [&>button:first-child]:h-11 [&>button:first-child]:w-11 [&>button:first-child]:items-center [&>button:first-child]:justify-center"
+        style={{ zIndex: 80 }}
+      >
         <div className="h-full">
           <Customizer
-            posters={posters}
+            poster={poster}
             category={category}
-            onRemove={onRemove}
-            onClear={() => {
-              onClear();
-              setOpen(false);
-            }}
+            configurator={configurator}
+            onAdded={() => setOpen(false)}
           />
         </div>
       </SheetContent>
@@ -951,33 +817,142 @@ function MobileCustomizerBar({
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-5">
-      <div className="mb-2 text-xs uppercase tracking-[0.3em] text-muted-foreground">{label}</div>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+        {label}
+      </div>
+      {children}
     </div>
   );
 }
 
-function OptionButton({
+function FrameTypeCard({
   active,
+  label,
+  thumb,
   onClick,
-  children,
 }: {
   active: boolean;
+  label: string;
+  thumb?: string;
   onClick: () => void;
-  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "rounded-sm border px-3 py-2 text-sm transition",
+        "relative flex min-h-[64px] items-center gap-3 rounded-sm border px-3 py-2 text-left transition-colors duration-200",
         active
           ? "border-primary bg-accent text-foreground"
           : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground",
       )}
     >
-      {children}
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-background/60">
+        {thumb ? (
+          <img
+            src={thumb}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <span className="h-7 w-5 border-4 border-foreground/70" />
+        )}
+      </span>
+      <span className="text-[13px] font-medium leading-tight">{label}</span>
+      {active && (
+        <Check
+          aria-hidden="true"
+          className="absolute right-2 top-2 h-3.5 w-3.5 rounded-full bg-primary p-0.5 text-primary-foreground"
+        />
+      )}
+    </button>
+  );
+}
+
+function ColorSwatch({
+  id,
+  swatch,
+  label,
+  active,
+  onClick,
+}: {
+  id: FrameColorId;
+  swatch: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={label}
+      className={cn(
+        "flex min-h-[44px] items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-4 text-sm transition-colors duration-200",
+        active ? "border-primary bg-accent" : "border-border hover:border-muted-foreground",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className="relative flex h-7 w-7 items-center justify-center rounded-full border border-border"
+        style={{
+          background: id === "wood" ? "linear-gradient(135deg, #8a5a33, #5a3a20)" : swatch,
+        }}
+      >
+        {active && (
+          <Check
+            className={cn("h-3.5 w-3.5", id === "white" ? "text-neutral-900" : "text-white")}
+          />
+        )}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function SizeCard({
+  label,
+  ariaLabel,
+  price,
+  popular,
+  popularLabel,
+  active,
+  onClick,
+}: {
+  label: string;
+  ariaLabel: string;
+  price: number;
+  popular: boolean;
+  popularLabel: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={ariaLabel}
+      className={cn(
+        "relative flex min-h-[64px] flex-col items-center justify-center rounded-sm border px-2 py-2 text-center transition-colors duration-200",
+        active
+          ? "border-primary bg-accent text-foreground"
+          : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+      )}
+    >
+      <span className="text-sm font-semibold tabular-nums">
+        {label} <span className="text-[10px] font-normal">cm</span>
+      </span>
+      <span className="text-[11px] tabular-nums text-muted-foreground">{price} EGP</span>
+      {popular && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-primary-foreground">
+          {popularLabel}
+        </span>
+      )}
     </button>
   );
 }

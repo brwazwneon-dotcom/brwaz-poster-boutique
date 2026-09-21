@@ -12,6 +12,8 @@ type Props = {
   onToggle: (id: string) => void;
   onLoadMore: () => void;
   onRetry: () => void;
+  /** "single" = one active card (category page); "multi" = numbered picks (bundle builder, default). */
+  selectionMode?: "single" | "multi";
 };
 
 export function InfiniteProductGrid({
@@ -22,6 +24,7 @@ export function InfiniteProductGrid({
   onToggle,
   onLoadMore,
   onRetry,
+  selectionMode = "multi",
 }: Props) {
   const { t } = useTranslation();
   const gridMode = useGridDisplayMode();
@@ -110,6 +113,7 @@ export function InfiniteProductGrid({
               selectionIndex={selectionIdx}
               onToggle={onToggle}
               gridMode={gridMode}
+              selectionMode={selectionMode}
             />
           );
         })}

@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { WishlistHeart } from "@/components/WishlistHeart";
@@ -12,9 +13,16 @@ type Props = {
   product: NormalizedProduct;
   gridIndex: number;
   selected: boolean;
+  /** Position in the selection — only shown in "multi" mode (bundle builder). */
   selectionIndex: number;
   onToggle: (id: string) => void;
   gridMode: "black" | "white" | "wood";
+  /**
+   * "single": exactly one card is the active poster (category page) — shown
+   * with a check mark. "multi": several cards can be picked and are numbered
+   * (offers bundle builder).
+   */
+  selectionMode?: "single" | "multi";
 };
 
 export const ProductCard = memo(function ProductCard({
@@ -24,37 +32,22 @@ export const ProductCard = memo(function ProductCard({
   selectionIndex,
   onToggle,
   gridMode,
+  selectionMode = "multi",
 }: Props) {
   const { t } = useTranslation();
   const fallbackUrl = product.fallbackArtworkUrl || IMAGE_FALLBACK;
   const safeUrl = product.cardArtworkUrl || fallbackUrl || IMAGE_FALLBACK;
+  const single = selectionMode === "single";
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onToggle(product.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle(product.id);
-        }
-      }}
-      aria-pressed={selected}
-      aria-label={
-        selected
-          ? t("product.selectedAriaLabel", { title: product.title, index: selectionIndex + 1 })
-          : t("product.selectAriaLabel", { title: product.title })
-      }
       className={cn(
-        "group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-sm border-2 bg-muted/20 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-muted/20 transition-[border-color,box-shadow,transform] duration-200",
         selected
-          ? "border-primary ring-4 ring-primary/30"
+          ? "border-primary shadow-lg ring-2 ring-primary/30 sm:-translate-y-0.5"
           : "border-transparent hover:border-border",
       )}
     >
-      <WishlistHeart posterId={product.id} />
-      <PosterBadge badge={product.badge} />
       <FramePreview
         posterUrl={safeUrl}
         posterFallbackUrl={fallbackUrl}
@@ -68,13 +61,33 @@ export const ProductCard = memo(function ProductCard({
         aspectClassName="aspect-[2/3]"
         className="h-full w-full"
       />
+      {/* A real button covering the card (a nested button inside a
+          button-role div is invalid, and the wishlist heart is one). */}
+      <button
+        type="button"
+        onClick={() => onToggle(product.id)}
+        aria-pressed={selected}
+        aria-label={
+          selected
+            ? single
+              ? t("product.activeAriaLabel", { title: product.title })
+              : t("product.selectedAriaLabel", { title: product.title, index: selectionIndex + 1 })
+            : t("product.selectAriaLabel", { title: product.title })
+        }
+        className="absolute inset-0 z-10 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+      />
+      <PosterBadge badge={product.badge} className="z-[11]" />
+      <WishlistHeart posterId={product.id} className="z-20" />
       {selected && (
-        <span className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-          {selectionIndex + 1}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-2 left-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow"
+        >
+          {single ? <Check className="h-4 w-4" /> : selectionIndex + 1}
         </span>
       )}
       {(product.salesCount ?? 0) > 0 && (
-        <span className="pointer-events-none absolute bottom-7 right-2 z-20 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
+        <span className="pointer-events-none absolute bottom-2 right-2 z-20 rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] uppercase tracking-widest opacity-0 transition group-hover:opacity-100">
           ✔ {formatCount(product.salesCount)} {t("product.sold")}
         </span>
       )}

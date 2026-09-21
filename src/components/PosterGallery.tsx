@@ -93,6 +93,7 @@ export function PosterGallery({
           color={color}
           editSettings={editSettings}
           loading="eager"
+          fetchPriority="high"
         />
 
         {slides.length > 1 && (
@@ -101,7 +102,7 @@ export function PosterGallery({
               type="button"
               onClick={() => go(-1)}
               aria-label={t("posterGallery.previousImage")}
-              className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
+              className="absolute left-2 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -109,7 +110,7 @@ export function PosterGallery({
               type="button"
               onClick={() => go(1)}
               aria-label={t("posterGallery.nextImage")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -120,7 +121,7 @@ export function PosterGallery({
           type="button"
           onClick={() => setZoomOpen(true)}
           aria-label={t("posterGallery.zoomImage")}
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
+          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
         >
           <ZoomIn className="h-4 w-4" />
         </button>

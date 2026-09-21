@@ -229,16 +229,7 @@ function PosterPage() {
         </nav>
 
         {category ? (
-          <Customizer
-            posters={[posterForCustomizer]}
-            category={category}
-            onRemove={() => {
-              /* single-product page: nothing to remove down to */
-            }}
-            onClear={() => {
-              /* no-op on a dedicated product page */
-            }}
-          />
+          <Customizer poster={posterForCustomizer} category={category} />
         ) : (
           // category_id pointed at a category that no longer exists /
           // wasn't loaded yet — extremely rare, but must render

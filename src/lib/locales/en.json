@@ -288,6 +288,14 @@
     "pressToZoom": "Press and hold to zoom {{title}}",
     "selectAriaLabel": "Select {{title}}",
     "selectedAriaLabel": "{{title}}, selected as poster {{index}}",
+    "activeAriaLabel": "{{title}}, selected",
+    "posterLabel": "Poster",
+    "mostPopular": "Most popular",
+    "addedToCart": "Added to your cart",
+    "viewCart": "View cart",
+    "selectAPosterFirst": "Pick a poster to customize it",
+    "clearSelection": "Clear selection",
+    "eachPrice": "{{price}} EGP each",
     "views": "views"
   },
   "cart": {

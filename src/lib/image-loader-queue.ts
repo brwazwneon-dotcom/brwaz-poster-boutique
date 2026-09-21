@@ -167,11 +167,28 @@ export function enqueueImageLoad(
   fallbackSrc?: string,
   signal?: AbortSignal,
   responsive?: ResponsiveSources,
+  options: { priority?: boolean } = {},
 ): Promise<string> {
   if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
 
   return new Promise<string>((resolve, reject) => {
-    pending.push({ src, fallbackSrc, responsive, enqueuedAt: Date.now(), signal, resolve, reject });
+    const item: QueueItem = {
+      src,
+      fallbackSrc,
+      responsive,
+      enqueuedAt: Date.now(),
+      signal,
+      resolve,
+      reject,
+    };
+    if (options.priority) {
+      // The image the customer is actually looking at (the active poster's
+      // preview) never waits behind the grid: it starts now and does not use
+      // one of the shared slots, so the grid keeps loading at its own pace.
+      void loadImage(item);
+      return;
+    }
+    pending.push(item);
     processQueue();
   });
 }

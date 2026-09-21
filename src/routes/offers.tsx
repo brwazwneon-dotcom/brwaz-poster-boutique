@@ -243,7 +243,11 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
     error: paginationError,
     loadMore,
     retry,
-  } = useInfiniteProducts(categoryIds, { sort: "newest" }, `offers-${categoryId}`);
+  } = useInfiniteProducts(
+    categoryIds,
+    { sort: "newest" },
+    `offers-${categoryId}-${categoryIds.length}`,
+  );
 
   // Keep a separate map so we can still show selections after switching filters.
   const { data: selectionMeta = [] } = useQuery<PosterSelectionMeta[]>({
