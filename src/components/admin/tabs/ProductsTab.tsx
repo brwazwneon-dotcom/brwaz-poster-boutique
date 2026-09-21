@@ -15,6 +15,7 @@ import {
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { uploadResponsiveSrcSets } from "@/lib/responsive-image";
+import { fitImageForUpload, withRetry } from "@/lib/upload-safety";
 import { FramePreview } from "@/components/FramePreview";
 import { PosterImageEditor } from "@/components/admin/PosterImageEditor";
 import {
@@ -417,14 +418,20 @@ export function ProductsTab({
         });
       }
       const optimized = await optimizeImage(toOptimize, { maxDim: 2000, quality: 0.85 });
+      // The archival original can be many MB (a 3543×4724 PNG) — more than one
+      // request may carry — so it is re-encoded to fit when needed.
+      const originalForUpload = await fitImageForUpload(item.file);
       const [webDataUrl, originalDataUrl] = await Promise.all([
         fileToDataUrl(optimized),
-        fileToDataUrl(item.file),
+        fileToDataUrl(originalForUpload),
       ]);
+      // Every upload is retried, so one network hiccup doesn't fail a product.
+      const upload = (args: { data: { dataUrl: string; filename: string } }) =>
+        withRetry(() => uploadPosterImage(args));
       const [{ url: imageUrl }, { url: originalUrl }, { webp_srcset, avif_srcset }] =
         await Promise.all([
-          uploadPosterImage({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
-          uploadPosterImage({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
+          upload({ data: { dataUrl: webDataUrl, filename: item.file.name } }),
+          upload({ data: { dataUrl: originalDataUrl, filename: item.file.name } }),
           // Generated from `toOptimize` (the full-quality, possibly-edited
           // source) rather than the already-downscaled `optimized` JPEG, so
           // the largest srcset variant stays as sharp as the source allows —
@@ -478,6 +485,8 @@ export function ProductsTab({
   // 9 rotating Gemini keys are configured, so a higher concurrency spreads
   // load across them instead of one key eating the whole rate limit.
   const MAX_CONCURRENT = 8;
+  // Publishing uploads a dozen files per product, so far fewer products at once.
+  const MAX_PUBLISH_CONCURRENT = 3;
   const activeCountRef = useRef(0);
   const pendingRef = useRef<QueueItem[]>([]);
   const pump = () => {
@@ -497,7 +506,10 @@ export function ProductsTab({
   const publishActiveCountRef = useRef(0);
   const publishPendingRef = useRef<QueueItem[]>([]);
   const pumpPublish = () => {
-    while (publishActiveCountRef.current < MAX_CONCURRENT && publishPendingRef.current.length > 0) {
+    while (
+      publishActiveCountRef.current < MAX_PUBLISH_CONCURRENT &&
+      publishPendingRef.current.length > 0
+    ) {
       const item = publishPendingRef.current.shift();
       if (!item) break;
       publishActiveCountRef.current++;
@@ -1113,6 +1125,11 @@ export function ProductsTab({
                       </button>
                     )}
                   </div>
+                  {q.status === "failed" && q.error && (
+                    <div className="break-words text-red-500" title={q.error}>
+                      {q.error.length > 90 ? `${q.error.slice(0, 90)}…` : q.error}
+                    </div>
+                  )}
                   {q.status === "warning" && q.mockupFit.reason && (
                     <div className="text-amber-500">{q.mockupFit.reason}</div>
                   )}

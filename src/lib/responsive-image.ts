@@ -8,6 +8,8 @@
  * returns a single File and this always returns multiple Blobs.
  */
 
+import { MAX_UPLOAD_BYTES, mapWithLimit, withRetry } from "@/lib/upload-safety";
+
 const RESPONSIVE_WIDTHS = [640, 1024, 1600, 2200] as const;
 const WEBP_QUALITY = 0.82;
 const AVIF_QUALITY = 0.75;
@@ -192,17 +194,27 @@ export async function uploadResponsiveSrcSets(
   const { webp, avif } = await generateResponsiveImageSet(file);
   const base = file.name.replace(/\.[^.]+$/, "");
 
+  // A variant too big for one request is simply left out of the srcset (the
+  // smaller ones still cover every screen) instead of failing the whole upload.
+  // Uploads run a few at a time, each retried, so publishing many products at
+  // once doesn't flood the server.
   const uploadVariant = async (v: ResponsiveVariant, ext: string) => {
+    if (v.blob.size > MAX_UPLOAD_BYTES) return null;
     const variantFile = blobToFile(v.blob, `${base}-${v.width}w.${ext}`);
     const dataUrl = await fileToDataUrl(variantFile);
-    const { url } = await uploadPosterImage({ data: { dataUrl, filename: variantFile.name } });
+    const { url } = await withRetry(() =>
+      uploadPosterImage({ data: { dataUrl, filename: variantFile.name } }),
+    );
     return { width: v.width, url };
   };
 
-  const [webpUploaded, avifUploaded] = await Promise.all([
-    Promise.all(webp.map((v) => uploadVariant(v, "webp"))),
-    Promise.all(avif.map((v) => uploadVariant(v, "avif"))),
-  ]);
+  const uploadAll = async (variants: ResponsiveVariant[], ext: string) =>
+    (await mapWithLimit(variants, 3, (v) => uploadVariant(v, ext))).filter(
+      (u): u is { width: number; url: string } => u !== null,
+    );
+
+  const webpUploaded = await uploadAll(webp, "webp");
+  const avifUploaded = await uploadAll(avif, "avif");
 
   return {
     webp_srcset: webpUploaded.length ? buildSrcSet(webpUploaded) : null,
