@@ -704,13 +704,13 @@ export function Customizer({
             : "flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]",
         )}
       >
-        {/* Preview: always gets at least 68% of the space between the header
-            and the price bar (the options scroll instead of squeezing it) and
+        {/* Preview: always gets at least 66% (74% on wide panels) of the space
+            above the price bar (the options scroll instead of squeezing it) and
             grows when the options are short. On wide-but-short panels it moves
             to its own column beside the options. The frame inside is sized from
             this box, never the other way round, so it fits whole for any poster. */}
         {fitHeight ? (
-          <div className="flex min-h-[68%] flex-[1_1_0] flex-col px-4 pb-1 pt-2 [@container(min-width:480px)_and_(max-height:720px)]:min-h-0 [@container(min-width:480px)_and_(max-height:720px)]:flex-[0_0_52%]">
+          <div className="flex min-h-[66%] flex-[1_1_0] [@container(min-width:520px)]:min-h-[74%] flex-col px-4 pb-1 pt-2 [@container(min-width:480px)_and_(max-height:720px)]:min-h-0 [@container(min-width:480px)_and_(max-height:720px)]:px-2 [@container(min-width:480px)_and_(max-height:720px)]:flex-[0_0_52%]">
             {gallery}
             {badges}
           </div>
@@ -814,19 +814,19 @@ export function Customizer({
           fitHeight ? "shrink-0 py-3" : "sticky bottom-0 py-4",
         )}
       >
-        {/* Very short screens put the price and the buttons side by side so
+        {/* Wide panels put the price and the buttons on one row so
             the bar takes as little height as possible. */}
         <div
           className={cn(
             fitHeight &&
-              "[@container(min-width:480px)_and_(max-height:460px)]:flex [@container(min-width:480px)_and_(max-height:460px)]:items-end [@container(min-width:480px)_and_(max-height:460px)]:gap-4",
+              "[@container(min-width:520px)]:flex [@container(min-width:520px)]:items-end [@container(min-width:520px)]:gap-4",
           )}
         >
           <div
             className={cn(
               "flex items-end justify-between",
               fitHeight
-                ? "mb-2 [@container(min-width:480px)_and_(max-height:460px)]:mb-0 [@container(min-width:480px)_and_(max-height:460px)]:shrink-0 [@container(min-width:480px)_and_(max-height:460px)]:gap-3"
+                ? "mb-2 [@container(min-width:520px)]:mb-0 [@container(min-width:520px)]:shrink-0 [@container(min-width:520px)]:gap-3"
                 : "mb-3",
             )}
           >
@@ -839,7 +839,14 @@ export function Customizer({
               </div>
             </div>
             {quantity > 1 && (
-              <div className="text-xs text-muted-foreground">
+              <div
+                className={cn(
+                  "text-xs text-muted-foreground",
+                  // One-row bar: the unit price is already on the size cards, and
+                  // this line would squeeze the buttons and change the bar's height.
+                  fitHeight && "[@container(min-width:520px)]:hidden",
+                )}
+              >
                 {t("product.eachPrice", { price: unit })} × {quantity}
               </div>
             )}
@@ -848,7 +855,7 @@ export function Customizer({
             className={cn(
               "grid grid-cols-2 gap-2",
               fitHeight &&
-                "[@container(min-width:480px)_and_(max-height:460px)]:min-w-0 [@container(min-width:480px)_and_(max-height:460px)]:flex-1",
+                "[@container(min-width:520px)]:min-w-0 [@container(min-width:520px)]:flex-1",
             )}
           >
             <button
