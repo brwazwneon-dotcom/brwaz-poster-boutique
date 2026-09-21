@@ -125,7 +125,7 @@ export const FramePreview = memo(function FramePreview({
         bare
           ? "bg-black/80 p-[7%] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_12px_18px_rgba(0,0,0,0.35)]"
           : fit
-            ? "drop-shadow-[0_8px_12px_rgba(0,0,0,0.5)]"
+            ? "drop-shadow-[0_10px_16px_rgba(0,0,0,0.55)]"
             : "drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
         className,
       )}

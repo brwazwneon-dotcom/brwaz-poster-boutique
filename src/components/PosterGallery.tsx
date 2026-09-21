@@ -90,28 +90,37 @@ export function PosterGallery({
   return (
     <div className={cn(fit && "flex min-h-0 flex-1 flex-col")}>
       {/* In fit mode this is a size container: its box comes from the parent
-          and never from the images inside it. */}
+          and never from the images inside it. The frame is sized to fit inside
+          it, so nothing needs clipping and the drop shadow can spill softly
+          into the space around it. */}
       <div
         className={cn(
           "relative",
-          fit &&
-            "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-3 [container-type:size]",
+          fit && "flex min-h-0 flex-1 items-center justify-center p-2 [container-type:size]",
         )}
         data-preview-stage={fit ? "" : undefined}
       >
-        <FramePreview
-          fit={fit}
-          posterUrl={current.url}
-          avifSrcSet={current.kind === "frame" ? avifSrcSet : undefined}
-          webpSrcSet={current.kind === "frame" ? webpSrcSet : undefined}
-          sizes="(max-width: 640px) 90vw, min(340px, 36vh)"
-          title={current.kind === "frame" ? title : `${title} — ${current.label}`}
-          frameType={frameType}
-          color={color}
-          editSettings={editSettings}
-          loading="eager"
-          fetchPriority="high"
-        />
+        {/* The fade sits on this wrapper, not on the frame: the frame's size comes
+            from container-query units, and with the animation on the frame itself
+            Chrome kept its old size after the panel resized (rotating a phone,
+            resizing the window). */}
+        <div className={cn(fit && "animate-in fade-in-0 duration-300")}>
+          <FramePreview
+            fit={fit}
+            posterUrl={current.url}
+            avifSrcSet={current.kind === "frame" ? avifSrcSet : undefined}
+            webpSrcSet={current.kind === "frame" ? webpSrcSet : undefined}
+            sizes={
+              fit ? "(max-width: 640px) 80vw, 480px" : "(max-width: 640px) 90vw, min(340px, 36vh)"
+            }
+            title={current.kind === "frame" ? title : `${title} — ${current.label}`}
+            frameType={frameType}
+            color={color}
+            editSettings={editSettings}
+            loading="eager"
+            fetchPriority="high"
+          />
+        </div>
 
         {slides.length > 1 && (
           <>
@@ -138,7 +147,11 @@ export function PosterGallery({
           type="button"
           onClick={() => setZoomOpen(true)}
           aria-label={t("posterGallery.zoomImage")}
-          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background"
+          className={cn(
+            "absolute right-2 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 backdrop-blur hover:bg-background",
+            // In fit mode the top corner belongs to the panel's close button.
+            fit ? "bottom-2" : "top-2",
+          )}
         >
           <ZoomIn className="h-4 w-4" />
         </button>

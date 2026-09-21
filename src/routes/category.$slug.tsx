@@ -589,6 +589,25 @@ export function Customizer({
     `\nQuantity: ${quantity}` +
     `\nTotal: ${total} EGP`;
 
+  const hasBadges =
+    (poster.sales_count ?? 0) > 0 || (poster.views_count ?? 0) > 0 || !!poster.is_best_seller;
+  const badges = hasBadges ? (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground",
+        fitHeight ? "mt-1 shrink-0" : "mt-3",
+      )}
+    >
+      {(poster.sales_count ?? 0) > 0 && <span>✔ {formatCount(poster.sales_count)} sold</span>}
+      {(poster.views_count ?? 0) > 0 && <span>👁 {formatCount(poster.views_count)} views</span>}
+      {poster.is_best_seller ? (
+        <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
+          ⭐ {t("category.bestSeller")}
+        </span>
+      ) : null}
+    </div>
+  ) : null;
+
   const shippingInfo = (className: string) => (
     <div
       className={cn(
@@ -628,48 +647,72 @@ export function Customizer({
     <div
       className={cn(
         "flex h-full flex-col rounded-sm border border-border bg-card",
-        fitHeight && "min-h-0 overflow-hidden",
+        // The panel is a size container so the layout below can react to its
+        // own width and height (stacked, or preview beside options).
+        fitHeight && "relative min-h-0 overflow-hidden [container-type:size]",
       )}
     >
-      <div
-        className={cn(
-          "flex shrink-0 items-start justify-between gap-3 border-b border-border py-3 pl-5",
-          onClose ? "pr-5" : "pr-14",
-        )}
-      >
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            {t("product.posterLabel")}
+      {fitHeight ? (
+        <>
+          {/* The poster's name is not repeated above the preview: the space goes
+              to the frame. Screen readers still get it, and the close button
+              floats in the corner (the phone sheet has its own in that spot). */}
+          <span className="sr-only">{poster.title}</span>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("product.clearSelection")}
+              className="absolute right-1 top-1 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 text-muted-foreground backdrop-blur hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </>
+      ) : (
+        <div
+          className={cn(
+            "flex shrink-0 items-start justify-between gap-3 border-b border-border py-3 pl-5",
+            onClose ? "pr-5" : "pr-14",
+          )}
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+              {t("product.posterLabel")}
+            </div>
+            <div className="truncate text-base font-semibold" title={poster.title}>
+              {poster.title}
+            </div>
           </div>
-          <div className="truncate text-base font-semibold" title={poster.title}>
-            {poster.title}
-          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("product.clearSelection")}
+              className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("product.clearSelection")}
-            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+      )}
 
       <div
         className={cn(
           fitHeight
-            ? "flex min-h-0 flex-1 flex-col [@media(max-height:520px)]:flex-row"
+            ? "flex min-h-0 flex-1 flex-col [@container(min-width:480px)_and_(max-height:720px)]:flex-row"
             : "flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]",
         )}
       >
-        {/* Preview: takes whatever height the header, options and price bar
-            leave. The frame inside is sized from this box (never the other
-            way round), so it fits whole for any poster or mockup shape. */}
+        {/* Preview: always gets at least 68% of the space between the header
+            and the price bar (the options scroll instead of squeezing it) and
+            grows when the options are short. On wide-but-short panels it moves
+            to its own column beside the options. The frame inside is sized from
+            this box, never the other way round, so it fits whole for any poster. */}
         {fitHeight ? (
-          <div className="flex min-h-[60%] flex-[1_1_0] flex-col px-5 pb-2 pt-4 [@media(max-height:520px)]:min-h-0 [@media(max-height:520px)]:flex-[0_0_45%]">
+          <div className="flex min-h-[68%] flex-[1_1_0] flex-col px-4 pb-1 pt-2 [@container(min-width:480px)_and_(max-height:720px)]:min-h-0 [@container(min-width:480px)_and_(max-height:720px)]:flex-[0_0_52%]">
             {gallery}
+            {badges}
           </div>
         ) : (
           <div className="mx-auto w-full max-w-[min(240px,30vh)] sm:max-w-[min(340px,36vh)]">
@@ -679,29 +722,13 @@ export function Customizer({
         <div
           className={cn(
             fitHeight &&
-              "min-h-0 shrink overflow-y-auto px-5 pb-4 [scrollbar-width:thin] [@media(max-height:520px)]:flex-1",
+              "min-h-0 shrink overflow-y-auto border-t border-border/60 px-5 pb-4 [scrollbar-width:thin] [&>:first-child]:mt-3 [@container(min-width:480px)_and_(max-height:720px)]:flex-1 [@container(min-width:480px)_and_(max-height:720px)]:border-l [@container(min-width:480px)_and_(max-height:720px)]:border-t-0",
           )}
         >
-          {(poster.sales_count ?? 0) > 0 ||
-          (poster.views_count ?? 0) > 0 ||
-          poster.is_best_seller ? (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-              {(poster.sales_count ?? 0) > 0 && (
-                <span>✔ {formatCount(poster.sales_count)} sold</span>
-              )}
-              {(poster.views_count ?? 0) > 0 && (
-                <span>👁 {formatCount(poster.views_count)} views</span>
-              )}
-              {poster.is_best_seller ? (
-                <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
-                  ⭐ {t("category.bestSeller")}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          {!fitHeight && badges}
 
           <OptionGroup label={t("product.frameType")}>
-            <div className="grid w-full grid-cols-2 gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 [@container(min-width:480px)_and_(max-width:699px)_and_(max-height:720px)]:grid-cols-1">
               {FRAME_TYPES.map((f) => (
                 <FrameTypeCard
                   key={f.id}
@@ -783,23 +810,24 @@ export function Customizer({
       <div
         data-preview-footer=""
         className={cn(
-          "border-t border-border bg-card px-5 py-4",
-          fitHeight ? "shrink-0" : "sticky bottom-0",
+          "border-t border-border bg-card px-5",
+          fitHeight ? "shrink-0 py-3" : "sticky bottom-0 py-4",
         )}
       >
-        {/* Short landscape screens put the price and the buttons side by side
-            so the bar takes as little height as possible. */}
+        {/* Very short screens put the price and the buttons side by side so
+            the bar takes as little height as possible. */}
         <div
           className={cn(
             fitHeight &&
-              "[@media(max-height:520px)]:flex [@media(max-height:520px)]:items-end [@media(max-height:520px)]:gap-4",
+              "[@container(min-width:480px)_and_(max-height:460px)]:flex [@container(min-width:480px)_and_(max-height:460px)]:items-end [@container(min-width:480px)_and_(max-height:460px)]:gap-4",
           )}
         >
           <div
             className={cn(
-              "mb-3 flex items-end justify-between",
-              fitHeight &&
-                "[@media(max-height:520px)]:mb-0 [@media(max-height:520px)]:shrink-0 [@media(max-height:520px)]:gap-3",
+              "flex items-end justify-between",
+              fitHeight
+                ? "mb-2 [@container(min-width:480px)_and_(max-height:460px)]:mb-0 [@container(min-width:480px)_and_(max-height:460px)]:shrink-0 [@container(min-width:480px)_and_(max-height:460px)]:gap-3"
+                : "mb-3",
             )}
           >
             <div>
@@ -819,7 +847,8 @@ export function Customizer({
           <div
             className={cn(
               "grid grid-cols-2 gap-2",
-              fitHeight && "[@media(max-height:520px)]:min-w-0 [@media(max-height:520px)]:flex-1",
+              fitHeight &&
+                "[@container(min-width:480px)_and_(max-height:460px)]:min-w-0 [@container(min-width:480px)_and_(max-height:460px)]:flex-1",
             )}
           >
             <button
