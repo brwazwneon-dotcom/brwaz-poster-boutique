@@ -28,6 +28,7 @@ import {
   waLink,
   type WhatsAppTemplateKey,
   type ConfirmationStatus,
+  type BundleTitleParts,
 } from "@/lib/order-whatsapp";
 import { customerWhatsappLink } from "./shared";
 import {
@@ -270,16 +271,64 @@ function ItemThumb({
   );
 }
 
-// One ordered line: a single poster, or — for a "N Frames Bundle" checkout,
-// which the cart saves as ONE `orders` row with every poster name packed
-// into `poster_title` (see parseBundleTitle) — the bundle as a whole with
-// its included posters listed underneath. There is only one image and one
-// blended price for a bundle row, so this never fabricates per-poster ones.
-function OrderItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
-  const bundle = parseBundleTitle(item.poster_title);
+// The right-side price block — identical for a single-poster row and a
+// bundle row, factored out so the two card layouts below don't duplicate it.
+function ItemPriceBlock({ item }: { item: AdminOrder }) {
   const price = itemPrice(item);
   const priceIsFallback = num(item.total_price) === null && price !== null;
-  const title = bundle.isBundle ? bundle.label : item.poster_title || "Untitled item";
+  return (
+    <div className="shrink-0 text-right">
+      {price !== null ? (
+        <>
+          {/* This row's price is already the LINE total for its quantity
+              (the schema stores one price per row, not a separate unit
+              price) — the per-unit figure below is that number divided
+              back down, shown only when it adds information (qty > 1). */}
+          {item.quantity > 1 && (
+            <div dir="ltr" className="text-[10px] tabular-nums text-muted-foreground">
+              ≈ {Math.round(price / item.quantity)} EGP each
+            </div>
+          )}
+          <div dir="ltr" className="text-sm font-semibold tabular-nums text-foreground">
+            {Math.round(price)} EGP
+          </div>
+          {priceIsFallback && (
+            <div
+              className="text-[10px] text-amber-400"
+              title="total_price is missing on this row; showing subtotal + packaging + shipping instead"
+            >
+              estimated
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-[11px] font-medium text-amber-400">Price unavailable</div>
+      )}
+    </div>
+  );
+}
+
+function ItemMeta({ item }: { item: AdminOrder }) {
+  return (
+    <>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        {item.size && <span>{item.size}</span>}
+        {item.frame_type && <span>{item.frame_type}</span>}
+        {item.frame_color && <span>{item.frame_color}</span>}
+        <span dir="ltr" className="tabular-nums">
+          × {item.quantity}
+        </span>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted-foreground/70">
+        {item.order_number ?? item.id.slice(0, 8)}
+      </div>
+    </>
+  );
+}
+
+// A single poster: one thumbnail, one title, its own frame/size/price.
+function SingleItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
+  const title = item.poster_title || "Untitled item";
   return (
     <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
       <ItemThumb src={item.poster_image} alt={`${title} poster`} priority={priority} />
@@ -287,57 +336,78 @@ function OrderItemCard({ item, priority }: { item: AdminOrder; priority?: boolea
         <div dir="auto" className="text-sm font-semibold text-foreground">
           {title}
         </div>
-        {bundle.isBundle && bundle.posterNames.length > 0 && (
-          <ol className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-            {bundle.posterNames.map((name, idx) => (
-              <li key={idx} dir="auto">
-                {idx + 1}. {name}
-              </li>
-            ))}
-          </ol>
-        )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          {item.size && <span>{item.size}</span>}
-          {item.frame_type && <span>{item.frame_type}</span>}
-          {item.frame_color && <span>{item.frame_color}</span>}
-          <span dir="ltr" className="tabular-nums">
-            × {item.quantity}
-          </span>
-        </div>
-        <div className="mt-1 font-mono text-[10px] text-muted-foreground/70">
-          {(item.order_number ?? item.id.slice(0, 8)) + ""}
-        </div>
+        <ItemMeta item={item} />
       </div>
-      <div className="shrink-0 text-right">
-        {price !== null ? (
-          <>
-            {/* This row's price is already the LINE total for its quantity
-                (the schema stores one price per row, not a separate unit
-                price) — the per-unit figure below is that number divided
-                back down, shown only when it adds information (qty > 1). */}
-            {item.quantity > 1 && (
-              <div dir="ltr" className="text-[10px] tabular-nums text-muted-foreground">
-                ≈ {Math.round(price / item.quantity)} EGP each
-              </div>
-            )}
-            <div dir="ltr" className="text-sm font-semibold tabular-nums text-foreground">
-              {Math.round(price)} EGP
-            </div>
-            {priceIsFallback && (
-              <div
-                className="text-[10px] text-amber-400"
-                title="total_price is missing on this row; showing subtotal + packaging + shipping instead"
-              >
-                estimated
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-[11px] font-medium text-amber-400">Price unavailable</div>
-        )}
-      </div>
+      <ItemPriceBlock item={item} />
     </div>
   );
+}
+
+// A "N Frames Bundle" checkout, saved as ONE `orders` row with every poster
+// name packed into `poster_title` (see parseBundleTitle) and, in `poster_image`,
+// only ONE photo. That single image is not a generic "bundle cover" picked at
+// random: the checkout (src/routes/offers.tsx's handleAdd) sets it from
+// `posters[0].image_url` — the very first poster in the same ordered list
+// `poster_title` is joined from — so it reliably belongs to the first name in
+// `bundle.posterNames`, and is shown (and made clickable) on that tile alone.
+// Every other poster in the bundle has NO image captured anywhere: the cart
+// knows each one's `image` at add-to-cart time (`BundlePoster` in
+// src/lib/cart.tsx), but `orders` has exactly one `poster_image` column and
+// nothing else is ever written to it — see this session's root-cause note.
+// Those tiles get the same honest placeholder a missing single-item image
+// gets; nothing here ever copies the first poster's photo onto them.
+function BundleItemCard({
+  item,
+  bundle,
+  priority,
+}: {
+  item: AdminOrder;
+  bundle: BundleTitleParts;
+  priority?: boolean;
+}) {
+  return (
+    <div className="rounded-sm border border-border bg-card p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div dir="auto" className="min-w-0 text-sm font-semibold text-foreground">
+          {bundle.label}
+        </div>
+        <ItemPriceBlock item={item} />
+      </div>
+
+      {bundle.posterNames.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {bundle.posterNames.map((name, idx) => (
+            <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
+              <ItemThumb
+                src={idx === 0 ? item.poster_image : null}
+                alt={`${name} poster`}
+                priority={priority && idx === 0}
+              />
+              <div
+                dir="auto"
+                title={name}
+                className="mt-1 truncate text-[10px] leading-tight text-muted-foreground"
+              >
+                {idx + 1}. {name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ItemMeta item={item} />
+    </div>
+  );
+}
+
+// One ordered line: a single poster, or a bundle — see BundleItemCard for
+// why a bundle's posters get their own tiles instead of one shared image.
+function OrderItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
+  const bundle = parseBundleTitle(item.poster_title);
+  if (bundle.isBundle) {
+    return <BundleItemCard item={item} bundle={bundle} priority={priority} />;
+  }
+  return <SingleItemCard item={item} priority={priority} />;
 }
 
 export function OrderDetailsDrawer({
