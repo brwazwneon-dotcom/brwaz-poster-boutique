@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { SafeImage } from "@/components/SafeImage";
+import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { cn } from "@/lib/utils";
 import { updateOrderStatus } from "@/lib/db-admin.functions";
 import {
@@ -142,32 +144,129 @@ function PriceRow({
   );
 }
 
+// A small Cloudinary crop instead of downloading the full-size upload just
+// to show a 56-108px box — same technique as PhotoPrintCartCard's thumbUrl.
+// Non-Cloudinary URLs (older Supabase-storage rows) pass through unchanged.
+function cloudinaryThumb(url: string): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !url.includes("res.cloudinary.com")) return url;
+  return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_144,h_216,c_fill/${url.slice(at + marker.length)}`;
+}
+
+const THUMB_SIZE = "h-[84px] w-14 sm:h-[108px] sm:w-[72px]";
+
 // A poster/product thumbnail. Falls back to a clearly-labeled placeholder
 // instead of a broken-image icon — for a genuinely missing poster_image, and
-// for one whose URL 404s (e.g. moved storage), which a bare `<img>` can't
-// tell apart from "there was never an image" without this onError handler.
-function ItemThumb({ src, alt }: { src: string | null; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
+// for one whose URL 404s (e.g. moved storage). Loads a small Cloudinary crop
+// through SafeImage (the site's one image-loading/retry/queue system — see
+// src/components/SafeImage.tsx, already used across the admin's other tabs),
+// retrying the full-size original once before giving up. Click (or Enter/
+// Space) opens the full-size original in a lightbox, never cropped.
+function ItemThumb({
+  src,
+  alt,
+  priority,
+}: {
+  src: string | null;
+  alt: string;
+  priority?: boolean;
+}) {
+  const [trulyFailed, setTrulyFailed] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomOpen]);
+
+  if (!src || trulyFailed) {
     return (
-      <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-border bg-muted/20 text-center sm:h-24 sm:w-24">
-        <span className="text-lg" aria-hidden="true">
+      <div
+        role="img"
+        aria-label="Poster image unavailable"
+        className={cn(
+          "flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border bg-muted/20 text-center",
+          THUMB_SIZE,
+        )}
+      >
+        <span className="text-base" aria-hidden="true">
           🖼️
         </span>
-        <span className="px-1 text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+        <span
+          aria-hidden="true"
+          className="px-1 text-[8px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground"
+        >
           Image unavailable
         </span>
       </div>
     );
   }
+
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className="h-20 w-20 shrink-0 rounded-sm border border-border object-cover sm:h-24 sm:w-24"
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => setZoomOpen(true)}
+        aria-label="View poster image"
+        className={cn(
+          "relative block shrink-0 overflow-hidden rounded-md border border-border bg-muted/20",
+          THUMB_SIZE,
+        )}
+      >
+        <SafeImage
+          src={cloudinaryThumb(src)}
+          fallbackSrc={src}
+          alt={alt}
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          // SafeImage swaps its own <img src> to IMAGE_FALLBACK once it has
+          // exhausted its internal retry (src, then fallbackSrc) — it never
+          // lets a real network error reach this element, so onError never
+          // fires here. onLoad does fire for that fallback SVG too (it's a
+          // real, instantly-decoding image), which is the one reliable place
+          // to learn "this thumbnail truly has no photo" and switch to our
+          // own richer placeholder instead of SafeImage's plain icon.
+          onLoad={(e) => {
+            if (
+              e.currentTarget.currentSrc === IMAGE_FALLBACK ||
+              e.currentTarget.src === IMAGE_FALLBACK
+            ) {
+              setTrulyFailed(true);
+            }
+          }}
+          className="h-full w-full object-cover"
+        />
+      </button>
+
+      {zoomOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 p-4"
+          onClick={() => setZoomOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close preview"
+            onClick={() => setZoomOpen(false)}
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-lg"
+          >
+            ✕
+          </button>
+          {/* Full-size original, never the small cropped thumbnail — the
+              whole point of the lightbox is seeing it uncropped. */}
+          <img
+            src={src}
+            alt={alt}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] max-w-[90vw] rounded-sm object-contain"
+          />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -176,19 +275,17 @@ function ItemThumb({ src, alt }: { src: string | null; alt: string }) {
 // into `poster_title` (see parseBundleTitle) — the bundle as a whole with
 // its included posters listed underneath. There is only one image and one
 // blended price for a bundle row, so this never fabricates per-poster ones.
-function OrderItemCard({ item }: { item: AdminOrder }) {
+function OrderItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
   const bundle = parseBundleTitle(item.poster_title);
   const price = itemPrice(item);
   const priceIsFallback = num(item.total_price) === null && price !== null;
+  const title = bundle.isBundle ? bundle.label : item.poster_title || "Untitled item";
   return (
     <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
-      <ItemThumb
-        src={item.poster_image}
-        alt={bundle.isBundle ? bundle.label : (item.poster_title ?? "")}
-      />
+      <ItemThumb src={item.poster_image} alt={`${title} poster`} priority={priority} />
       <div className="min-w-0 flex-1">
         <div dir="auto" className="text-sm font-semibold text-foreground">
-          {bundle.isBundle ? bundle.label : item.poster_title || "Untitled item"}
+          {title}
         </div>
         {bundle.isBundle && bundle.posterNames.length > 0 && (
           <ol className="mt-1 space-y-0.5 text-xs text-muted-foreground">
@@ -581,8 +678,8 @@ export function OrderDetailsDrawer({
                 )}
               </div>
               <div className="mt-3 space-y-2">
-                {items.map((i) => (
-                  <OrderItemCard key={i.id} item={i} />
+                {items.map((i, idx) => (
+                  <OrderItemCard key={i.id} item={i} priority={idx === 0} />
                 ))}
                 {photoOrders.map((ph) => (
                   <div
