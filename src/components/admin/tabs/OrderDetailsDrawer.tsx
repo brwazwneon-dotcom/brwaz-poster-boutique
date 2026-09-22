@@ -191,13 +191,13 @@ function OrderItemCard({ item }: { item: AdminOrder }) {
           {bundle.isBundle ? bundle.label : item.poster_title || "Untitled item"}
         </div>
         {bundle.isBundle && bundle.posterNames.length > 0 && (
-          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+          <ol className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             {bundle.posterNames.map((name, idx) => (
               <li key={idx} dir="auto">
-                • {name}
+                {idx + 1}. {name}
               </li>
             ))}
-          </ul>
+          </ol>
         )}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {item.size && <span>{item.size}</span>}
@@ -214,6 +214,15 @@ function OrderItemCard({ item }: { item: AdminOrder }) {
       <div className="shrink-0 text-right">
         {price !== null ? (
           <>
+            {/* This row's price is already the LINE total for its quantity
+                (the schema stores one price per row, not a separate unit
+                price) — the per-unit figure below is that number divided
+                back down, shown only when it adds information (qty > 1). */}
+            {item.quantity > 1 && (
+              <div dir="ltr" className="text-[10px] tabular-nums text-muted-foreground">
+                ≈ {Math.round(price / item.quantity)} EGP each
+              </div>
+            )}
             <div dir="ltr" className="text-sm font-semibold tabular-nums text-foreground">
               {Math.round(price)} EGP
             </div>
@@ -258,6 +267,7 @@ export function OrderDetailsDrawer({
   const [message, setMessage] = useState("");
   const [newNote, setNewNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [justCopied, setJustCopied] = useState(false);
 
   const clickedId = order?.id ?? null;
   const primary = group?.[0] ?? order;
@@ -314,19 +324,35 @@ export function OrderDetailsDrawer({
   const sumOf = (pick: (i: AdminOrder) => unknown) =>
     items.reduce((n2, i) => n2 + (num(pick(i)) ?? 0), 0);
   const itemsSubtotal = sumOf((i) => i.subtotal);
+  // Unlike packaging/shipping (NOT NULL, default 0 in the schema — 0 there
+  // is always a real "nothing charged"), `subtotal` is nullable, so a 0 here
+  // could mean either "genuinely nothing" or "never recorded". Only show it
+  // as a number once at least one row actually has one.
+  const subtotalKnown = items.some((i) => num(i.subtotal) !== null);
   const packagingTotal = sumOf((i) => i.packaging_fee);
   const shippingTotal = sumOf((i) => i.shipping_cost);
+  // No discount/coupon column exists on `orders` yet (coupons aren't wired
+  // into checkout — see neon/migrations/014_coupons.sql). Always 0 today;
+  // the row below only ever appears once a real figure exists to sum here.
+  const discountTotal = 0;
+  // Nothing at all is known about the price — not even a fallback — so the
+  // total below would otherwise show a bare, misleading "0 EGP".
+  const totalUnknown = pricingIncomplete && groupTotal === 0 && photoTotal === 0;
   const proofUrl = items.find((i) => i.payment_screenshot)?.payment_screenshot ?? null;
 
   const buildTemplateOrder = () => ({
     customer_name: primary.customer_name,
+    phone: primary.phone,
     primaryNumber: primary.order_number ?? primary.id.slice(0, 8),
     governorate: primary.governorate,
     address: primary.address,
     total: groupTotal,
-    subtotal: itemsSubtotal,
+    subtotal: subtotalKnown ? itemsSubtotal : null,
     packaging: packagingTotal,
     shipping: shippingTotal,
+    // No discount/coupon column exists on `orders` yet — never fabricated,
+    // just wired so a real value slots straight in once one does.
+    discount: null,
     items: items.map((i) => ({
       poster_title: i.poster_title,
       frame_type: i.frame_type,
@@ -403,8 +429,17 @@ export function OrderDetailsDrawer({
   };
 
   const copyMessage = async () => {
-    await navigator.clipboard.writeText(message);
-    toast.success("Copied");
+    try {
+      await navigator.clipboard.writeText(message);
+    } catch {
+      toast.error("Could not copy — select the text and copy manually");
+      return;
+    }
+    toast.success("✓ Message copied");
+    // A toast alone can be missed — the button itself also shows the
+    // success state for a moment, matching how "Add to cart" confirms.
+    setJustCopied(true);
+    setTimeout(() => setJustCopied(false), 1800);
     if (primaryId) logOrderEventAdmin({ data: { orderId: primaryId, stage: "whatsapp_copied" } });
   };
 
@@ -582,29 +617,43 @@ export function OrderDetailsDrawer({
             <section className="rounded-sm border border-border bg-card p-4">
               <SectionTitle>Price Summary</SectionTitle>
               <div className="mt-3 space-y-1.5 text-sm">
-                <PriceRow label="Subtotal" value={itemsSubtotal} />
+                {subtotalKnown ? (
+                  <PriceRow label="Subtotal" value={itemsSubtotal} />
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">— not recorded</span>
+                  </div>
+                )}
                 {packagingTotal > 0 && <PriceRow label="Packaging" value={packagingTotal} />}
                 <PriceRow label="Shipping" value={shippingTotal} free={shippingTotal === 0} />
                 {photoTotal > 0 && <PriceRow label="Photo printing" value={photoTotal} />}
+                {discountTotal > 0 && <PriceRow label="Discount / Offer" value={-discountTotal} />}
               </div>
               {pricingIncomplete && (
                 <div className="mt-3 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                  ⚠ total_price is missing on one or more rows of this order — the total below is
-                  computed from what IS known (subtotal/packaging/shipping) and may be incomplete.
+                  ⚠ total_price is missing on one or more rows of this order —{" "}
+                  {totalUnknown
+                    ? "and no other price field is available either, so no total can be shown below."
+                    : "the total below is computed from what IS known (subtotal/packaging/shipping) and may be incomplete."}{" "}
                   Check the order source rather than trusting this figure as final.
                 </div>
               )}
               <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Total
+                  {pricingIncomplete ? "Estimated Total" : "Total"}
                 </span>
-                <span
-                  dir="ltr"
-                  className="text-display text-3xl font-semibold tabular-nums text-foreground"
-                >
-                  {Math.round(groupTotal)}{" "}
-                  <span className="text-base text-muted-foreground">EGP</span>
-                </span>
+                {totalUnknown ? (
+                  <span className="text-sm font-medium text-amber-400">Price unavailable</span>
+                ) : (
+                  <span
+                    dir="ltr"
+                    className="text-display text-3xl font-semibold tabular-nums text-foreground"
+                  >
+                    {Math.round(groupTotal)}{" "}
+                    <span className="text-base text-muted-foreground">EGP</span>
+                  </span>
+                )}
               </div>
 
               <div className="mt-4 space-y-2 border-t border-border pt-3 text-xs">
@@ -689,9 +738,14 @@ export function OrderDetailsDrawer({
                 <button
                   onClick={copyMessage}
                   disabled={!message}
-                  className="min-h-[44px] rounded-sm border border-border px-3 text-xs disabled:opacity-50"
+                  className={cn(
+                    "min-h-[44px] rounded-sm border px-3 text-xs transition-colors disabled:opacity-50",
+                    justCopied
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                      : "border-border",
+                  )}
                 >
-                  📋 Copy Message
+                  {justCopied ? "✓ Message copied" : "📋 Copy Message"}
                 </button>
                 <button
                   onClick={openWhatsApp}
@@ -711,7 +765,12 @@ export function OrderDetailsDrawer({
 
             {/* ---- Internal notes ---- */}
             <section className="rounded-sm border border-border bg-card p-4">
-              <SectionTitle>Internal Notes</SectionTitle>
+              <div className="flex items-center justify-between gap-2">
+                <SectionTitle>Internal Notes</SectionTitle>
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  🔒 Not sent to the customer
+                </span>
+              </div>
               <div className="mt-2 flex flex-wrap gap-1">
                 {QUICK_NOTES.map((qn) => (
                   <button
