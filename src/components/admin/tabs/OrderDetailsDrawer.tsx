@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import { updateOrderStatus } from "@/lib/db-admin.functions";
 import {
   getOrderGroupAdmin,
   getOrderTimelineAdmin,
@@ -20,6 +22,7 @@ import {
   QUICK_NOTES,
   humanStage,
   buildWhatsAppTemplate,
+  parseBundleTitle,
   waLink,
   type WhatsAppTemplateKey,
   type ConfirmationStatus,
@@ -28,9 +31,208 @@ import { customerWhatsappLink } from "./shared";
 import {
   checkoutNumberLabel,
   photoOrderLabel,
+  ORDER_STATUSES,
   type AdminOrder,
   type PhotoOrderLite,
 } from "./OrdersTab";
+
+// Safe numeric read — the Neon driver returns `numeric` columns as strings,
+// legacy rows can have a null fee column, and nothing here should ever turn
+// a genuinely missing value into a silent 0 that then hides inside a sum.
+function num(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// One row's price: its own total_price, or — only when that column is
+// genuinely missing — its subtotal plus its own packaging/shipping (those
+// two columns default to 0 in the schema, never null, so this adds real
+// known numbers, not a guess). Null when nothing at all is known.
+function itemPrice(i: AdminOrder): number | null {
+  const known = num(i.total_price);
+  if (known !== null) return known;
+  const sub = num(i.subtotal);
+  if (sub === null) return null;
+  return sub + (num(i.packaging_fee) ?? 0) + (num(i.shipping_cost) ?? 0);
+}
+
+const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
+  not_sent: "border-border bg-muted/40 text-muted-foreground",
+  prepared: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+  sent: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+  customer_confirmed: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  customer_rejected: "border-red-500/40 bg-red-500/10 text-red-300",
+  waiting_for_response: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+};
+
+const STATUS_META: Record<string, { label: string; icon: string; tone: string }> = {
+  new: { label: "New", icon: "🆕", tone: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" },
+  confirmed: {
+    label: "Confirmed",
+    icon: "✅",
+    tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  },
+  processing: {
+    label: "Preparing",
+    icon: "🛠️",
+    tone: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  },
+  shipped: { label: "Shipped", icon: "🚚", tone: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
+  delivered: {
+    label: "Delivered",
+    icon: "📬",
+    tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: "🚫",
+    tone: "border-red-500/40 bg-red-500/10 text-red-300",
+  },
+  returned: { label: "Returned", icon: "↩️", tone: "border-red-500/40 bg-red-500/10 text-red-300" },
+};
+
+function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px] font-semibold uppercase tracking-widest",
+        tone,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
+
+function PriceRow({
+  label,
+  value,
+  free,
+  emphasis,
+}: {
+  label: string;
+  value: number;
+  free?: boolean;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className={cn("text-muted-foreground", emphasis && "font-medium text-foreground")}>
+        {label}
+      </span>
+      <span
+        dir="ltr"
+        className={cn(
+          "tabular-nums",
+          emphasis ? "font-semibold text-foreground" : "text-foreground",
+        )}
+      >
+        {free ? "FREE" : `${Math.round(value)} EGP`}
+      </span>
+    </div>
+  );
+}
+
+// A poster/product thumbnail. Falls back to a clearly-labeled placeholder
+// instead of a broken-image icon — for a genuinely missing poster_image, and
+// for one whose URL 404s (e.g. moved storage), which a bare `<img>` can't
+// tell apart from "there was never an image" without this onError handler.
+function ItemThumb({ src, alt }: { src: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-border bg-muted/20 text-center sm:h-24 sm:w-24">
+        <span className="text-lg" aria-hidden="true">
+          🖼️
+        </span>
+        <span className="px-1 text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+          Image unavailable
+        </span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="h-20 w-20 shrink-0 rounded-sm border border-border object-cover sm:h-24 sm:w-24"
+    />
+  );
+}
+
+// One ordered line: a single poster, or — for a "N Frames Bundle" checkout,
+// which the cart saves as ONE `orders` row with every poster name packed
+// into `poster_title` (see parseBundleTitle) — the bundle as a whole with
+// its included posters listed underneath. There is only one image and one
+// blended price for a bundle row, so this never fabricates per-poster ones.
+function OrderItemCard({ item }: { item: AdminOrder }) {
+  const bundle = parseBundleTitle(item.poster_title);
+  const price = itemPrice(item);
+  const priceIsFallback = num(item.total_price) === null && price !== null;
+  return (
+    <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
+      <ItemThumb
+        src={item.poster_image}
+        alt={bundle.isBundle ? bundle.label : (item.poster_title ?? "")}
+      />
+      <div className="min-w-0 flex-1">
+        <div dir="auto" className="text-sm font-semibold text-foreground">
+          {bundle.isBundle ? bundle.label : item.poster_title || "Untitled item"}
+        </div>
+        {bundle.isBundle && bundle.posterNames.length > 0 && (
+          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+            {bundle.posterNames.map((name, idx) => (
+              <li key={idx} dir="auto">
+                • {name}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {item.size && <span>{item.size}</span>}
+          {item.frame_type && <span>{item.frame_type}</span>}
+          {item.frame_color && <span>{item.frame_color}</span>}
+          <span dir="ltr" className="tabular-nums">
+            × {item.quantity}
+          </span>
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-muted-foreground/70">
+          {(item.order_number ?? item.id.slice(0, 8)) + ""}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        {price !== null ? (
+          <>
+            <div dir="ltr" className="text-sm font-semibold tabular-nums text-foreground">
+              {Math.round(price)} EGP
+            </div>
+            {priceIsFallback && (
+              <div
+                className="text-[10px] text-amber-400"
+                title="total_price is missing on this row; showing subtotal + packaging + shipping instead"
+              >
+                estimated
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-[11px] font-medium text-amber-400">Price unavailable</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function OrderDetailsDrawer({
   order,
@@ -75,6 +277,7 @@ export function OrderDetailsDrawer({
     setGroup(null);
     setTimeline(null);
     setNotes(null);
+    setTemplateKey("confirmation");
     (async () => {
       // If the group can't be loaded, fall back to the clicked row so the
       // drawer is never empty.
@@ -91,42 +294,69 @@ export function OrderDetailsDrawer({
       await refresh(rows[0].id);
       logOrderEventAdmin({ data: { orderId: rows[0].id, stage: "admin_viewed" } });
     })();
+    // Only re-run when the drawer opens for a (possibly new) order — `order`
+    // itself is read once as the synchronous fallback above, not tracked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clickedId]);
 
   if (!order || !primary) return null;
   const items = group ?? [order];
   const groupIds = items.map((i) => i.id);
-  const framesTotal = items.reduce((sum, i) => sum + Number(i.total_price), 0);
-  const photoTotal = photoOrders.reduce((sum, p) => sum + (Number(p.total_price) || 0), 0);
+
+  // Per-item price (see itemPrice above). Anything still unknown stays
+  // unknown here too (never coerced to 0) — surfaced below instead of being
+  // folded silently into the total.
+  const itemPrices = items.map(itemPrice);
+  const pricingIncomplete = itemPrices.some((p) => p === null);
+  const framesTotal = itemPrices.reduce<number>((sum, p) => sum + (p ?? 0), 0);
+  const photoTotal = photoOrders.reduce<number>((sum, p) => sum + (num(p.total_price) ?? 0), 0);
   const groupTotal = framesTotal + photoTotal;
   const sumOf = (pick: (i: AdminOrder) => unknown) =>
-    items.reduce((n, i) => n + (Number(pick(i)) || 0), 0);
+    items.reduce((n2, i) => n2 + (num(pick(i)) ?? 0), 0);
   const itemsSubtotal = sumOf((i) => i.subtotal);
   const packagingTotal = sumOf((i) => i.packaging_fee);
   const shippingTotal = sumOf((i) => i.shipping_cost);
   const proofUrl = items.find((i) => i.payment_screenshot)?.payment_screenshot ?? null;
 
-  const prepareMessage = () => {
-    const text = buildWhatsAppTemplate(templateKey, {
-      customer_name: primary.customer_name,
-      primaryNumber: primary.order_number ?? primary.id.slice(0, 8),
-      governorate: primary.governorate,
-      address: primary.address,
-      total: groupTotal,
-      items: items.map((i) => ({
-        poster_title: i.poster_title,
-        size: i.size,
-        quantity: i.quantity,
-      })),
-    });
+  const buildTemplateOrder = () => ({
+    customer_name: primary.customer_name,
+    primaryNumber: primary.order_number ?? primary.id.slice(0, 8),
+    governorate: primary.governorate,
+    address: primary.address,
+    total: groupTotal,
+    subtotal: itemsSubtotal,
+    packaging: packagingTotal,
+    shipping: shippingTotal,
+    items: items.map((i) => ({
+      poster_title: i.poster_title,
+      frame_type: i.frame_type,
+      frame_color: i.frame_color,
+      size: i.size,
+      quantity: i.quantity,
+      price: itemPrice(i),
+    })),
+  });
+
+  const prepareMessage = (key: WhatsAppTemplateKey = templateKey) => {
+    const text = buildWhatsAppTemplate(key, buildTemplateOrder());
     setMessage(text);
     setConfirmation("prepared", text);
+    return text;
+  };
+
+  // Regenerates immediately when the admin picks a different message type —
+  // still built from this order's real items every time, never hand-edited
+  // boilerplate that drifts from what was actually ordered.
+  const changeTemplate = (key: WhatsAppTemplateKey) => {
+    setTemplateKey(key);
+    setMessage(buildWhatsAppTemplate(key, buildTemplateOrder()));
   };
 
   // Marks the whole checkout as paid / proof rejected after looking at the
   // customer's payment screenshot.
   const setPayment = async (decision: "paid" | "rejected" | "pending") => {
     if (!primaryId) return;
+    if (decision === "rejected" && !confirm("Mark this payment proof as rejected?")) return;
     setSaving(true);
     try {
       await setOrderPaymentAdmin({ data: { ids: groupIds, decision } });
@@ -158,6 +388,20 @@ export function OrderDetailsDrawer({
     }
   };
 
+  const changeStatus = async (status: string) => {
+    if (!primaryId) return;
+    setSaving(true);
+    try {
+      await updateOrderStatus({ data: { ids: groupIds, status } });
+      onOrderUpdated();
+      toast.success("Order status updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const copyMessage = async () => {
     await navigator.clipboard.writeText(message);
     toast.success("Copied");
@@ -174,6 +418,11 @@ export function OrderDetailsDrawer({
     }
   };
 
+  const rejectOrder = () => {
+    if (!confirm("Mark this order as rejected by the customer?")) return;
+    setConfirmation("customer_rejected");
+  };
+
   const addNote = async () => {
     if (!newNote.trim() || !primaryId) return;
     await addOrderNoteAdmin({ data: { orderId: primaryId, text: newNote.trim() } });
@@ -181,336 +430,420 @@ export function OrderDetailsDrawer({
     refresh(primaryId);
   };
 
+  const confirmationTone =
+    CONFIRMATION_TONE[primary.confirmation_status] ?? CONFIRMATION_TONE.not_sent;
+  const statusMeta = STATUS_META[primary.status] ?? {
+    label: primary.status,
+    icon: "•",
+    tone: "border-border bg-muted/40 text-muted-foreground",
+  };
+  const createdAt = new Date(primary.created_at);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>
-            Order {checkoutNumberLabel(items)} —{" "}
-            {CONFIRMATION_STATUS_LABEL[primary.confirmation_status] ??
-              CONFIRMATION_STATUS_LABEL.not_sent}
-          </SheetTitle>
-        </SheetHeader>
+      <SheetContent
+        side="right"
+        className={cn(
+          "flex h-full w-full flex-col gap-0 overflow-hidden bg-background p-0",
+          "sm:max-w-none md:w-[min(760px,92vw)]",
+          // The sheet's own close button — sized to a real tap target and
+          // moved so it never sits over the order number.
+          "[&>button:first-child]:right-3 [&>button:first-child]:top-3 [&>button:first-child]:z-20",
+          "[&>button:first-child]:flex [&>button:first-child]:h-11 [&>button:first-child]:w-11",
+          "[&>button:first-child]:items-center [&>button:first-child]:justify-center",
+          "[&>button:first-child]:rounded-full [&>button:first-child]:bg-card/90 [&>button:first-child]:opacity-100",
+          "[&>button:first-child_svg]:h-5 [&>button:first-child_svg]:w-5",
+        )}
+      >
+        {/* ---- Header (fixed) ---- */}
+        <div className="shrink-0 border-b border-border bg-card px-5 py-4 pr-16">
+          <div dir="ltr" className="text-display text-xl font-semibold text-foreground">
+            Order {checkoutNumberLabel(items)}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span>{createdAt.toLocaleDateString()}</span>
+            <span aria-hidden="true">·</span>
+            <span dir="ltr">{createdAt.toLocaleTimeString()}</span>
+            <span aria-hidden="true">·</span>
+            <span className="capitalize">{primary.payment_method}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge tone={confirmationTone}>
+              {CONFIRMATION_STATUS_LABEL[primary.confirmation_status] ??
+                CONFIRMATION_STATUS_LABEL.not_sent}
+            </Badge>
+            <span className={cn("inline-flex items-center gap-1", "")}>
+              <Badge tone={statusMeta.tone}>
+                {statusMeta.icon} {statusMeta.label}
+              </Badge>
+            </span>
+            <select
+              value={primary.status}
+              disabled={saving}
+              onChange={(e) => changeStatus(e.target.value)}
+              className="rounded-sm border border-border bg-background px-2 py-1.5 text-[11px] uppercase tracking-widest disabled:opacity-50"
+              aria-label="Change order status"
+            >
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_META[s]?.label ?? s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-        <div className="mt-4 space-y-6 text-sm">
-          {/* ---- Customer ---- */}
-          <section className="space-y-1 rounded-sm border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Customer
-            </h3>
-            <div>{primary.customer_name}</div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                {primary.phone} · {primary.governorate}
-              </span>
+        {/* ---- Scrollable body ---- */}
+        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+          <div className="space-y-5 px-5 py-5">
+            {/* ---- Customer ---- */}
+            <section className="rounded-sm border border-border bg-card p-4">
+              <SectionTitle>Customer</SectionTitle>
+              <div dir="auto" className="mt-2 text-base font-semibold text-foreground">
+                {primary.customer_name}
+              </div>
+              <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={`tel:${primary.phone}`}
+                    dir="ltr"
+                    className="tabular-nums hover:text-foreground hover:underline"
+                  >
+                    📞 {primary.phone}
+                  </a>
+                  <span aria-hidden="true">·</span>
+                  <span>📍 {primary.governorate}</span>
+                </div>
+                <div dir="auto" className="whitespace-pre-wrap">
+                  🏠 {primary.address}
+                </div>
+                {primary.notes && (
+                  <div dir="auto" className="italic text-muted-foreground/90">
+                    "{primary.notes}"
+                  </div>
+                )}
+              </div>
               <a
                 href={customerWhatsappLink(primary.phone)}
                 target="_blank"
                 rel="noreferrer"
-                className="text-cyan-500 hover:underline"
-              >
-                WA
-              </a>
-            </div>
-            <div className="text-xs text-muted-foreground">{primary.address}</div>
-            {primary.notes && (
-              <div className="text-xs italic text-muted-foreground">"{primary.notes}"</div>
-            )}
-          </section>
-
-          {/* ---- Items / pricing ---- */}
-          <section className="space-y-2 rounded-sm border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Order Items {items.length > 1 ? `(${items.length} lines)` : ""}
-            </h3>
-            {items.map((i) => (
-              <div key={i.id} className="flex items-center gap-3">
-                {i.poster_image && (
-                  <img
-                    src={i.poster_image}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded-sm border border-border object-cover"
-                  />
-                )}
-                <div className="flex-1">
-                  <div>{i.poster_title}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {i.size} · {i.frame_type} · {i.frame_color} · × {i.quantity}
-                  </div>
-                </div>
-                <div className="shrink-0 text-xs text-muted-foreground">{i.total_price} EGP</div>
-              </div>
-            ))}
-            {photoOrders.map((ph) => (
-              <div key={ph.id} className="flex items-center gap-3 rounded-sm bg-primary/5 p-2">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-sm border border-border text-xl">
-                  📷
-                </div>
-                <div className="flex-1">
-                  <div>Photo printing</div>
-                  <div className="text-xs text-muted-foreground">
-                    {photoOrderLabel(ph)} · {ph.order_number ?? ""} · see the Photo Orders tab for
-                    the files
-                  </div>
-                </div>
-                <div className="shrink-0 text-xs text-muted-foreground">{ph.total_price} EGP</div>
-              </div>
-            ))}
-            <div className="space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
-              {itemsSubtotal > 0 && (
-                <div className="flex justify-between">
-                  <span>Items (after discounts)</span>
-                  <span>{itemsSubtotal} EGP</span>
-                </div>
-              )}
-              {packagingTotal > 0 && (
-                <div className="flex justify-between">
-                  <span>Packaging</span>
-                  <span>{packagingTotal} EGP</span>
-                </div>
-              )}
-              {shippingTotal > 0 && (
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <span>{shippingTotal} EGP</span>
-                </div>
-              )}
-            </div>
-            <div className="border-t border-border pt-2 text-sm font-semibold">
-              TOTAL: {groupTotal} EGP
-            </div>
-            <div className="space-y-2 border-t border-border pt-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Payment</span>
-                <span className="font-medium">
-                  {primary.payment_method} / {primary.payment_status}
-                </span>
-              </div>
-              {proofUrl?.startsWith("https://") ? (
-                <a
-                  href={proofUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block w-fit"
-                  title="Open the payment screenshot"
-                >
-                  <img
-                    src={proofUrl}
-                    alt="Payment screenshot"
-                    className="max-h-56 rounded-sm border border-border object-contain"
-                  />
-                </a>
-              ) : primary.payment_method === "instapay" ? (
-                <div className="text-amber-500">
-                  No payment screenshot was saved for this order.
-                </div>
-              ) : null}
-              {primary.payment_method !== "cod" && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setPayment("paid")}
-                    disabled={saving || primary.payment_status === "paid"}
-                    className="rounded-sm border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-500 disabled:opacity-50"
-                  >
-                    ✅ Payment verified
-                  </button>
-                  <button
-                    onClick={() => setPayment("rejected")}
-                    disabled={saving || primary.payment_status === "rejected"}
-                    className="rounded-sm border border-red-500/40 px-3 py-1.5 text-xs text-red-500 disabled:opacity-50"
-                  >
-                    ❌ Proof rejected
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* ---- WhatsApp confirmation ---- */}
-          <section className="space-y-2 rounded-sm border border-primary/30 bg-primary/5 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              WhatsApp Confirmation
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={templateKey}
-                onChange={(e) => setTemplateKey(e.target.value as WhatsAppTemplateKey)}
-                className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
-              >
-                {WHATSAPP_TEMPLATES.map((t) => (
-                  <option key={t.key} value={t.key}>
-                    {t.icon} {t.title}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={prepareMessage}
-                disabled={saving}
-                className="rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-              >
-                💬 Prepare / Regenerate
-              </button>
-            </div>
-            <textarea
-              dir="rtl"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={7}
-              placeholder="Prepare a message above, or write one manually…"
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={copyMessage}
-                disabled={!message}
-                className="rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
-              >
-                📋 Copy Message
-              </button>
-              <button
-                onClick={openWhatsApp}
-                disabled={!message}
-                className="rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+                className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-4 text-xs font-semibold uppercase tracking-widest text-emerald-300 hover:bg-emerald-500/20"
               >
                 💬 Open WhatsApp
-              </button>
-              <button
-                onClick={() => setConfirmation("customer_confirmed")}
-                disabled={saving}
-                className="rounded-sm border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-500 disabled:opacity-50"
-              >
-                ✅ Customer Confirmed
-              </button>
-              <button
-                onClick={() => setConfirmation("waiting_for_response")}
-                disabled={saving}
-                className="rounded-sm border border-amber-500/40 px-3 py-1.5 text-xs text-amber-500 disabled:opacity-50"
-              >
-                ⚠️ Waiting
-              </button>
-              <button
-                onClick={() => setConfirmation("customer_rejected")}
-                disabled={saving}
-                className="rounded-sm border border-red-500/40 px-3 py-1.5 text-xs text-red-500 disabled:opacity-50"
-              >
-                ❌ Rejected
-              </button>
-            </div>
-            {primary.confirmed_at && (
-              <p className="text-[11px] text-muted-foreground">
-                Confirmed {new Date(primary.confirmed_at).toLocaleString()} by{" "}
-                {primary.confirmed_by}
-              </p>
-            )}
-          </section>
+              </a>
+            </section>
 
-          {/* ---- Internal notes ---- */}
-          <section className="space-y-2 rounded-sm border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Internal Notes
-            </h3>
-            <div className="flex flex-wrap gap-1">
-              {QUICK_NOTES.map((qn) => (
-                <button
-                  key={qn}
-                  onClick={() => setNewNote(qn)}
-                  className="rounded-sm border border-border px-2 py-1 text-[10px] hover:bg-accent"
-                >
-                  {qn}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") addNote();
-                }}
-                placeholder="Add an internal note…"
-                className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
-              />
-              <button
-                onClick={addNote}
-                disabled={!newNote.trim()}
-                className="shrink-0 rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-40"
-              >
-                Add
-              </button>
-            </div>
-            {notes === null ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
-            ) : notes.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No notes yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {notes.map((n) => (
+            {/* ---- Order items ---- */}
+            <section className="rounded-sm border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <SectionTitle>
+                  Order Items {items.length > 1 ? `(${items.length})` : ""}
+                </SectionTitle>
+                {pricingIncomplete && (
+                  <span className="text-[10px] font-medium text-amber-400">
+                    ⚠ price missing on some rows
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 space-y-2">
+                {items.map((i) => (
+                  <OrderItemCard key={i.id} item={i} />
+                ))}
+                {photoOrders.map((ph) => (
                   <div
-                    key={n.id}
-                    className="flex items-start justify-between gap-2 rounded-sm border border-border p-2"
+                    key={ph.id}
+                    className="flex items-center gap-3 rounded-sm border border-primary/30 bg-primary/5 p-3"
                   >
-                    <div>
-                      <div className="text-xs">{n.text}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {n.author} · {new Date(n.created_at).toLocaleString()}
-                        {n.pinned ? " · 📌 pinned" : ""}
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-sm border border-border text-2xl sm:h-24 sm:w-24">
+                      📷
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-foreground">Photo printing</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {photoOrderLabel(ph)}
+                        {ph.order_number ? ` · ${ph.order_number}` : ""}
+                      </div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        See the Photo Orders tab for the uploaded files.
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() =>
-                          primaryId &&
-                          updateOrderNoteAdmin({
-                            data: { id: n.id, orderId: primaryId, pinned: !n.pinned },
-                          }).then(() => refresh(primaryId))
-                        }
-                        className="text-[10px] text-cyan-500 hover:underline"
-                      >
-                        {n.pinned ? "Unpin" : "Pin"}
-                      </button>
-                      <button
-                        onClick={() =>
-                          primaryId &&
-                          deleteOrderNoteAdmin({ data: { id: n.id, orderId: primaryId } }).then(
-                            () => refresh(primaryId),
-                          )
-                        }
-                        className="text-[10px] text-red-500 hover:underline"
-                      >
-                        Delete
-                      </button>
+                    <div
+                      dir="ltr"
+                      className="shrink-0 text-sm font-semibold tabular-nums text-foreground"
+                    >
+                      {Math.round(num(ph.total_price) ?? 0)} EGP
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </section>
+            </section>
 
-          {/* ---- Timeline ---- */}
-          <section className="space-y-2 rounded-sm border border-border p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Order Timeline
-            </h3>
-            {timeline === null ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
-            ) : timeline.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No events yet.</p>
-            ) : (
-              <ol className="space-y-1.5 border-l border-border pl-3">
-                {timeline.map((ev) => (
-                  <li key={ev.id} className="text-xs">
-                    <span className="font-medium">{humanStage(ev.stage)}</span>
-                    <span className="text-muted-foreground">
-                      {" "}
-                      — {new Date(ev.created_at).toLocaleString()}
-                      {ev.actor ? ` · ${ev.actor}` : ""}
-                    </span>
-                    {ev.note && <div className="text-muted-foreground">{ev.note}</div>}
-                  </li>
+            {/* ---- Price summary ---- */}
+            <section className="rounded-sm border border-border bg-card p-4">
+              <SectionTitle>Price Summary</SectionTitle>
+              <div className="mt-3 space-y-1.5 text-sm">
+                <PriceRow label="Subtotal" value={itemsSubtotal} />
+                {packagingTotal > 0 && <PriceRow label="Packaging" value={packagingTotal} />}
+                <PriceRow label="Shipping" value={shippingTotal} free={shippingTotal === 0} />
+                {photoTotal > 0 && <PriceRow label="Photo printing" value={photoTotal} />}
+              </div>
+              {pricingIncomplete && (
+                <div className="mt-3 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  ⚠ total_price is missing on one or more rows of this order — the total below is
+                  computed from what IS known (subtotal/packaging/shipping) and may be incomplete.
+                  Check the order source rather than trusting this figure as final.
+                </div>
+              )}
+              <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Total
+                </span>
+                <span
+                  dir="ltr"
+                  className="text-display text-3xl font-semibold tabular-nums text-foreground"
+                >
+                  {Math.round(groupTotal)}{" "}
+                  <span className="text-base text-muted-foreground">EGP</span>
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-2 border-t border-border pt-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Payment</span>
+                  <span className="font-medium capitalize text-foreground">
+                    {primary.payment_method} / {primary.payment_status}
+                  </span>
+                </div>
+                {proofUrl?.startsWith("https://") ? (
+                  <a
+                    href={proofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-fit"
+                    title="Open the payment screenshot"
+                  >
+                    <img
+                      src={proofUrl}
+                      alt="Payment screenshot"
+                      loading="lazy"
+                      className="max-h-56 rounded-sm border border-border object-contain"
+                    />
+                  </a>
+                ) : primary.payment_method === "instapay" ? (
+                  <div className="text-amber-400">
+                    No payment screenshot was saved for this order.
+                  </div>
+                ) : null}
+                {primary.payment_method !== "cod" && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setPayment("paid")}
+                      disabled={saving || primary.payment_status === "paid"}
+                      className="min-h-[44px] rounded-sm border border-emerald-500/40 px-3 text-xs text-emerald-400 disabled:opacity-50"
+                    >
+                      ✅ Payment verified
+                    </button>
+                    <button
+                      onClick={() => setPayment("rejected")}
+                      disabled={saving || primary.payment_status === "rejected"}
+                      className="min-h-[44px] rounded-sm border border-red-500/40 px-3 text-xs text-red-400 disabled:opacity-50"
+                    >
+                      ❌ Proof rejected
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* ---- WhatsApp message ---- */}
+            <section className="rounded-sm border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <SectionTitle>WhatsApp Message</SectionTitle>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <select
+                  value={templateKey}
+                  onChange={(e) => changeTemplate(e.target.value as WhatsAppTemplateKey)}
+                  className="min-h-[44px] rounded-sm border border-border bg-background px-2 text-xs"
+                >
+                  {WHATSAPP_TEMPLATES.map((t) => (
+                    <option key={t.key} value={t.key}>
+                      {t.icon} {t.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => prepareMessage()}
+                  disabled={saving}
+                  className="min-h-[44px] rounded-sm bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  🔄 Regenerate
+                </button>
+              </div>
+              <textarea
+                dir="rtl"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Prepare a message above, or write one manually…"
+                className="mt-3 min-h-[250px] w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm leading-relaxed sm:min-h-[300px] md:min-h-[350px]"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={copyMessage}
+                  disabled={!message}
+                  className="min-h-[44px] rounded-sm border border-border px-3 text-xs disabled:opacity-50"
+                >
+                  📋 Copy Message
+                </button>
+                <button
+                  onClick={openWhatsApp}
+                  disabled={!message}
+                  className="min-h-[44px] rounded-sm border border-border px-3 text-xs disabled:opacity-50"
+                >
+                  💬 Open WhatsApp
+                </button>
+              </div>
+              {primary.confirmed_at && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Confirmed {new Date(primary.confirmed_at).toLocaleString()} by{" "}
+                  {primary.confirmed_by}
+                </p>
+              )}
+            </section>
+
+            {/* ---- Internal notes ---- */}
+            <section className="rounded-sm border border-border bg-card p-4">
+              <SectionTitle>Internal Notes</SectionTitle>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {QUICK_NOTES.map((qn) => (
+                  <button
+                    key={qn}
+                    onClick={() => setNewNote(qn)}
+                    className="rounded-sm border border-border px-2 py-1 text-[10px] hover:bg-accent"
+                  >
+                    {qn}
+                  </button>
                 ))}
-              </ol>
-            )}
-          </section>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addNote();
+                  }}
+                  dir="auto"
+                  placeholder="Add an internal note…"
+                  className="min-h-[44px] w-full rounded-sm border border-border bg-background px-2 text-xs"
+                />
+                <button
+                  onClick={addNote}
+                  disabled={!newNote.trim()}
+                  className="min-h-[44px] shrink-0 rounded-sm border border-border px-3 text-xs disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+              {notes === null ? (
+                <p className="mt-2 text-xs text-muted-foreground">Loading…</p>
+              ) : notes.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No notes yet.</p>
+              ) : (
+                <div className="mt-2 space-y-1">
+                  {notes.map((n) => (
+                    <div
+                      key={n.id}
+                      className="flex items-start justify-between gap-2 rounded-sm border border-border p-2"
+                    >
+                      <div>
+                        <div dir="auto" className="text-xs text-foreground">
+                          {n.text}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {n.author} · {new Date(n.created_at).toLocaleString()}
+                          {n.pinned ? " · 📌 pinned" : ""}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          onClick={() =>
+                            primaryId &&
+                            updateOrderNoteAdmin({
+                              data: { id: n.id, orderId: primaryId, pinned: !n.pinned },
+                            }).then(() => refresh(primaryId))
+                          }
+                          className="text-[10px] text-cyan-400 hover:underline"
+                        >
+                          {n.pinned ? "Unpin" : "Pin"}
+                        </button>
+                        <button
+                          onClick={() =>
+                            primaryId &&
+                            confirm("Delete this note?") &&
+                            deleteOrderNoteAdmin({ data: { id: n.id, orderId: primaryId } }).then(
+                              () => refresh(primaryId),
+                            )
+                          }
+                          className="text-[10px] text-red-400 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ---- Timeline ---- */}
+            <section className="rounded-sm border border-border bg-card p-4">
+              <SectionTitle>Order Timeline</SectionTitle>
+              {timeline === null ? (
+                <p className="mt-2 text-xs text-muted-foreground">Loading…</p>
+              ) : timeline.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No events yet.</p>
+              ) : (
+                <ol className="mt-2 space-y-1.5 border-l border-border pl-3">
+                  {timeline.map((ev) => (
+                    <li key={ev.id} className="text-xs">
+                      <span className="font-medium text-foreground">{humanStage(ev.stage)}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — {new Date(ev.created_at).toLocaleString()}
+                        {ev.actor ? ` · ${ev.actor}` : ""}
+                      </span>
+                      {ev.note && <div className="text-muted-foreground">{ev.note}</div>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </div>
+        </div>
+
+        {/* ---- Actions (fixed) ---- */}
+        <div className="shrink-0 border-t border-border bg-card px-5 py-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setConfirmation("customer_confirmed")}
+              disabled={saving}
+              className="min-h-[44px] flex-1 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold uppercase tracking-widest text-emerald-300 disabled:opacity-50"
+            >
+              ✅ Customer Confirmed
+            </button>
+            <button
+              onClick={() => setConfirmation("waiting_for_response")}
+              disabled={saving}
+              className="min-h-[44px] flex-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 text-xs font-semibold uppercase tracking-widest text-amber-300 disabled:opacity-50"
+            >
+              ⚠️ Waiting
+            </button>
+            <button
+              onClick={rejectOrder}
+              disabled={saving}
+              className="min-h-[44px] flex-1 rounded-sm border border-red-500/40 bg-red-500/10 px-3 text-xs font-semibold uppercase tracking-widest text-red-300 disabled:opacity-50"
+            >
+              ❌ Rejected
+            </button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

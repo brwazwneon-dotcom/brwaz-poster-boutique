@@ -79,8 +79,13 @@ export const WHATSAPP_TEMPLATES: { key: WhatsAppTemplateKey; title: string; icon
 
 type TemplateItem = {
   poster_title?: string | null;
+  frame_type?: string | null;
+  frame_color?: string | null;
   size?: string | null;
   quantity?: number | null;
+  /** This row's own price (already the line total for its quantity — the
+   *  `orders` table stores one price per row, not a separate unit price). */
+  price?: number | null;
 };
 
 type TemplateOrder = {
@@ -89,26 +94,88 @@ type TemplateOrder = {
   governorate: string;
   address: string;
   total: number;
+  /** Optional price breakdown — shown only when the caller actually has it,
+   *  never guessed. */
+  subtotal?: number | null;
+  packaging?: number | null;
+  shipping?: number | null;
   items: TemplateItem[];
 };
 
+// A "4 Frames Bundle" checkout is saved as ONE `orders` row (one shared
+// frame/size, one blended price) whose poster_title packs every included
+// poster's name into a single string — see createOrderRows / the /offers
+// checkout path. There's no per-poster price or image for a bundle row, so
+// this only recovers the poster NAMES already sitting in that string; it
+// never invents a price or picks an image that isn't there.
+const BUNDLE_TITLE_RE = /^(\d+)\s+Frames?\s+Bundle\b\s*[·\-—]?\s*(.*?)\s*[—-]\s*(.+)$/i;
+
+export type BundleTitleParts = {
+  isBundle: boolean;
+  /** "4 Frames Bundle" */
+  label: string;
+  /** "30 × 40 cm", when present in the title. */
+  size: string | null;
+  /** Individual poster names, split as stored — a name missing its closing
+   *  "(...)" reflects a known bug in how the checkout built this string, not
+   *  something this parser should paper over by guessing what it should say. */
+  posterNames: string[];
+};
+
+export function parseBundleTitle(title: string | null | undefined): BundleTitleParts {
+  const raw = title ?? "";
+  const m = raw.match(BUNDLE_TITLE_RE);
+  if (!m) return { isBundle: false, label: raw, size: null, posterNames: [] };
+  const [, count, size, namesPart] = m;
+  return {
+    isBundle: true,
+    label: `${count} Frames Bundle`,
+    size: size || null,
+    posterNames: namesPart
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  };
+}
+
+function itemLine(i: TemplateItem, idx: number): string {
+  const parts = [
+    i.size ? `• المقاس: ${i.size}` : null,
+    i.frame_type ? `• الخامة: ${i.frame_type}` : null,
+    i.frame_color ? `• اللون: ${i.frame_color}` : null,
+    `• الكمية: ${i.quantity ?? 1}`,
+    i.price != null ? `• السعر: ${Math.round(Number(i.price))} جنيه` : null,
+  ].filter(Boolean);
+  const bundle = parseBundleTitle(i.poster_title);
+  const title = bundle.isBundle ? bundle.label : i.poster_title || "منتج";
+  const bundleList = bundle.isBundle
+    ? bundle.posterNames.map((n) => `   - ${n}`).join("\n") + "\n"
+    : "";
+  return `${idx + 1}️⃣ ${title}\n${bundleList}${parts.join("\n")}`;
+}
+
 export function buildWhatsAppTemplate(key: WhatsAppTemplateKey, g: TemplateOrder): string {
-  const items = g.items
-    .map(
-      (i, idx) =>
-        `${idx + 1}) ${i.poster_title || "منتج"} — ${i.size ?? ""} · الكمية: ${i.quantity ?? 1}`,
-    )
-    .join("\n");
+  const items = g.items.map(itemLine).join("\n\n");
   switch (key) {
-    case "confirmation":
+    case "confirmation": {
+      const priceLines = [
+        g.subtotal != null ? `الإجمالي الفرعي: ${Math.round(g.subtotal)} جنيه` : null,
+        g.packaging ? `التغليف: ${Math.round(g.packaging)} جنيه` : null,
+        g.shipping != null
+          ? `الشحن: ${g.shipping > 0 ? `${Math.round(g.shipping)} جنيه` : "مجاني"}`
+          : null,
+      ].filter(Boolean);
+      const priceBlock = priceLines.length ? `${priceLines.join("\n")}\n` : "";
       return (
-        `أهلًا بحضرتك يا ${g.customer_name} 👋\n` +
-        `معاك فريق Brwaz W Neon ❤️\n\n` +
-        `حابين نأكد مع حضرتك تفاصيل الأوردر رقم #${g.primaryNumber}:\n\n${items}\n\n` +
-        `العنوان:\n${g.governorate} — ${g.address}\n\n` +
-        `إجمالي الطلب:\n${Math.round(g.total)} جنيه\n\n` +
-        `من فضلك أكد لنا إن كل البيانات تمام، وإن الصور والمقاسات صحيحة، عشان نبدأ تجهيز الأوردر للطباعة ✅`
+        `مرحباً ${g.customer_name} 👋\n` +
+        `تم استلام طلبك من BRWAZWNEON ❤️\n\n` +
+        `📦 تفاصيل الطلب #${g.primaryNumber}:\n\n${items}\n\n` +
+        `💰 ${priceBlock}الإجمالي: ${Math.round(g.total)} جنيه\n\n` +
+        `📍 العنوان:\n${g.governorate} — ${g.address}\n\n` +
+        `من فضلك أكد لنا إن كل البيانات تمام، وإن الصور والمقاسات صحيحة، عشان نبدأ تجهيز الأوردر للطباعة ✅\n\n` +
+        `شكراً لاختيارك BRWAZWNEON ❤️`
       );
+    }
     case "better_image":
       return (
         `أهلًا يا ${g.customer_name} 👋\n` +
