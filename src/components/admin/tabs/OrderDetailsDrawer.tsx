@@ -5,6 +5,7 @@ import { SafeImage } from "@/components/SafeImage";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { cn } from "@/lib/utils";
 import { updateOrderStatus } from "@/lib/db-admin.functions";
+import { resolveCustomDesignImageAdmin } from "@/lib/image-upload.functions";
 import {
   getOrderGroupAdmin,
   getOrderTimelineAdmin,
@@ -58,6 +59,66 @@ function itemPrice(i: AdminOrder): number | null {
   const sub = num(i.subtotal);
   if (sub === null) return null;
   return sub + (num(i.packaging_fee) ?? 0) + (num(i.shipping_cost) ?? 0);
+}
+
+// `poster_image` should always be an absolute URL — anything else (a bare
+// path, an empty string, an old relative reference) can never load, so
+// there's no point handing it to ItemThumb/SafeImage to fail on.
+function looksLikeUrl(src: string | null | undefined): src is string {
+  return !!src && /^https?:\/\//.test(src);
+}
+
+// The custom-design checkout (src/routes/cart.tsx) saves upload metadata —
+// original filename/size/dimensions, never a URL — as JSON in `orders.notes`
+// (see CustomImageMeta in src/lib/cart.tsx). Other order rows have plain-text
+// notes or none at all, so this only ever matches the shape it's looking for.
+type CustomImageMeta = { originalFilename: string; originalFileSize?: number };
+function parseCustomImageMeta(notes: string | null): CustomImageMeta | null {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes) as Partial<CustomImageMeta>;
+    return typeof parsed.originalFilename === "string" && parsed.originalFilename
+      ? { originalFilename: parsed.originalFilename, originalFileSize: parsed.originalFileSize }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// The image to actually show for one order item. Most rows already have a
+// real, working `poster_image` URL and this just passes it through — no
+// extra work, no network call. For a custom-design row whose `poster_image`
+// isn't a URL (see the root-cause note on resolveCustomDesignImageAdmin),
+// this asks Cloudinary — read-only, admin-only — to find the file the
+// customer actually uploaded, using the filename/size the order snapshot
+// DID keep. Never writes anything, and never guesses: an ambiguous or
+// unresolved lookup just leaves the existing "Image unavailable" placeholder.
+function useResolvedItemImage(item: AdminOrder): string | null {
+  const directSrc = looksLikeUrl(item.poster_image) ? item.poster_image : null;
+  const meta = directSrc ? null : parseCustomImageMeta(item.notes);
+  const [resolved, setResolved] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!meta) return;
+    let cancelled = false;
+    resolveCustomDesignImageAdmin({
+      data: { filename: meta.originalFilename, fileSize: meta.originalFileSize ?? null },
+    })
+      .then((r) => {
+        if (!cancelled) setResolved(r.url);
+      })
+      .catch(() => {
+        /* leave the placeholder — this is a best-effort lookup */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-run only if this becomes a different item/upload, not on every
+    // render (meta is a freshly-parsed object each render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, meta?.originalFilename, meta?.originalFileSize]);
+
+  return directSrc ?? resolved;
 }
 
 const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
@@ -329,9 +390,10 @@ function ItemMeta({ item }: { item: AdminOrder }) {
 // A single poster: one thumbnail, one title, its own frame/size/price.
 function SingleItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
   const title = item.poster_title || "Untitled item";
+  const src = useResolvedItemImage(item);
   return (
     <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
-      <ItemThumb src={item.poster_image} alt={`${title} poster`} priority={priority} />
+      <ItemThumb src={src} alt={`${title} poster`} priority={priority} />
       <div className="min-w-0 flex-1">
         <div dir="auto" className="text-sm font-semibold text-foreground">
           {title}
@@ -365,6 +427,11 @@ function BundleItemCard({
   bundle: BundleTitleParts;
   priority?: boolean;
 }) {
+  // Same defensive resolution as a single item's thumbnail (bundle rows
+  // don't carry customImageMeta today, so this is a no-op guard for them —
+  // it only changes anything if a bundle row's poster_image ever isn't a
+  // usable URL).
+  const firstSrc = useResolvedItemImage(item);
   return (
     <div className="rounded-sm border border-border bg-card p-3">
       <div className="flex items-start justify-between gap-3">
@@ -379,7 +446,7 @@ function BundleItemCard({
           {bundle.posterNames.map((name, idx) => (
             <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
               <ItemThumb
-                src={idx === 0 ? item.poster_image : null}
+                src={idx === 0 ? firstSrc : null}
                 alt={`${name} poster`}
                 priority={priority && idx === 0}
               />

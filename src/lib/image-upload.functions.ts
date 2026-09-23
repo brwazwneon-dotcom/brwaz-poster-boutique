@@ -92,3 +92,46 @@ export const deleteMediaAssetAdmin = createServerFn({ method: "POST" })
     await deleteCloudinaryAsset(url);
     return { ok: true };
   });
+
+// Recovers the real Cloudinary URL for a custom-design order item whose
+// `orders.poster_image` isn't a usable URL. Root cause (see
+// OrderDetailsDrawer.tsx's ItemThumb): the custom-design checkout
+// (src/routes/cart.tsx) currently stores a client-side dedup key
+// ("<uuid>/<filename>") in `poster_image` instead of the real
+// `uploadCustomerPhoto` result — that real URL is never written to the
+// order at all. The uploaded file itself is still on Cloudinary; this
+// looks it up read-only by the filename/size the order DID keep (in
+// `orders.notes`'s customImageMeta), the same way `listMediaLibraryAdmin`
+// above lists poster uploads. Never writes anything — the order's stored
+// `poster_image` is untouched either way; the caller only uses the
+// returned URL to render this one admin view.
+export const resolveCustomDesignImageAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { filename: string; fileSize?: number | null })
+  .handler(async ({ data }) => {
+    const safeName = data.filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[^.]+$/, "");
+    if (!safeName) return { url: null as string | null };
+    try {
+      const result = await cloudinary.api.resources({
+        type: "upload",
+        prefix: "custom-designs/",
+        max_results: 200,
+      });
+      const candidates = (
+        result.resources as Array<{ public_id: string; secure_url: string; bytes: number }>
+      ).filter((r) => r.public_id.includes(safeName));
+      // Two customers uploading a same-named file (e.g. "IMG_0470") is
+      // plausible, and showing the WRONG customer's photo is worse than
+      // showing the placeholder — only resolve when confident: the file
+      // size also agrees, or the filename alone was already unambiguous.
+      // Otherwise return no match rather than guess.
+      const bySize =
+        data.fileSize != null ? candidates.find((r) => r.bytes === data.fileSize) : undefined;
+      const match = bySize ?? (candidates.length === 1 ? candidates[0] : undefined);
+      return { url: match?.secure_url ?? null };
+    } catch {
+      // A Cloudinary hiccup here should just leave the admin's existing
+      // "Image unavailable" placeholder in place, not break the drawer.
+      return { url: null as string | null };
+    }
+  });
