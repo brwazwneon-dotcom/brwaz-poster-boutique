@@ -645,7 +645,7 @@ function CartPage() {
           poster_title: i.bundle
             ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
             : i.title,
-          poster_image: i.customImagePath ?? i.image,
+          poster_image: i.image,
           notes: i.customImageMeta ? JSON.stringify(i.customImageMeta) : null,
           subtotal: lineNet,
           packaging_fee: linePackaging,
