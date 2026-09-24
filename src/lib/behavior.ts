@@ -74,7 +74,20 @@ export async function getBehaviorSettings(): Promise<BehaviorSettings> {
   return inflight;
 }
 
+/**
+ * The behavior/personalization backend (visitor_cart_events, the
+ * upsert_visitor_profile / score_visitor_interest / merge_visitor_to_phone /
+ * get_recommendations RPCs) lived in the old Supabase project. That project's
+ * host no longer resolves (DNS ENOTFOUND) and none of those tables/functions
+ * exist in Neon, so every call below was a wasted network request that always
+ * failed. Cart, checkout and purchase analytics are recorded in Neon instead
+ * (analytics_poster_events + orders). Flip this to true only if a Neon
+ * implementation of these RPCs is ever added.
+ */
+const LEGACY_BEHAVIOR_BACKEND_ONLINE = false;
+
 async function guard(): Promise<boolean> {
+  if (!LEGACY_BEHAVIOR_BACKEND_ONLINE) return false;
   if (typeof window === "undefined") return false;
   if (isPreviewMode()) return false;
   const s = await getBehaviorSettings();
@@ -239,6 +252,7 @@ export type Recommendations = {
 };
 
 export async function fetchRecommendations(limit = 10): Promise<Recommendations | null> {
+  if (!LEGACY_BEHAVIOR_BACKEND_ONLINE) return null;
   if (typeof window === "undefined") return null;
   const settings = await getBehaviorSettings();
   if (!settings.personalization) return null;

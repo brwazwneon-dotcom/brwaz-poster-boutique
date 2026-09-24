@@ -23,6 +23,27 @@ import { useNavigate } from "@tanstack/react-router";
 import i18n from "@/lib/i18n";
 import { useTranslation } from "react-i18next";
 import { visitorId } from "@/lib/analytics";
+import { trackCustom } from "@/lib/meta-pixel";
+
+/**
+ * Funnel analytics for the custom-design flow. Only counts and the
+ * size/frame/price choices are recorded — never the uploaded image or its
+ * file name. Analytics can never affect the flow, so failures are swallowed.
+ */
+function trackCustomDesign(
+  name:
+    | "custom_design_start"
+    | "custom_design_upload"
+    | "custom_design_completed"
+    | "custom_design_add_to_cart",
+  params: Record<string, unknown>,
+) {
+  try {
+    trackCustom(name, params);
+  } catch {
+    /* noop */
+  }
+}
 // Custom-design uses its own size-gated offers, not the generic bundle tiers.
 
 const PACKAGING_FEE = 20;
@@ -273,6 +294,8 @@ function CustomDesignPage() {
 
   const openPicker = () => addInputRef.current?.click();
 
+  const startTrackedRef = useRef(false);
+
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const incoming = Array.from(files);
@@ -307,6 +330,14 @@ function CustomDesignPage() {
     if (rejectedType) toast.error(t("customDesign.skippedFormat", { count: rejectedType }));
     if (rejectedSize) toast.error(t("customDesign.skippedSize", { count: rejectedSize }));
     if (accepted.length) setPics((prev) => [...prev, ...accepted]);
+    if (accepted.length && !startTrackedRef.current) {
+      startTrackedRef.current = true;
+      trackCustomDesign("custom_design_start", {
+        count: accepted.length,
+        frame_type: frameType,
+        size,
+      });
+    }
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -352,6 +383,14 @@ function CustomDesignPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pics.length === 0) return toast.error(t("customDesign.addAtLeastOne"));
+
+    // The customer confirmed their choices (image(s), frame, size, colour).
+    trackCustomDesign("custom_design_completed", {
+      count: pics.length,
+      frame_type: pics[0].frameType,
+      size: pics[0].size,
+      value: pics.reduce((s, p) => s + unitPriceFor(p.frameType, p.size), 0),
+    });
 
     setSubmitting(true);
     setProgress(0);
@@ -403,6 +442,7 @@ function CustomDesignPage() {
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, total) }, worker));
 
       uploaded.sort((a, b) => a.index - b.index);
+      trackCustomDesign("custom_design_upload", { count: uploaded.length });
 
       // Add each uploaded image as its own cart line with metadata
       uploaded.forEach((u, idx) => {
@@ -427,6 +467,16 @@ function CustomDesignPage() {
           color: pic.color,
           price: unitPrice,
         });
+      });
+
+      trackCustomDesign("custom_design_add_to_cart", {
+        count: uploaded.length,
+        frame_type: pics[0]?.frameType,
+        size: pics[0]?.size,
+        value: uploaded.reduce(
+          (s, u) => s + unitPriceFor(pics[u.index].frameType, pics[u.index].size),
+          0,
+        ),
       });
 
       toast.success(t("customDesign.addedToCart", { count: pics.length }));

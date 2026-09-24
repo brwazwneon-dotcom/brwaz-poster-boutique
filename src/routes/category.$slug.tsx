@@ -27,7 +27,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { PosterGallery } from "@/components/PosterGallery";
-import { trackEvent, enqueueEvent } from "@/lib/meta-pixel";
+import { trackEvent, trackCustom, enqueueEvent } from "@/lib/meta-pixel";
 import { FrameComparison } from "@/components/FrameComparison";
 import { BeforeAfter } from "@/components/BeforeAfter";
 import { ProductInfoSections } from "@/components/ProductInfoSections";
@@ -342,6 +342,17 @@ function CategoryPage() {
       } catch {
         /* noop */
       }
+      // A real tap on a poster in the grid (this handler only runs from onToggle).
+      try {
+        trackCustom("select_item", {
+          poster_id: p.id,
+          title: p.title,
+          category: category.slug,
+          list: "category",
+        });
+      } catch {
+        /* noop */
+      }
     }
     setActivePosterId(id);
     configurator.setQuantity(1);
@@ -382,7 +393,16 @@ function CategoryPage() {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setActiveSubId(c.id === activeSubId ? "" : c.id)}
+                onClick={() => {
+                  if (c.id !== activeSubId) {
+                    try {
+                      trackCustom("select_subcategory", { subcategory: c.slug ?? c.name });
+                    } catch {
+                      /* noop */
+                    }
+                  }
+                  setActiveSubId(c.id === activeSubId ? "" : c.id);
+                }}
                 className={cn(
                   "shrink-0 rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition",
                   activeSubId === c.id

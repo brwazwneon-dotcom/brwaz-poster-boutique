@@ -9,6 +9,7 @@ import type { MarketingConfig } from "./use-marketing";
 import { gaEvent, type GAEventName } from "./ga4";
 import { isPreviewMode } from "./preview-mode";
 import { getAudienceAttribution } from "./landing-pages";
+import { emitAnalyticsEvent, dispatchInternalOnly } from "./analytics-events";
 
 function withAudience(params: Record<string, unknown>): Record<string, unknown> {
   const a = getAudienceAttribution();
@@ -132,6 +133,9 @@ export function trackEvent(
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
   const enriched = withAudience(params);
 
+  // Internal analytics (Neon) — only events with no existing internal writer.
+  emitAnalyticsEvent(name, params);
+
   // 1) Browser pixel (with eventID for dedup).
   if (cfg.pixelEnabled && typeof window !== "undefined") {
     try {
@@ -251,12 +255,18 @@ export function trackCustom(
   params: Record<string, unknown> = {},
   userData?: Partial<UserData>,
 ) {
+  // Internal-only events (select_item, custom_design_*, …) go to Neon + GA4 and
+  // never to Meta/TikTok.
+  if (dispatchInternalOnly(name, params)) return;
   const cfg = lastConfig;
   if (!cfg) return;
   if (isPreviewMode()) return;
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
   const enriched = withAudience(params);
+
+  // Internal analytics (Neon) + GA4 for the custom events that also go to Meta.
+  emitAnalyticsEvent(name, params, { ga: true });
 
   if (cfg.pixelEnabled && typeof window !== "undefined") {
     try {

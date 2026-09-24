@@ -43,7 +43,20 @@ import {
   logPosterEventToDb,
   logSearchQueryToDb,
   logPerfMetricToDb,
+  logEventsToDb,
 } from "@/lib/db-analytics.server";
+import { isProductionRequest, requestHost } from "@/lib/analytics-host.server";
+import {
+  ALLOWED_EVENT_TYPES,
+  MAX_EVENTS_PER_BATCH,
+  cleanId,
+  cleanPath,
+  isUuid,
+  sanitizeAttribution,
+  sanitizeEvent,
+  type CleanEvent,
+} from "@/lib/analytics-events-schema";
+import { normalizeSource } from "@/lib/attribution";
 import type { Category } from "@/lib/use-categories";
 
 export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(
@@ -165,7 +178,7 @@ export const incrementPosterViewsPublic = createServerFn({ method: "POST" })
   .validator((data: unknown) => (data as { id: string }).id)
   .handler(async ({ data: id }) => {
     try {
-      await incrementPosterViewsInDb(id);
+      if (isProductionRequest()) await incrementPosterViewsInDb(id);
     } catch {
       /* best-effort */
     }
@@ -176,7 +189,7 @@ export const incrementPosterUniqueViewsPublic = createServerFn({ method: "POST" 
   .validator((data: unknown) => (data as { id: string }).id)
   .handler(async ({ data: id }) => {
     try {
-      await incrementPosterUniqueViewsInDb(id);
+      if (isProductionRequest()) await incrementPosterUniqueViewsInDb(id);
     } catch {
       /* best-effort */
     }
@@ -187,7 +200,7 @@ export const incrementPosterCartAddsPublic = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { ids: string[]; qty: number })
   .handler(async ({ data }) => {
     try {
-      await incrementPosterCartAddsInDb(data.ids, data.qty);
+      if (isProductionRequest()) await incrementPosterCartAddsInDb(data.ids, data.qty);
     } catch {
       /* best-effort */
     }
@@ -198,7 +211,7 @@ export const incrementPosterSalesPublic = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { ids: string[]; qty: number })
   .handler(async ({ data }) => {
     try {
-      await incrementPosterSalesInDb(data.ids, data.qty);
+      if (isProductionRequest()) await incrementPosterSalesInDb(data.ids, data.qty);
     } catch {
       /* best-effort */
     }
@@ -209,7 +222,7 @@ export const addPosterViewSecondsPublic = createServerFn({ method: "POST" })
   .validator((data: unknown) => data as { id: string; seconds: number })
   .handler(async ({ data }) => {
     try {
-      await addPosterViewSecondsInDb(data.id, data.seconds);
+      if (isProductionRequest()) await addPosterViewSecondsInDb(data.id, data.seconds);
     } catch {
       /* best-effort */
     }
@@ -235,11 +248,24 @@ export const logVisitPublic = createServerFn({ method: "POST" })
         city: string | null;
         governorate: string | null;
         user_agent: string;
+        attribution?: unknown;
       },
   )
   .handler(async ({ data }) => {
+    // Development / preview traffic shares this database — it is refused here
+    // (by the request's Host header, not anything the browser claims).
+    if (!isProductionRequest()) return { ok: true, skipped: "non_production_host" };
     try {
-      await logVisitToDb(data);
+      const { attribution, ...visit } = data;
+      const clean = sanitizeAttribution(attribution);
+      await logVisitToDb({
+        ...visit,
+        // One taxonomy everywhere: the legacy `source` column mirrors the
+        // session's last touch instead of being re-guessed per page view.
+        source: clean.last_source ?? normalizeSource(visit.source) ?? "direct",
+        host: requestHost(),
+        attribution: clean,
+      });
     } catch {
       /* best-effort */
     }
@@ -255,15 +281,78 @@ export const logPosterEventPublic = createServerFn({ method: "POST" })
         session_id: string;
         event_type: string;
         duration_seconds: number | null;
+        path?: string;
+        attribution?: unknown;
       },
   )
   .handler(async ({ data }) => {
+    if (!isProductionRequest()) return { ok: true, skipped: "non_production_host" };
+    // Previously any string was stored; now only the known vocabulary.
+    if (!ALLOWED_EVENT_TYPES.includes(data.event_type)) {
+      return { ok: true, skipped: "unknown_event" };
+    }
+    const visitor_id = cleanId(data.visitor_id);
+    const session_id = cleanId(data.session_id);
+    if (!visitor_id || !session_id) return { ok: true, skipped: "invalid" };
     try {
-      await logPosterEventToDb(data);
+      await logPosterEventToDb({
+        poster_id: isUuid(data.poster_id) ? data.poster_id : null,
+        visitor_id,
+        session_id,
+        event_type: data.event_type,
+        duration_seconds:
+          typeof data.duration_seconds === "number" && Number.isFinite(data.duration_seconds)
+            ? Math.max(0, Math.min(86_400, Math.round(data.duration_seconds)))
+            : null,
+        host: requestHost(),
+        path: cleanPath(data.path),
+        attribution: sanitizeAttribution(data.attribution),
+      });
     } catch {
       /* best-effort */
     }
     return { ok: true };
+  });
+
+/**
+ * Batched funnel / click events from the unified tracking sink
+ * (src/lib/analytics-events.ts). Public and anonymous like the rest of the
+ * storefront tracking, so it is strict: allow-listed event names, allow-listed
+ * prop keys, pathname-only paths, capped batch size — and it never stores
+ * anything from a non-production host.
+ */
+export const logAnalyticsEventsPublic = createServerFn({ method: "POST" })
+  .validator(
+    (data: unknown) =>
+      data as {
+        visitor_id: string;
+        session_id: string;
+        attribution?: unknown;
+        events: unknown[];
+      },
+  )
+  .handler(async ({ data }) => {
+    if (!isProductionRequest()) return { ok: true, stored: 0, skipped: "non_production_host" };
+    const visitor_id = cleanId(data.visitor_id);
+    const session_id = cleanId(data.session_id);
+    if (!visitor_id || !session_id || !Array.isArray(data.events)) return { ok: true, stored: 0 };
+    const events = data.events
+      .slice(0, MAX_EVENTS_PER_BATCH)
+      .map((e) => sanitizeEvent(e))
+      .filter((e): e is CleanEvent => e !== null);
+    if (events.length === 0) return { ok: true, stored: 0 };
+    try {
+      await logEventsToDb({
+        visitor_id,
+        session_id,
+        host: requestHost(),
+        attribution: sanitizeAttribution(data.attribution),
+        events,
+      });
+      return { ok: true, stored: events.length };
+    } catch {
+      return { ok: true, stored: 0 };
+    }
   });
 
 export const logSearchQueryPublic = createServerFn({ method: "POST" })
@@ -272,7 +361,7 @@ export const logSearchQueryPublic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      await logSearchQueryToDb(data);
+      if (isProductionRequest()) await logSearchQueryToDb(data);
     } catch {
       /* best-effort */
     }
@@ -293,7 +382,7 @@ export const logPerfMetricPublic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      await logPerfMetricToDb(data);
+      if (isProductionRequest()) await logPerfMetricToDb(data);
     } catch {
       /* best-effort */
     }

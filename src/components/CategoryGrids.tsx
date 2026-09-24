@@ -11,6 +11,16 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { trackCustom } from "@/lib/meta-pixel";
+
+/** A tap on a homepage collection (its title, "View All" or an image). */
+function trackCategoryClick(slug: string) {
+  try {
+    trackCustom("select_category", { category: slug });
+  } catch {
+    /* analytics must never affect navigation */
+  }
+}
 
 const MAX_RAIL_IMAGES = 10;
 const MAX_VALIDATION_ATTEMPTS_PER_RAIL = 36;
@@ -570,6 +580,7 @@ function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isAra
           <Link
             to="/category/$slug"
             params={{ slug: rail.category.slug }}
+            onClick={() => trackCategoryClick(rail.category.slug)}
             className="group inline-block"
           >
             <h3 className="text-display text-3xl font-semibold tracking-tight text-foreground transition group-hover:text-primary sm:text-4xl">
@@ -587,6 +598,7 @@ function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isAra
             <Link
               to="/category/$slug"
               params={{ slug: rail.category.slug }}
+              onClick={() => trackCategoryClick(rail.category.slug)}
               className="inline-flex min-h-11 items-center rounded-sm border border-border bg-background px-4 py-2 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:border-foreground hover:bg-foreground hover:text-background"
             >
               {isArabic ? "عرض الكل" : "View All"}
@@ -638,6 +650,7 @@ function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isAra
             data-collection-rail-image="true"
             data-category-grid-source-field={image.sourceField}
             data-category-grid-source-url={image.url}
+            onClick={() => trackCategoryClick(rail.category.slug)}
             className="group block min-w-0 basis-[42%] shrink-0 snap-start sm:basis-[30%] md:basis-[22%] lg:basis-[16%] xl:basis-[13%]"
             aria-label={`${rail.title} - ${image.title}`}
           >

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { NeonDbError } from "@neondatabase/serverless";
 import { sql } from "@/lib/neon.server";
 import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
+import { storeOffsetMs } from "@/lib/store-time";
 import type { Json } from "@/lib/db-catalog.server";
 
 function slugify(input: string): string {
@@ -48,33 +49,8 @@ async function withUniqueSlugRetry<T extends Record<string, unknown>>(
 // ---------------------------------------------------------------
 export type DashboardRange = "today" | "yesterday" | "7d" | "30d" | "this_month" | "last_month";
 
-// The store's days are Cairo days. Cutting them at UTC midnight made every
-// order placed in the first 2–3 hours after Cairo midnight count as "yesterday".
-const STORE_TIME_ZONE = "Africa/Cairo";
-
-function storeOffsetMs(at: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: STORE_TIME_ZONE,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(at);
-  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const wallClockAsUtc = Date.UTC(
-    part("year"),
-    part("month") - 1,
-    part("day"),
-    part("hour"),
-    part("minute"),
-    part("second"),
-  );
-  return wallClockAsUtc - Math.floor(at.getTime() / 1000) * 1000;
-}
-
+// The store's days are Cairo days — see src/lib/store-time.ts (shared with the
+// Analytics Center) for why they are not cut at UTC midnight.
 function computeRangeBounds(range: DashboardRange, now = new Date()) {
   const offset = storeOffsetMs(now);
   // `local` reads as Cairo wall-clock time through its UTC getters.

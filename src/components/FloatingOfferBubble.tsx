@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Z } from "@/lib/floating-tools";
+import { trackCustom } from "@/lib/meta-pixel";
 
 /**
  * Small floating "Today's Offers" bubble anchored to the bottom-left.
@@ -13,6 +14,16 @@ export function FloatingOfferBubble() {
   return (
     <Link
       to="/offers"
+      onClick={() => {
+        try {
+          trackCustom("select_offer", {
+            offer_id: "todays_offers",
+            label: "Today's offers bubble",
+          });
+        } catch {
+          /* analytics must never affect navigation */
+        }
+      }}
       aria-label={t("floatingTools.todaysOffers")}
       className="floating-tool secondary group fixed left-5 hidden items-center gap-2 rounded-full border border-white/15 bg-black/80 py-2.5 pl-3 pr-4 text-white shadow-[0_8px_24px_rgba(0,0,0,0.5)] backdrop-blur-md transition-transform duration-200 will-change-transform hover:scale-[1.04] sm:left-8 sm:bottom-8 sm:flex"
       style={{

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { getPostersByIdsPublic, getCustomOffersPublic } from "@/lib/db-public.functions";
 import { useCart } from "@/lib/cart";
+import { trackCustom } from "@/lib/meta-pixel";
 import { useCategories } from "@/lib/use-categories";
 import {
   FRAME_COLORS,
@@ -166,7 +167,16 @@ function OffersPage() {
           return (
             <button
               key={b.key}
-              onClick={() => setBundleKey(b.key)}
+              onClick={() => {
+                if (!active) {
+                  try {
+                    trackCustom("select_offer", { offer_id: b.key, label: b.title });
+                  } catch {
+                    /* analytics must never affect the offer picker */
+                  }
+                }
+                setBundleKey(b.key);
+              }}
               className={cn(
                 "group relative flex flex-col items-start gap-3 bg-card p-8 text-left transition",
                 active ? "ring-2 ring-inset ring-primary" : "hover:bg-accent",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { trackCustom } from "@/lib/meta-pixel";
 import { useHeroBanners, useHeroBannerConfig, type HeroBanner } from "@/lib/hero-banners";
 import { useActiveAutoplay } from "@/hooks/use-active-autoplay";
 
@@ -180,6 +181,16 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
           {current.button_text && current.button_link && (
             <a
               href={current.button_link}
+              onClick={() => {
+                try {
+                  trackCustom("select_banner", {
+                    banner_id: current.id,
+                    label: current.title || current.button_text || undefined,
+                  });
+                } catch {
+                  /* analytics must never affect navigation */
+                }
+              }}
               className="pointer-events-auto mt-3 inline-flex rounded-sm border border-white/70 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white hover:bg-white/20"
             >
               {current.button_text}

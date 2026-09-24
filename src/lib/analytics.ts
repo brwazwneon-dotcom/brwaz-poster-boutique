@@ -4,6 +4,17 @@ import {
   logSearchQueryPublic,
 } from "@/lib/db-public.functions";
 import { isPreviewMode } from "./preview-mode";
+import { clientTrackingAllowed } from "./analytics-env";
+import { captureAttribution, getAttribution, toAttributionFields } from "./attribution";
+
+/**
+ * Preview mode (admin previewing the storefront) and any non-production host
+ * (local development, preview deployments — they share the production
+ * database) must never be recorded as real visitors.
+ */
+function trackingAllowed(): boolean {
+  return clientTrackingAllowed() && !isPreviewMode();
+}
 
 const VISITOR_KEY = "brw-visitor-id";
 const SESSION_KEY = "brw-session-id";
@@ -122,29 +133,18 @@ export function detectDevice(): "mobile" | "tablet" | "desktop" {
   return "desktop";
 }
 
+/**
+ * The session's traffic source in the shared taxonomy (src/lib/attribution.ts).
+ * It used to be re-guessed from the current referrer on every page view, which
+ * labelled most in-site navigation "other". The source is now the session's
+ * last touch, captured once.
+ */
 export function detectSource(referrer: string, search: string): string {
-  const params = new URLSearchParams(search);
-  const utm = (params.get("utm_source") || "").toLowerCase();
-  if (utm) {
-    if (utm.includes("facebook") || utm === "fb") return "facebook";
-    if (utm.includes("instagram") || utm === "ig") return "instagram";
-    if (utm.includes("google")) return "google";
-    if (utm.includes("whatsapp") || utm === "wa") return "whatsapp";
-    return utm;
-  }
-  if (!referrer) return "direct";
-  const r = referrer.toLowerCase();
-  if (r.includes("facebook.") || r.includes("fb.")) return "facebook";
-  if (r.includes("instagram.")) return "instagram";
-  if (r.includes("whatsapp.") || r.includes("wa.me")) return "whatsapp";
-  if (r.includes("t.co") || r.includes("twitter.") || r.includes("x.com")) return "twitter";
-  if (r.includes("tiktok.")) return "tiktok";
-  if (r.includes("google.")) {
-    // Organic Google search has no gclid in referrer chain
-    return params.get("gclid") ? "google" : "organic";
-  }
-  if (r.includes("bing.") || r.includes("duckduckgo.") || r.includes("yahoo.")) return "organic";
-  return "other";
+  const touch = captureAttribution();
+  if (touch.last) return touch.last.source;
+  void referrer;
+  void search;
+  return "direct";
 }
 
 let visitFiredFor: string | null = null;
@@ -153,11 +153,15 @@ let visitFiredFor: string | null = null;
 export function trackVisit(path: string): void {
   if (typeof window === "undefined") return;
   if (isPreviewMode()) return;
+  // Evaluate first/last touch (once per session, or when the URL carries
+  // campaign params). This only touches this browser's storage — no network —
+  // so it runs on every host; only the recording below is production-gated.
+  const attribution = captureAttribution();
+  if (!trackingAllowed()) return;
   if (visitFiredFor === path) return;
   visitFiredFor = path;
   const referrer = document.referrer || "";
-  const search = window.location.search || "";
-  const source = detectSource(referrer, search);
+  const source = attribution.last?.source ?? "direct";
   const device = detectDevice();
   const browser = detectBrowser();
   const os = detectOS();
@@ -178,7 +182,10 @@ export function trackVisit(path: string): void {
         city: geo?.city ?? null,
         governorate: geo?.governorate ?? null,
         user_agent: (navigator.userAgent || "").slice(0, 500),
+        attribution: toAttributionFields(attribution),
       },
+    }).catch(() => {
+      /* analytics must never break the page */
     });
   })();
 }
@@ -217,41 +224,51 @@ export function logPosterEvent(
   durationSeconds?: number,
 ): void {
   if (!posterId) return;
-  if (isPreviewMode()) return;
-  void logPosterEventPublic({
+  if (!trackingAllowed()) return;
+  logPosterEventPublic({
     data: {
       poster_id: posterId,
       visitor_id: visitorId(),
       session_id: sessionId(),
       event_type: eventType,
       duration_seconds: typeof durationSeconds === "number" ? Math.round(durationSeconds) : null,
+      path: window.location.pathname,
+      attribution: toAttributionFields(getAttribution()),
     },
+  }).catch(() => {
+    /* analytics must never break the page */
   });
 }
 
 /** Log a checkout-started event. Called when the user opens the checkout page. */
 export function logCheckoutStart(): void {
-  if (isPreviewMode()) return;
-  void logPosterEventPublic({
+  if (!trackingAllowed()) return;
+  logPosterEventPublic({
     data: {
       poster_id: null,
       visitor_id: visitorId(),
       session_id: sessionId(),
       event_type: "checkout_start",
       duration_seconds: null,
+      path: window.location.pathname,
+      attribution: toAttributionFields(getAttribution()),
     },
+  }).catch(() => {
+    /* analytics must never break checkout */
   });
 }
 
 export function logSearchQuery(query: string, resultsCount: number): void {
   const clean = (query || "").trim();
   if (clean.length < 2) return;
-  if (isPreviewMode()) return;
-  void logSearchQueryPublic({
+  if (!trackingAllowed()) return;
+  logSearchQueryPublic({
     data: {
       query: clean.slice(0, 200),
       results_count: Math.max(0, resultsCount | 0),
       visitor_id: visitorId(),
     },
+  }).catch(() => {
+    /* analytics must never break search */
   });
 }
