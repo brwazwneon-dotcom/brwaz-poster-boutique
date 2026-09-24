@@ -135,11 +135,18 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function sendMetaEvent(
   e: MetaServerEvent,
-  opts: { retries?: number; timeoutMs?: number } = {},
+  opts: {
+    retries?: number;
+    timeoutMs?: number;
+    /** The production-host decision, when the caller captured it while the request
+     *  was still in scope (work that runs after the response cannot read headers). */
+    production?: boolean;
+  } = {},
 ): Promise<CapiResult> {
   // Local development and preview deployments share the production database and
   // pixel: they must never produce real conversions.
-  if (!isProductionRequest()) return { ok: true, skipped: true, reason: "non_production_host" };
+  if (!(opts.production ?? isProductionRequest()))
+    return { ok: true, skipped: true, reason: "non_production_host" };
 
   const cfg = await loadCapiConfig();
   if (!cfg.capiEnabled) return { ok: true, skipped: true, reason: "capi_disabled" };
@@ -223,6 +230,17 @@ export async function getRequestContext(): Promise<{ ip?: string; ua?: string }>
   }
 }
 
+/**
+ * Everything about the current request that Meta work needs. Call it BEFORE
+ * deferring work past the response: request headers are not available afterwards.
+ */
+export async function captureRequestFacts(): Promise<{
+  ctx: { ip?: string; ua?: string };
+  production: boolean;
+}> {
+  return { ctx: await getRequestContext(), production: isProductionRequest() };
+}
+
 export type CleanTracking = {
   fbp?: string;
   fbc?: string;
@@ -248,9 +266,10 @@ export function sanitizeTracking(raw: Record<string, unknown> | undefined | null
 export async function buildAdTracking(
   raw: Record<string, unknown> | undefined,
   purchaseRef: string | undefined,
+  facts?: { ip?: string; ua?: string },
 ): Promise<Record<string, string>> {
   const out: Record<string, string> = { ...sanitizeTracking(raw) };
-  const ctx = await getRequestContext();
+  const ctx = facts ?? (await getRequestContext());
   if (ctx.ip) out.ip = ctx.ip;
   if (ctx.ua) out.ua = ctx.ua.slice(0, 1024);
   if (purchaseRef) out.purchase_ref = purchaseRef;
@@ -263,15 +282,20 @@ export async function buildAdTracking(
  * the browser Pixel event of the same order. Time-boxed and never throws, so
  * order creation cannot depend on Meta.
  */
-export async function sendPurchaseToMeta(args: {
-  purchase: PurchasePayload;
-  tracking?: Record<string, unknown>;
-  guestSessionId?: string | null;
-  phone?: string;
-  city?: string;
-}): Promise<CapiResult> {
+export async function sendPurchaseToMeta(
+  args: {
+    purchase: PurchasePayload;
+    tracking?: Record<string, unknown>;
+    guestSessionId?: string | null;
+    phone?: string;
+    city?: string;
+    /** Request facts captured before the response (see captureRequestFacts). */
+    facts?: { ctx: { ip?: string; ua?: string }; production: boolean };
+  },
+  opts: { retries?: number; timeoutMs?: number } = {},
+): Promise<CapiResult> {
   const t = sanitizeTracking(args.tracking);
-  const ctx = await getRequestContext();
+  const ctx = args.facts?.ctx ?? (await getRequestContext());
   return sendMetaEvent(
     {
       event_name: "Purchase",
@@ -289,7 +313,11 @@ export async function sendPurchaseToMeta(args: {
         client_user_agent: ctx.ua,
       },
     },
-    { retries: 0, timeoutMs: 2_500 },
+    {
+      retries: opts.retries ?? 0,
+      timeoutMs: opts.timeoutMs ?? 2_500,
+      production: args.facts?.production,
+    },
   );
 }
 
@@ -311,7 +339,10 @@ type OrderRow = {
  * caller atomically claims the group; a failed send releases the claim so
  * re-confirming retries (with the same event_id).
  */
-export async function sendOrderConfirmedToMeta(orderIds: string[]): Promise<CapiResult> {
+export async function sendOrderConfirmedToMeta(
+  orderIds: string[],
+  opts: { production?: boolean } = {},
+): Promise<CapiResult> {
   const client = sql();
   const rows = (await client`
     select id, order_number, phone, governorate, total_price, guest_session_id, is_test, ad_tracking
@@ -332,28 +363,31 @@ export async function sendOrderConfirmedToMeta(orderIds: string[]): Promise<Capi
   const purchaseRef = t.purchase_ref ?? rows[0].order_number;
   const value = rows.reduce((s, r) => s + Number(r.total_price || 0), 0);
 
-  const result = await sendMetaEvent({
-    event_name: "OrderConfirmed",
-    event_id: `confirmed_${purchaseRef}`,
-    action_source: "system_generated",
-    custom_data: {
-      value,
-      currency: "EGP",
-      order_id: purchaseRef,
-      content_type: "product",
-      num_items: rows.length,
+  const result = await sendMetaEvent(
+    {
+      event_name: "OrderConfirmed",
+      event_id: `confirmed_${purchaseRef}`,
+      action_source: "system_generated",
+      custom_data: {
+        value,
+        currency: "EGP",
+        order_id: purchaseRef,
+        content_type: "product",
+        num_items: rows.length,
+      },
+      user: {
+        phone: rows[0].phone,
+        city: rows[0].governorate,
+        country: "EG",
+        fbp: t.fbp,
+        fbc: t.fbc,
+        external_id: rows[0].guest_session_id ?? undefined,
+        client_ip_address: t.ip,
+        client_user_agent: t.ua,
+      },
     },
-    user: {
-      phone: rows[0].phone,
-      city: rows[0].governorate,
-      country: "EG",
-      fbp: t.fbp,
-      fbc: t.fbc,
-      external_id: rows[0].guest_session_id ?? undefined,
-      client_ip_address: t.ip,
-      client_user_agent: t.ua,
-    },
-  });
+    { production: opts.production },
+  );
 
   if (!result.ok || result.skipped) {
     await client`
@@ -390,18 +424,20 @@ function allowRelay(key: string, now = Date.now()): boolean {
   return true;
 }
 
+/** What the public relay returns: deliberately nothing but the outcome. */
+export type RelayResult = { ok: boolean; skipped?: boolean };
+
 /**
  * Forwards one browser event. The name was validated by the schema; here the
  * payload is sanitised again server-side (the browser is never trusted), the
  * IP / user agent come from the request itself, and Purchase can never arrive
  * this way.
  */
-export async function relayBrowserEvent(data: RelayInput): Promise<CapiResult> {
-  if (!isRelayedEvent(data.event_name))
-    return { ok: false, skipped: true, reason: "event_not_allowed" };
+export async function relayBrowserEvent(data: RelayInput): Promise<RelayResult> {
+  if (!isRelayedEvent(data.event_name)) return { ok: false, skipped: true };
   const ctx = await getRequestContext();
-  if (!allowRelay(ctx.ip ?? "unknown")) return { ok: true, skipped: true, reason: "rate_limited" };
-  return sendMetaEvent({
+  if (!allowRelay(ctx.ip ?? "unknown")) return { ok: true, skipped: true };
+  const r = await sendMetaEvent({
     event_name: data.event_name,
     event_id: data.event_id,
     event_source_url: data.event_source_url,
@@ -418,4 +454,7 @@ export async function relayBrowserEvent(data: RelayInput): Promise<CapiResult> {
       client_user_agent: data.client_user_agent ?? ctx.ua,
     },
   });
+  // Public endpoint: say only whether it went through. Meta's error text, the
+  // reason code and the CAPI configuration state stay on the server.
+  return r.skipped ? { ok: r.ok, skipped: true } : { ok: r.ok };
 }

@@ -8,6 +8,7 @@
 //    only (never the payload, token or customer data).
 import { sql } from "@/lib/neon.server";
 import { buildPurchasePayload, isCatalogId, type PurchasePayload } from "@/lib/meta-events";
+import { afterResponse, type AfterResponseMode } from "@/lib/after-response.server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -88,20 +89,85 @@ export function buildPhotoPurchase(args: {
 }
 
 /** Sends the server-side Purchase; never throws, time-boxed (see meta-capi.server.ts). */
-export async function sendPurchaseSafely(args: {
-  purchase: PurchasePayload;
-  tracking?: Record<string, unknown>;
-  guestSessionId?: string | null;
-  phone?: string;
-  city?: string;
-}): Promise<void> {
+export async function sendPurchaseSafely(
+  args: {
+    purchase: PurchasePayload;
+    tracking?: Record<string, unknown>;
+    guestSessionId?: string | null;
+    phone?: string;
+    city?: string;
+    facts?: { ctx: { ip?: string; ua?: string }; production: boolean };
+  },
+  opts: { retries?: number; timeoutMs?: number } = {},
+): Promise<void> {
   try {
     const { sendPurchaseToMeta } = await import("@/lib/meta-capi.server");
-    const r = await sendPurchaseToMeta(args);
+    const r = await sendPurchaseToMeta(args, opts);
     // Reasons only — never the payload, the token or customer data.
     if (!r.ok || (r.skipped && r.reason !== "capi_disabled" && r.reason !== "non_production_host"))
       console.warn("Meta Purchase not sent:", r.reason ?? r.error ?? r.status);
   } catch (err) {
     console.warn("Meta Purchase failed:", err instanceof Error ? err.message : "unknown");
+  }
+}
+
+/**
+ * Everything that follows a stored order and is about advertising, run so that it
+ * can NEVER hold up the customer's response (see after-response.server.ts):
+ *  - remember the ad context for the later "OrderConfirmed" event;
+ *  - send the server-side Purchase (same event id as the browser Pixel).
+ *
+ * The request facts (client IP / user agent, the production-host decision) are
+ * captured HERE, while the request is still in scope — work that runs after the
+ * response cannot read the request. When the work is safely deferred the send may
+ * retry once: a retry re-sends the identical payload, so Meta deduplicates it by
+ * event_id. When it can only run bounded inside the request, it does not retry.
+ * Never throws.
+ */
+export async function trackNewOrders(args: {
+  orderIds: string[];
+  orderRef: string;
+  purchase: PurchasePayload | null;
+  tracking?: Record<string, unknown>;
+  guestSessionId?: string | null;
+  phone?: string;
+  city?: string;
+}): Promise<AfterResponseMode | "skipped"> {
+  try {
+    if (args.orderIds.length === 0 && !args.purchase) return "skipped";
+    const { captureRequestFacts, buildAdTracking } = await import("@/lib/meta-capi.server");
+    const facts = await captureRequestFacts();
+    return await afterResponse(async ({ deferred }) => {
+      await Promise.allSettled([
+        (async () => {
+          if (args.orderIds.length === 0) return;
+          try {
+            const adTracking = await buildAdTracking(args.tracking, args.orderRef, facts.ctx);
+            await sql()`
+              update orders set ad_tracking = ${JSON.stringify(adTracking)}::jsonb
+              where id = any(${args.orderIds})
+            `;
+          } catch (err) {
+            console.warn("ad_tracking not saved", err instanceof Error ? err.message : "unknown");
+          }
+        })(),
+        args.purchase
+          ? sendPurchaseSafely(
+              {
+                purchase: args.purchase,
+                tracking: args.tracking,
+                guestSessionId: args.guestSessionId,
+                phone: args.phone,
+                city: args.city,
+                facts,
+              },
+              deferred ? { retries: 1, timeoutMs: 3_000 } : { retries: 0, timeoutMs: 2_500 },
+            )
+          : Promise.resolve(),
+      ]);
+    });
+  } catch (err) {
+    console.warn("order tracking not scheduled", err instanceof Error ? err.message : "unknown");
+    return "skipped";
   }
 }

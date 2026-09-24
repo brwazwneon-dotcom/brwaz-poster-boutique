@@ -187,3 +187,52 @@ describe("one Pixel, one attribution store, one event layer", () => {
     expect(unknown).toEqual([]);
   });
 });
+
+describe("Meta never holds up an order or an admin click", () => {
+  it("order creation hands ALL Meta work to trackNewOrders (no direct send in the handler)", () => {
+    const orders = read("lib/db-orders.functions.ts");
+    expect(orders).not.toMatch(
+      /sendPurchaseSafely|sendPurchaseToMeta|sendMetaEvent|graph\.facebook/,
+    );
+    expect(count(orders, /trackNewOrders\(/g)).toBeGreaterThanOrEqual(2); // poster + photo orders
+  });
+
+  it("the admin 'customer confirmed' send runs after the response with facts captured first", () => {
+    const ops = read("lib/order-ops.functions.ts");
+    expect(ops).toMatch(/captureRequestFacts\(\)/);
+    expect(ops).toMatch(/afterResponse\(/);
+    expect(ops.indexOf("captureRequestFacts()")).toBeLessThan(ops.indexOf("afterResponse("));
+  });
+
+  it("request facts are captured before work is deferred, and passed into the send", () => {
+    const tracking = read("lib/order-tracking.server.ts");
+    expect(tracking.indexOf("captureRequestFacts()")).toBeGreaterThan(-1);
+    expect(tracking.indexOf("captureRequestFacts()")).toBeLessThan(
+      tracking.indexOf("afterResponse("),
+    );
+    expect(tracking).toMatch(/facts,/);
+  });
+
+  it("the public relay answers with the outcome only", () => {
+    const server = read("lib/meta-capi.server.ts");
+    expect(server).toMatch(/return r\.skipped \? \{ ok: r\.ok, skipped: true \} : \{ ok: r\.ok \}/);
+  });
+});
+
+describe("one server Purchase source, one event_id for both channels", () => {
+  it("only order-tracking sends a server Purchase (sendPurchaseToMeta has one caller)", () => {
+    const callers = nonTest
+      .filter((f) => /sendPurchaseToMeta\(/.test(f.text) && f.rel !== "lib/meta-capi.server.ts")
+      .map((f) => f.rel);
+    expect(callers).toEqual(["lib/order-tracking.server.ts"]);
+  });
+
+  it("the browser Pixel and the Conversions API both take event_id from the same payload", () => {
+    const pixel = read("lib/meta-pixel.ts");
+    const server = read("lib/meta-capi.server.ts");
+    expect(pixel).toMatch(/eventId:\s*purchase\.event_id/);
+    expect(server).toMatch(/event_id:\s*args\.purchase\.event_id/);
+    // and neither invents its own id for a Purchase
+    expect(server).not.toMatch(/randomUUID|Math\.random/);
+  });
+});

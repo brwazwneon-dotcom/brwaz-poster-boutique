@@ -323,11 +323,18 @@ export const updateOrderConfirmationAdmin = createServerFn({ method: "POST" })
     // tracking failure must never block or fail the admin's confirmation.
     if (isConfirmed) {
       try {
-        const { sendOrderConfirmedToMeta } = await import("@/lib/meta-capi.server");
-        const r = await sendOrderConfirmedToMeta(data.ids);
-        if (!r.ok || (r.skipped && r.reason !== "already_sent")) {
-          console.warn("OrderConfirmed CAPI not sent", r.reason ?? r.error ?? r.status);
-        }
+        const { captureRequestFacts, sendOrderConfirmedToMeta } =
+          await import("@/lib/meta-capi.server");
+        const { afterResponse } = await import("@/lib/after-response.server");
+        // Decided while the request is in scope; the send itself runs after the
+        // response so the admin's click never waits on Meta.
+        const { production } = await captureRequestFacts();
+        await afterResponse(async () => {
+          const r = await sendOrderConfirmedToMeta(data.ids, { production });
+          if (!r.ok || (r.skipped && r.reason !== "already_sent")) {
+            console.warn("OrderConfirmed CAPI not sent", r.reason ?? r.error ?? r.status);
+          }
+        });
       } catch (err) {
         console.warn("OrderConfirmed CAPI failed", err instanceof Error ? err.message : err);
       }

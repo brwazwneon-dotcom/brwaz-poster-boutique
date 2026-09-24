@@ -65,6 +65,7 @@ const baseEvent = {
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   state.prod = true;
+  state.headers = { "x-forwarded-for": "41.65.10.20, 10.0.0.1", "user-agent": "TestBrowser/1.0" };
   state.settingsThrows = false;
   state.settingsQueries = 0;
   enable();
@@ -263,7 +264,7 @@ describe("relayBrowserEvent — the public relay", () => {
   it("refuses Purchase (and any non-allow-listed name) even if the schema were bypassed", async () => {
     for (const event_name of ["Purchase", "OrderConfirmed", "Fabricated"]) {
       const r = await relayBrowserEvent(relayed({ event_name }) as never);
-      expect(r).toMatchObject({ ok: false, skipped: true, reason: "event_not_allowed" });
+      expect(r).toEqual({ ok: false, skipped: true });
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -291,7 +292,7 @@ describe("relayBrowserEvent — the public relay", () => {
     for (let i = 0; i < 120; i++) await relayBrowserEvent(relayed() as never);
     expect(fetchMock).toHaveBeenCalledTimes(120);
     const r = await relayBrowserEvent(relayed() as never);
-    expect(r).toMatchObject({ skipped: true, reason: "rate_limited" });
+    expect(r).toEqual({ ok: true, skipped: true });
     expect(fetchMock).toHaveBeenCalledTimes(120);
   });
 
@@ -299,6 +300,33 @@ describe("relayBrowserEvent — the public relay", () => {
     state.prod = false;
     await relayBrowserEvent(relayed() as never);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a public caller never learns Meta's error text, reason codes or the CAPI config state", async () => {
+    // Meta rejects the event (e.g. an expired token) — the browser sees only ok:false.
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: { message: "Invalid OAuth access token", code: 190 } }),
+        {
+          status: 400,
+        },
+      ),
+    );
+    expect(await relayBrowserEvent(relayed() as never)).toEqual({ ok: false });
+
+    // No token configured / CAPI off / wrong host: still only the outcome.
+    delete process.env.META_PIXEL_ACCESS_TOKEN;
+    expect(await relayBrowserEvent(relayed() as never)).toEqual({ ok: false, skipped: true });
+    process.env.META_PIXEL_ACCESS_TOKEN = TOKEN;
+    state.prod = false;
+    expect(await relayBrowserEvent(relayed() as never)).toEqual({ ok: true, skipped: true });
+    const seen = JSON.stringify([
+      await relayBrowserEvent(relayed() as never),
+      await relayBrowserEvent(relayed({ event_name: "Purchase" }) as never),
+    ]);
+    expect(seen).not.toMatch(
+      /token|OAuth|no_access|capi_disabled|non_production|reason|body|error/i,
+    );
   });
 });
 
@@ -361,6 +389,69 @@ describe("sendPurchaseToMeta — the trusted server-side Purchase", () => {
     state.prod = false;
     await sendPurchaseToMeta({ purchase });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("work deferred past the response uses facts captured while the request was in scope", () => {
+  const purchase = buildPurchasePayload({
+    orderRef: "BRW-1018",
+    storedTotals: [500],
+    fallbackNumItems: 1,
+  })!;
+
+  it("an explicit production decision beats the (now unavailable) request headers", async () => {
+    state.prod = false; // after the response the header lookup would say "not production"
+    const r = await sendMetaEvent(baseEvent, { production: true });
+    expect(r.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock.mockClear();
+    state.prod = true;
+    const skipped = await sendMetaEvent(baseEvent, { production: false });
+    expect(skipped).toMatchObject({ skipped: true, reason: "non_production_host" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a deferred Purchase is sent with the captured production flag and client IP / user agent", async () => {
+    state.prod = false; // request no longer readable
+    state.headers = { "x-forwarded-for": "9.9.9.9", "user-agent": "WrongAfterResponse/0" };
+    await sendPurchaseToMeta(
+      {
+        purchase,
+        facts: { ctx: { ip: "41.65.10.20", ua: "CapturedBrowser/1.0" }, production: true },
+      },
+      { retries: 1, timeoutMs: 3000 },
+    );
+    const u = sent().body.data[0].user_data;
+    expect(u.client_ip_address).toBe("41.65.10.20");
+    expect(u.client_user_agent).toBe("CapturedBrowser/1.0");
+    expect(JSON.stringify(sent().body)).not.toMatch(/9\.9\.9\.9|WrongAfterResponse/);
+  });
+
+  it("captured non-production facts suppress the Purchase even if headers would say production", async () => {
+    state.prod = true;
+    await sendPurchaseToMeta({
+      purchase,
+      facts: { ctx: {}, production: false },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("the retry budget is honoured and every retry carries the SAME event id", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response("{}", { status: 502 }))
+      .mockResolvedValueOnce(ok());
+    const r = await sendPurchaseToMeta({ purchase }, { retries: 1, timeoutMs: 3000 });
+    expect(r.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const ids = fetchMock.mock.calls.map((c) => JSON.parse(String(c[1].body)).data[0].event_id);
+    expect(ids).toEqual(["purchase_BRW-1018", "purchase_BRW-1018"]);
+  });
+
+  it("by default a Purchase is not retried (it may be holding a request open)", async () => {
+    fetchMock.mockResolvedValue(new Response("{}", { status: 502 }));
+    await sendPurchaseToMeta({ purchase });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

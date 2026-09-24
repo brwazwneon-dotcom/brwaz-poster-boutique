@@ -1,21 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ posters: [] as string[], throws: false, queries: 0 }));
-const capi = vi.hoisted(() => ({ sendPurchaseToMeta: vi.fn() }));
+const db = vi.hoisted(() => ({
+  posters: [] as string[],
+  throws: false,
+  queries: 0,
+  updates: [] as unknown[][],
+}));
+const capi = vi.hoisted(() => ({
+  sendPurchaseToMeta: vi.fn(),
+  captureRequestFacts: vi.fn(),
+  buildAdTracking: vi.fn(),
+}));
 
 vi.mock("@/lib/neon.server", () => ({
-  sql: () => (_s: TemplateStringsArray, ids: string[]) => {
-    db.queries++;
-    if (db.throws) return Promise.reject(new Error("db down"));
-    return Promise.resolve(ids.filter((id) => db.posters.includes(id)).map((id) => ({ id })));
-  },
+  sql:
+    () =>
+    (strings: TemplateStringsArray, ...vals: unknown[]) => {
+      if (/update orders/.test(strings.join("?"))) {
+        db.updates.push(vals);
+        return Promise.resolve([]);
+      }
+      db.queries++;
+      if (db.throws) return Promise.reject(new Error("db down"));
+      const ids = vals[0] as string[];
+      return Promise.resolve(ids.filter((id) => db.posters.includes(id)).map((id) => ({ id })));
+    },
 }));
-vi.mock("@/lib/meta-capi.server", () => ({ sendPurchaseToMeta: capi.sendPurchaseToMeta }));
+vi.mock("@/lib/meta-capi.server", () => capi);
 
 import {
   buildOrderPurchase,
   buildPhotoPurchase,
   sendPurchaseSafely,
+  trackNewOrders,
   validatedPurchaseItems,
 } from "./order-tracking.server";
 
@@ -32,13 +49,29 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const CTX = Symbol.for("@vercel/request-context");
+const g = globalThis as Record<symbol, unknown>;
+const FACTS = { ctx: { ip: "41.65.10.20", ua: "TestBrowser/1.0" }, production: true };
+
 beforeEach(() => {
   db.posters = [P1, P2, P3];
   db.throws = false;
   db.queries = 0;
+  db.updates = [];
   capi.sendPurchaseToMeta.mockReset();
+  capi.captureRequestFacts.mockReset();
+  capi.captureRequestFacts.mockResolvedValue(FACTS);
+  capi.buildAdTracking.mockReset();
+  capi.buildAdTracking.mockResolvedValue({ purchase_ref: "BRW-1018" });
+  delete g[CTX];
+  delete process.env.VERCEL;
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+  delete g[CTX];
+  delete process.env.VERCEL;
+});
 
 describe("real order → Purchase", () => {
   it("is built from the STORED totals with the deterministic event id", async () => {
@@ -225,5 +258,156 @@ describe("sendPurchaseSafely — Meta can never fail an order", () => {
     });
     await sendPurchaseSafely({ purchase });
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("trackNewOrders — Meta never holds up the order response", () => {
+  const purchase = {
+    event_id: "purchase_BRW-1018",
+    order_id: "BRW-1018",
+    value: 1219,
+    currency: "EGP" as const,
+    content_type: "product" as const,
+    content_ids: [],
+    contents: [],
+    num_items: 2,
+  };
+  const args = {
+    orderIds: ["order-1", "order-2"],
+    orderRef: "BRW-1018",
+    purchase,
+    tracking: { fbp: "x" },
+    guestSessionId: "visitor-1",
+    phone: "01012345678",
+    city: "Cairo",
+  };
+  const onVercel = () => {
+    const registered: Promise<unknown>[] = [];
+    g[CTX] = { get: () => ({ waitUntil: (p: Promise<unknown>) => registered.push(p) }) };
+    process.env.VERCEL = "1";
+    return registered;
+  };
+  const meta = () => {
+    let release!: () => void;
+    capi.sendPurchaseToMeta.mockImplementation(
+      () => new Promise((r) => (release = () => r({ ok: true }))),
+    );
+    return { release: () => release() };
+  };
+
+  it("the order is released while Meta is still pending; Meta then completes under waitUntil", async () => {
+    const registered = onVercel();
+    const slowMeta = meta();
+    const done = vi.fn();
+
+    const mode = await trackNewOrders(args); // <- what createOrderRows awaits before responding
+    done();
+
+    expect(mode).toBe("deferred");
+    expect(done).toHaveBeenCalled();
+    // Meta has been asked but has NOT answered yet — and the response did not wait for it.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(capi.sendPurchaseToMeta).toHaveBeenCalledTimes(1);
+    slowMeta.release();
+    await registered[0];
+    expect(capi.sendPurchaseToMeta.mock.calls[0][0].purchase.event_id).toBe("purchase_BRW-1018");
+  });
+
+  it("a Meta call that hangs forever cannot delay the response", async () => {
+    onVercel();
+    capi.sendPurchaseToMeta.mockImplementation(() => new Promise(() => {}));
+    const t0 = Date.now();
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    expect(Date.now() - t0).toBeLessThan(200);
+  });
+
+  it("request facts are captured BEFORE the work is deferred and passed along unchanged", async () => {
+    const registered = onVercel();
+    const order: string[] = [];
+    capi.captureRequestFacts.mockImplementation(async () => {
+      order.push("capture");
+      return FACTS;
+    });
+    capi.sendPurchaseToMeta.mockImplementation(async () => {
+      order.push("send");
+      return { ok: true };
+    });
+    await trackNewOrders(args);
+    await registered[0];
+    expect(order).toEqual(["capture", "send"]);
+    // The send uses the captured facts (the request is gone by then)...
+    expect(capi.sendPurchaseToMeta.mock.calls[0][0].facts).toBe(FACTS);
+    // ...and the ad context is stored with the same captured IP / user agent.
+    expect(capi.buildAdTracking).toHaveBeenCalledWith({ fbp: "x" }, "BRW-1018", FACTS.ctx);
+    expect(db.updates).toHaveLength(1);
+  });
+
+  it("deferred → one retry with the same payload is allowed; inside the request → none", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders(args);
+    await registered[0];
+    expect(capi.sendPurchaseToMeta.mock.calls[0][1]).toEqual({ retries: 1, timeoutMs: 3000 });
+
+    delete g[CTX]; // Vercel but no waitUntil: bounded, in-request
+    capi.sendPurchaseToMeta.mockClear();
+    await trackNewOrders(args);
+    expect(capi.sendPurchaseToMeta.mock.calls[0][1]).toEqual({ retries: 0, timeoutMs: 2500 });
+  });
+
+  it("without waitUntil on Vercel the response waits at most the bound for a hanging Meta", async () => {
+    process.env.VERCEL = "1";
+    vi.useFakeTimers();
+    capi.sendPurchaseToMeta.mockImplementation(() => new Promise(() => {}));
+    let released = false;
+    const p = trackNewOrders(args).then((m) => {
+      released = true;
+      return m;
+    });
+    await vi.advanceTimersByTimeAsync(3_400);
+    expect(released).toBe(false);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(released).toBe(true);
+    await expect(p).resolves.toBe("bounded");
+  });
+
+  it("Meta failing (rejecting or returning an error) never fails the order", async () => {
+    onVercel();
+    capi.sendPurchaseToMeta.mockRejectedValue(new Error("meta down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: false, status: 503 });
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+  });
+
+  it("if even scheduling breaks the order still succeeds", async () => {
+    capi.captureRequestFacts.mockRejectedValue(new Error("no request"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(trackNewOrders(args)).resolves.toBe("skipped");
+  });
+
+  it("a test order (no purchase) still stores its ad context but sends nothing to Meta", async () => {
+    const registered = onVercel();
+    await trackNewOrders({ ...args, purchase: null });
+    await registered[0];
+    expect(capi.sendPurchaseToMeta).not.toHaveBeenCalled();
+    expect(db.updates).toHaveLength(1);
+  });
+
+  it("a photo order (no order rows) sends its Purchase and touches no orders row", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders({ ...args, orderIds: [] });
+    await registered[0];
+    expect(capi.sendPurchaseToMeta).toHaveBeenCalledTimes(1);
+    expect(db.updates).toHaveLength(0);
+    expect(capi.buildAdTracking).not.toHaveBeenCalled();
+  });
+
+  it("nothing to track → nothing is scheduled", async () => {
+    await expect(trackNewOrders({ ...args, orderIds: [], purchase: null })).resolves.toBe(
+      "skipped",
+    );
+    expect(capi.captureRequestFacts).not.toHaveBeenCalled();
   });
 });

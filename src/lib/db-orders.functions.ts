@@ -6,7 +6,7 @@ import type { PurchasePayload } from "@/lib/meta-events";
 import {
   buildOrderPurchase,
   buildPhotoPurchase,
-  sendPurchaseSafely,
+  trackNewOrders,
 } from "@/lib/order-tracking.server";
 
 export type OrderRowInput = {
@@ -134,32 +134,17 @@ export const createOrderRows = createServerFn({ method: "POST" })
       metaItems: input.meta_items,
     });
 
-    await Promise.allSettled([
-      // Ad-platform context for the later server-side "OrderConfirmed" event.
-      // Deliberately outside the order transaction: checkout must never fail (or
-      // need migration 023 applied) because of tracking.
-      (async () => {
-        try {
-          const { buildAdTracking } = await import("@/lib/meta-capi.server");
-          const adTracking = await buildAdTracking(input.tracking, created[0]?.order_number);
-          await client`
-            update orders set ad_tracking = ${JSON.stringify(adTracking)}::jsonb
-            where id = any(${created.map((o) => o.id)})
-          `;
-        } catch (err) {
-          console.warn("ad_tracking not saved", err instanceof Error ? err.message : err);
-        }
-      })(),
-      purchase
-        ? sendPurchaseSafely({
-            purchase,
-            tracking: input.tracking,
-            guestSessionId: first.guest_session_id,
-            phone: first.phone,
-            city: first.governorate,
-          })
-        : Promise.resolve(),
-    ]);
+    // The ad-tracking write and the server-side Purchase run AFTER the response
+    // is on its way (never held up by Meta) — see trackNewOrders.
+    await trackNewOrders({
+      orderIds: created.map((o) => o.id),
+      orderRef: created[0].order_number,
+      purchase,
+      tracking: input.tracking,
+      guestSessionId: first.guest_session_id,
+      phone: first.phone,
+      city: first.governorate,
+    });
 
     // `purchase` goes back so the browser Pixel fires the SAME event (same
     // event_id, same stored values); it is null for test orders.
@@ -234,7 +219,9 @@ async function photoPurchaseFor(
     photoCount,
   });
   if (purchase)
-    await sendPurchaseSafely({
+    await trackNewOrders({
+      orderIds: [],
+      orderRef: order.order_number,
       purchase,
       tracking: data.tracking,
       phone: data.phone,
