@@ -174,7 +174,14 @@ const FIRST_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const LAST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type StoredTouch = Touch & { ts: number };
-type Stored = { first?: StoredTouch; last?: StoredTouch };
+// The Meta click id lives in the same record as the touches (one store, one
+// expiry policy). `fbclid` is only in the landing URL, so it must be kept to
+// build the `fbc` value the Conversions API needs at checkout time.
+type Stored = {
+  first?: StoredTouch;
+  last?: StoredTouch;
+  clickIds?: { fbclid: string; ts: number };
+};
 
 export type AttributionSnapshot = { first: Touch | null; last: Touch | null };
 
@@ -200,6 +207,8 @@ function readStored(now: number): Stored {
     const s = raw ? (JSON.parse(raw) as Stored) : {};
     if (s.first && now - s.first.ts > FIRST_TTL_MS) delete s.first;
     if (s.last && now - s.last.ts > LAST_TTL_MS) delete s.last;
+    // Same window Meta uses for the _fbc cookie.
+    if (s.clickIds && now - s.clickIds.ts > FIRST_TTL_MS) delete s.clickIds;
     return s;
   } catch {
     return {};
@@ -228,6 +237,18 @@ export function captureAttribution(now = Date.now()): AttributionSnapshot {
     const stored = readStored(now);
     const search = window.location.search || "";
     const explicit = /[?&](utm_source|gclid|fbclid|ttclid)=/.test(search);
+
+    // A fresh Meta click id is remembered immediately (it is not a "touch":
+    // it never changes first/last touch, it only feeds the `fbc` value).
+    const fbclid = new URLSearchParams(search).get("fbclid")?.trim().slice(0, 512);
+    if (fbclid && fbclid !== stored.clickIds?.fbclid) {
+      stored.clickIds = { fbclid, ts: now };
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      } catch {
+        /* storage blocked — fbc is then only available from the _fbc cookie */
+      }
+    }
 
     let sessionSeen = evaluatedThisPageLifetime;
     try {
@@ -290,6 +311,54 @@ export function toAttributionFields(a: AttributionSnapshot): AttributionFields {
     if (a.last.term) out.last_term = a.last.term;
   }
   return out;
+}
+
+/**
+ * The order's utm_* columns, from the canonical LAST touch: only a campaign /
+ * paid / social touch is stamped (a plain direct or organic visit carries no
+ * campaign context). Replaces the separate landing-page-only UTM store.
+ */
+export function toOrderUtm(a: AttributionSnapshot = getAttribution()): {
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+} {
+  const l = a.last;
+  // "organic" / "referral" are the mediums classifyTouch assigns by itself to
+  // search and link referrals; only a real campaign, paid or social touch counts.
+  const stamp =
+    !!l &&
+    (!!l.campaign ||
+      isSocialSource(l.source) ||
+      (!!l.medium && l.medium !== "organic" && l.medium !== "referral"));
+  return {
+    utm_source: stamp && l ? l.source : null,
+    utm_medium: stamp && l ? l.medium : null,
+    utm_campaign: stamp && l ? l.campaign : null,
+  };
+}
+
+function readCookie(name: string): string | undefined {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export type MetaIdentifiers = { fbp?: string; fbc?: string };
+
+/**
+ * Meta's browser identifiers for the Conversions API. Prefers the cookies the
+ * Pixel writes itself; otherwise builds `fbc` from the stored fbclid in Meta's
+ * documented format `fb.<subdomain index>.<click time in ms>.<fbclid>`.
+ */
+export function getMetaIdentifiers(now = Date.now()): MetaIdentifiers {
+  if (typeof window === "undefined") return {};
+  const stored = readStored(now).clickIds;
+  const fbc = readCookie("_fbc") ?? (stored ? `fb.1.${stored.ts}.${stored.fbclid}` : undefined);
+  return { fbp: readCookie("_fbp"), fbc };
 }
 
 /** Test hook — resets the in-memory session flag. */

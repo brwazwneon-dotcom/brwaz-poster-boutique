@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
 import { trackEvent, trackCustom } from "./meta-pixel";
+import { metaContentsFromCart } from "./meta-events";
 import { trackPosterCartAdd } from "./poster-tracking";
 import { track as behavior } from "./behavior";
 
@@ -111,13 +112,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setPhotoPrintState(next);
     if (next) {
       try {
+        // A photo-printing order is a service, not a catalog product: no
+        // content id is invented for it.
         trackEvent("AddToCart", {
-          content_ids: [`photo-print-${next.sizeMode}`],
           content_name: `Photo Printing ${next.label}`,
           content_type: "product",
           content_category: "Photo Printing",
           value: next.price,
           currency: "EGP",
+          quantity: 1,
         });
       } catch {
         /* noop */
@@ -153,13 +156,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       add: (item) => {
         try {
+          // One add = one unit (the line is created with qty 1), so `value` is
+          // that line's price. Bundles list every poster; a custom design has no
+          // catalog id, so it contributes no content id.
+          const meta = metaContentsFromCart([{ ...item, qty: 1 }]);
           trackEvent("AddToCart", {
-            content_ids: item.bundle ? item.bundle.posters.map((p) => p.posterId) : [item.posterId],
+            ...(meta.contents.length
+              ? { content_ids: meta.content_ids, contents: meta.contents }
+              : {}),
             content_name: item.title,
             content_type: "product",
             content_category: item.categoryName,
             value: item.price,
             currency: "EGP",
+            quantity: 1,
+            num_items: meta.num_items,
           });
         } catch {
           /* noop */

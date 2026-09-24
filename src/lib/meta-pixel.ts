@@ -10,6 +10,22 @@ import { gaEvent, type GAEventName } from "./ga4";
 import { isPreviewMode } from "./preview-mode";
 import { getAudienceAttribution } from "./landing-pages";
 import { emitAnalyticsEvent, dispatchInternalOnly } from "./analytics-events";
+import { getMetaIdentifiers } from "./attribution";
+import { visitorId } from "./analytics";
+import { clientTrackingAllowed } from "./analytics-env";
+import {
+  isAllowedCustomEvent,
+  isRelayedEvent,
+  purchaseCustomData,
+  sanitizeMetaParams,
+  type PurchasePayload,
+} from "./meta-events";
+
+/** fbp/fbc/external_id sent with every CAPI event to raise Event Match Quality. */
+function capiIdentity() {
+  const { fbp, fbc } = getMetaIdentifiers();
+  return { fbp, fbc, external_id: visitorId() };
+}
 
 function withAudience(params: Record<string, unknown>): Record<string, unknown> {
   const a = getAudienceAttribution();
@@ -59,10 +75,31 @@ export type StandardEvent =
 
 let lastConfig: MarketingConfig | null = null;
 
+// Events fired before the marketing settings arrive (the Boot component defers
+// pixel init to browser idle, and the settings request is async) used to be
+// dropped — which lost the first PageView/ViewContent of every page load.
+// They wait here (bounded) and are replayed once the config is ready.
+const pendingUntilReady: Array<{ at: number; run: () => void }> = [];
+// Stale entries are dropped rather than replayed (e.g. events queued on admin
+// routes, where the config is never applied, must not fire on a later public page).
+const PENDING_MAX_AGE_MS = 10_000;
+
+function deferUntilReady(run: () => void) {
+  if (pendingUntilReady.length < 30) pendingUntilReady.push({ at: Date.now(), run });
+}
+
 export function setMarketingConfig(cfg: MarketingConfig) {
   lastConfig = cfg;
   if (typeof window === "undefined") return;
+  if (!cfg.ready) return;
+  // Local development and preview deployments share the production Pixel and
+  // database: they must never load the Pixel or produce marketing events.
+  if (!clientTrackingAllowed()) return;
   if (cfg.pixelEnabled && cfg.pixelId) loadPixel(cfg.pixelId);
+  const now = Date.now();
+  for (const p of pendingUntilReady.splice(0, pendingUntilReady.length)) {
+    if (now - p.at <= PENDING_MAX_AGE_MS) p.run();
+  }
 }
 
 function loadPixel(pixelId: string) {
@@ -125,13 +162,23 @@ export function trackEvent(
   name: StandardEvent,
   params: Record<string, unknown> = {},
   userData?: Partial<UserData>,
+  /** A deterministic eventId (purchase_<order_number>) is REQUIRED for Purchase:
+   *  the server sends the same event and Meta deduplicates them by this id. */
+  opts?: { eventId?: string },
 ) {
+  if (typeof window === "undefined" || isPreviewMode() || !clientTrackingAllowed()) return;
+  // A Purchase without an order-derived id would be a fabricated/duplicable
+  // conversion — never send one.
+  if (name === "Purchase" && !opts?.eventId) return;
   const cfg = lastConfig;
-  if (!cfg) return; // not loaded yet
-  if (isPreviewMode()) return;
-  const event_id = newEventId();
+  if (!cfg || !cfg.ready) {
+    deferUntilReady(() => trackEvent(name, params, userData, opts));
+    return;
+  }
+  const event_id = opts?.eventId ?? newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
-  const enriched = withAudience(params);
+  // One canonical, allow-listed payload for the Pixel, the relay and GA4.
+  const enriched = sanitizeMetaParams(withAudience(params));
 
   // Internal analytics (Neon) — only events with no existing internal writer.
   emitAnalyticsEvent(name, params);
@@ -145,8 +192,11 @@ export function trackEvent(
     }
   }
 
-  // 2) Conversion API (server-side). Best-effort; never blocks UI.
-  if (cfg.capiEnabled) {
+  // 2) Conversion API (server-side), same event_id. Best-effort; never blocks
+  // the UI. Purchase is NOT relayed from the browser: the server sends it from
+  // the stored order (same deterministic event_id), so the browser cannot
+  // manufacture revenue.
+  if (cfg.capiEnabled && isRelayedEvent(name)) {
     const event_source_url = typeof window !== "undefined" ? window.location.href : undefined;
     sendCapiEvent({
       data: {
@@ -156,6 +206,7 @@ export function trackEvent(
         custom_data: enriched,
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        ...capiIdentity(),
       },
     }).catch(() => {
       /* CAPI is best-effort; pixel covers fallback */
@@ -165,6 +216,21 @@ export function trackEvent(
   // 3) Mirror to GA4 (page_view handled separately by router).
   const ga = META_TO_GA[name];
   if (ga && name !== "PageView") gaEvent(ga, enriched);
+}
+
+/**
+ * The browser side of a Purchase. `purchase` is the payload the SERVER built
+ * from the stored order (createOrderRows / createPhoto4x6Order): real order
+ * number, deterministic event id, persisted value. The server has already sent
+ * the same event to the Conversions API, so this is Pixel-only and deduplicates
+ * by event_id. There is no other way to send a Purchase.
+ */
+export function trackPurchase(purchase: PurchasePayload, userData?: Partial<UserData>) {
+  try {
+    trackEvent("Purchase", purchaseCustomData(purchase), userData, { eventId: purchase.event_id });
+  } catch {
+    /* tracking must never affect checkout */
+  }
 }
 
 const META_TO_GA: Partial<Record<StandardEvent, GAEventName>> = {
@@ -186,14 +252,7 @@ export { lastConfig as _lastMarketingConfig };
  * fbq supports trackCustom for these alongside the standard list.
  */
 export type CustomEvent =
-  | "ViewCategory"
-  | "PhotoPrintingCustomer"
-  | "CustomDesignCustomer"
-  | "ViewCart"
-  | "CartUpdated"
-  | "RemoveFromCart"
-  | "AddPhoneNumber"
-  | "OrderCreated";
+  "ViewCategory" | "ViewCart" | "CartUpdated" | "RemoveFromCart" | "AddPhoneNumber";
 
 type QueuedEvent = {
   kind: "std" | "custom";
@@ -258,12 +317,17 @@ export function trackCustom(
   // Internal-only events (select_item, custom_design_*, …) go to Neon + GA4 and
   // never to Meta/TikTok.
   if (dispatchInternalOnly(name, params)) return;
+  if (typeof window === "undefined" || isPreviewMode() || !clientTrackingAllowed()) return;
+  // Only the custom events the site really uses may reach Meta.
+  if (!isAllowedCustomEvent(name)) return;
   const cfg = lastConfig;
-  if (!cfg) return;
-  if (isPreviewMode()) return;
+  if (!cfg || !cfg.ready) {
+    deferUntilReady(() => trackCustom(name, params, userData));
+    return;
+  }
   const event_id = newEventId();
   const mergedUser = { ...currentUserData(), ...(userData ?? {}) };
-  const enriched = withAudience(params);
+  const enriched = sanitizeMetaParams(withAudience(params));
 
   // Internal analytics (Neon) + GA4 for the custom events that also go to Meta.
   emitAnalyticsEvent(name, params, { ga: true });
@@ -285,6 +349,7 @@ export function trackCustom(
         custom_data: enriched,
         user_data: cfg.advancedMatchingEnabled ? mergedUser : {},
         client_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        ...capiIdentity(),
       },
     }).catch(() => {
       /* best-effort */

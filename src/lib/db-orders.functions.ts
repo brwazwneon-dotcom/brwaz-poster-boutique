@@ -2,6 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "@/lib/neon.server";
 import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
 import { photoUnitPrice } from "@/lib/photo-volume-pricing";
+import type { PurchasePayload } from "@/lib/meta-events";
+import {
+  buildOrderPurchase,
+  buildPhotoPurchase,
+  sendPurchaseSafely,
+} from "@/lib/order-tracking.server";
 
 export type OrderRowInput = {
   guest_session_id: string | null;
@@ -51,8 +57,18 @@ function safeProofUrl(url: unknown): string | null {
 // one: this function itself never trusts anything about total_price
 // beyond passing it through to the same guarded insert.
 export const createOrderRows = createServerFn({ method: "POST" })
-  .validator((data: unknown) => (data as { rows: OrderRowInput[] }).rows)
-  .handler(async ({ data: rows }) => {
+  .validator(
+    (data: unknown) =>
+      data as {
+        rows: OrderRowInput[];
+        tracking?: Record<string, unknown>;
+        // Product ids for the Purchase's content_ids/contents (validated against
+        // `posters`; the Purchase VALUE never comes from the browser).
+        meta_items?: Array<{ id: string; quantity: number }>;
+      },
+  )
+  .handler(async ({ data: input }) => {
+    const rows = input?.rows;
     if (!Array.isArray(rows) || rows.length === 0) {
       throw new Error("At least one order row is required");
     }
@@ -94,12 +110,60 @@ export const createOrderRows = createServerFn({ method: "POST" })
             ${r.payment_status}, ${safeProofUrl(r.payment_screenshot)}, ${r.is_test},
             ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}
           )
-          returning id, order_number
+          returning id, order_number, total_price, quantity, is_test
         `,
       ),
-    )) as Array<Array<{ id: string; order_number: string }>>;
+    )) as Array<
+      Array<{
+        id: string;
+        order_number: string;
+        total_price: string | number;
+        quantity: number;
+        is_test: boolean;
+      }>
+    >;
+    const stored = results.map((r) => r[0]);
+    const created = stored.map((o) => ({ id: o.id, order_number: o.order_number }));
 
-    return { ok: true as const, orders: results.map((r) => r[0]) };
+    // ---- Everything below is tracking: best-effort, never fails the order. ----
+    // Purchase is built from the STORED (price-guarded) totals of the rows that
+    // were just inserted, with a deterministic id tied to the order number.
+    // Test orders produce no Purchase at all.
+    const purchase: PurchasePayload | null = await buildOrderPurchase({
+      stored,
+      metaItems: input.meta_items,
+    });
+
+    await Promise.allSettled([
+      // Ad-platform context for the later server-side "OrderConfirmed" event.
+      // Deliberately outside the order transaction: checkout must never fail (or
+      // need migration 023 applied) because of tracking.
+      (async () => {
+        try {
+          const { buildAdTracking } = await import("@/lib/meta-capi.server");
+          const adTracking = await buildAdTracking(input.tracking, created[0]?.order_number);
+          await client`
+            update orders set ad_tracking = ${JSON.stringify(adTracking)}::jsonb
+            where id = any(${created.map((o) => o.id)})
+          `;
+        } catch (err) {
+          console.warn("ad_tracking not saved", err instanceof Error ? err.message : err);
+        }
+      })(),
+      purchase
+        ? sendPurchaseSafely({
+            purchase,
+            tracking: input.tracking,
+            guestSessionId: first.guest_session_id,
+            phone: first.phone,
+            city: first.governorate,
+          })
+        : Promise.resolve(),
+    ]);
+
+    // `purchase` goes back so the browser Pixel fires the SAME event (same
+    // event_id, same stored values); it is null for test orders.
+    return { ok: true as const, orders: created, purchase };
   });
 
 function computeShippingServer(subtotal: number, fee: number, freeThreshold: number): number {
@@ -152,6 +216,33 @@ async function resolveSelectedAlbums(selected: SelectedAlbumInput[] | undefined)
   return { albumsTotal, snapshot };
 }
 
+async function photoPurchaseFor(
+  data: {
+    test_mode?: boolean;
+    tracking?: Record<string, unknown>;
+    phone: string;
+    governorate: string;
+  },
+  order: { order_number: string },
+  totalPrice: number,
+  photoCount: number,
+): Promise<PurchasePayload | null> {
+  const purchase = buildPhotoPurchase({
+    testMode: data.test_mode,
+    orderNumber: order.order_number,
+    totalPrice,
+    photoCount,
+  });
+  if (purchase)
+    await sendPurchaseSafely({
+      purchase,
+      tracking: data.tracking,
+      phone: data.phone,
+      city: data.governorate,
+    });
+  return purchase;
+}
+
 export const createPhoto4x6Order = createServerFn({ method: "POST" })
   .validator(
     (data: unknown) =>
@@ -179,6 +270,10 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         // already carry the shipping charge), so this order isn't charged
         // shipping a second time. Only honoured if that order really exists.
         shipping_with_frames?: boolean;
+        // Ad tracking. `test_mode` can only SUPPRESS the Purchase (photo orders
+        // have no is_test column); it can never create one.
+        test_mode?: boolean;
+        tracking?: Record<string, unknown>;
       },
   )
   .handler(async ({ data }) => {
@@ -257,10 +352,12 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         )
         returning id, order_number
       `;
+      const order = rows[0] as { id: string; order_number: string };
       return {
         ok: true as const,
-        order: rows[0] as { id: string; order_number: string },
+        order,
         totalPrice,
+        purchase: await photoPurchaseFor(data, order, totalPrice, photoCount),
       };
     }
 
@@ -303,10 +400,12 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
       )
       returning id, order_number
     `;
+    const order = rows[0] as { id: string; order_number: string };
     return {
       ok: true as const,
-      order: rows[0] as { id: string; order_number: string },
+      order,
       totalPrice,
+      purchase: await photoPurchaseFor(data, order, totalPrice, uploadedCount),
     };
   });
 

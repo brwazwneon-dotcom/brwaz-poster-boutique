@@ -319,6 +319,20 @@ export const updateOrderConfirmationAdmin = createServerFn({ method: "POST" })
     // it's one conversation with the customer, not N.
     if (stage) await logTimelineInternal(client, data.ids[0], stage, { actor });
 
+    // Tell Meta a real (customer-confirmed) sale happened. Best-effort: a
+    // tracking failure must never block or fail the admin's confirmation.
+    if (isConfirmed) {
+      try {
+        const { sendOrderConfirmedToMeta } = await import("@/lib/meta-capi.server");
+        const r = await sendOrderConfirmedToMeta(data.ids);
+        if (!r.ok || (r.skipped && r.reason !== "already_sent")) {
+          console.warn("OrderConfirmed CAPI not sent", r.reason ?? r.error ?? r.status);
+        }
+      } catch (err) {
+        console.warn("OrderConfirmed CAPI failed", err instanceof Error ? err.message : err);
+      }
+    }
+
     return { ok: true };
   });
 

@@ -64,7 +64,9 @@ import {
 } from "@/lib/photo-printing-content";
 import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 import { CustomerReviews } from "@/components/CustomerReviews";
-import { trackCustom } from "@/lib/meta-pixel";
+import { trackCustom, trackPurchase } from "@/lib/meta-pixel";
+import { getMetaIdentifiers } from "@/lib/attribution";
+import { isTestMode } from "@/lib/test-mode";
 
 const BASE_URL = "https://brwazwneon.com";
 
@@ -454,7 +456,8 @@ function PhotoPrintingPage() {
         });
         if (warnLowRes) {
           try {
-            trackCustom("photo_quality_warning", { name: f.name });
+            // No file name: a customer's photo name must never reach Meta.
+            trackCustom("photo_quality_warning", { count: 1 });
           } catch {
             /* noop */
           }
@@ -462,7 +465,7 @@ function PhotoPrintingPage() {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : t("photo4x6.failedToReadImage"));
         try {
-          trackCustom("photo_upload_failed", { name: f.name });
+          trackCustom("photo_upload_failed", { count: 1 });
         } catch {
           /* noop */
         }
@@ -695,9 +698,17 @@ function PhotoPrintingPage() {
           selected_versions: selected,
           selected_albums: selectedAlbums,
           payment_method: paymentMethod,
+          test_mode: isTestMode(),
+          tracking: { ...getMetaIdentifiers(), event_source_url: window.location.href },
         },
       });
       const orderNumber = result.order.order_number;
+      // Purchase from what the server stored (real order number, server-computed
+      // total); the server already sent the same event to the Conversions API.
+      // There is none for a test order.
+      if (result.purchase) {
+        trackPurchase(result.purchase, { phone: phone.trim(), city: governorate, country: "EG" });
+      }
 
       const paymentLabel =
         PAYMENT_OPTIONS.find((p) => p.key === paymentMethod)?.labelEn ?? "Cash on delivery";

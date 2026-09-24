@@ -29,10 +29,11 @@ import {
   readPostOrderMessageEnabled,
   priceForFrame,
 } from "@/lib/use-settings";
-import { trackEvent, trackCustom, setUserData } from "@/lib/meta-pixel";
+import { trackEvent, trackCustom, trackPurchase, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
-import { getAudienceAttribution } from "@/lib/landing-pages";
+import { getMetaIdentifiers, toOrderUtm } from "@/lib/attribution";
+import { metaContentsFromCart, type PurchasePayload } from "@/lib/meta-events";
 import { useTranslation } from "react-i18next";
 
 const INSTAPAY_NUMBER = "01090771294";
@@ -360,6 +361,7 @@ function CartPage() {
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const initiateCheckoutSentRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "instapay">("cod");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
@@ -382,11 +384,13 @@ function CartPage() {
     if (items.length === 0) return;
     viewCartFired.current = true;
     try {
+      // The ONE ViewCart event (MarketingBoot no longer sends a second,
+      // data-less one). Bundles list every poster; custom designs carry no id.
+      const meta = metaContentsFromCart(items);
       trackCustom("ViewCart", {
-        content_ids: items.map((i) => i.posterId).filter(Boolean),
-        contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
+        ...(meta.contents.length ? { content_ids: meta.content_ids, contents: meta.contents } : {}),
         content_type: "product",
-        num_items: items.reduce((s, i) => s + i.qty, 0),
+        num_items: meta.num_items,
         value: total,
         currency: "EGP",
       });
@@ -493,9 +497,9 @@ function CartPage() {
     setCheckoutError(null);
     submittingRef.current = true;
     setSubmitting(true);
-    const contentIds = items.flatMap((i) =>
-      i.bundle ? i.bundle.posters.map((p) => p.posterId) : [i.posterId],
-    );
+    // Meta content fields (bundles → every poster; custom designs → no catalog id).
+    const metaCart = metaContentsFromCart(items);
+    const contentIds = metaCart.content_ids;
     const checkoutTotals = {
       subtotal,
       discount: bundle.amount,
@@ -523,23 +527,32 @@ function CartPage() {
         operation: "trackEvent",
         payload: {
           content_ids: contentIds,
-          contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
-          num_items: items.reduce((s, i) => s + i.qty, 0),
+          contents: metaCart.contents,
+          num_items: metaCart.num_items,
           value: grand,
           currency: "EGP",
         },
       });
-      trackEvent(
-        "InitiateCheckout",
-        {
-          content_ids: contentIds,
-          contents: items.map((i) => ({ id: i.posterId, quantity: i.qty })),
-          num_items: items.reduce((s, i) => s + i.qty, 0),
-          value: grand,
-          currency: "EGP",
-        },
-        { phone, city: governorate, country: "EG" },
-      );
+      // The real checkout start (this is the checkout: there is no /checkout
+      // route). Once per cart page visit, so a failed attempt that is retried
+      // does not count as a second checkout. Test-mode checkouts must not
+      // reach Meta/TikTok/GA4 conversion data.
+      if (!isTestMode() && !initiateCheckoutSentRef.current) {
+        initiateCheckoutSentRef.current = true;
+        trackEvent(
+          "InitiateCheckout",
+          {
+            ...(metaCart.contents.length
+              ? { content_ids: contentIds, contents: metaCart.contents }
+              : {}),
+            content_type: "product",
+            num_items: metaCart.num_items,
+            value: grand,
+            currency: "EGP",
+          },
+          { phone, city: governorate, country: "EG" },
+        );
+      }
     } catch (err) {
       logCheckoutStep({
         step: "meta_pixel_initiate_checkout",
@@ -599,18 +612,18 @@ function CartPage() {
       const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
       const guestSessionId = visitorId();
-      // First-touch attribution, captured once on a landing-page visit and
-      // persisted client-side — by now (checkout) the original ?utm_* query
-      // string is long gone from the URL, so this is the only place left to
-      // read it from. Absent for direct/organic traffic that never passed
-      // through a landing page.
-      const attribution = getAudienceAttribution();
-      const utmSource =
-        attribution?.utm_source && attribution.utm_source !== "direct"
-          ? attribution.utm_source
-          : null;
-      const utmMedium = attribution?.utm_medium || null;
-      const utmCampaign = attribution?.utm_campaign || null;
+      // The order's utm_* come from the canonical attribution (src/lib/attribution.ts):
+      // the last campaign/paid/social touch on ANY page, kept 30 days — by
+      // checkout time the original ?utm_* query string is long gone from the URL.
+      // Null for direct/organic visits.
+      const {
+        utm_source: utmSource,
+        utm_medium: utmMedium,
+        utm_campaign: utmCampaign,
+      } = toOrderUtm();
+      // Meta browser identifiers for the server-side events of this order.
+      const { fbp, fbc } = getMetaIdentifiers();
+      const orderTracking = { fbp, fbc, event_source_url: window.location.href };
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
@@ -709,8 +722,23 @@ function CartPage() {
       });
       const { createOrderRows } = await import("@/lib/db-orders.functions");
       let error: unknown = null;
+      // What the SERVER built from the stored order (real order number,
+      // deterministic event id, persisted totals). null for test orders and for
+      // failed orders — so those can never produce a Purchase.
+      let orderPurchase: PurchasePayload | null = null;
       try {
-        if (rows.length > 0) await createOrderRows({ data: { rows } });
+        // A photo-printing-only cart has no framed-poster rows to insert.
+        const created =
+          rows.length > 0
+            ? await createOrderRows({
+                data: {
+                  rows,
+                  tracking: orderTracking,
+                  meta_items: metaCart.contents.map((c) => ({ id: c.id, quantity: c.quantity })),
+                },
+              })
+            : null;
+        orderPurchase = created?.purchase ?? null;
       } catch (e) {
         error = e instanceof Error ? e : new Error(String(e));
       }
@@ -733,10 +761,22 @@ function CartPage() {
       // The photo-printing order from the same checkout. The server prices it
       // from the stored package / size prices, and skips its shipping charge
       // when the framed-poster rows above already carry it.
+      // Purchases are fired from what the server confirmed it stored — once, and
+      // also when the photo order fails after the framed posters were stored
+      // (that order is real and must still be reported).
+      let photoPurchase: PurchasePayload | null = null;
+      let purchasesFired = false;
+      const firePurchases = () => {
+        if (purchasesFired) return;
+        purchasesFired = true;
+        for (const p of [orderPurchase, photoPurchase]) {
+          if (p) trackPurchase(p, { phone, city: governorate, country: "EG" });
+        }
+      };
       if (photoPrint) {
         try {
           const { createPhoto4x6Order } = await import("@/lib/db-orders.functions");
-          await createPhoto4x6Order({
+          const photoResult = await createPhoto4x6Order({
             data: {
               customer_name: name.trim(),
               phone: phone.trim(),
@@ -753,12 +793,16 @@ function CartPage() {
               selected_albums: photoPrint.selectedAlbums,
               payment_method: paymentMethod,
               shipping_with_frames: rows.length > 0,
+              test_mode: testFlag,
+              tracking: orderTracking,
             },
           });
+          photoPurchase = photoResult.purchase ?? null;
           setPhotoPrint(null);
         } catch (e) {
           const reason = e instanceof Error ? e.message : String(e);
           if (rows.length > 0) {
+            firePurchases();
             // The framed posters were already placed: empty them from the
             // cart so trying again can't order them twice.
             clear();
@@ -781,41 +825,13 @@ function CartPage() {
         console.warn("order notification failed", e);
       }
 
-      // Purchase event — once order is persisted.
+      // Purchase — only reached once the orders are persisted, and only from the
+      // server's own Purchase payload (real order number → `purchase_<order>`,
+      // stored totals). There is none for a test order, so nothing is sent for
+      // one. The server already sent the same event to Meta's Conversions API
+      // with the same event_id, so the two deduplicate.
       try {
-        trackEvent(
-          "Purchase",
-          {
-            content_ids: contentIds,
-            contents: items.map((i) => ({
-              id: i.posterId,
-              quantity: i.qty,
-              item_price: i.price,
-            })),
-            content_type: "product",
-            num_items: items.reduce((s, i) => s + i.qty, 0),
-            value: grand,
-            currency: "EGP",
-            order_id: `BRW-${Date.now()}`,
-          },
-          { phone, city: governorate, country: "EG" },
-        );
-        // Mirror as a custom event for audiences that segment on OrderCreated.
-        try {
-          trackCustom(
-            "OrderCreated",
-            {
-              content_ids: contentIds,
-              num_items: items.reduce((s, i) => s + i.qty, 0),
-              value: grand,
-              currency: "EGP",
-              order_id: `BRW-${Date.now()}`,
-            },
-            { phone, city: governorate, country: "EG" },
-          );
-        } catch {
-          /* noop */
-        }
+        firePurchases();
       } catch (err) {
         logCheckoutStep({ step: "meta_pixel_purchase", operation: "trackEvent", error: err });
       }

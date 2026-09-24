@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { useMarketingConfig } from "@/lib/use-marketing";
-import { setMarketingConfig, trackEvent, trackCustom } from "@/lib/meta-pixel";
+import { setMarketingConfig, trackEvent } from "@/lib/meta-pixel";
 import { setGA4Config, gaPageView } from "@/lib/ga4";
 import { trackVisit } from "@/lib/analytics";
 import { rememberPublicRoute } from "@/lib/preview-mode";
@@ -97,23 +97,10 @@ export function MarketingBoot() {
       } catch {
         /* noop */
       }
-
-      // Route-specific auto events for cart / checkout so Meta Pixel Helper
-      // and audiences pick them up without requiring in-page code.
-      if (pathname === "/cart" || pathname.startsWith("/cart")) {
-        try {
-          trackCustom("ViewCart");
-        } catch {
-          /* noop */
-        }
-      }
-      if (pathname === "/checkout" || pathname.startsWith("/checkout")) {
-        try {
-          trackEvent("InitiateCheckout");
-        } catch {
-          /* noop */
-        }
-      }
+      // ViewCart and InitiateCheckout are NOT fired from here: the cart page is
+      // the only place that knows the cart contents, so it sends the one
+      // canonical event (a route-based duplicate had no data, and there is no
+      // /checkout route).
     }
   }, [pathname, cfg.pixelEnabled, cfg.capiEnabled, cfg.ga4Enabled]);
 

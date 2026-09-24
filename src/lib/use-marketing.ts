@@ -8,9 +8,13 @@ export type MarketingConfig = {
   advancedMatchingEnabled: boolean;
   ga4MeasurementId: string;
   ga4Enabled: boolean;
+  /** False until the settings request has settled (success or error). Events
+   *  fired before that are queued instead of being judged against defaults. */
+  ready: boolean;
 };
 
 const DEFAULTS: MarketingConfig = {
+  ready: false,
   pixelId: "",
   pixelEnabled: false,
   capiEnabled: false,
@@ -39,6 +43,7 @@ export function useMarketingConfig(): MarketingConfig {
       const pixelId = String(map.get("meta_pixel_id") ?? "").trim();
       const ga4Id = String(map.get("ga4_measurement_id") ?? "").trim();
       return {
+        ready: true,
         pixelId,
         pixelEnabled: bool("meta_pixel_enabled") && /^\d{6,20}$/.test(pixelId),
         capiEnabled: bool("meta_capi_enabled"),
@@ -48,7 +53,8 @@ export function useMarketingConfig(): MarketingConfig {
       };
     },
   });
-  return q.data ?? DEFAULTS;
+  // On a failed request fall back to the (all-disabled) defaults and unblock the queue.
+  return q.data ?? { ...DEFAULTS, ready: q.isError };
 }
 
 export const MARKETING_KEYS = KEYS;

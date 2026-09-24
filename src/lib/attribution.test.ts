@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _resetAttributionForTests,
   captureAttribution,
   classifyTouch,
   getAttribution,
+  getMetaIdentifiers,
   normalizeSource,
   toAttributionFields,
+  toOrderUtm,
 } from "./attribution";
 
 describe("normalizeSource — one taxonomy everywhere", () => {
@@ -224,5 +226,108 @@ describe("first touch / last touch through the funnel", () => {
       first_term: "y",
       last_source: "instagram",
     });
+  });
+});
+
+describe("Meta click id (fbclid → fbc) lives in the canonical store", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    document.cookie = "_fbp=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "_fbc=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    _resetAttributionForTests();
+  });
+
+  it("captures fbclid from the landing URL into the SAME record as first/last touch", () => {
+    visit({ search: "?fbclid=AbCdEf123456&utm_source=instagram&utm_medium=paid_social" });
+    const stored = JSON.parse(window.localStorage.getItem("brw-attribution-v1")!);
+    expect(stored.clickIds.fbclid).toBe("AbCdEf123456");
+    expect(stored.first.source).toBe("instagram");
+    expect(Object.keys(window.localStorage).filter((k) => k.includes("click"))).toEqual([]);
+  });
+
+  it("builds fbc in Meta's documented format when no _fbc cookie exists", () => {
+    const t0 = 1_790_000_000_000;
+    visit({ search: "?fbclid=AbCdEf123456", now: t0 });
+    expect(getMetaIdentifiers(t0 + 1000).fbc).toBe(`fb.1.${t0}.AbCdEf123456`);
+  });
+
+  it("prefers the cookies the Pixel wrote itself (_fbp and _fbc)", () => {
+    document.cookie = "_fbp=fb.1.1596403881668.1116446470";
+    document.cookie = "_fbc=fb.1.1554763741205.FromCookie12345";
+    visit({ search: "?fbclid=Different123456" });
+    expect(getMetaIdentifiers()).toEqual({
+      fbp: "fb.1.1596403881668.1116446470",
+      fbc: "fb.1.1554763741205.FromCookie12345",
+    });
+  });
+
+  it("fbclid never changes first or last touch on its own — it is not a touch", () => {
+    visit({ search: "?utm_source=instagram&utm_campaign=c1" });
+    const before = getAttribution();
+    visit({ newSession: true, search: "", referrer: "" });
+    const after = getAttribution();
+    expect(after.first).toEqual(before.first);
+    expect(after.last).toEqual(before.last);
+  });
+
+  it("a direct return visit keeps first touch AND the original fbclid", () => {
+    visit({ search: "?fbclid=AbCdEf123456&utm_source=facebook&utm_medium=paid&utm_campaign=eid" });
+    visit({ newSession: true, search: "", referrer: "" });
+    const a = getAttribution();
+    expect(a.first).toMatchObject({ source: "facebook", campaign: "eid" });
+    expect(a.last).toMatchObject({ source: "facebook", campaign: "eid" });
+    expect(getMetaIdentifiers().fbc).toMatch(/AbCdEf123456$/);
+  });
+
+  it("a newer fbclid replaces the old one; the stored id expires after 90 days", () => {
+    const t0 = Date.now();
+    visit({ search: "?fbclid=OldClickId12345", now: t0 });
+    visit({ newSession: true, search: "?fbclid=NewClickId12345", now: t0 + 1000 });
+    expect(getMetaIdentifiers(t0 + 2000).fbc).toMatch(/NewClickId12345$/);
+    expect(getMetaIdentifiers(t0 + 91 * 86_400_000).fbc).toBeUndefined();
+  });
+
+  it("is safe with storage blocked (never throws)", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(() => visit({ search: "?fbclid=AbCdEf123456" })).not.toThrow();
+    spy.mockRestore();
+  });
+});
+
+describe("toOrderUtm — what the order's utm_* columns get", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    _resetAttributionForTests();
+  });
+
+  it("stamps the last campaign touch, normalised (ig → instagram)", () => {
+    visit({ search: "?utm_source=ig&utm_medium=paid_social&utm_campaign=eid_offer" });
+    expect(toOrderUtm()).toEqual({
+      utm_source: "instagram",
+      utm_medium: "paid_social",
+      utm_campaign: "eid_offer",
+    });
+  });
+
+  it("Facebook / Instagram social traffic is stamped even without UTMs", () => {
+    visit({ search: "", referrer: "https://l.instagram.com/" });
+    expect(toOrderUtm().utm_source).toBe("instagram");
+  });
+
+  it("direct and organic visits stamp nothing", () => {
+    visit({ search: "", referrer: "" });
+    expect(toOrderUtm()).toEqual({ utm_source: null, utm_medium: null, utm_campaign: null });
+    visit({ newSession: true, search: "", referrer: "https://www.bing.com/" });
+    expect(toOrderUtm().utm_source).toBeNull();
+  });
+
+  it("a later direct visit does not erase the paid last touch", () => {
+    visit({ search: "?utm_source=instagram&utm_medium=paid_social&utm_campaign=c1" });
+    visit({ newSession: true, search: "", referrer: "" });
+    expect(toOrderUtm().utm_campaign).toBe("c1");
   });
 });
