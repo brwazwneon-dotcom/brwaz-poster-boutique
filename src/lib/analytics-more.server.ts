@@ -12,6 +12,7 @@ import {
   type Ctx,
 } from "@/lib/analytics-core.server";
 import type { AnalyticsRange } from "@/lib/store-time";
+import { readMarketingConfig } from "@/lib/meta-marketing.server";
 import type {
   AdvertisingData,
   CartData,
@@ -511,11 +512,44 @@ const PLATFORM_OF: Record<string, "meta" | "tiktok" | "google" | undefined> = {
 const asBool = (v: unknown) => v === true || v === "true";
 const asStr = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+/** Whether Meta Ads spend/insights are being synced (Marketing API), for the Advertising card. */
+async function metaAdsConnection(): Promise<{ status: ConnectionStatus; needs: string }> {
+  const cfg = readMarketingConfig();
+  if (!cfg.configured) {
+    const what = [...cfg.missing, ...cfg.invalid.map((n) => `${n} (invalid)`)].join(", ");
+    return {
+      status: "not_connected",
+      needs: `Set ${what} on the server (the token needs the ads_read permission on the ad account), apply migration 025, then use Meta Ads → Sync now.`,
+    };
+  }
+  try {
+    const rows = await query<{ f: Date | string | null }>(
+      `select max(finished_at) f from meta_sync_runs where status = 'success'`,
+      [],
+    );
+    return rows[0]?.f
+      ? {
+          status: "connected",
+          needs: "Synced from the Meta Marketing API — see the Meta Ads section.",
+        }
+      : {
+          status: "partial",
+          needs: "Credentials are set; run Meta Ads → Sync now to load spend and insights.",
+        };
+  } catch {
+    return {
+      status: "partial",
+      needs:
+        "Credentials are set; apply migration 025_meta_ads_reporting.sql, then run Meta Ads → Sync now.",
+    };
+  }
+}
+
 export async function getAdvertising(range: AnalyticsRange): Promise<AdvertisingData> {
   const ctx = await makeCtx(range);
   const startDay = cairoDay(range.start);
   const endDay = cairoDay(new Date(range.end.getTime() - 1));
-  const [settings, attribution, expenses] = await Promise.all([
+  const [settings, attribution, expenses, metaConn] = await Promise.all([
     query<{ key: string; value: unknown }>(
       `select key, value from site_settings
        where key in ('meta_pixel_id','meta_pixel_enabled','meta_capi_enabled','ga4_measurement_id','ga4_enabled')`,
@@ -527,6 +561,7 @@ export async function getAdvertising(range: AnalyticsRange): Promise<Advertising
        where category = 'ads' and expense_date >= $1::date and expense_date <= $2::date`,
       [startDay, endDay],
     ),
+    metaAdsConnection(),
   ]);
   const setting = (k: string) => settings.find((s) => s.key === k)?.value;
   const pixelId = asStr(setting("meta_pixel_id"));
@@ -562,9 +597,8 @@ export async function getAdvertising(range: AnalyticsRange): Promise<Advertising
       {
         key: "meta",
         label: "Meta (Facebook / Instagram)",
-        apiStatus: "not_connected",
-        apiNeeds:
-          "Meta Marketing API access token and ad account id — needed for spend, impressions, reach, clicks, CPC, CPM and platform-reported conversions.",
+        apiStatus: metaConn.status,
+        apiNeeds: metaConn.needs,
         tracking: [
           {
             label: "Meta Pixel",

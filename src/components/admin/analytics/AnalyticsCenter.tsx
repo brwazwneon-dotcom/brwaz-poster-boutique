@@ -24,6 +24,7 @@ const FunnelSection = lazy(() => import("./FunnelSection"));
 const CartSection = lazy(() => import("./CartSection"));
 const CampaignsSection = lazy(() => import("./CampaignsSection"));
 const AdvertisingSection = lazy(() => import("./AdvertisingSection"));
+const MetaAdsSection = lazy(() => import("./MetaAdsSection"));
 const CustomDesignSection = lazy(() => import("./CustomDesignSection"));
 const ReportsSection = lazy(() => import("./ReportsSection"));
 
@@ -36,6 +37,7 @@ type SectionId =
   | "cart"
   | "campaigns"
   | "advertising"
+  | "meta-ads"
   | "custom-design"
   | "reports";
 
@@ -48,6 +50,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; usesRange: boolean; usesMo
   { id: "cart", label: "Cart", usesRange: true },
   { id: "campaigns", label: "Campaigns", usesRange: true, usesModel: true },
   { id: "advertising", label: "Advertising", usesRange: true },
+  { id: "meta-ads", label: "Meta Ads", usesRange: true, usesModel: true },
   { id: "custom-design", label: "Custom Design", usesRange: true },
   { id: "reports", label: "Reports", usesRange: false },
 ];
@@ -256,6 +259,7 @@ export function AnalyticsCenter() {
         {section === "cart" && <CartSection input={input} />}
         {section === "campaigns" && <CampaignsSection input={input} model={model} />}
         {section === "advertising" && <AdvertisingSection input={input} />}
+        {section === "meta-ads" && <MetaAdsSection input={input} model={model} />}
         {section === "custom-design" && <CustomDesignSection input={input} />}
         {section === "reports" && <ReportsSection />}
       </Suspense>

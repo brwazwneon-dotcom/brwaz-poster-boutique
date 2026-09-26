@@ -48,10 +48,11 @@ export function AdvertisingSection({ input }: { input: RangeInput }) {
     <div className={loading ? "opacity-70 transition" : "transition"}>
       <p className="mb-3 text-xs text-muted-foreground">{periodLabel(data.period)}</p>
       <Notice>
-        Ad-platform figures (spend, impressions, reach, clicks, CPC, CPM, conversions, cost per
-        order, ROAS) come only from the platforms' own APIs. None is connected, so none is shown or
-        estimated. What <em>is</em> shown below is measured on this website: tracking status, and
-        orders from UTM-tagged paid traffic.
+        Ad-platform figures (spend, impressions, clicks, CPC, CPM, conversions, cost per order,
+        ROAS) come only from the platforms' own APIs; a platform that is not connected shows none
+        and nothing is estimated. Meta spend and per-ad results live in the Meta Ads section. What
+        is shown below is measured on this website: tracking status, and orders from UTM-tagged paid
+        traffic.
       </Notice>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
@@ -59,7 +60,13 @@ export function AdvertisingSection({ input }: { input: RangeInput }) {
           <div key={p.key} className="rounded-sm border border-border p-4">
             <div className="flex items-center justify-between gap-2">
               <h4 className="text-sm font-semibold">{p.label}</h4>
-              <NotConnected>Ads API not connected</NotConnected>
+              {p.apiStatus === "not_connected" ? (
+                <NotConnected>Ads API not connected</NotConnected>
+              ) : (
+                <span className={`text-xs font-medium ${STATUS_CLASS[p.apiStatus]}`}>
+                  Ads API: {STATUS_LABEL[p.apiStatus]}
+                </span>
+              )}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{p.apiNeeds}</p>
 

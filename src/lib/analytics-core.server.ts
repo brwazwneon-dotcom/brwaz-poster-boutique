@@ -571,23 +571,29 @@ export async function attributeCheckouts(
     }
   }
   return checkouts.map((c) => {
-    if (model === "last" && c.utm_source) {
-      const touch: TouchView = {
-        source: normalizeSource(c.utm_source) ?? "other",
-        medium: c.utm_medium?.toLowerCase() ?? null,
-        campaign: c.utm_campaign,
-        content: null,
-        term: null,
-        stamped: true,
-      };
-      return { ...c, touch, via: "order_utm" as const };
-    }
     const at = new Date(c.created_at).getTime();
     const sessions = (c.visitor_id ? byVisitor.get(c.visitor_id) : undefined) ?? [];
     const candidates = sessions
       .filter((s) => new Date(s.started_at).getTime() <= at)
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
     const s = candidates[0];
+    if (model === "last" && c.utm_source) {
+      // The order stores only source / medium / campaign. The ad id (utm_content)
+      // comes from the visitor's own session touch, and only when that touch
+      // carries the SAME campaign, so an unrelated ad is never attached.
+      const sessionTouch = s ? touchOf(s, model) : null;
+      const sameCampaign =
+        !!sessionTouch && !!c.utm_campaign && sessionTouch.campaign === c.utm_campaign;
+      const touch: TouchView = {
+        source: normalizeSource(c.utm_source) ?? "other",
+        medium: c.utm_medium?.toLowerCase() ?? null,
+        campaign: c.utm_campaign,
+        content: sameCampaign ? sessionTouch.content : null,
+        term: sameCampaign ? sessionTouch.term : null,
+        stamped: true,
+      };
+      return { ...c, touch, via: "order_utm" as const };
+    }
     if (!s) return { ...c, touch: null, via: "none" as const };
     return { ...c, touch: touchOf(s, model), via: "session" as const };
   });
