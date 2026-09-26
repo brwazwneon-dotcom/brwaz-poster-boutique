@@ -10,6 +10,7 @@
 // The token never leaves this file and is never logged.
 import { sql } from "@/lib/neon.server";
 import { isProductionRequest } from "@/lib/analytics-host.server";
+import { sanitizeOrderAttribution } from "@/lib/order-attribution";
 import {
   cleanFbc,
   cleanFbclid,
@@ -267,8 +268,12 @@ export async function buildAdTracking(
   raw: Record<string, unknown> | undefined,
   purchaseRef: string | undefined,
   facts?: { ip?: string; ua?: string },
-): Promise<Record<string, string>> {
-  const out: Record<string, string> = { ...sanitizeTracking(raw) };
+): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = { ...sanitizeTracking(raw) };
+  // The attribution state at order time (first/last touch, Meta ids from the ad
+  // link, click id): allow-listed, and stamped with the SERVER's clock.
+  const attribution = sanitizeOrderAttribution(raw?.attribution);
+  if (attribution) out.attribution = attribution;
   const ctx = facts ?? (await getRequestContext());
   if (ctx.ip) out.ip = ctx.ip;
   if (ctx.ua) out.ua = ctx.ua.slice(0, 1024);

@@ -347,6 +347,28 @@ function readCookie(name: string): string | undefined {
   }
 }
 
+/**
+ * The visitor's attribution at this moment, for the order being placed: first
+ * touch, last touch and the Meta click id, read from the SAME store as
+ * everything else (no second attribution system). Contains nothing personal.
+ * The server allow-lists it again (order-attribution.ts) and stamps its own time.
+ */
+export function getOrderAttributionSnapshot(now = Date.now()): {
+  v: 1;
+  first: Touch | null;
+  last: Touch | null;
+  fbclid?: string;
+} {
+  if (typeof window === "undefined") return { v: 1, first: null, last: null };
+  const stored = readStored(now);
+  return {
+    v: 1,
+    first: toTouch(stored.first),
+    last: toTouch(stored.last),
+    ...(stored.clickIds?.fbclid ? { fbclid: stored.clickIds.fbclid } : {}),
+  };
+}
+
 export type MetaIdentifiers = { fbp?: string; fbc?: string };
 
 /**

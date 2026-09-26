@@ -140,3 +140,36 @@ describe("no second attribution system", () => {
     expect(read("lib/meta-ads-report.core.ts")).not.toMatch(/from "@\/lib\/neon\.server"|fetch\(/);
   });
 });
+
+describe("order attribution snapshot", () => {
+  it("the browser builds it from the ONE attribution store and sends it with the order", () => {
+    const cart = read("routes/cart.tsx");
+    expect(cart).toMatch(/getOrderAttributionSnapshot\(\)/);
+    expect(cart).toMatch(/attribution,\s*\n?\s*\};?/);
+    expect(read("lib/attribution.ts")).toMatch(/export function getOrderAttributionSnapshot/);
+    expect(read("lib/order-attribution.ts")).not.toMatch(/localStorage|document\.cookie|window\./);
+  });
+
+  it("it is stored only from the deferred tracking task — the order response never waits on it", () => {
+    const orders = read("lib/db-orders.functions.ts");
+    expect(orders).not.toMatch(/buildAdTracking|sanitizeOrderAttribution|ad_tracking/);
+    const tracking = read("lib/order-tracking.server.ts");
+    expect(tracking.indexOf("afterResponse(")).toBeLessThan(tracking.indexOf("buildAdTracking("));
+  });
+
+  it("the server never trusts the browser's clock or unknown keys", () => {
+    const shared = read("lib/order-attribution.ts");
+    expect(shared).toMatch(/recorded_at: now\.toISOString\(\)/);
+    expect(read("lib/meta-capi.server.ts")).toMatch(
+      /sanitizeOrderAttribution\(raw\?\.attribution\)/,
+    );
+  });
+
+  it("the Purchase sent to Meta does not change: it still reads only the identifiers", () => {
+    const capi = read("lib/meta-capi.server.ts");
+    expect(capi).toMatch(/const t = sanitizeTracking\(args\.tracking\)/);
+    expect(capi.slice(capi.indexOf("export async function sendPurchaseToMeta"))).not.toMatch(
+      /attribution/,
+    );
+  });
+});

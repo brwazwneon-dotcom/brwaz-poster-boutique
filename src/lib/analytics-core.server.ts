@@ -1,6 +1,7 @@
 import { sql } from "@/lib/neon.server";
 import { productionHostList } from "@/lib/analytics-host.server";
 import { hostOf, normalizeSource } from "@/lib/attribution";
+import { readStoredAttribution } from "@/lib/order-attribution";
 import { storeOffsetMs, type AnalyticsRange } from "@/lib/store-time";
 import type {
   CampaignRow,
@@ -506,18 +507,34 @@ export type CheckoutRow = {
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  /**
+   * orders.ad_tracking -> "attribution": the visitor's first/last touch frozen at
+   * the moment the order was placed (see order-attribution.ts). Null for orders
+   * placed before the snapshot existed — those fall back to the session join.
+   */
+  snapshot?: unknown;
 };
 
 export async function loadCheckouts(ctx: Ctx): Promise<CheckoutRow[]> {
-  return (await query(
-    `select ${CHECKOUT_KEY} k, min(order_number) order_number, sum(quantity)::int items,
+  const select = (snapshot: string) => `
+    select ${CHECKOUT_KEY} k, min(order_number) order_number, sum(quantity)::int items,
             min(payment_method) payment_method, min(guest_session_id) visitor_id, min(created_at) created_at,
             sum(total_price)::numeric revenue, min(status) status,
-            min(utm_source) utm_source, min(utm_medium) utm_medium, min(utm_campaign) utm_campaign
+            min(utm_source) utm_source, min(utm_medium) utm_medium, min(utm_campaign) utm_campaign${snapshot}
      from orders where is_test = false and created_at >= $1::timestamptz and created_at < $2::timestamptz
-     group by 1`,
-    [ctx.start, ctx.end],
-  )) as CheckoutRow[];
+     group by 1`;
+  try {
+    return (await query(
+      select(
+        `, (array_agg(ad_tracking -> 'attribution') filter (where ad_tracking ? 'attribution'))[1] snapshot`,
+      ),
+      [ctx.start, ctx.end],
+    )) as CheckoutRow[];
+  } catch (e) {
+    // Migration 023 (orders.ad_tracking) not applied: the reports keep working without snapshots.
+    if ((e as { code?: string }).code !== "42703") throw e;
+    return (await query(select(""), [ctx.start, ctx.end])) as CheckoutRow[];
+  }
 }
 
 export type AttributedCheckout = CheckoutRow & {
@@ -577,6 +594,20 @@ export async function attributeCheckouts(
       .filter((s) => new Date(s.started_at).getTime() <= at)
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
     const s = candidates[0];
+    // 1. The snapshot frozen at order time (either touch model). Nothing is re-derived.
+    const snap = readStoredAttribution(c.snapshot);
+    const snapTouch = snap ? (model === "first" ? snap.first : snap.last) : null;
+    if (snapTouch) {
+      const touch: TouchView = {
+        source: normalizeSource(snapTouch.source) ?? "other",
+        medium: snapTouch.medium,
+        campaign: snapTouch.campaign,
+        content: snapTouch.content,
+        term: snapTouch.term,
+        stamped: true,
+      };
+      return { ...c, touch, via: "order_utm" as const };
+    }
     if (model === "last" && c.utm_source) {
       // The order stores only source / medium / campaign. The ad id (utm_content)
       // comes from the visitor's own session touch, and only when that touch

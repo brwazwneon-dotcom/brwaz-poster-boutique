@@ -126,3 +126,34 @@ with the per-order Purchase suppressed.
   past its listed expiry and auto-upgraded. It works today; bumping it is a separate, tested change.
 - Live Marketing API calls were NOT exercised: no `ads_read` token exists yet. Tests use
   scripted responses and a rolled-back real-Postgres transaction.
+
+## 12. Order-time attribution snapshot (added after the first reconciliation)
+
+Ad → click (`fbclid` in the URL) → browser store (`brw-attribution-v1`: first/last touch + click id) →
+checkout → `orderTracking.attribution` → `orders.ad_tracking -> attribution` (deferred, best-effort,
+same task as the existing ad_tracking write) → reports.
+
+Stored shape: `{ v:1, recorded_at (SERVER clock), first{source,medium,campaign,content,term,meta_campaign_id?,meta_ad_id?}, last{…}, fbclid?, ids_source:"utm" }`.
+
+- No migration: `ad_tracking` is jsonb. Nothing personal is stored in the snapshot.
+- `meta_campaign_id` / `meta_ad_id` exist only for Facebook/Instagram touches whose campaign / content
+  are all digits (Meta's ids in the ad link). The ad set is not in the link and is resolved from the
+  synced ad record. No id is ever guessed.
+- The Purchase sent to Meta is unchanged (it still reads only fbp / fbc / fbclid / url).
+- Reports prefer the snapshot (either touch model); orders without one fall back to `utm_*` and then
+  the visitor's session, exactly as before. Historical orders are NOT rewritten.
+- Limitation: it is written after the response; if that task dies the order simply has no snapshot.
+
+## 13. Which data powers which metric
+
+| Metric | Source |
+|---|---|
+| Spend, impressions, clicks, CTR, CPC, CPM | Meta Marketing API (synced to Neon) — CTR = clicks / impressions × 100, CPC = spend / clicks, CPM = spend / impressions × 1000 (recomputed from summed totals, never averaged) |
+| Visits, add to cart, checkout | website sessions, credited by the chosen touch model (first / last touch stamped on visits) |
+| Orders, revenue | website orders (not test). "Net" excludes cancelled/returned; "confirmed" = confirmed/shipped/delivered; "delivered" = delivered |
+| Order → campaign / ad | snapshot on the order (new orders) → `orders.utm_*` → visitor session |
+| CPA | spend / net orders credited to the campaign or ad (placed orders, not delivered) |
+| ROAS | net revenue credited to the campaign or ad / spend (placed-order revenue; labelled as such) |
+| "Meta purchases" | Meta's own count, shown beside and never mixed in |
+
+`fbclid` → `fbc`, and `fbp`, feed Meta's matching (Pixel/CAPI); they do not decide dashboard attribution.

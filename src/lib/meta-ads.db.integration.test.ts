@@ -259,3 +259,73 @@ describe.skipIf(!enabled)("Meta Ads sync + report on real Postgres (rolled back)
       expect(Object.keys(r).join(",")).not.toMatch(/phone|name|address|email/);
   }, 90_000);
 });
+
+describe.skipIf(!enabled)("order-time attribution snapshot on real Postgres (rolled back)", () => {
+  let pool: Pool;
+  let client: PoolClient;
+
+  beforeAll(async () => {
+    const raw = fs.readFileSync(".env.local", "utf8");
+    for (const line of raw.split("\n")) {
+      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+      if (m) process.env[m[1]] = m[2].replace(/^"(.*)"$/, "$1");
+    }
+    const wsModule = "ws";
+    neonConfig.webSocketConstructor = (
+      (await import(/* @vite-ignore */ wsModule)) as { default: never }
+    ).default;
+    pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
+    client = await pool.connect();
+    await client.query("BEGIN");
+    tx.client = client;
+  }, 60_000);
+
+  afterAll(async () => {
+    try {
+      await client?.query("ROLLBACK");
+    } finally {
+      client?.release();
+      await pool?.end();
+    }
+  }, 60_000);
+
+  it("loadCheckouts reads orders.ad_tracking -> attribution, and attributes from it", async () => {
+    const { loadCheckouts, attributeCheckouts, makeCtx } = await import("./analytics-core.server");
+    const { resolveAnalyticsRange } = await import("./store-time");
+    const { sanitizeOrderAttribution } = await import("./order-attribution");
+    const snap = sanitizeOrderAttribution({
+      first: { source: "ig", medium: "paid", campaign: CAMP, content: AD, term: null },
+      last: { source: "instagram", medium: "paid", campaign: CAMP, content: AD, term: null },
+    });
+    // A test order that exists only inside this rolled-back transaction.
+    await client.query("SAVEPOINT s");
+    let inserted = true;
+    try {
+      await client.query(
+        `insert into orders (customer_name, phone, governorate, address, frame_type, frame_color, size,
+                             quantity, total_price, is_test, status, guest_session_id, ad_tracking)
+         values ('QA', '01000000000', 'Cairo', 'QA', 'wood', 'black', '30x40', 1, 1000, false, 'confirmed',
+                 $1, $2::jsonb)`,
+        [`qa-snap-${RUN}`, JSON.stringify({ fbp: "fb.1.1.1", attribution: snap })],
+      );
+    } catch {
+      // The price guard may reject a hand-made row; then only the SQL itself is proven.
+      inserted = false;
+      await client.query("ROLLBACK TO SAVEPOINT s");
+    }
+    const ctx = await makeCtx(resolveAnalyticsRange("7d"));
+    const rows = await loadCheckouts(ctx); // must run on the live schema either way
+    expect(Array.isArray(rows)).toBe(true);
+    if (inserted) {
+      const mine = rows.find((r) => r.visitor_id === `qa-snap-${RUN}`)!;
+      expect(mine.snapshot).toBeTruthy();
+      const [first, last] = await Promise.all([
+        attributeCheckouts(ctx, [mine], "first"),
+        attributeCheckouts(ctx, [mine], "last"),
+      ]);
+      expect(first[0].touch).toMatchObject({ source: "instagram", campaign: CAMP, content: AD });
+      expect(last[0].touch).toMatchObject({ source: "instagram", campaign: CAMP, content: AD });
+    }
+    console.info(`snapshot test order inserted in rolled-back tx: ${inserted}`);
+  }, 60_000);
+});

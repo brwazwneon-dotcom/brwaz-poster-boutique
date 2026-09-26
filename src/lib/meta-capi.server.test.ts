@@ -481,6 +481,58 @@ describe("secrets and customer data are never logged", () => {
 });
 
 describe("buildAdTracking (stored for the later OrderConfirmed event)", () => {
+  it("stores the attribution state at order time, allow-listed, with the server's clock", async () => {
+    const t = await buildAdTracking(
+      {
+        fbp: "fb.1.1596403881668.1116446470",
+        attribution: {
+          v: 1,
+          first: {
+            source: "ig",
+            medium: "paid",
+            campaign: "52575575055376",
+            content: "52575869248376",
+            term: null,
+          },
+          last: {
+            source: "instagram",
+            medium: "paid",
+            campaign: "52575575055376",
+            content: "52575869248376",
+            term: null,
+          },
+          fbclid: "AbCdEfGh12345678",
+          recorded_at: "1999-01-01T00:00:00Z",
+          phone: "01012345678",
+        },
+      },
+      "BRW-1050",
+    );
+    const a = t.attribution as {
+      recorded_at: string;
+      first: Record<string, unknown>;
+      last: Record<string, unknown>;
+      fbclid?: string;
+    };
+    expect(a.first).toMatchObject({
+      source: "instagram",
+      meta_campaign_id: "52575575055376",
+      meta_ad_id: "52575869248376",
+    });
+    expect(a.last).toMatchObject({
+      source: "instagram",
+      meta_campaign_id: "52575575055376",
+      meta_ad_id: "52575869248376",
+    });
+    expect(a.fbclid).toBe("AbCdEfGh12345678");
+    expect(a.recorded_at.startsWith("1999")).toBe(false); // the browser's clock is never stored
+    expect(JSON.stringify(t)).not.toMatch(/01012345678|phone/);
+    // an order without attribution keeps exactly the old shape
+    expect(
+      await buildAdTracking({ fbp: "fb.1.1596403881668.1116446470" }, "BRW-1051"),
+    ).not.toHaveProperty("attribution");
+  });
+
   it("keeps only valid Meta identifiers, adds server-observed IP / UA and the purchase ref", async () => {
     const t = await buildAdTracking(
       {

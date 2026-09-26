@@ -32,7 +32,7 @@ import {
 import { trackEvent, trackCustom, trackPurchase, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
-import { getMetaIdentifiers, toOrderUtm } from "@/lib/attribution";
+import { getMetaIdentifiers, getOrderAttributionSnapshot, toOrderUtm } from "@/lib/attribution";
 import { metaContentsFromCart, type PurchasePayload } from "@/lib/meta-events";
 import { useTranslation } from "react-i18next";
 
@@ -623,7 +623,17 @@ function CartPage() {
       } = toOrderUtm();
       // Meta browser identifiers for the server-side events of this order.
       const { fbp, fbc } = getMetaIdentifiers();
-      const orderTracking = { fbp, fbc, event_source_url: window.location.href };
+      // The attribution state at the moment of ordering is stored with the order
+      // (orders.ad_tracking.attribution) so revenue reports do not depend on
+      // re-deriving it from sessions later. Best-effort, server-allow-listed.
+      const attribution = getOrderAttributionSnapshot();
+      const orderTracking = {
+        fbp,
+        fbc,
+        event_source_url: window.location.href,
+        ...(attribution.fbclid ? { fbclid: attribution.fbclid } : {}),
+        attribution,
+      };
       // Apply bundle discount pro-rata to each item so DB totals line up
       // exactly with what the customer sees at checkout.
       const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;

@@ -6,6 +6,7 @@ import {
   classifyTouch,
   getAttribution,
   getMetaIdentifiers,
+  getOrderAttributionSnapshot,
   normalizeSource,
   toAttributionFields,
   toOrderUtm,
@@ -329,5 +330,90 @@ describe("toOrderUtm — what the order's utm_* columns get", () => {
     visit({ search: "?utm_source=instagram&utm_medium=paid_social&utm_campaign=c1" });
     visit({ newSession: true, search: "", referrer: "" });
     expect(toOrderUtm().utm_campaign).toBe("c1");
+  });
+});
+
+describe("getOrderAttributionSnapshot — the browser side of the order snapshot", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    _resetAttributionForTests();
+  });
+
+  it("carries first touch, last touch and the click id from the ONE attribution store", () => {
+    window.localStorage.setItem(
+      "brw-attribution-v1",
+      JSON.stringify({
+        first: {
+          source: "instagram",
+          medium: "paid",
+          campaign: "52575575055376",
+          content: "52575869248376",
+          term: null,
+          ts: 1_000_000,
+        },
+        last: {
+          source: "facebook",
+          medium: "paid",
+          campaign: "52575575055376",
+          content: "52575869248376",
+          term: null,
+          ts: 1_000_500,
+        },
+        clickIds: { fbclid: "AbCdEfGh12345678", ts: 1_000_000 },
+      }),
+    );
+    const snap = getOrderAttributionSnapshot(1_001_000);
+    expect(snap).toEqual({
+      v: 1,
+      first: {
+        source: "instagram",
+        medium: "paid",
+        campaign: "52575575055376",
+        content: "52575869248376",
+        term: null,
+      },
+      last: {
+        source: "facebook",
+        medium: "paid",
+        campaign: "52575575055376",
+        content: "52575869248376",
+        term: null,
+      },
+      fbclid: "AbCdEfGh12345678",
+    });
+  });
+
+  it("does not resurrect an expired touch (first 90 days, last 30 days)", () => {
+    const day = 86_400_000;
+    window.localStorage.setItem(
+      "brw-attribution-v1",
+      JSON.stringify({
+        first: {
+          source: "instagram",
+          medium: "paid",
+          campaign: "a",
+          content: null,
+          term: null,
+          ts: 0,
+        },
+        last: {
+          source: "facebook",
+          medium: "paid",
+          campaign: "b",
+          content: null,
+          term: null,
+          ts: 0,
+        },
+      }),
+    );
+    const snap = getOrderAttributionSnapshot(60 * day); // last (30d) expired, first (90d) alive
+    expect(snap.last).toBeNull();
+    expect(snap.first?.campaign).toBe("a");
+  });
+
+  it("is empty (not an error) when nothing was captured, and holds nothing personal", () => {
+    const snap = getOrderAttributionSnapshot();
+    expect(snap).toEqual({ v: 1, first: null, last: null });
+    expect(JSON.stringify(snap)).not.toMatch(/phone|name|address|email/i);
   });
 });
