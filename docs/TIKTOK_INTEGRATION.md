@@ -69,8 +69,12 @@ The admin shows the state in Analytics → Advertising → TikTok (booleans only
 ## 4. Rollout (each step reversible)
 
 1. Deploy the code (nothing changes: Events API off, pixel now also sends standard events).
-2. In TikTok Events Manager, create the Events API token for pixel `D9E35TRC77UDPAPRP140`; add it to Vercel with
-   `TIKTOK_TEST_EVENT_CODE` from the Test Events tab; redeploy.
+2. In TikTok Events Manager, create the Events API token for pixel `D9E35TRC77UDPAPRP140`. **Verify the request
+   shape first, from your own machine, without touching the site:**
+   `TIKTOK_EVENTS_ACCESS_TOKEN=... TIKTOK_TEST_EVENT_CODE=... node scripts/tiktok-test-event.mjs` (add `purchase` to
+   test CompletePayment). It refuses to run without a test code, never prints the token, and prints TikTok's
+   `code`/`message` (0 = accepted; the event then shows in Test Events). Then add the token and
+   `TIKTOK_TEST_EVENT_CODE` to Vercel and redeploy.
 3. Set `tiktok_events_api_enabled = true`. Browse the site: Test Events shows browser + server events, deduped.
 4. Place one real order: `CompletePayment` arrives from browser and server with `purchase_<order number>`.
 5. Remove `TIKTOK_TEST_EVENT_CODE`, redeploy. Live.
@@ -106,3 +110,12 @@ They are independent implementations of the same idea. To avoid two senders:
    `flushTikTokQueue` calls in `__root.tsx` and `click-ids.ts` (this branch's `tiktok-browser.ts` polls the pixel's
    ready flag itself, so `__root.tsx` needs no change). `tiktok-architecture.test.ts` fails if a second
    browser sender appears.
+
+## 8. Verification done in this branch
+
+- 5 tests run the REAL pixel bootstrap text from `__root.tsx` and check that events arrive in the pixel's own
+  queue in order, with the shared `event_id`, and that Purchase arrives as `CompletePayment` with
+  `purchase_<order number>`.
+- Full suite, TypeScript, ESLint, Prettier and the production build pass; the client bundle contains neither the
+  token nor the Events API host.
+- **Not verified:** any live call to TikTok (no token exists) — use the script in section 4 first.
