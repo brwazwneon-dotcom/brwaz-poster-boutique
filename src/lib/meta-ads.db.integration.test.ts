@@ -251,7 +251,9 @@ describe.skipIf(!enabled)("Meta Ads sync + report on real Postgres (rolled back)
     const { resolveAnalyticsRange } = await import("./store-time");
     const covered = await getMetaDashboardTiles(resolveAnalyticsRange("7d"));
     expect(covered.state).toBe("ok");
-    expect(covered.spend).toBeCloseTo(410.25, 2);
+    // Production now holds REAL synced spend as well (migration 025 is live), so the
+    // total is the real spend PLUS this test's rolled-back 410.25 — never less.
+    expect(covered.spend).toBeGreaterThanOrEqual(410.25);
     // a period far before anything was synced is "not covered", never a fake zero
     const old = await getMetaDashboardTiles(
       resolveAnalyticsRange("custom", { from: "2025-01-01", to: "2025-01-31" }),

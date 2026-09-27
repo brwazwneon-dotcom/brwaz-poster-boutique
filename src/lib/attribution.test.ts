@@ -7,6 +7,7 @@ import {
   getAttribution,
   getMetaIdentifiers,
   getOrderAttributionSnapshot,
+  getTikTokIdentifiers,
   normalizeSource,
   toAttributionFields,
   toOrderUtm,
@@ -415,5 +416,77 @@ describe("getOrderAttributionSnapshot — the browser side of the order snapshot
     const snap = getOrderAttributionSnapshot();
     expect(snap).toEqual({ v: 1, first: null, last: null });
     expect(JSON.stringify(snap)).not.toMatch(/phone|name|address|email/i);
+  });
+});
+
+describe("TikTok click id (ttclid) lives in the canonical store", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    _resetAttributionForTests();
+    document.cookie = "_ttp=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("captures ttclid from the landing URL and classifies the visit as TikTok", () => {
+    window.history.replaceState({}, "", "/?ttclid=E.C.P.abcdefgh12&utm_campaign=1234567890123");
+    const snap = captureAttribution(1_000_000);
+    expect(snap.last?.source).toBe("tiktok");
+    expect(getTikTokIdentifiers(1_000_100).ttclid).toBe("E.C.P.abcdefgh12");
+  });
+
+  it("does NOT treat ttclid as a touch: a later visit without it leaves first/last touch alone", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?utm_source=instagram&utm_medium=paid&ttclid=E.C.P.abcdefgh12",
+    );
+    captureAttribution(1_000_000);
+    _resetAttributionForTests();
+    window.sessionStorage.clear();
+    window.history.replaceState({}, "", "/poster/x");
+    captureAttribution(1_000_500);
+    expect(getAttribution(1_000_600).last?.source).toBe("instagram");
+    expect(getTikTokIdentifiers(1_000_600).ttclid).toBe("E.C.P.abcdefgh12");
+  });
+
+  it("rejects a malformed ttclid and keeps the previous good one", () => {
+    window.history.replaceState({}, "", "/?ttclid=E.C.P.abcdefgh12");
+    captureAttribution(1_000_000);
+    window.history.replaceState({}, "", "/?ttclid=%3Cscript%3Ex%3C%2Fscript%3E");
+    captureAttribution(1_000_100);
+    expect(getTikTokIdentifiers(1_000_200).ttclid).toBe("E.C.P.abcdefgh12");
+  });
+
+  it("expires after 30 days (the click window), like the last touch", () => {
+    window.history.replaceState({}, "", "/?ttclid=E.C.P.abcdefgh12");
+    captureAttribution(0);
+    const day = 86_400_000;
+    expect(getTikTokIdentifiers(29 * day).ttclid).toBe("E.C.P.abcdefgh12");
+    expect(getTikTokIdentifiers(31 * day).ttclid).toBeUndefined();
+  });
+
+  it("reads the _ttp cookie the TikTok pixel writes", () => {
+    document.cookie = "_ttp=b6uv1xU3p9zAB5lUBiqX";
+    expect(getTikTokIdentifiers().ttp).toBe("b6uv1xU3p9zAB5lUBiqX");
+  });
+
+  it("the order snapshot carries the ttclid (and holds nothing personal)", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?ttclid=E.C.P.abcdefgh12&utm_source=tiktok&utm_medium=paid",
+    );
+    captureAttribution(1_000_000);
+    const snap = getOrderAttributionSnapshot(1_000_100);
+    expect(snap.ttclid).toBe("E.C.P.abcdefgh12");
+    expect(JSON.stringify(snap)).not.toMatch(/phone|email|address/i);
+  });
+
+  it("does not disturb the Meta click id", () => {
+    window.history.replaceState({}, "", "/?fbclid=AbCdEf123456&ttclid=E.C.P.abcdefgh12");
+    captureAttribution(1_000_000);
+    expect(getMetaIdentifiers(1_000_100).fbc).toMatch(/AbCdEf123456$/);
+    expect(getTikTokIdentifiers(1_000_100).ttclid).toBe("E.C.P.abcdefgh12");
   });
 });

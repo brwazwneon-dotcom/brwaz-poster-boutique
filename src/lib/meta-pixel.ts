@@ -11,6 +11,7 @@ import { isPreviewMode } from "./preview-mode";
 import { getAudienceAttribution } from "./landing-pages";
 import { emitAnalyticsEvent, dispatchInternalOnly } from "./analytics-events";
 import { getMetaIdentifiers } from "./attribution";
+import { trackTikTok } from "./tiktok-browser";
 import { visitorId } from "./analytics";
 import { clientTrackingAllowed } from "./analytics-env";
 import {
@@ -182,6 +183,18 @@ export function trackEvent(
 
   // Internal analytics (Neon) — only events with no existing internal writer.
   emitAnalyticsEvent(name, params);
+
+  // 0) TikTok: the pixel event and, when its Events API is on, the same event
+  // relayed server-side with the SAME event_id. Independent of the Meta toggles.
+  // PageView is booted by TikTokPixelBoot; Purchase is server-only for the relay.
+  if (name !== "PageView") {
+    trackTikTok(name, params, event_id, {
+      relay: cfg.tiktokEventsEnabled === true,
+      userData: cfg.tiktokAdvancedMatchingEnabled
+        ? { email: mergedUser.email, phone: mergedUser.phone }
+        : undefined,
+    });
+  }
 
   // 1) Browser pixel (with eventID for dedup).
   if (cfg.pixelEnabled && typeof window !== "undefined") {

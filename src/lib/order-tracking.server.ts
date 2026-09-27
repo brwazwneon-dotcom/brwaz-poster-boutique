@@ -88,6 +88,35 @@ export function buildPhotoPurchase(args: {
   });
 }
 
+/**
+ * Sends the server-side TikTok CompletePayment (same order, same deterministic
+ * event id as the browser pixel). Independent of the Meta send: a failure or
+ * timeout in one never affects the other, and neither can affect the order.
+ */
+export async function sendTikTokPurchaseSafely(
+  args: {
+    purchase: PurchasePayload;
+    tracking?: Record<string, unknown>;
+    guestSessionId?: string | null;
+    phone?: string;
+    facts?: { ctx: { ip?: string; ua?: string }; production: boolean };
+  },
+  opts: { retries?: number; timeoutMs?: number } = {},
+): Promise<void> {
+  try {
+    const { sendTikTokPurchase } = await import("@/lib/tiktok-events.server");
+    const r = await sendTikTokPurchase(args, opts);
+    // Reasons only — never the payload, the token or customer data.
+    if (
+      !r.ok ||
+      (r.skipped && r.reason !== "events_api_disabled" && r.reason !== "non_production_host")
+    )
+      console.warn("TikTok CompletePayment not sent:", r.reason ?? r.error ?? r.status);
+  } catch (err) {
+    console.warn("TikTok CompletePayment failed:", err instanceof Error ? err.message : "unknown");
+  }
+}
+
 /** Sends the server-side Purchase; never throws, time-boxed (see meta-capi.server.ts). */
 export async function sendPurchaseSafely(
   args: {
@@ -159,6 +188,18 @@ export async function trackNewOrders(args: {
                 guestSessionId: args.guestSessionId,
                 phone: args.phone,
                 city: args.city,
+                facts,
+              },
+              deferred ? { retries: 1, timeoutMs: 3_000 } : { retries: 0, timeoutMs: 2_500 },
+            )
+          : Promise.resolve(),
+        args.purchase
+          ? sendTikTokPurchaseSafely(
+              {
+                purchase: args.purchase,
+                tracking: args.tracking,
+                guestSessionId: args.guestSessionId,
+                phone: args.phone,
                 facts,
               },
               deferred ? { retries: 1, timeoutMs: 3_000 } : { retries: 0, timeoutMs: 2_500 },

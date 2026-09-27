@@ -65,7 +65,7 @@ import {
 import { getSiteSettingsPublic } from "@/lib/db-public.functions";
 import { CustomerReviews } from "@/components/CustomerReviews";
 import { trackCustom, trackPurchase } from "@/lib/meta-pixel";
-import { getMetaIdentifiers } from "@/lib/attribution";
+import { getMetaIdentifiers, getTikTokIdentifiers } from "@/lib/attribution";
 import { isTestMode } from "@/lib/test-mode";
 
 const BASE_URL = "https://brwazwneon.com";
@@ -699,7 +699,11 @@ function PhotoPrintingPage() {
           selected_albums: selectedAlbums,
           payment_method: paymentMethod,
           test_mode: isTestMode(),
-          tracking: { ...getMetaIdentifiers(), event_source_url: window.location.href },
+          tracking: {
+            ...getMetaIdentifiers(),
+            ...getTikTokIdentifiers(),
+            event_source_url: window.location.href,
+          },
         },
       });
       const orderNumber = result.order.order_number;

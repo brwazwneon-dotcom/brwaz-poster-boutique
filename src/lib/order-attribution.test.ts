@@ -187,3 +187,38 @@ describe("readStoredAttribution (what the database gives back)", () => {
     expect(JSON.stringify(r)).not.toContain("extra");
   });
 });
+
+describe("the TikTok click id in the order snapshot", () => {
+  const NOW2 = new Date("2026-09-27T10:00:00.000Z");
+  const t = { source: "tiktok", medium: "paid", campaign: "123", content: null, term: null };
+
+  it("keeps a well-formed ttclid beside the touches", () => {
+    const out = sanitizeOrderAttribution({ first: t, last: t, ttclid: "E.C.P.abcdefgh12" }, NOW2)!;
+    expect(out.ttclid).toBe("E.C.P.abcdefgh12");
+    expect(readStoredAttribution(JSON.parse(JSON.stringify(out)))!.ttclid).toBe("E.C.P.abcdefgh12");
+  });
+
+  it("drops a malformed one and never derives Meta ids for a TikTok touch", () => {
+    const out = sanitizeOrderAttribution(
+      {
+        first: { ...t, campaign: "52575575055376", content: "52575869248376" },
+        last: null,
+        ttclid: "bad id!",
+      },
+      NOW2,
+    )!;
+    expect(out).not.toHaveProperty("ttclid");
+    expect(out.first).not.toHaveProperty("meta_campaign_id");
+    expect(out.first).not.toHaveProperty("meta_ad_id");
+  });
+
+  it("a snapshot without a ttclid keeps exactly the old shape", () => {
+    expect(Object.keys(sanitizeOrderAttribution({ first: t, last: null }, NOW2)!).sort()).toEqual([
+      "first",
+      "ids_source",
+      "last",
+      "recorded_at",
+      "v",
+    ]);
+  });
+});

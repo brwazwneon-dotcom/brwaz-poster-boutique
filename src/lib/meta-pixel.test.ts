@@ -5,9 +5,11 @@ const env = vi.hoisted(() => ({ allowed: true, preview: false }));
 const relay = vi.hoisted(() => ({ sendCapiEvent: vi.fn() }));
 const ga = vi.hoisted(() => ({ gaEvent: vi.fn() }));
 const internal = vi.hoisted(() => ({ emitAnalyticsEvent: vi.fn() }));
+const tt = vi.hoisted(() => ({ trackTikTok: vi.fn() }));
 
 vi.mock("./meta-capi.functions", () => relay);
 vi.mock("./ga4", () => ga);
+vi.mock("./tiktok-browser", () => tt);
 vi.mock("./preview-mode", () => ({ isPreviewMode: () => env.preview }));
 vi.mock("./landing-pages", () => ({ getAudienceAttribution: () => null }));
 vi.mock("./analytics", () => ({ visitorId: () => "visitor-1", sessionId: () => "session-1" }));
@@ -54,6 +56,7 @@ beforeEach(() => {
   relay.sendCapiEvent.mockResolvedValue({ ok: true });
   ga.gaEvent.mockReset();
   internal.emitAnalyticsEvent.mockReset();
+  tt.trackTikTok.mockReset();
   document.head.innerHTML = "<script></script>";
   document.cookie = "_fbp=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   window.localStorage.clear();
@@ -316,5 +319,77 @@ describe("Purchase (browser side)", () => {
     m.trackPurchase(purchase);
     const ids = trackCalls().map((c) => c[3].eventID);
     expect(ids).toEqual(["purchase_BRW-1018", "purchase_BRW-1018"]);
+  });
+});
+
+describe("TikTok fan-out (one hook, same event_id)", () => {
+  it("passes every mapped storefront event to the TikTok layer with the SAME id the Meta pixel got", async () => {
+    const m = await load();
+    m.setMarketingConfig(cfg({ tiktokEventsEnabled: true }));
+    armFbq();
+    m.trackEvent("AddToCart", { content_ids: [P1], value: 230 });
+    const fbId = trackCalls()[0][3].eventID;
+    expect(tt.trackTikTok).toHaveBeenCalledTimes(1);
+    const [name, params, id, opts] = tt.trackTikTok.mock.calls[0];
+    expect(name).toBe("AddToCart");
+    expect(params).toMatchObject({ content_ids: [P1], value: 230 });
+    expect(id).toBe(fbId);
+    expect(opts).toMatchObject({ relay: true });
+  });
+
+  it("relays only when the Events API setting is on", async () => {
+    const m = await load();
+    m.setMarketingConfig(cfg());
+    armFbq();
+    m.trackEvent("ViewContent", { content_ids: [P1] });
+    expect(tt.trackTikTok.mock.calls[0][3]).toMatchObject({ relay: false });
+  });
+
+  it("PageView is left to the base TikTok pixel", async () => {
+    const m = await load();
+    m.setMarketingConfig(cfg());
+    armFbq();
+    m.trackEvent("PageView");
+    expect(tt.trackTikTok).not.toHaveBeenCalled();
+  });
+
+  it("works even when the Meta pixel is switched off (independent toggles)", async () => {
+    const m = await load();
+    m.setMarketingConfig(cfg({ pixelEnabled: false }));
+    m.trackEvent("InitiateCheckout", { value: 100 });
+    expect(tt.trackTikTok).toHaveBeenCalledTimes(1);
+  });
+
+  it("a non-production host or the admin preview sends nothing to TikTok either", async () => {
+    env.allowed = false;
+    const m = await load();
+    m.setMarketingConfig(cfg());
+    m.trackEvent("AddToCart", { value: 1 });
+    env.allowed = true;
+    env.preview = true;
+    m.trackEvent("AddToCart", { value: 1 });
+    expect(tt.trackTikTok).not.toHaveBeenCalled();
+  });
+
+  it("customer data is offered to TikTok only when its own Advanced Matching is on", async () => {
+    const m = await load();
+    m.setUserData({ email: "a@b.c", phone: "0101" });
+    m.setMarketingConfig(cfg());
+    m.trackEvent("Lead", {});
+    expect(tt.trackTikTok.mock.calls[0][3].userData).toBeUndefined();
+    m.setMarketingConfig(cfg({ tiktokAdvancedMatchingEnabled: true }));
+    m.trackEvent("Lead", {});
+    expect(tt.trackTikTok.mock.calls[1][3].userData).toEqual({ email: "a@b.c", phone: "0101" });
+  });
+
+  it("the browser Purchase reaches TikTok with the deterministic id (and is never relayed by the TikTok layer)", async () => {
+    const m = await load();
+    m.setMarketingConfig(cfg({ tiktokEventsEnabled: true }));
+    armFbq();
+    m.trackEvent("Purchase", { value: 1000, order_id: "BRW-1049" }, undefined, {
+      eventId: "purchase_BRW-1049",
+    });
+    expect(tt.trackTikTok.mock.calls[0][0]).toBe("Purchase");
+    expect(tt.trackTikTok.mock.calls[0][2]).toBe("purchase_BRW-1049");
   });
 });

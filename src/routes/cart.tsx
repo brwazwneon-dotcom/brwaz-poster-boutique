@@ -32,7 +32,12 @@ import {
 import { trackEvent, trackCustom, trackPurchase, setUserData } from "@/lib/meta-pixel";
 import { isTestMode } from "@/lib/test-mode";
 import { visitorId } from "@/lib/analytics";
-import { getMetaIdentifiers, getOrderAttributionSnapshot, toOrderUtm } from "@/lib/attribution";
+import {
+  getMetaIdentifiers,
+  getOrderAttributionSnapshot,
+  getTikTokIdentifiers,
+  toOrderUtm,
+} from "@/lib/attribution";
 import { metaContentsFromCart, type PurchasePayload } from "@/lib/meta-events";
 import { useTranslation } from "react-i18next";
 
@@ -632,6 +637,8 @@ function CartPage() {
         fbc,
         event_source_url: window.location.href,
         ...(attribution.fbclid ? { fbclid: attribution.fbclid } : {}),
+        // TikTok's click id and _ttp cookie: the match keys for the server CompletePayment.
+        ...getTikTokIdentifiers(),
         attribution,
       };
       // Apply bundle discount pro-rata to each item so DB totals line up

@@ -181,6 +181,10 @@ type Stored = {
   first?: StoredTouch;
   last?: StoredTouch;
   clickIds?: { fbclid: string; ts: number };
+  // TikTok's click id, kept in the same record (one store, one expiry policy).
+  // Like fbclid it is not a "touch": it never moves first/last touch, it only
+  // feeds the TikTok Events API match key.
+  ttclid?: { id: string; ts: number };
 };
 
 export type AttributionSnapshot = { first: Touch | null; last: Touch | null };
@@ -209,6 +213,7 @@ function readStored(now: number): Stored {
     if (s.last && now - s.last.ts > LAST_TTL_MS) delete s.last;
     // Same window Meta uses for the _fbc cookie.
     if (s.clickIds && now - s.clickIds.ts > FIRST_TTL_MS) delete s.clickIds;
+    if (s.ttclid && now - s.ttclid.ts > LAST_TTL_MS) delete s.ttclid;
     return s;
   } catch {
     return {};
@@ -247,6 +252,17 @@ export function captureAttribution(now = Date.now()): AttributionSnapshot {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
       } catch {
         /* storage blocked — fbc is then only available from the _fbc cookie */
+      }
+    }
+
+    // A fresh TikTok click id is remembered the same way.
+    const ttclid = new URLSearchParams(search).get("ttclid")?.trim().slice(0, 300);
+    if (ttclid && /^[A-Za-z0-9._-]{8,300}$/.test(ttclid) && ttclid !== stored.ttclid?.id) {
+      stored.ttclid = { id: ttclid, ts: now };
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      } catch {
+        /* storage blocked — the TikTok match key is then simply absent */
       }
     }
 
@@ -358,6 +374,7 @@ export function getOrderAttributionSnapshot(now = Date.now()): {
   first: Touch | null;
   last: Touch | null;
   fbclid?: string;
+  ttclid?: string;
 } {
   if (typeof window === "undefined") return { v: 1, first: null, last: null };
   const stored = readStored(now);
@@ -366,7 +383,19 @@ export function getOrderAttributionSnapshot(now = Date.now()): {
     first: toTouch(stored.first),
     last: toTouch(stored.last),
     ...(stored.clickIds?.fbclid ? { fbclid: stored.clickIds.fbclid } : {}),
+    ...(stored.ttclid?.id ? { ttclid: stored.ttclid.id } : {}),
   };
+}
+
+export type TikTokIdentifiers = { ttclid?: string; ttp?: string };
+
+/**
+ * TikTok's browser identifiers for the Events API: the click id remembered from
+ * the landing URL and the `_ttp` cookie the TikTok pixel writes itself.
+ */
+export function getTikTokIdentifiers(now = Date.now()): TikTokIdentifiers {
+  if (typeof window === "undefined") return {};
+  return { ttclid: readStored(now).ttclid?.id, ttp: readCookie("_ttp") };
 }
 
 export type MetaIdentifiers = { fbp?: string; fbc?: string };

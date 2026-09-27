@@ -6,6 +6,10 @@ export type MarketingConfig = {
   pixelEnabled: boolean;
   capiEnabled: boolean;
   advancedMatchingEnabled: boolean;
+  /** TikTok Events API (server side) is on — the browser then relays events to it. */
+  tiktokEventsEnabled?: boolean;
+  /** Owner opted in to sending hashed customer data to TikTok. */
+  tiktokAdvancedMatchingEnabled?: boolean;
   ga4MeasurementId: string;
   ga4Enabled: boolean;
   /** False until the settings request has settled (success or error). Events
@@ -28,6 +32,8 @@ const KEYS = [
   "meta_pixel_enabled",
   "meta_capi_enabled",
   "meta_advanced_matching_enabled",
+  "tiktok_events_api_enabled",
+  "tiktok_advanced_matching_enabled",
   "ga4_measurement_id",
   "ga4_enabled",
 ];
@@ -48,6 +54,8 @@ export function useMarketingConfig(): MarketingConfig {
         pixelEnabled: bool("meta_pixel_enabled") && /^\d{6,20}$/.test(pixelId),
         capiEnabled: bool("meta_capi_enabled"),
         advancedMatchingEnabled: bool("meta_advanced_matching_enabled"),
+        tiktokEventsEnabled: bool("tiktok_events_api_enabled"),
+        tiktokAdvancedMatchingEnabled: bool("tiktok_advanced_matching_enabled"),
         ga4MeasurementId: ga4Id,
         ga4Enabled: bool("ga4_enabled") && /^G-[A-Z0-9]{6,}$/.test(ga4Id),
       };

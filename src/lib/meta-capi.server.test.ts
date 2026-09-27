@@ -539,7 +539,8 @@ describe("buildAdTracking (stored for the later OrderConfirmed event)", () => {
         fbp: "fb.1.1596403881668.1116446470",
         fbc: "not valid",
         fbclid: "AbCdEf123456",
-        ttclid: "tiktok-should-be-ignored",
+        ttclid: "E.C.P.AbCdEf123456",
+        ttp: "not a valid ttp!",
         event_source_url: "http://localhost:8080/cart",
         evil: "x",
       },
@@ -548,6 +549,8 @@ describe("buildAdTracking (stored for the later OrderConfirmed event)", () => {
     expect(t).toEqual({
       fbp: "fb.1.1596403881668.1116446470",
       fbclid: "AbCdEf123456",
+      // TikTok's click id is now kept (the Events API match key); a malformed _ttp is dropped.
+      ttclid: "E.C.P.AbCdEf123456",
       ip: "41.65.10.20",
       ua: "TestBrowser/1.0",
       purchase_ref: "BRW-1018",

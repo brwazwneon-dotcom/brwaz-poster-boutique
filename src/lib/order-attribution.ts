@@ -17,6 +17,7 @@
 // `ids_source: "utm"`. The ad set id is not in the link and is left out; it is
 // resolved later from the synced Meta ad record.
 import { normalizeSource } from "@/lib/attribution";
+import { cleanTtclid } from "@/lib/tiktok-events";
 
 export const ORDER_ATTRIBUTION_VERSION = 1;
 
@@ -34,6 +35,7 @@ export type OrderAttributionInput = {
   first: TouchSnapshot | null;
   last: TouchSnapshot | null;
   fbclid?: string;
+  ttclid?: string;
 };
 
 export type StoredTouch = TouchSnapshot & {
@@ -48,6 +50,7 @@ export type StoredOrderAttribution = {
   first: StoredTouch | null;
   last: StoredTouch | null;
   fbclid?: string;
+  ttclid?: string;
   ids_source: "utm";
 };
 
@@ -103,12 +106,14 @@ export function sanitizeOrderAttribution(
   const last = withMetaIds(cleanTouch(r.last));
   if (!first && !last) return undefined;
   const fbclid = typeof r.fbclid === "string" && FBCLID.test(r.fbclid) ? r.fbclid : undefined;
+  const ttclid = cleanTtclid(r.ttclid);
   return {
     v: ORDER_ATTRIBUTION_VERSION,
     recorded_at: now.toISOString(),
     first,
     last,
     ...(fbclid ? { fbclid } : {}),
+    ...(ttclid ? { ttclid } : {}),
     ids_source: "utm",
   };
 }
@@ -134,6 +139,7 @@ export function readStoredAttribution(raw: unknown): StoredOrderAttribution | nu
     first,
     last,
     ...(typeof r.fbclid === "string" && FBCLID.test(r.fbclid) ? { fbclid: r.fbclid } : {}),
+    ...(cleanTtclid(r.ttclid) ? { ttclid: cleanTtclid(r.ttclid) } : {}),
     ids_source: "utm",
   };
 }

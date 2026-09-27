@@ -13,6 +13,7 @@ import {
 } from "@/lib/analytics-core.server";
 import type { AnalyticsRange } from "@/lib/store-time";
 import { readMarketingConfig } from "@/lib/meta-marketing.server";
+import { getTikTokEventsStatus } from "@/lib/tiktok-events.server";
 import type {
   AdvertisingData,
   CartData,
@@ -549,7 +550,7 @@ export async function getAdvertising(range: AnalyticsRange): Promise<Advertising
   const ctx = await makeCtx(range);
   const startDay = cairoDay(range.start);
   const endDay = cairoDay(new Date(range.end.getTime() - 1));
-  const [settings, attribution, expenses, metaConn] = await Promise.all([
+  const [settings, attribution, expenses, metaConn, tiktokApi] = await Promise.all([
     query<{ key: string; value: unknown }>(
       `select key, value from site_settings
        where key in ('meta_pixel_id','meta_pixel_enabled','meta_capi_enabled','ga4_measurement_id','ga4_enabled')`,
@@ -562,6 +563,8 @@ export async function getAdvertising(range: AnalyticsRange): Promise<Advertising
       [startDay, endDay],
     ),
     metaAdsConnection(),
+    // Booleans only; a failure here must never break the Advertising report.
+    getTikTokEventsStatus().catch(() => null),
   ]);
   const setting = (k: string) => settings.find((s) => s.key === k)?.value;
   const pixelId = asStr(setting("meta_pixel_id"));
@@ -630,6 +633,27 @@ export async function getAdvertising(range: AnalyticsRange): Promise<Advertising
             label: "TikTok Pixel",
             status: "connected",
             detail: "Installed site-wide (pixel ID is set in the site code)",
+          },
+          {
+            label: "TikTok Events API",
+            status: !tiktokApi
+              ? "not_connected"
+              : tiktokApi.eventsApiEnabled && tiktokApi.tokenConfigured
+                ? "connected"
+                : tiktokApi.eventsApiEnabled || tiktokApi.tokenConfigured
+                  ? "partial"
+                  : "not_connected",
+            detail: !tiktokApi
+              ? "Status unavailable"
+              : !tiktokApi.eventsApiEnabled && !tiktokApi.tokenConfigured
+                ? "Off — set TIKTOK_EVENTS_ACCESS_TOKEN on the server, then turn on tiktok_events_api_enabled"
+                : !tiktokApi.eventsApiEnabled
+                  ? "Token is set but the tiktok_events_api_enabled setting is off"
+                  : !tiktokApi.tokenConfigured
+                    ? "Enabled in Settings but TIKTOK_EVENTS_ACCESS_TOKEN is not set on the server — NOT CONNECTED"
+                    : tiktokApi.testModeOn
+                      ? "Enabled — TEST MODE (events go to Test Events only: remove TIKTOK_TEST_EVENT_CODE for live tracking)"
+                      : "Enabled: server-side Purchase (CompletePayment) and key events, deduplicated with the pixel",
           },
         ],
         paidSessions: paid.tiktok.sessions,

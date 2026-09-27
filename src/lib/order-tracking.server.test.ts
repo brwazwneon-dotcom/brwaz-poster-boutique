@@ -27,6 +27,8 @@ vi.mock("@/lib/neon.server", () => ({
     },
 }));
 vi.mock("@/lib/meta-capi.server", () => capi);
+const tt = vi.hoisted(() => ({ sendTikTokPurchase: vi.fn() }));
+vi.mock("@/lib/tiktok-events.server", () => tt);
 
 import {
   buildOrderPurchase,
@@ -59,6 +61,8 @@ beforeEach(() => {
   db.queries = 0;
   db.updates = [];
   capi.sendPurchaseToMeta.mockReset();
+  tt.sendTikTokPurchase.mockReset();
+  tt.sendTikTokPurchase.mockResolvedValue({ ok: true });
   capi.captureRequestFacts.mockReset();
   capi.captureRequestFacts.mockResolvedValue(FACTS);
   capi.buildAdTracking.mockReset();
@@ -409,5 +413,100 @@ describe("trackNewOrders — Meta never holds up the order response", () => {
       "skipped",
     );
     expect(capi.captureRequestFacts).not.toHaveBeenCalled();
+  });
+});
+
+describe("trackNewOrders — the TikTok CompletePayment travels beside the Meta Purchase", () => {
+  const purchase = {
+    event_id: "purchase_BRW-1018",
+    order_id: "BRW-1018",
+    value: 1219,
+    currency: "EGP" as const,
+    content_type: "product" as const,
+    content_ids: [],
+    contents: [],
+    num_items: 2,
+  };
+  const args = {
+    orderIds: ["order-1"],
+    orderRef: "BRW-1018",
+    purchase,
+    tracking: { fbp: "x", ttclid: "E.C.P.abcdefgh12" },
+    guestSessionId: "visitor-1",
+    phone: "01012345678",
+    city: "Cairo",
+  };
+  const onVercel = () => {
+    const registered: Promise<unknown>[] = [];
+    g[CTX] = { get: () => ({ waitUntil: (p: Promise<unknown>) => registered.push(p) }) };
+    process.env.VERCEL = "1";
+    return registered;
+  };
+
+  it("sends both, with the SAME purchase (same deterministic event id) and the captured request facts", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders(args);
+    await registered[0];
+    expect(capi.sendPurchaseToMeta).toHaveBeenCalledTimes(1);
+    expect(tt.sendTikTokPurchase).toHaveBeenCalledTimes(1);
+    const a = tt.sendTikTokPurchase.mock.calls[0][0];
+    expect(a.purchase.event_id).toBe("purchase_BRW-1018");
+    expect(a.purchase).toBe(capi.sendPurchaseToMeta.mock.calls[0][0].purchase);
+    expect(a.tracking).toEqual({ fbp: "x", ttclid: "E.C.P.abcdefgh12" });
+    expect(a.facts).toBe(FACTS);
+    expect(tt.sendTikTokPurchase.mock.calls[0][1]).toEqual({ retries: 1, timeoutMs: 3000 });
+  });
+
+  it("inside the request (no waitUntil) it is bounded and not retried", async () => {
+    process.env.VERCEL = "1";
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders(args);
+    expect(tt.sendTikTokPurchase.mock.calls[0][1]).toEqual({ retries: 0, timeoutMs: 2500 });
+  });
+
+  it("a TikTok failure (reject or error result) never affects the Meta Purchase or the order", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    tt.sendTikTokPurchase.mockRejectedValue(new Error("tiktok down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    await registered[0];
+    expect(capi.sendPurchaseToMeta).toHaveBeenCalledTimes(1);
+    tt.sendTikTokPurchase.mockResolvedValue({ ok: false, status: 200, body: '{"code":40001}' });
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+  });
+
+  it("a Meta failure never affects TikTok either", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockRejectedValue(new Error("meta down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await trackNewOrders(args);
+    await registered[0];
+    expect(tt.sendTikTokPurchase).toHaveBeenCalledTimes(1);
+  });
+
+  it("a TikTok call that hangs forever cannot delay the response", async () => {
+    onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    tt.sendTikTokPurchase.mockImplementation(() => new Promise(() => {}));
+    const t0 = Date.now();
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    expect(Date.now() - t0).toBeLessThan(200);
+  });
+
+  it("a test order (no purchase) sends nothing to TikTok", async () => {
+    const registered = onVercel();
+    await trackNewOrders({ ...args, purchase: null });
+    await registered[0];
+    expect(tt.sendTikTokPurchase).not.toHaveBeenCalled();
+  });
+
+  it("a photo order (no order rows) still sends its CompletePayment", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders({ ...args, orderIds: [] });
+    await registered[0];
+    expect(tt.sendTikTokPurchase).toHaveBeenCalledTimes(1);
   });
 });

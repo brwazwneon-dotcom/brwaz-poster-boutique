@@ -11,6 +11,7 @@
 import { sql } from "@/lib/neon.server";
 import { isProductionRequest } from "@/lib/analytics-host.server";
 import { sanitizeOrderAttribution } from "@/lib/order-attribution";
+import { sanitizeTikTokTracking } from "@/lib/tiktok-events";
 import {
   cleanFbc,
   cleanFbclid,
@@ -269,7 +270,7 @@ export async function buildAdTracking(
   purchaseRef: string | undefined,
   facts?: { ip?: string; ua?: string },
 ): Promise<Record<string, unknown>> {
-  const out: Record<string, unknown> = { ...sanitizeTracking(raw) };
+  const out: Record<string, unknown> = { ...sanitizeTracking(raw), ...sanitizeTikTokTracking(raw) };
   // The attribution state at order time (first/last touch, Meta ids from the ad
   // link, click id): allow-listed, and stamped with the SERVER's clock.
   const attribution = sanitizeOrderAttribution(raw?.attribution);
