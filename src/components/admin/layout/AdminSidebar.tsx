@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, X, Megaphone } from "lucide-react";
 import {
   Sidebar,
@@ -14,7 +14,10 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { getMetaAdsStatus } from "@/lib/meta-ads.functions";
+import type { MetaAdsStatusView } from "@/lib/meta-ads.types";
 import { NAV_GROUPS, MARKETING_NOT_CONNECTED, type Tab } from "./nav-config";
+import { marketingStatusLabel } from "./marketing-status";
 
 function matches(query: string, label: string, keywords?: string[]) {
   const q = query.trim().toLowerCase();
@@ -31,6 +34,18 @@ export function AdminSidebar({
   onNavigate: (tab: Tab) => void;
 }) {
   const [query, setQuery] = useState("");
+  // Read-only status of the Meta Ads sync. A failure just shows "status unavailable".
+  const [metaStatus, setMetaStatus] = useState<MetaAdsStatusView | null>(null);
+  useEffect(() => {
+    let off = false;
+    getMetaAdsStatus()
+      .then((s) => !off && setMetaStatus(s))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, []);
+  const marketing = marketingStatusLabel(metaStatus);
 
   const filteredGroups = useMemo(() => {
     if (!query.trim()) return NAV_GROUPS;
@@ -110,9 +125,17 @@ export function AdminSidebar({
         )}
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-widest text-muted-foreground group-data-[collapsible=icon]:hidden">
+        <div
+          className={`flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-widest group-data-[collapsible=icon]:hidden ${
+            marketing.tone === "ok"
+              ? "text-emerald-500"
+              : marketing.tone === "warn"
+                ? "text-amber-500"
+                : "text-muted-foreground"
+          }`}
+        >
           <Megaphone className="h-3 w-3" />
-          <span>Marketing: not connected</span>
+          <span>{marketing.text}</span>
         </div>
       </SidebarFooter>
       <SidebarRail />
