@@ -87,6 +87,24 @@ export const syncMetaAdsNow = createServerFn({ method: "POST" })
     };
   });
 
+const DASHBOARD_RANGES = ["today", "yesterday", "7d", "30d", "this_month", "last_month"] as const;
+
+/** Marketing tiles of the Executive Dashboard (admin-only, read-only, never throws). */
+export const getMetaDashboardTiles = createServerFn({ method: "GET" })
+  .middleware([...admin()])
+  .validator((data: unknown): { range: (typeof DASHBOARD_RANGES)[number] } => {
+    const r = (data as { range?: unknown } | undefined)?.range;
+    return {
+      range: DASHBOARD_RANGES.includes(r as (typeof DASHBOARD_RANGES)[number])
+        ? (r as (typeof DASHBOARD_RANGES)[number])
+        : "today",
+    };
+  })
+  .handler(async ({ data }) => {
+    const { getMetaDashboardTiles: build } = await import("@/lib/meta-ads-report.server");
+    return build(resolveAnalyticsRange(data.range));
+  });
+
 export const exportMetaAds = createServerFn({ method: "GET" })
   .middleware([...admin()])
   .validator((data: unknown): ExportInput => {

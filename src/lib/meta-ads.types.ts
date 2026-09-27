@@ -127,3 +127,31 @@ export type MetaSyncOutcome = {
 };
 
 export type MetaAdsExportDataset = "meta_ads" | "meta_ads_orders";
+
+/** What the Executive Dashboard's four marketing tiles need — one small, honest object. */
+export type MetaDashboardState =
+  | "ok"
+  | "not_configured" // no credentials and nothing ever synced
+  | "migration_missing" // migration 025 not applied
+  | "never_synced" // credentials set, no successful sync yet
+  | "not_covered" // synced, but not for this period
+  | "unavailable"; // reading it failed; the dashboard itself is unaffected
+
+export type MetaDashboardTiles = {
+  state: MetaDashboardState;
+  /** Data is older than 12 hours, or the latest sync attempt failed. Shown, never hidden. */
+  stale: boolean;
+  lastSuccessAt: string | null;
+  dataThrough: string | null;
+  /** Names of missing server variables — never values. */
+  missing: string[];
+  currencyMismatch: boolean;
+  spend: number | null;
+  /** Website orders (not cancelled/returned) credited to a Meta campaign. */
+  orders: number | null;
+  revenueNet: number | null;
+  cpa: number | null;
+  roas: number | null;
+  /** Paid Facebook/Instagram orders that match no synced campaign. */
+  unmatchedOrders: number;
+};

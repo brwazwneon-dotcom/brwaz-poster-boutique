@@ -8,6 +8,8 @@ import {
 } from "@/lib/db-admin.functions";
 import type { Tab } from "@/components/admin/layout/nav-config";
 import { LoadingTiles } from "@/components/admin/layout/LoadingState";
+import { getMetaDashboardTiles } from "@/lib/meta-ads.functions";
+import type { MetaDashboardTiles } from "@/lib/meta-ads.types";
 
 type DashboardData = Awaited<ReturnType<typeof getExecutiveDashboardAdmin>>;
 
@@ -51,15 +53,164 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: React
   );
 }
 
-function NotConnectedTile({ label, hint }: { label: string; hint: string }) {
-  return (
-    <div className="rounded-sm border border-dashed border-border p-4">
-      <div className="text-2xl font-semibold text-muted-foreground">—</div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground/70">
-        Not connected — {hint}
+const UNAVAILABLE_TILES: MetaDashboardTiles = {
+  state: "unavailable",
+  stale: false,
+  lastSuccessAt: null,
+  dataThrough: null,
+  missing: [],
+  currencyMismatch: false,
+  spend: null,
+  orders: null,
+  revenueNet: null,
+  cpa: null,
+  roas: null,
+  unmatchedOrders: 0,
+};
+
+const money = (n: number | null) =>
+  n === null ? "—" : n < 100 ? `${n.toFixed(2)} EGP` : formatEGP(n);
+
+/** Why a marketing tile has no number — always the real reason, never a fake zero. */
+function marketingHint(t: MetaDashboardTiles): string {
+  switch (t.state) {
+    case "not_configured":
+      return t.missing.length > 0
+        ? `Not connected — add ${t.missing.join(", ")} on the server`
+        : "Not connected — Meta Ads is not set up";
+    case "migration_missing":
+      return "Not connected — database migration for Meta Ads is pending";
+    case "never_synced":
+      return "Connected — open Meta Ads and press Sync now";
+    case "not_covered":
+      return "Not synced for this period — press Sync now in Meta Ads";
+    default:
+      return "Temporarily unavailable";
+  }
+}
+
+/**
+ * The four marketing tiles. They read the SAME synced Meta numbers as
+ * Marketing & Analytics → Meta Ads, and load on their own: if Meta data is
+ * missing or the read fails, the rest of the dashboard is unaffected.
+ */
+function MarketingTiles({
+  range,
+  onNavigate,
+}: {
+  range: DashboardRange;
+  onNavigate?: (tab: Tab) => void;
+}) {
+  const [tiles, setTiles] = useState<MetaDashboardTiles | null>(null);
+
+  useEffect(() => {
+    let off = false;
+    setTiles(null);
+    getMetaDashboardTiles({ data: { range } })
+      .then((t) => !off && setTiles(t))
+      .catch(() => !off && setTiles(UNAVAILABLE_TILES));
+    return () => {
+      off = true;
+    };
+  }, [range]);
+
+  if (tiles === null) {
+    return (
+      <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {["Marketing spend", "ROAS", "Cost per order", "Ad-sourced orders"].map((l) => (
+          <Tile key={l} label={l} value="…" />
+        ))}
       </div>
-    </div>
+    );
+  }
+
+  if (tiles.state !== "ok") {
+    const hint = marketingHint(tiles);
+    return (
+      <>
+        <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {["Marketing spend", "ROAS", "Cost per order", "Ad-sourced orders"].map((l) => (
+            <div key={l} className="rounded-sm border border-dashed border-border p-4">
+              <div className="text-2xl font-semibold text-muted-foreground">—</div>
+              <div className="mt-1 text-xs text-muted-foreground">{l}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                {hint}
+              </div>
+            </div>
+          ))}
+        </div>
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate("analytics")}
+            className="text-xs text-muted-foreground underline underline-offset-2"
+          >
+            Open Marketing &amp; Analytics → Meta Ads
+          </button>
+        )}
+      </>
+    );
+  }
+
+  const staleBadge = tiles.stale ? <span className="text-xs text-amber-500">stale</span> : null;
+  const noRatio = tiles.currencyMismatch ? "currency ≠ EGP" : undefined;
+  return (
+    <>
+      <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label="Marketing spend (Meta)" value={money(tiles.spend)} sub={staleBadge} />
+        <Tile
+          label="ROAS (placed orders, net)"
+          value={tiles.roas === null ? "—" : `${tiles.roas.toFixed(2)}×`}
+          sub={
+            tiles.roas === null ? (
+              <span className="text-xs text-muted-foreground">
+                {noRatio ?? (tiles.spend ? "no orders yet" : "no spend")}
+              </span>
+            ) : (
+              staleBadge
+            )
+          }
+        />
+        <Tile
+          label="Cost per order"
+          value={money(tiles.cpa)}
+          sub={
+            tiles.cpa === null ? (
+              <span className="text-xs text-muted-foreground">
+                {noRatio ?? (tiles.orders ? "no spend" : "no orders yet")}
+              </span>
+            ) : null
+          }
+        />
+        <Tile
+          label="Ad-sourced orders"
+          value={String(tiles.orders ?? 0)}
+          sub={
+            tiles.unmatchedOrders > 0 ? (
+              <span className="text-xs text-muted-foreground">
+                +{tiles.unmatchedOrders} untraced
+              </span>
+            ) : null
+          }
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Spend is Meta-reported{tiles.dataThrough ? ` through ${tiles.dataThrough}` : ""}. Orders and
+        revenue are website orders credited to a Meta campaign (last touch), excluding cancelled —
+        placed orders, not delivered.
+        {tiles.stale ? " Meta data is older than 12 hours or the last sync failed." : ""}
+        {onNavigate && (
+          <>
+            {" "}
+            <button
+              onClick={() => onNavigate("analytics")}
+              className="underline underline-offset-2"
+            >
+              Campaign breakdown
+            </button>
+          </>
+        )}
+      </p>
+    </>
   );
 }
 
@@ -172,12 +323,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Marketing
           </h3>
-          <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <NotConnectedTile label="Marketing spend" hint="connect Meta/TikTok Ads" />
-            <NotConnectedTile label="ROAS" hint="connect Meta/TikTok Ads" />
-            <NotConnectedTile label="Cost per order" hint="connect Meta/TikTok Ads" />
-            <NotConnectedTile label="Ad-sourced orders" hint="connect Meta/TikTok Ads" />
-          </div>
+          <MarketingTiles range={range} onNavigate={onNavigate} />
         </>
       )}
     </div>

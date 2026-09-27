@@ -173,3 +173,20 @@ describe("order attribution snapshot", () => {
     );
   });
 });
+
+describe("Executive Dashboard marketing tiles", () => {
+  const tab = read("components/admin/tabs/DashboardTab.tsx");
+
+  it("no hard-coded 'not connected' placeholder is left; the tiles read the server function", () => {
+    expect(tab).not.toMatch(/NotConnectedTile|connect Meta\/TikTok/);
+    expect(tab).toMatch(/getMetaDashboardTiles\(/);
+  });
+
+  it("the tab imports only the admin server function, never a server module", () => {
+    expect(tab).not.toMatch(/from "@\/lib\/[^"]*\.server"/);
+  });
+
+  it("the tile state logic is pure (no database, no network)", () => {
+    expect(read("lib/meta-ads-dashboard.core.ts")).not.toMatch(/neon\.server|fetch\(|process\.env/);
+  });
+});

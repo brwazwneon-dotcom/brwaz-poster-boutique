@@ -246,6 +246,21 @@ describe.skipIf(!enabled)("Meta Ads sync + report on real Postgres (rolled back)
     expect(JSON.stringify(report)).not.toContain(ENV.META_MARKETING_ACCESS_TOKEN);
   }, 90_000);
 
+  it("the dashboard tiles report real synced numbers for a covered period, and say so for an uncovered one", async () => {
+    const { getMetaDashboardTiles } = await import("./meta-ads-report.server");
+    const { resolveAnalyticsRange } = await import("./store-time");
+    const covered = await getMetaDashboardTiles(resolveAnalyticsRange("7d"));
+    expect(covered.state).toBe("ok");
+    expect(covered.spend).toBeCloseTo(410.25, 2);
+    // a period far before anything was synced is "not covered", never a fake zero
+    const old = await getMetaDashboardTiles(
+      resolveAnalyticsRange("custom", { from: "2025-01-01", to: "2025-01-31" }),
+    );
+    expect(old.state).toBe("not_covered");
+    expect(old.spend).toBeNull();
+    expect(JSON.stringify(covered)).not.toContain(ENV.META_MARKETING_ACCESS_TOKEN);
+  }, 90_000);
+
   it("both exports run on the live schema", async () => {
     const { buildMetaAdsExport } = await import("./meta-ads-report.server");
     const { resolveAnalyticsRange } = await import("./store-time");

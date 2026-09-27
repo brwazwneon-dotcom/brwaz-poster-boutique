@@ -14,8 +14,9 @@ import {
 } from "@/lib/analytics-core.server";
 import type { AnalyticsRange } from "@/lib/store-time";
 import type { ExportResult, TouchModel } from "@/lib/analytics-center.types";
-import type { MetaAdsReport, MetaAdsStatusView } from "@/lib/meta-ads.types";
+import type { MetaAdsReport, MetaAdsStatusView, MetaDashboardTiles } from "@/lib/meta-ads.types";
 import { getSyncStatus, metaAdsTablesApplied } from "@/lib/meta-ads-sync.server";
+import { buildDashboardTiles } from "@/lib/meta-ads-dashboard.core";
 import {
   buildMetaAdsReport,
   createMatcher,
@@ -304,4 +305,48 @@ export async function buildMetaAdsExport(
     ...describe(last[i]?.touch ?? null, "last"),
   }));
   return finish("meta-ads-orders", rows);
+}
+
+/**
+ * The four Executive Dashboard marketing tiles. Never throws: if anything here
+ * fails the dashboard still loads and the tiles say "unavailable".
+ */
+export async function getMetaDashboardTiles(range: AnalyticsRange): Promise<MetaDashboardTiles> {
+  const empty: MetaDashboardTiles = {
+    state: "unavailable",
+    stale: false,
+    lastSuccessAt: null,
+    dataThrough: null,
+    missing: [],
+    currencyMismatch: false,
+    spend: null,
+    orders: null,
+    revenueNet: null,
+    cpa: null,
+    roas: null,
+    unmatchedOrders: 0,
+  };
+  try {
+    const status = await getSyncStatus();
+    if (!status.migrationApplied || !status.lastSuccess) {
+      return buildDashboardTiles({ status, covered: false, report: null });
+    }
+    const from = cairoDay(range.start);
+    const today = cairoDay(new Date());
+    const lastDay = cairoDay(new Date(range.end.getTime() - 1));
+    const to = lastDay < today ? lastDay : today;
+    const covered =
+      (
+        await query(
+          `select 1 from meta_sync_runs
+           where status = 'success' and date_from <= $1::date and date_to >= $2::date limit 1`,
+          [from, to],
+        )
+      ).length > 0;
+    if (!covered) return buildDashboardTiles({ status, covered: false, report: null });
+    const { report } = await getMetaAdsReport(range, "last");
+    return buildDashboardTiles({ status, covered, report });
+  } catch {
+    return empty;
+  }
 }
