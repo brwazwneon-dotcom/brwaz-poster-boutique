@@ -36,6 +36,7 @@ import {
   fetchActiveBeforeAfterFromDb,
   fetchLandingBundleFromDb,
   fetchEnabledPhotoAlbumsFromDb,
+  fetchEnabledDualCategorySectionsFromDb,
   logSystemEventToDb,
 } from "@/lib/db-content.server";
 import {
@@ -123,6 +124,10 @@ export const getSliderImagesPublic = createServerFn({ method: "GET" }).handler(a
 
 export const getSetsPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledSetsFromDb();
+});
+
+export const getDualCategorySectionsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  return fetchEnabledDualCategorySectionsFromDb();
 });
 
 export const getCustomOffersPublic = createServerFn({ method: "GET" }).handler(async () => {

@@ -788,6 +788,29 @@ export const upsertPoster = createServerFn({ method: "POST" })
     const featured = Boolean(data.featured);
     const trending = Boolean(data.trending);
     const isBestSeller = Boolean(data.is_best_seller);
+    // Optional manual overrides (all nullable — omitting them leaves the
+    // existing automatic ordering/scheduling untouched). See
+    // neon/migrations/026_poster_merchandising.sql.
+    const bestSellerOrder =
+      typeof data.best_seller_order === "number" && Number.isFinite(data.best_seller_order)
+        ? Math.trunc(data.best_seller_order)
+        : null;
+    const trendingStartsAt =
+      typeof data.trending_starts_at === "string" && data.trending_starts_at
+        ? data.trending_starts_at
+        : null;
+    const trendingEndsAt =
+      typeof data.trending_ends_at === "string" && data.trending_ends_at
+        ? data.trending_ends_at
+        : null;
+    // trending_order predates migration 026 (it's part of the original
+    // Phase-1 schema) but was never wired into this handler before — the
+    // only admin path that ever wrote it was the old, now-orphaned
+    // Supabase-era TrendingNowManager.
+    const trendingOrder =
+      typeof data.trending_order === "number" && Number.isFinite(data.trending_order)
+        ? Math.trunc(data.trending_order)
+        : null;
     const seoTitle = typeof data.seo_title === "string" && data.seo_title ? data.seo_title : null;
     const seoDescription =
       typeof data.seo_description === "string" && data.seo_description
@@ -829,6 +852,7 @@ export const upsertPoster = createServerFn({ method: "POST" })
         set title = ${title}, slug = ${candidateSlug}, description = ${description}, image_url = ${imageUrl},
             category_id = ${categoryId}, tags = ${tags}, badge = ${badge}, hidden = ${hidden},
             featured = ${featured}, trending = ${trending}, is_best_seller = ${isBestSeller},
+            trending_order = ${trendingOrder},
             seo_title = ${seoTitle}, seo_description = ${seoDescription}, alt_text = ${altText},
             review_status = case when ${reviewStatusSent !== null} then ${reviewStatusSent} else review_status end,
             original_url = case when ${originalUrlSent !== null} then ${originalUrlSent} else original_url end,
@@ -846,7 +870,9 @@ export const upsertPoster = createServerFn({ method: "POST" })
         returning id
       `,
       );
-      return { id: rows[0]?.id ?? id };
+      const savedId = rows[0]?.id ?? id;
+      await saveMerchandisingFields(savedId, bestSellerOrder, trendingStartsAt, trendingEndsAt);
+      return { id: savedId };
     }
     const rows = await withUniqueSlugRetry(
       slug,
@@ -854,20 +880,46 @@ export const upsertPoster = createServerFn({ method: "POST" })
       (candidateSlug) => sql()`
       insert into posters (
         title, slug, description, image_url, category_id, tags, badge, hidden, featured,
-        trending, is_best_seller, seo_title, seo_description, alt_text, review_status,
+        trending, trending_order, is_best_seller, seo_title, seo_description, alt_text, review_status,
         original_url, webp_srcset, avif_srcset, edit_settings
       )
       values (
         ${title}, ${candidateSlug}, ${description}, ${imageUrl}, ${categoryId}, ${tags}, ${badge}, ${hidden},
-        ${featured}, ${trending}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
+        ${featured}, ${trending}, ${trendingOrder}, ${isBestSeller}, ${seoTitle}, ${seoDescription}, ${altText},
         ${reviewStatusSent ?? "approved"}, ${originalUrlSent}, ${webpSrcsetSent}, ${avifSrcsetSent},
         ${editSettingsSent ?? "{}"}::jsonb
       )
       returning id
     `,
     );
-    return { id: (rows[0] as { id: string }).id };
+    const newId = (rows[0] as { id: string }).id;
+    await saveMerchandisingFields(newId, bestSellerOrder, trendingStartsAt, trendingEndsAt);
+    return { id: newId };
   });
+
+// Separate, best-effort save for the migration-026 merchandising columns
+// (best_seller_order, trending_starts_at/ends_at) — kept OUT of the core
+// upsertPoster insert/update above on purpose: if migration 026 hasn't
+// been applied yet, this silently no-ops instead of breaking the
+// existing "save any product" flow that every admin already relies on.
+async function saveMerchandisingFields(
+  posterId: string,
+  bestSellerOrder: number | null,
+  trendingStartsAt: string | null,
+  trendingEndsAt: string | null,
+) {
+  try {
+    await sql()`
+      update posters
+      set best_seller_order = ${bestSellerOrder},
+          trending_starts_at = ${trendingStartsAt}::timestamptz,
+          trending_ends_at = ${trendingEndsAt}::timestamptz
+      where id = ${posterId}
+    `;
+  } catch (err) {
+    if (!(err instanceof Error) || !MIGRATION_026_NOT_APPLIED.test(err.message)) throw err;
+  }
+}
 
 // Applies one or more field changes to many posters at once (the admin
 // Upload Studio's bulk-assign toolbar) — one round trip instead of N.
@@ -919,6 +971,285 @@ export const deletePoster = createServerFn({ method: "POST" })
       const { deleteCloudinaryAsset } = await import("@/lib/cloudinary.server");
       await Promise.allSettled(urls.map((u) => deleteCloudinaryAsset(u)));
     }
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------
+// Poster merchandising — placement (additional categories on top of the
+// existing primary posters.category_id), manual Best Seller position,
+// optional Trending scheduling, and dual-category homepage sections.
+// See neon/migrations/026_poster_merchandising.sql. Every read here fails
+// closed (empty result) rather than throwing if that migration hasn't
+// been applied yet, so shipping this code never breaks the existing
+// Products tab for an admin who hasn't run it.
+// ---------------------------------------------------------------
+const MIGRATION_026_NOT_APPLIED = /relation .* does not exist/i;
+
+// Returns a poster's ADDITIONAL category ids only — never its primary
+// category_id, which the poster's own row already carries and is
+// untouched by any of this.
+export const getPosterCategoryIdsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => (data as { posterId: string }).posterId)
+  .handler(async ({ data: posterId }) => {
+    try {
+      const rows = await sql()`
+        select category_id from poster_categories where poster_id = ${posterId}
+      `;
+      return rows.map((r) => (r as { category_id: string }).category_id);
+    } catch (err) {
+      if (err instanceof Error && MIGRATION_026_NOT_APPLIED.test(err.message)) return [];
+      throw err;
+    }
+  });
+
+// Lightweight companion to listPostersAdmin: just the set of poster ids
+// that have at least one ADDITIONAL category — merged into the product
+// list purely client-side (for the "🔵 Multiple Categories" quick-status
+// badge) so the core product list query itself never has to change.
+export const listPosterIdsWithExtraCategoriesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    try {
+      const rows = await sql()`select distinct poster_id from poster_categories`;
+      return rows.map((r) => (r as { poster_id: string }).poster_id);
+    } catch (err) {
+      if (err instanceof Error && MIGRATION_026_NOT_APPLIED.test(err.message)) return [];
+      throw err;
+    }
+  });
+
+// Replaces the full set of a poster's additional categories in one call —
+// same "always send the full state" convention as upsertCustomerAdmin.
+// Never touches posters.category_id (the primary category).
+export const setPosterCategoriesAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { posterId: string; categoryIds: string[] })
+  .handler(async ({ data }) => {
+    const client = sql();
+    await client`delete from poster_categories where poster_id = ${data.posterId}`;
+    const ids = [...new Set(data.categoryIds)].filter(Boolean);
+    for (const categoryId of ids) {
+      await client`
+        insert into poster_categories (poster_id, category_id)
+        values (${data.posterId}, ${categoryId})
+        on conflict do nothing
+      `;
+    }
+    return { ok: true };
+  });
+
+// Bulk add/remove ONE additional category across many posters at once —
+// distinct from bulkUpdatePosters' category_id (which overwrites the
+// PRIMARY category for every selected poster). One query per poster,
+// matching the existing bulk-delete pattern (Promise.allSettled) rather
+// than a single unnest() query, since selections here are small (tens,
+// not thousands) and this keeps every statement simple to verify.
+export const bulkSetPosterCategoryAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) => data as { posterIds: string[]; categoryId: string; mode: "add" | "remove" },
+  )
+  .handler(async ({ data }) => {
+    if (data.posterIds.length === 0) return { ok: true, count: 0 };
+    const client = sql();
+    if (data.mode === "add") {
+      await Promise.allSettled(
+        data.posterIds.map(
+          (posterId) => client`
+            insert into poster_categories (poster_id, category_id)
+            values (${posterId}, ${data.categoryId})
+            on conflict do nothing
+          `,
+        ),
+      );
+    } else {
+      await client`
+        delete from poster_categories
+        where category_id = ${data.categoryId} and poster_id = any(${data.posterIds})
+      `;
+    }
+    return { ok: true, count: data.posterIds.length };
+  });
+
+// Fast, paginated, searchable poster lookup for admin pickers (Dual
+// Category Section builder, etc.) — never loads the full catalog at
+// once, unlike listPostersAdmin's up-to-500-row list view.
+export const searchPostersForPickerAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      (data as
+        { query?: string; categoryId?: string; offset?: number; limit?: number } | undefined) ?? {},
+  )
+  .handler(async ({ data }) => {
+    const limit = Math.min(Math.max(data.limit ?? 20, 1), 50);
+    const offset = Math.max(data.offset ?? 0, 0);
+    const query = (data.query ?? "").trim();
+    const rows = await sql()(
+      `select p.id, p.title, p.slug, p.image_url, p.category_id, p.hidden,
+              c.name as category_name, c.slug as category_slug
+       from posters p
+       left join categories c on c.id = p.category_id
+       where ($1 = '' or p.title ilike '%' || $1 || '%')
+         and ($2::uuid is null or p.category_id = $2::uuid)
+       order by p.created_at desc
+       offset $3 limit $4`,
+      [query, data.categoryId ?? null, offset, limit],
+    );
+    return (
+      rows as unknown as Array<{
+        id: string;
+        title: string;
+        slug: string;
+        image_url: string;
+        category_id: string | null;
+        hidden: boolean;
+        category_name: string | null;
+        category_slug: string | null;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      image_url: r.image_url,
+      hidden: r.hidden,
+      category: r.category_slug ? { name: r.category_name ?? "", slug: r.category_slug } : null,
+    }));
+  });
+
+// Looks up specific posters by id, in the same picker-friendly shape as
+// searchPostersForPickerAdmin — used to show a real thumbnail/title when
+// re-opening an editor (Dual Category Section, etc.) for an already-saved
+// poster reference, instead of a blank placeholder.
+export const getPostersByIdsForPickerAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { ids: string[] })
+  .handler(async ({ data }) => {
+    if (data.ids.length === 0) return [];
+    const rows = await sql()`
+      select p.id, p.title, p.slug, p.image_url, p.hidden,
+             c.name as category_name, c.slug as category_slug
+      from posters p
+      left join categories c on c.id = p.category_id
+      where p.id = any(${data.ids})
+    `;
+    return (
+      rows as unknown as Array<{
+        id: string;
+        title: string;
+        slug: string;
+        image_url: string;
+        hidden: boolean;
+        category_name: string | null;
+        category_slug: string | null;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      image_url: r.image_url,
+      hidden: r.hidden,
+      category: r.category_slug ? { name: r.category_name ?? "", slug: r.category_slug } : null,
+    }));
+  });
+
+// ---------------------------------------------------------------
+// Dual Category Sections — admin-defined "Category A + Category B" side
+// by side homepage blocks. Fully dynamic (any poster/category pair per
+// row); rendered publicly via listDualCategorySectionsPublic in
+// db-public.functions.ts, gated on/off by the "dual-category" entry in
+// the existing homepage-sections registry (see homepage-sections.ts).
+// ---------------------------------------------------------------
+export const listDualCategorySectionsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    try {
+      return await sql()`
+        select id, name, left_poster_id, left_category_id, left_title, left_button_text,
+               right_poster_id, right_category_id, right_title, right_button_text,
+               enabled, sort_order, created_at, updated_at
+        from dual_category_sections
+        order by sort_order asc, created_at asc
+      `;
+    } catch (err) {
+      if (err instanceof Error && MIGRATION_026_NOT_APPLIED.test(err.message)) return [];
+      throw err;
+    }
+  });
+
+export type DualCategorySectionInput = {
+  id?: string;
+  name: string;
+  left_poster_id: string | null;
+  left_category_id: string | null;
+  left_title: string | null;
+  left_button_text: string | null;
+  right_poster_id: string | null;
+  right_category_id: string | null;
+  right_title: string | null;
+  right_button_text: string | null;
+  enabled: boolean;
+  sort_order: number;
+};
+
+export const upsertDualCategorySectionAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as DualCategorySectionInput)
+  .handler(async ({ data }) => {
+    if (!data.name?.trim()) throw new Error("Section name is required");
+    if (data.id) {
+      const rows = await sql()`
+        update dual_category_sections set
+          name = ${data.name}, left_poster_id = ${data.left_poster_id},
+          left_category_id = ${data.left_category_id}, left_title = ${data.left_title},
+          left_button_text = ${data.left_button_text}, right_poster_id = ${data.right_poster_id},
+          right_category_id = ${data.right_category_id}, right_title = ${data.right_title},
+          right_button_text = ${data.right_button_text}, enabled = ${data.enabled},
+          sort_order = ${data.sort_order}, updated_at = now()
+        where id = ${data.id}
+        returning id
+      `;
+      return { id: rows[0]?.id ?? data.id };
+    }
+    const rows = await sql()`
+      insert into dual_category_sections (
+        name, left_poster_id, left_category_id, left_title, left_button_text,
+        right_poster_id, right_category_id, right_title, right_button_text,
+        enabled, sort_order
+      ) values (
+        ${data.name}, ${data.left_poster_id}, ${data.left_category_id}, ${data.left_title},
+        ${data.left_button_text}, ${data.right_poster_id}, ${data.right_category_id},
+        ${data.right_title}, ${data.right_button_text}, ${data.enabled}, ${data.sort_order}
+      )
+      returning id
+    `;
+    return { id: (rows[0] as { id: string }).id };
+  });
+
+export const deleteDualCategorySectionAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as string)
+  .handler(async ({ data: id }) => {
+    await sql()`delete from dual_category_sections where id = ${id}`;
+    return { ok: true };
+  });
+
+// Simple whole-list position rewrite (arrow-based reordering, not drag &
+// drop — no new dependency needed): the admin moves one row up/down in
+// the UI, then this saves everyone's resulting sort_order in one go.
+export const reorderDualCategorySectionsAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { orderedIds: string[] })
+  .handler(async ({ data }) => {
+    const client = sql();
+    await Promise.all(
+      data.orderedIds.map(
+        (id, index) => client`
+        update dual_category_sections set sort_order = ${index} where id = ${id}
+      `,
+      ),
+    );
     return { ok: true };
   });
 

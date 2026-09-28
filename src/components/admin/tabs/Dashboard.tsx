@@ -23,6 +23,7 @@ import { BeforeAfterTab } from "./BeforeAfterTab";
 import { LandingPagesTab } from "./LandingPagesTab";
 import { MediaLibraryTab } from "./MediaLibraryTab";
 import { HomepageTab } from "./HomepageTab";
+import { DualCategorySectionsTab } from "./DualCategorySectionsTab";
 import { PhotoPrintingTab } from "./PhotoPrintingTab";
 import { FrameMockupsTab } from "./FrameMockupsTab";
 import { SystemHealthTab } from "./SystemHealthTab";
@@ -159,6 +160,11 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               {visitedTabs.has("homepage") && (
                 <div hidden={tab !== "homepage"}>
                   <HomepageTab />
+                </div>
+              )}
+              {visitedTabs.has("dual-category") && (
+                <div hidden={tab !== "dual-category"}>
+                  <DualCategorySectionsTab />
                 </div>
               )}
               {visitedTabs.has("photo-printing") && (

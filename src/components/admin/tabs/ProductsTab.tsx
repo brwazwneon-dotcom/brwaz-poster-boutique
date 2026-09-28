@@ -11,6 +11,10 @@ import {
   listPosterImagesAdmin,
   upsertPosterImage,
   deletePosterImage,
+  listPosterIdsWithExtraCategoriesAdmin,
+  getPosterCategoryIdsAdmin,
+  setPosterCategoriesAdmin,
+  bulkSetPosterCategoryAdmin,
 } from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -275,11 +279,20 @@ export function ProductsTab({
   const [products, setProducts] = useState<AdminPoster[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [editing, setEditing] = useState<Partial<AdminPoster> | null>(null);
+  // Website Placement (migration 026): the currently-editing poster's
+  // ADDITIONAL categories (never its primary category_id, which stays on
+  // `editing` itself), and the sitewide set of poster ids that have any
+  // additional category — used only for the 🔵 "Multiple Categories"
+  // quick-status badge in the list below.
+  const [placementCategoryIds, setPlacementCategoryIds] = useState<Set<string>>(new Set());
+  const [placementCategorySearch, setPlacementCategorySearch] = useState("");
+  const [extraCategoryPosterIds, setExtraCategoryPosterIds] = useState<Set<string>>(new Set());
   const [previewFrame, setPreviewFrame] = useState<"black" | "white" | "wood">("black");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkExtraCategory, setBulkExtraCategory] = useState("");
   const [bulkBadge, setBulkBadge] = useState("");
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
   const [listCategoryFilter, setListCategoryFilter] = useState("");
@@ -318,9 +331,14 @@ export function ProductsTab({
   }, [focusCategoryId]);
 
   const load = async () => {
-    const [p, c] = await Promise.all([listPostersAdmin({ data: {} }), listCategoriesAdmin()]);
+    const [p, c, extra] = await Promise.all([
+      listPostersAdmin({ data: {} }),
+      listCategoriesAdmin(),
+      listPosterIdsWithExtraCategoriesAdmin(),
+    ]);
     setProducts(p as AdminPoster[]);
     setCategories(c as AdminCategory[]);
+    setExtraCategoryPosterIds(new Set(extra as string[]));
   };
   useEffect(() => {
     load();
@@ -753,6 +771,32 @@ export function ProductsTab({
     }
   };
 
+  // Additional-category bulk add/remove (migration 026's poster_categories
+  // many-to-many) — same confirm/toast/refresh shape as applyBulk above,
+  // but calls bulkSetPosterCategoryAdmin since this adds/removes junction
+  // rows rather than updating a plain posters column. Confirms first for
+  // a large batch, matching the existing delete-confirmation pattern.
+  const applyBulkExtraCategory = async (mode: "add" | "remove") => {
+    if (selected.size === 0 || !bulkExtraCategory) return;
+    if (
+      selected.size > 20 &&
+      !(await confirm(
+        `${mode === "add" ? "Add" : "Remove"} this category ${mode === "add" ? "to" : "from"} ${selected.size} products?`,
+      ))
+    )
+      return;
+    try {
+      await bulkSetPosterCategoryAdmin({
+        data: { posterIds: Array.from(selected), categoryId: bulkExtraCategory, mode },
+      });
+      toast.success(`Updated ${selected.size} product(s)`);
+      clearSelection();
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk update failed");
+    }
+  };
+
   const deleteSelected = async () => {
     if (selected.size === 0) return;
     if (!(await confirm(`Delete ${selected.size} product(s)? This can't be undone.`))) return;
@@ -766,11 +810,43 @@ export function ProductsTab({
   };
 
   // ---- Single-product edit ----
+  // Opens the single-product editor and loads its Website Placement state
+  // (additional categories) alongside it — a brand-new product starts with
+  // an empty set, an existing one is read fresh from poster_categories so
+  // the checkboxes always reflect what's actually saved, not stale state
+  // left over from a previously-edited poster.
+  const openEditor = async (poster: Partial<AdminPoster>) => {
+    setEditing(poster);
+    setPlacementCategorySearch("");
+    if (!poster.id) {
+      setPlacementCategoryIds(new Set());
+      return;
+    }
+    try {
+      const ids = await getPosterCategoryIdsAdmin({ data: { posterId: poster.id } });
+      setPlacementCategoryIds(new Set(ids as string[]));
+    } catch {
+      setPlacementCategoryIds(new Set());
+    }
+  };
+
   const save = async () => {
     if (!editing?.title) return toast.error("Title is required");
     if (!editing?.image_url) return toast.error("Image URL is required");
     try {
-      await upsertPoster({ data: editing });
+      const { id } = await upsertPoster({ data: editing });
+      // Best-effort: Website Placement's additional categories save
+      // separately from the core product fields (same reasoning as
+      // saveMerchandisingFields on the server — never let a
+      // migration-026 hiccup block the ordinary "save this product" flow
+      // every admin already relies on).
+      try {
+        await setPosterCategoriesAdmin({
+          data: { posterId: id, categoryIds: Array.from(placementCategoryIds) },
+        });
+      } catch {
+        toast.error("Saved, but Website Placement categories could not be updated");
+      }
       toast.success("Saved");
       setEditing(null);
       load();
@@ -877,7 +953,7 @@ export function ProductsTab({
             Needs review only
           </label>
           <button
-            onClick={() => setEditing({})}
+            onClick={() => openEditor({})}
             className="rounded-sm border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
           >
             + Single product (advanced)
@@ -1390,6 +1466,12 @@ export function ProductsTab({
             + Trending
           </button>
           <button
+            onClick={() => applyBulk({ trending: false })}
+            className="rounded-sm border border-border px-2 py-1 text-xs"
+          >
+            − Trending
+          </button>
+          <button
             onClick={() => applyBulk({ is_best_seller: true })}
             className="rounded-sm border border-border px-2 py-1 text-xs"
           >
@@ -1400,6 +1482,42 @@ export function ProductsTab({
             className="rounded-sm border border-border px-2 py-1 text-xs"
           >
             − Best Seller
+          </button>
+          <select
+            value={bulkExtraCategory}
+            onChange={(e) => setBulkExtraCategory(e.target.value)}
+            className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+          >
+            <option value="">Additional category…</option>
+            {categories
+              .filter((c) => !c.parent_id)
+              .map((main) => {
+                const subs = categories.filter((c) => c.parent_id === main.id);
+                return (
+                  <optgroup key={main.id} label={main.name}>
+                    <option value={main.id}>{main.name}</option>
+                    {subs.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        — {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+          </select>
+          <button
+            disabled={!bulkExtraCategory}
+            onClick={() => applyBulkExtraCategory("add")}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
+          >
+            + Category
+          </button>
+          <button
+            disabled={!bulkExtraCategory}
+            onClick={() => applyBulkExtraCategory("remove")}
+            className="rounded-sm border border-border px-2 py-1 text-xs disabled:opacity-40"
+          >
+            − Category
           </button>
           <button
             onClick={() => applyBulk({ hidden: false })}
@@ -1567,6 +1685,135 @@ export function ProductsTab({
                 Best Seller
               </label>
             </div>
+
+            {/* ---- Website Placement (migration 026) ---- */}
+            <div className="space-y-3 rounded-sm border border-border p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Website Placement
+              </h4>
+
+              <div className="space-y-2 rounded-sm border border-border p-2">
+                <span className="text-xs font-medium">
+                  Trending {editing.trending ? "— Enabled" : "— Disabled"}
+                </span>
+                {editing.trending && (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <label className="block text-[11px] text-muted-foreground">
+                      Display Order
+                      <input
+                        type="number"
+                        value={editing.trending_order ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            trending_order: e.target.value === "" ? null : Number(e.target.value),
+                          })
+                        }
+                        placeholder="Auto"
+                        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] text-muted-foreground">
+                      Start Date
+                      <input
+                        type="date"
+                        value={editing.trending_starts_at?.slice(0, 10) ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            trending_starts_at: e.target.value || null,
+                          })
+                        }
+                        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] text-muted-foreground">
+                      End Date
+                      <input
+                        type="date"
+                        value={editing.trending_ends_at?.slice(0, 10) ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            trending_ends_at: e.target.value || null,
+                          })
+                        }
+                        className="mt-1 w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 rounded-sm border border-border p-2">
+                <span className="text-xs font-medium">
+                  Best Seller {editing.is_best_seller ? "— Enabled" : "— Disabled"}
+                </span>
+                <p className="text-[10px] text-muted-foreground">
+                  Ordered automatically by sales — this is only an optional override to pin a
+                  product ahead of the sales ranking. Leave blank to keep the automatic order.
+                </p>
+                {editing.is_best_seller && (
+                  <label className="block text-[11px] text-muted-foreground">
+                    Manual Position Override
+                    <input
+                      type="number"
+                      value={editing.best_seller_order ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          best_seller_order: e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      placeholder="Auto (by sales)"
+                      className="mt-1 w-32 rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="space-y-2 rounded-sm border border-border p-2">
+                <span className="text-xs font-medium">Additional Categories</span>
+                <p className="text-[10px] text-muted-foreground">
+                  Shows this product in more categories too, on top of its primary category above —
+                  no duplicate product is created.
+                </p>
+                <input
+                  type="text"
+                  value={placementCategorySearch}
+                  onChange={(e) => setPlacementCategorySearch(e.target.value)}
+                  placeholder="Search categories…"
+                  className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                />
+                <div className="max-h-40 space-y-1 overflow-y-auto">
+                  {categories
+                    .filter((c) => c.id !== editing.category_id)
+                    .filter((c) =>
+                      placementCategorySearch.trim()
+                        ? c.name
+                            .toLowerCase()
+                            .includes(placementCategorySearch.trim().toLowerCase())
+                        : true,
+                    )
+                    .map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={placementCategoryIds.has(c.id)}
+                          onChange={(e) => {
+                            const next = new Set(placementCategoryIds);
+                            if (e.target.checked) next.add(c.id);
+                            else next.delete(c.id);
+                            setPlacementCategoryIds(next);
+                          }}
+                        />
+                        {c.parent_id ? `— ${c.name}` : c.name}
+                      </label>
+                    ))}
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={save}
@@ -1625,8 +1872,23 @@ export function ProductsTab({
                 <div className="text-xs text-muted-foreground">
                   {categoryName(p.category_id)}
                   {p.hidden ? " · draft" : " · published"}
-                  {p.trending ? " · trending" : ""}
-                  {p.is_best_seller ? " · best seller" : ""}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {p.trending && (
+                    <span className="rounded-sm bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                      🟢 Trending
+                    </span>
+                  )}
+                  {p.is_best_seller && (
+                    <span className="rounded-sm bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                      🟡 Best Seller
+                    </span>
+                  )}
+                  {extraCategoryPosterIds.has(p.id) && (
+                    <span className="rounded-sm bg-info/15 px-1.5 py-0.5 text-[10px] font-semibold text-info">
+                      🔵 Multiple Categories
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1640,7 +1902,7 @@ export function ProductsTab({
                 </button>
               )}
               <button
-                onClick={() => setEditing(p)}
+                onClick={() => openEditor(p)}
                 className="text-xs text-cyan-500 hover:underline"
               >
                 Edit

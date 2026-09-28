@@ -21,6 +21,7 @@ import {
   Activity,
   Settings,
   Printer,
+  Columns2,
 } from "lucide-react";
 
 export type Tab =
@@ -41,6 +42,7 @@ export type Tab =
   | "media"
   | "photo-printing"
   | "homepage"
+  | "dual-category"
   | "mockups"
   | "health"
   | "settings";
@@ -115,6 +117,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Content",
     items: [
       { id: "homepage", label: "Homepage", icon: Home, keywords: ["hero", "slider", "highlights"] },
+      {
+        id: "dual-category",
+        label: "Dual Category Sections",
+        icon: Columns2,
+        keywords: ["pair", "side by side", "two categories", "merchandising"],
+      },
       {
         id: "landing-pages",
         label: "Landing Pages",

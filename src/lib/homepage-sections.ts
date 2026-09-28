@@ -28,7 +28,8 @@ export type HomeSectionKey =
   | "faq"
   | "quality-section"
   | "wall-of-inspiration"
-  | "room-transformation";
+  | "room-transformation"
+  | "dual-category";
 
 export type SectionSourceType =
   | "manual"
@@ -90,6 +91,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "quality-section": "Quality Section",
   "wall-of-inspiration": "Wall of Inspiration",
   "room-transformation": "Room Transformation",
+  "dual-category": "Dual Category Sections",
 };
 
 export interface HomeSectionRegistryEntry {
@@ -358,6 +360,23 @@ export const HOME_SECTION_REGISTRY: HomeSectionRegistryEntry[] = [
     label: "Special Offers",
     component: "—",
     defaultOrder: 25,
+    defaultEnabled: false,
+    defaultVisible: true,
+    adminReorderable: true,
+  },
+  {
+    // Renders every enabled row from the dual_category_sections table
+    // (migration 026 — see neon/migrations/026_poster_merchandising.sql),
+    // each its own "Category A + Category B" pair — this ONE registry
+    // entry is just where that whole feature sits in the homepage flow;
+    // its own admin screen (Dual Category Sections tab) manages the
+    // individual pairs and their relative order. Off by default: turning
+    // it on before any pair exists would render nothing anyway, but this
+    // keeps a brand-new homepage never silently changing on its own.
+    key: "dual-category",
+    label: "Dual Category Sections",
+    component: "DualCategorySections",
+    defaultOrder: 26,
     defaultEnabled: false,
     defaultVisible: true,
     adminReorderable: true,

@@ -98,18 +98,46 @@ export async function fetchPostersByCategoryFromDb(
   const limit = opts.limit ?? 24;
   const orderBy = SORT_ORDER_BY[opts.sort ?? "newest"] ?? SORT_ORDER_BY.newest;
 
-  const rows = await sql()(
-    `select id, title, slug, description, image_url, category_id, tags, badge,
+  // Matches a poster whose PRIMARY category_id is one of these ids (the
+  // only path that existed before), OR one that was additionally placed
+  // into one of these categories via poster_categories (migration 026 —
+  // see neon/migrations/026_poster_merchandising.sql). The subquery
+  // returns nothing extra for any poster that was never given additional
+  // placements, so a catalog with no poster_categories rows behaves
+  // byte-identical to before this was added. Falls back to the
+  // pre-migration query (primary category only) if 026 hasn't been
+  // applied yet — this is a hot public path (every category page load),
+  // so it must never throw on a missing table.
+  const withPlacement = `select id, title, slug, description, image_url, category_id, tags, badge,
             sales_count, views_count, is_best_seller, hidden, trending,
             trending_order, pinned, sort_order, created_at, edit_settings,
             seo_title, seo_description, alt_text, webp_srcset, avif_srcset
      from posters
-     where category_id = any($1) and hidden = false and ${VALID_IMAGE_SQL}
+     where (
+         category_id = any($1)
+         or id in (select poster_id from poster_categories where category_id = any($1))
+       )
+       and hidden = false and ${VALID_IMAGE_SQL}
      order by ${orderBy}
-     offset $2 limit $3`,
-    [categoryIds, offset, limit],
-  );
-  return rows as unknown as DbPoster[];
+     offset $2 limit $3`;
+  try {
+    const rows = await sql()(withPlacement, [categoryIds, offset, limit]);
+    return rows as unknown as DbPoster[];
+  } catch (err) {
+    if (!(err instanceof Error) || !/relation .* does not exist/i.test(err.message)) throw err;
+    const rows = await sql()(
+      `select id, title, slug, description, image_url, category_id, tags, badge,
+              sales_count, views_count, is_best_seller, hidden, trending,
+              trending_order, pinned, sort_order, created_at, edit_settings,
+              seo_title, seo_description, alt_text, webp_srcset, avif_srcset
+       from posters
+       where category_id = any($1) and hidden = false and ${VALID_IMAGE_SQL}
+       order by ${orderBy}
+       offset $2 limit $3`,
+      [categoryIds, offset, limit],
+    );
+    return rows as unknown as DbPoster[];
+  }
 }
 
 export type DbBestSellerRow = {
@@ -135,18 +163,35 @@ export type DbBestSellerRow = {
 // and the admin bulk-toggle is enough for how this store actually curates
 // this list. Shaped like the old curated-table rows (`posters` nested
 // object) so the storefront route didn't need a rewrite.
+//
+// best_seller_order (migration 026 — see
+// neon/migrations/026_poster_merchandising.sql) is an OPTIONAL manual pin:
+// left null (every row before that migration, and any row an admin never
+// sets it on) it sorts exactly as before, purely by sales_count. Setting
+// it just pins that poster ahead of the sales-ranked ones, at that fixed
+// position. Falls back to the pre-migration query if 026 hasn't been
+// applied yet.
 export async function fetchBestSellersFromDb(): Promise<DbBestSellerRow[]> {
-  const rows = await sql()`
-    select p.id, p.title, p.image_url, p.badge, p.category_id, p.hidden,
+  const baseSelect = `select p.id, p.title, p.image_url, p.badge, p.category_id, p.hidden,
            p.sales_count, p.views_count, p.created_at,
            c.name as category_name, c.slug as category_slug
     from posters p
     left join categories c on c.id = p.category_id
     where p.is_best_seller = true and p.hidden = false
-      and p.migration_status in ('not_applicable', 'migrated')
-    order by p.sales_count desc nulls last, p.created_at desc
-    limit 200
-  `;
+      and p.migration_status in ('not_applicable', 'migrated')`;
+  let rows: unknown[];
+  try {
+    rows = await sql()(
+      `${baseSelect} order by p.best_seller_order asc nulls last, p.sales_count desc nulls last, p.created_at desc limit 200`,
+      [],
+    );
+  } catch (err) {
+    if (!(err instanceof Error) || !/column .* does not exist/i.test(err.message)) throw err;
+    rows = await sql()(
+      `${baseSelect} order by p.sales_count desc nulls last, p.created_at desc limit 200`,
+      [],
+    );
+  }
   return (
     rows as unknown as Array<{
       id: string;
@@ -180,19 +225,43 @@ export async function fetchBestSellersFromDb(): Promise<DbBestSellerRow[]> {
   }));
 }
 
+// Optional Trending scheduling window (migration 026 — see
+// neon/migrations/026_poster_merchandising.sql): both bounds null (every
+// row before that migration, and every row an admin never sets a date on)
+// means "show whenever trending = true", identical to before. Falls back
+// to the pre-migration query if 026 hasn't been applied yet, so this
+// never breaks the live homepage Trending Now section.
 export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
-  const rows = await sql()`
-    select id, title, slug, description, image_url, category_id, tags, badge,
-           sales_count, views_count, is_best_seller, hidden, trending,
-           trending_order, pinned, sort_order, created_at, edit_settings,
-           seo_title, seo_description, alt_text
-    from posters
-    where trending = true and hidden = false
-      and migration_status in ('not_applicable', 'migrated')
-    order by trending_order asc nulls last, created_at desc
-    limit 100
-  `;
-  return rows as unknown as DbPoster[];
+  try {
+    const rows = await sql()`
+      select id, title, slug, description, image_url, category_id, tags, badge,
+             sales_count, views_count, is_best_seller, hidden, trending,
+             trending_order, pinned, sort_order, created_at, edit_settings,
+             seo_title, seo_description, alt_text
+      from posters
+      where trending = true and hidden = false
+        and migration_status in ('not_applicable', 'migrated')
+        and (trending_starts_at is null or trending_starts_at <= now())
+        and (trending_ends_at is null or trending_ends_at >= now())
+      order by trending_order asc nulls last, created_at desc
+      limit 100
+    `;
+    return rows as unknown as DbPoster[];
+  } catch (err) {
+    if (!(err instanceof Error) || !/column .* does not exist/i.test(err.message)) throw err;
+    const rows = await sql()`
+      select id, title, slug, description, image_url, category_id, tags, badge,
+             sales_count, views_count, is_best_seller, hidden, trending,
+             trending_order, pinned, sort_order, created_at, edit_settings,
+             seo_title, seo_description, alt_text
+      from posters
+      where trending = true and hidden = false
+        and migration_status in ('not_applicable', 'migrated')
+      order by trending_order asc nulls last, created_at desc
+      limit 100
+    `;
+    return rows as unknown as DbPoster[];
+  }
 }
 
 // TEMPORARY (Phase 1, no image_variants pipeline yet): a plain lookup of

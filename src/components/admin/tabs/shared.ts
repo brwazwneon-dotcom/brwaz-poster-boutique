@@ -62,6 +62,15 @@ export type AdminPoster = {
   seo_description?: string | null;
   alt_text?: string | null;
   review_status: string;
+  // Optional merchandising overrides (migration 026 — see
+  // neon/migrations/026_poster_merchandising.sql). Left undefined by
+  // listPostersAdmin's core query (it never selects them — see
+  // saveMerchandisingFields); the editor reads them separately when it
+  // opens a poster.
+  best_seller_order?: number | null;
+  trending_starts_at?: string | null;
+  trending_ends_at?: string | null;
+  trending_order?: number | null;
 };
 
 export type AdminHeroBanner = {

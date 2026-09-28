@@ -61,6 +61,11 @@ const BeforeAfter = lazy(() =>
 const CategoryGrids = lazy(() =>
   import("@/components/CategoryGrids").then((module) => ({ default: module.CategoryGrids })),
 );
+const DualCategorySections = lazy(() =>
+  import("@/components/DualCategorySections").then((module) => ({
+    default: module.DualCategorySections,
+  })),
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -137,6 +142,7 @@ function Index() {
         itemsCount={s.items_count ?? 8}
       />
     ),
+    "dual-category": () => <DualCategorySections key="dual-category" />,
   };
 
   const renderSection = (section: HomeSectionConfig) => {

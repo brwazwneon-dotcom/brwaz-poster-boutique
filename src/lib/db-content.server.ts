@@ -75,6 +75,96 @@ export async function fetchEnabledHighlightsFromDb(): Promise<DbHighlight[]> {
   return rows as unknown as DbHighlight[];
 }
 
+// Admin-defined "Category A + Category B" homepage blocks (migration 026
+// — see neon/migrations/026_poster_merchandising.sql). Joined here with
+// posters/categories so the public site never has to make a second round
+// trip per card. Falls back to an empty list — never throws — if the
+// migration hasn't been applied yet, since this is a brand-new,
+// previously-nonexistent section: an empty list is exactly "not set up
+// yet", the correct behavior either way.
+export type DbDualCategorySection = {
+  id: string;
+  name: string;
+  sort_order: number;
+  left: {
+    poster_id: string | null;
+    image_url: string | null;
+    title: string | null;
+    button_text: string | null;
+    category_slug: string | null;
+    category_name: string | null;
+  };
+  right: {
+    poster_id: string | null;
+    image_url: string | null;
+    title: string | null;
+    button_text: string | null;
+    category_slug: string | null;
+    category_name: string | null;
+  };
+};
+
+export async function fetchEnabledDualCategorySectionsFromDb(): Promise<DbDualCategorySection[]> {
+  try {
+    const rows = await sql()`
+      select s.id, s.name, s.sort_order,
+             s.left_poster_id, lp.image_url as left_image_url, s.left_title,
+             s.left_button_text, lc.slug as left_category_slug, lc.name as left_category_name,
+             s.right_poster_id, rp.image_url as right_image_url, s.right_title,
+             s.right_button_text, rc.slug as right_category_slug, rc.name as right_category_name
+      from dual_category_sections s
+      left join posters lp on lp.id = s.left_poster_id
+      left join categories lc on lc.id = s.left_category_id
+      left join posters rp on rp.id = s.right_poster_id
+      left join categories rc on rc.id = s.right_category_id
+      where s.enabled = true
+      order by s.sort_order asc, s.created_at asc
+    `;
+    return (
+      rows as unknown as Array<{
+        id: string;
+        name: string;
+        sort_order: number;
+        left_poster_id: string | null;
+        left_image_url: string | null;
+        left_title: string | null;
+        left_button_text: string | null;
+        left_category_slug: string | null;
+        left_category_name: string | null;
+        right_poster_id: string | null;
+        right_image_url: string | null;
+        right_title: string | null;
+        right_button_text: string | null;
+        right_category_slug: string | null;
+        right_category_name: string | null;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      name: r.name,
+      sort_order: r.sort_order,
+      left: {
+        poster_id: r.left_poster_id,
+        image_url: r.left_image_url,
+        title: r.left_title,
+        button_text: r.left_button_text,
+        category_slug: r.left_category_slug,
+        category_name: r.left_category_name,
+      },
+      right: {
+        poster_id: r.right_poster_id,
+        image_url: r.right_image_url,
+        title: r.right_title,
+        button_text: r.right_button_text,
+        category_slug: r.right_category_slug,
+        category_name: r.right_category_name,
+      },
+    }));
+  } catch (err) {
+    if (err instanceof Error && /relation .* does not exist/i.test(err.message)) return [];
+    throw err;
+  }
+}
+
 export async function fetchAllHighlightsFromDb(): Promise<DbHighlight[]> {
   const rows = await sql()`
     select id, key, title, image_url, link, sort_order, enabled
