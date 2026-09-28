@@ -1,430 +1,410 @@
+import { useEffect, useState } from "react";
 import { getSiteSettingsPublic } from "@/lib/db-public.functions";
-import { setSiteSetting } from "@/lib/db-admin.functions";
+import {
+  setSiteSetting,
+  setSiteSettingWithHistory,
+  getSiteSettingHistory as getSiteSettingHistoryFn,
+  restoreSiteSettingVersionToDraft,
+} from "@/lib/db-admin.functions";
+import {
+  THEME_TOKEN_KEYS,
+  isThemeTokenKey,
+  isValidHexColor,
+  SHADOW_VAR_KEYS,
+  isShadowVarKey,
+  isValidBoxShadowValue,
+  isValidLogoUrl,
+} from "@/lib/theme-tokens";
 
-export const ACTIVE_THEME_KEY = "active_theme";
-export const THEME_SETTINGS_KEY = "theme_settings";
-export const THEME_STORAGE_KEY = "brw_active_theme";
-export const THEME_SETTINGS_STORAGE_KEY = "brw_theme_settings";
-export const THEME_PREVIEW_STORAGE_KEY = "brw_theme_preview";
+// One brand, one engine: Light / Dark / System — not a named-preset picker.
+// "System" is never written to the DOM as a literal value; it's always
+// resolved to a concrete "light" | "dark" before it reaches `data-theme`
+// (server-side when we know the mode is explicit, client-side via
+// matchMedia when it's "system" — see __root.tsx).
+export type ThemeMode = "light" | "dark" | "system";
+export type ResolvedThemeMode = "light" | "dark";
 
-export type ThemeId =
-  "brw-classic" | "neon-gallery" | "warm-studio" | "midnight-luxe" | "gallery-white";
+export const WEBSITE_THEME_KEY = "website_theme_settings_v1";
+export const WEBSITE_THEME_DRAFT_KEY = "website_theme_settings_draft_v1";
 
-export type ThemeTokens = {
-  radius: string;
-  background: string;
-  foreground: string;
-  card: string;
-  cardForeground: string;
-  popover: string;
-  popoverForeground: string;
-  primary: string;
-  primaryForeground: string;
-  secondary: string;
-  secondaryForeground: string;
-  muted: string;
-  mutedForeground: string;
-  accent: string;
-  accentForeground: string;
-  destructive: string;
-  destructiveForeground: string;
-  border: string;
-  input: string;
-  ring: string;
-  sidebar: string;
-  sidebarForeground: string;
-  sidebarPrimary: string;
-  sidebarPrimaryForeground: string;
-  sidebarAccent: string;
-  sidebarAccentForeground: string;
-  sidebarBorder: string;
-  sidebarRing: string;
-  fontDisplay: string;
-  fontBody: string;
-  surface?: string;
-  textSecondary?: string;
-  textMuted?: string;
-  headerBackground?: string;
-  footerBackground?: string;
-  footerText?: string;
-  cardShadow?: string;
-  floatingShadow?: string;
-  focusRing?: string;
-  inputBackground?: string;
+// Client-side cache only (mirrors the published value for instant repeat
+// paints / the system-mode pin script) — never the source of truth. The
+// source of truth is always Neon (site_settings), read via
+// getSiteSettingsPublic.
+export const THEME_MODE_CACHE_KEY = "brw_theme_mode";
+export const THEME_PREVIEW_MODE_KEY = "brw_theme_preview_mode";
+
+export const DEFAULT_THEME_MODE: ThemeMode = "dark";
+
+/** Hex overrides for a subset of THEME_TOKEN_KEYS. A key absent here means "use the stylesheet default". */
+export type ThemeColorOverrides = Partial<Record<string, string>>;
+
+/** box-shadow overrides for the "theme-shadow-sm/md/lg" keys. A key absent here means "use the soft/Tailwind default". */
+export type ThemeShadowOverrides = Partial<Record<string, string>>;
+
+/** Optional per-mode logo image URL. Absent/undefined means "use the site's default logo" (branding.ts's logoUrl). */
+export type ThemeLogoOverrides = { light?: string; dark?: string };
+
+export type ThemeTypography = {
+  /** Base font size in px, applied to <html>. Browser/Tailwind default (16px) when unset. */
+  fontSizeBasePx?: number;
+  /** font-weight for h1-h3/.display. CSS default (700) when unset. */
+  headingWeight?: number;
+  /** font-weight for body text. CSS default (400) when unset. */
+  bodyWeight?: number;
+  /** Overrides --radius (rem). Stylesheet default (0.25rem) when unset. */
+  radiusRem?: number;
 };
 
-export type SiteTheme = {
-  id: ThemeId;
-  name: string;
-  description: string;
-  preview: string[];
-  tokens: ThemeTokens;
-  nameAr?: string;
-  descriptionAr?: string;
-  nameKey?: string;
-  descriptionKey?: string;
-  badge?: string;
-  badgeAr?: string;
-  badgeKey?: string;
-  isLight?: boolean;
-};
-
-export type ThemeSettings = {
-  activeTheme: ThemeId;
-  previousTheme?: ThemeId;
+export type WebsiteThemeSettings = {
+  mode: ThemeMode;
+  colors: { light: ThemeColorOverrides; dark: ThemeColorOverrides };
+  shadows: { light: ThemeShadowOverrides; dark: ThemeShadowOverrides };
+  typography: ThemeTypography;
+  logos: ThemeLogoOverrides;
   updatedAt?: string;
 };
 
-export const DEFAULT_THEME_ID: ThemeId = "brw-classic";
-
-export const SITE_THEMES: SiteTheme[] = [
-  {
-    id: "brw-classic",
-    name: "BRW Classic",
-    description: "Current black-and-white storefront with sharp gallery contrast.",
-    preview: ["#050505", "#ffffff", "#242424"],
-    tokens: {
-      radius: "0.25rem",
-      background: "oklch(0.06 0 0)",
-      foreground: "oklch(0.98 0 0)",
-      card: "oklch(0.10 0 0)",
-      cardForeground: "oklch(0.98 0 0)",
-      popover: "oklch(0.10 0 0)",
-      popoverForeground: "oklch(0.98 0 0)",
-      primary: "oklch(0.98 0 0)",
-      primaryForeground: "oklch(0.06 0 0)",
-      secondary: "oklch(0.16 0 0)",
-      secondaryForeground: "oklch(0.98 0 0)",
-      muted: "oklch(0.14 0 0)",
-      mutedForeground: "oklch(0.65 0 0)",
-      accent: "oklch(0.20 0 0)",
-      accentForeground: "oklch(0.98 0 0)",
-      destructive: "oklch(0.60 0.22 27)",
-      destructiveForeground: "oklch(0.98 0 0)",
-      border: "oklch(0.22 0 0)",
-      input: "oklch(0.18 0 0)",
-      ring: "oklch(0.55 0 0)",
-      sidebar: "oklch(0.08 0 0)",
-      sidebarForeground: "oklch(0.98 0 0)",
-      sidebarPrimary: "oklch(0.98 0 0)",
-      sidebarPrimaryForeground: "oklch(0.06 0 0)",
-      sidebarAccent: "oklch(0.16 0 0)",
-      sidebarAccentForeground: "oklch(0.98 0 0)",
-      sidebarBorder: "oklch(0.22 0 0)",
-      sidebarRing: "oklch(0.55 0 0)",
-      fontDisplay: '"Bebas Neue", "Archivo Black", system-ui, sans-serif',
-      fontBody: '"Inter", system-ui, sans-serif',
-    },
-  },
-  {
-    id: "neon-gallery",
-    name: "Neon Gallery",
-    description: "Dark gallery base with electric cyan highlights for promo moments.",
-    preview: ["#030712", "#22d3ee", "#a855f7"],
-    tokens: {
-      radius: "0.35rem",
-      background: "oklch(0.10 0.035 263)",
-      foreground: "oklch(0.97 0.015 250)",
-      card: "oklch(0.15 0.045 263)",
-      cardForeground: "oklch(0.97 0.015 250)",
-      popover: "oklch(0.13 0.045 263)",
-      popoverForeground: "oklch(0.97 0.015 250)",
-      primary: "oklch(0.82 0.16 205)",
-      primaryForeground: "oklch(0.10 0.035 263)",
-      secondary: "oklch(0.22 0.06 275)",
-      secondaryForeground: "oklch(0.94 0.03 250)",
-      muted: "oklch(0.19 0.04 263)",
-      mutedForeground: "oklch(0.72 0.035 250)",
-      accent: "oklch(0.67 0.22 310)",
-      accentForeground: "oklch(0.98 0.01 300)",
-      destructive: "oklch(0.65 0.24 25)",
-      destructiveForeground: "oklch(0.98 0.01 20)",
-      border: "oklch(0.30 0.065 263)",
-      input: "oklch(0.24 0.055 263)",
-      ring: "oklch(0.82 0.16 205)",
-      sidebar: "oklch(0.12 0.04 263)",
-      sidebarForeground: "oklch(0.97 0.015 250)",
-      sidebarPrimary: "oklch(0.82 0.16 205)",
-      sidebarPrimaryForeground: "oklch(0.10 0.035 263)",
-      sidebarAccent: "oklch(0.22 0.06 275)",
-      sidebarAccentForeground: "oklch(0.94 0.03 250)",
-      sidebarBorder: "oklch(0.30 0.065 263)",
-      sidebarRing: "oklch(0.82 0.16 205)",
-      fontDisplay: '"Bebas Neue", "Archivo Black", system-ui, sans-serif',
-      fontBody: '"Inter", system-ui, sans-serif',
-    },
-  },
-  {
-    id: "warm-studio",
-    name: "Warm Studio",
-    description: "Editorial off-black with warm paper, amber accents, and softer borders.",
-    preview: ["#17120d", "#f6dfb7", "#d97706"],
-    tokens: {
-      radius: "0.5rem",
-      background: "oklch(0.13 0.025 55)",
-      foreground: "oklch(0.94 0.035 80)",
-      card: "oklch(0.18 0.03 55)",
-      cardForeground: "oklch(0.94 0.035 80)",
-      popover: "oklch(0.17 0.03 55)",
-      popoverForeground: "oklch(0.94 0.035 80)",
-      primary: "oklch(0.82 0.12 78)",
-      primaryForeground: "oklch(0.16 0.025 55)",
-      secondary: "oklch(0.25 0.04 55)",
-      secondaryForeground: "oklch(0.94 0.035 80)",
-      muted: "oklch(0.23 0.035 55)",
-      mutedForeground: "oklch(0.70 0.045 75)",
-      accent: "oklch(0.64 0.16 58)",
-      accentForeground: "oklch(0.11 0.02 55)",
-      destructive: "oklch(0.60 0.20 30)",
-      destructiveForeground: "oklch(0.98 0.02 70)",
-      border: "oklch(0.31 0.045 58)",
-      input: "oklch(0.25 0.04 55)",
-      ring: "oklch(0.74 0.12 68)",
-      sidebar: "oklch(0.15 0.025 55)",
-      sidebarForeground: "oklch(0.94 0.035 80)",
-      sidebarPrimary: "oklch(0.82 0.12 78)",
-      sidebarPrimaryForeground: "oklch(0.16 0.025 55)",
-      sidebarAccent: "oklch(0.25 0.04 55)",
-      sidebarAccentForeground: "oklch(0.94 0.035 80)",
-      sidebarBorder: "oklch(0.31 0.045 58)",
-      sidebarRing: "oklch(0.74 0.12 68)",
-      fontDisplay: '"Bebas Neue", Georgia, serif',
-      fontBody: '"Inter", system-ui, sans-serif',
-    },
-  },
-  {
-    id: "midnight-luxe",
-    name: "Midnight Luxe",
-    description: "Deep navy storefront with champagne primary actions and premium contrast.",
-    preview: ["#060817", "#e8c872", "#3949ab"],
-    tokens: {
-      radius: "0.4rem",
-      background: "oklch(0.09 0.035 270)",
-      foreground: "oklch(0.96 0.018 92)",
-      card: "oklch(0.14 0.04 270)",
-      cardForeground: "oklch(0.96 0.018 92)",
-      popover: "oklch(0.13 0.04 270)",
-      popoverForeground: "oklch(0.96 0.018 92)",
-      primary: "oklch(0.82 0.10 88)",
-      primaryForeground: "oklch(0.10 0.035 270)",
-      secondary: "oklch(0.22 0.06 270)",
-      secondaryForeground: "oklch(0.94 0.02 92)",
-      muted: "oklch(0.19 0.045 270)",
-      mutedForeground: "oklch(0.70 0.035 270)",
-      accent: "oklch(0.52 0.17 275)",
-      accentForeground: "oklch(0.98 0.01 92)",
-      destructive: "oklch(0.62 0.22 25)",
-      destructiveForeground: "oklch(0.98 0.01 92)",
-      border: "oklch(0.28 0.055 270)",
-      input: "oklch(0.22 0.055 270)",
-      ring: "oklch(0.82 0.10 88)",
-      sidebar: "oklch(0.11 0.035 270)",
-      sidebarForeground: "oklch(0.96 0.018 92)",
-      sidebarPrimary: "oklch(0.82 0.10 88)",
-      sidebarPrimaryForeground: "oklch(0.10 0.035 270)",
-      sidebarAccent: "oklch(0.22 0.06 270)",
-      sidebarAccentForeground: "oklch(0.94 0.02 92)",
-      sidebarBorder: "oklch(0.28 0.055 270)",
-      sidebarRing: "oklch(0.82 0.10 88)",
-      fontDisplay: '"Bebas Neue", "Archivo Black", system-ui, sans-serif',
-      fontBody: '"Inter", system-ui, sans-serif',
-    },
-  },
-  {
-    id: "gallery-white",
-    name: "Gallery White",
-    nameAr: "المعرض الأبيض",
-    nameKey: "theme.gallery-white.name",
-    description:
-      "Clean premium white storefront with black typography and subtle BRWAZWNEON accents.",
-    descriptionAr: "واجهة بيضاء نظيفة وفاخرة، بخطوط سوداء واضحة ولمسات بسيطة من ألوان برواز ونيون.",
-    descriptionKey: "theme.gallery-white.description",
-    badge: "LIGHT THEME",
-    badgeAr: "ثيم فاتح",
-    badgeKey: "theme.lightTheme",
-    isLight: true,
-    preview: ["#FFFFFF", "#F7F7F7", "#111111", "#00BEE8", "#FFD400"],
-    tokens: {
-      radius: "0.875rem",
-      background: "#FFFFFF",
-      foreground: "#111111",
-      card: "#FFFFFF",
-      cardForeground: "#111111",
-      popover: "#FFFFFF",
-      popoverForeground: "#111111",
-      primary: "#111111",
-      primaryForeground: "#FFFFFF",
-      secondary: "#00BEE8",
-      secondaryForeground: "#111111",
-      muted: "#F7F7F7",
-      mutedForeground: "#999999",
-      accent: "#FFD400",
-      accentForeground: "#111111",
-      destructive: "#B42318",
-      destructiveForeground: "#FFFFFF",
-      border: "#E5E5E5",
-      input: "#E5E5E5",
-      ring: "#00BEE8",
-      sidebar: "#F7F7F7",
-      sidebarForeground: "#111111",
-      sidebarPrimary: "#111111",
-      sidebarPrimaryForeground: "#FFFFFF",
-      sidebarAccent: "#FFD400",
-      sidebarAccentForeground: "#111111",
-      sidebarBorder: "#E5E5E5",
-      sidebarRing: "#00BEE8",
-      fontDisplay: '"Inter", system-ui, sans-serif',
-      fontBody: '"Inter", system-ui, sans-serif',
-      surface: "#F7F7F7",
-      textSecondary: "#666666",
-      textMuted: "#999999",
-      headerBackground: "rgba(255,255,255,0.94)",
-      footerBackground: "#050505",
-      footerText: "#FFFFFF",
-      cardShadow: "0 8px 30px rgba(0,0,0,0.07)",
-      floatingShadow: "0 12px 35px rgba(0,0,0,0.12)",
-      focusRing: "0 0 0 3px rgba(0,190,232,0.24)",
-      inputBackground: "#FFFFFF",
-    },
-  },
-];
-
-export function getTheme(id: unknown): SiteTheme {
-  return SITE_THEMES.find((theme) => theme.id === id) ?? SITE_THEMES[0];
+export function normalizeThemeMode(value: unknown): ThemeMode {
+  return value === "light" || value === "dark" || value === "system" ? value : DEFAULT_THEME_MODE;
 }
 
-export function applyTheme(themeOrId: SiteTheme | ThemeId) {
+/** Keeps only known token keys with a well-formed #rrggbb value — never trusts stored JSON blindly. */
+function normalizeColorOverrides(value: unknown): ThemeColorOverrides {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const out: ThemeColorOverrides = {};
+  for (const key of THEME_TOKEN_KEYS) {
+    const v = raw[key];
+    if (isThemeTokenKey(key) && isValidHexColor(v)) out[key] = v.toLowerCase();
+  }
+  return out;
+}
+
+/** Keeps only known shadow-var keys with a well-formed, safe box-shadow value. */
+function normalizeShadowOverrides(value: unknown): ThemeShadowOverrides {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const out: ThemeShadowOverrides = {};
+  for (const key of SHADOW_VAR_KEYS) {
+    const v = raw[key];
+    if (isShadowVarKey(key) && isValidBoxShadowValue(v)) out[key] = v.trim();
+  }
+  return out;
+}
+
+/** Keeps only well-formed https logo URLs — an invalid/missing value means "no override". */
+function normalizeLogos(value: unknown): ThemeLogoOverrides {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const out: ThemeLogoOverrides = {};
+  if (isValidLogoUrl(raw.light)) out.light = raw.light;
+  if (isValidLogoUrl(raw.dark)) out.dark = raw.dark;
+  return out;
+}
+
+function clampNumber(v: unknown, min: number, max: number): number | undefined {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(max, Math.max(min, n));
+}
+
+function normalizeTypography(value: unknown): ThemeTypography {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const out: ThemeTypography = {};
+  const fontSizeBasePx = clampNumber(raw.fontSizeBasePx, 13, 20);
+  if (fontSizeBasePx !== undefined) out.fontSizeBasePx = fontSizeBasePx;
+  const headingWeight = clampNumber(raw.headingWeight, 400, 900);
+  if (headingWeight !== undefined) out.headingWeight = Math.round(headingWeight / 100) * 100;
+  const bodyWeight = clampNumber(raw.bodyWeight, 300, 700);
+  if (bodyWeight !== undefined) out.bodyWeight = Math.round(bodyWeight / 100) * 100;
+  const radiusRem = clampNumber(raw.radiusRem, 0, 1.5);
+  if (radiusRem !== undefined) out.radiusRem = Math.round(radiusRem * 100) / 100;
+  return out;
+}
+
+export function normalizeThemeSettings(value: unknown): WebsiteThemeSettings {
+  const empty: WebsiteThemeSettings = {
+    mode: DEFAULT_THEME_MODE,
+    colors: { light: {}, dark: {} },
+    shadows: { light: {}, dark: {} },
+    typography: {},
+    logos: {},
+  };
+  if (!value || typeof value !== "object") return empty;
+  const raw = value as Record<string, unknown>;
+  const rawColors = (raw.colors ?? {}) as Record<string, unknown>;
+  const rawShadows = (raw.shadows ?? {}) as Record<string, unknown>;
+  return {
+    mode: normalizeThemeMode(raw.mode),
+    colors: {
+      light: normalizeColorOverrides(rawColors.light),
+      dark: normalizeColorOverrides(rawColors.dark),
+    },
+    shadows: {
+      light: normalizeShadowOverrides(rawShadows.light),
+      dark: normalizeShadowOverrides(rawShadows.dark),
+    },
+    typography: normalizeTypography(raw.typography),
+    logos: normalizeLogos(raw.logos),
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
+  };
+}
+
+const isEmptyOverrides = (o: ThemeColorOverrides | ThemeShadowOverrides) =>
+  Object.keys(o).length === 0;
+const isEmptyTypography = (t: ThemeTypography) => Object.keys(t).length === 0;
+const isEmptyLogos = (l: ThemeLogoOverrides) => !l.light && !l.dark;
+
+/** True once the admin has customized ANYTHING beyond the plain mode. */
+export function hasThemeCustomizations(s: WebsiteThemeSettings): boolean {
+  return (
+    !isEmptyOverrides(s.colors.light) ||
+    !isEmptyOverrides(s.colors.dark) ||
+    !isEmptyOverrides(s.shadows.light) ||
+    !isEmptyOverrides(s.shadows.dark) ||
+    !isEmptyTypography(s.typography) ||
+    !isEmptyLogos(s.logos)
+  );
+}
+
+function cssBlock(
+  selector: string,
+  colorOverrides: ThemeColorOverrides,
+  shadowOverrides: ThemeShadowOverrides,
+  typography?: ThemeTypography,
+): string {
+  const lines: string[] = [];
+  for (const [key, hex] of Object.entries(colorOverrides)) lines.push(`--${key}:${hex};`);
+  for (const [key, value] of Object.entries(shadowOverrides)) lines.push(`--${key}:${value};`);
+  if (typography?.radiusRem !== undefined) lines.push(`--radius:${typography.radiusRem}rem;`);
+  if (typography?.fontSizeBasePx !== undefined)
+    lines.push(`--theme-font-size-base:${typography.fontSizeBasePx}px;`);
+  if (typography?.headingWeight !== undefined)
+    lines.push(`--theme-font-weight-heading:${typography.headingWeight};`);
+  if (typography?.bodyWeight !== undefined)
+    lines.push(`--theme-font-weight-body:${typography.bodyWeight};`);
+  return lines.length ? `${selector}{${lines.join("")}}` : "";
+}
+
+/**
+ * Renders the settings' customizations (colors + shadows + typography) as
+ * plain CSS text, mirroring styles.css's own three-block structure exactly
+ * (:root for dark, [data-theme="light"] for light, and the
+ * prefers-color-scheme fallback for pre-JS "system"+light-OS) — so
+ * overrides win the cascade no matter which of those three paths resolved
+ * the visitor's theme.
+ *
+ * Returns "" when nothing was customized: the caller then skips rendering a
+ * <style> tag at all, and the page is byte-identical to the un-customized
+ * stylesheet (see hasThemeCustomizations).
+ */
+export function buildThemeOverrideCss(s: WebsiteThemeSettings): string {
+  if (!hasThemeCustomizations(s)) return "";
+  const dark = cssBlock(":root", s.colors.dark, s.shadows.dark, s.typography);
+  const light = cssBlock('[data-theme="light"]', s.colors.light, s.shadows.light, s.typography);
+  const lightVars = { ...s.colors.light, ...s.shadows.light };
+  const lightFallback = Object.keys(lightVars).length
+    ? `@media (prefers-color-scheme: light){html:not([data-theme]){${Object.entries(lightVars)
+        .map(([key, value]) => `--${key}:${value};`)
+        .join("")}}}`
+    : "";
+  return [dark, light, lightFallback].filter(Boolean).join("");
+}
+
+/** "system" resolves per-visitor from OS preference; light/dark pass through. */
+export function resolveThemeMode(mode: ThemeMode, prefersDark: boolean): ResolvedThemeMode {
+  if (mode === "system") return prefersDark ? "dark" : "light";
+  return mode;
+}
+
+/** Safe to call on the server (during SSR/loaders) or the client. */
+export async function loadPublishedThemeSettings(): Promise<WebsiteThemeSettings> {
+  const settings = await getSiteSettingsPublic({ data: { keys: [WEBSITE_THEME_KEY] } });
+  return normalizeThemeSettings(settings[WEBSITE_THEME_KEY]);
+}
+
+/** Draft falls back to the published value when no draft has been saved yet. */
+export async function loadDraftThemeSettings(): Promise<WebsiteThemeSettings> {
+  const settings = await getSiteSettingsPublic({
+    data: { keys: [WEBSITE_THEME_DRAFT_KEY, WEBSITE_THEME_KEY] },
+  });
+  if (settings[WEBSITE_THEME_DRAFT_KEY])
+    return normalizeThemeSettings(settings[WEBSITE_THEME_DRAFT_KEY]);
+  return normalizeThemeSettings(settings[WEBSITE_THEME_KEY]);
+}
+
+export function applyResolvedThemeToDocument(resolved: ResolvedThemeMode) {
   if (typeof document === "undefined") return;
-  const theme = typeof themeOrId === "string" ? getTheme(themeOrId) : themeOrId;
-  const root = document.documentElement;
-  root.dataset.siteTheme = theme.id;
-  root.dataset.theme = theme.id;
-  for (const [key, value] of Object.entries(toCssVariables(theme.tokens))) {
-    root.style.setProperty(key, value);
-  }
+  document.documentElement.dataset.theme = resolved;
 }
 
-export function persistThemeLocally(theme: SiteTheme) {
+function readResolvedThemeFromDom(): ResolvedThemeMode {
+  // SSR already put the real resolved mode into <html data-theme> before
+  // this ever runs client-side (explicit light/dark server-side, or the
+  // inline pin script / prefers-color-scheme CSS fallback for "system"
+  // before hydration) — reading it back here is the single correct source
+  // of truth, not a guess. The "dark" fallback only matters for the very
+  // first server render, where it matches DEFAULT_THEME_MODE.
+  if (typeof document === "undefined") return "dark";
+  const value = document.documentElement.dataset.theme;
+  return value === "light" ? "light" : "dark";
+}
+
+/**
+ * Reactively tracks <html data-theme>, for the rare client component (e.g.
+ * a per-mode logo) that needs the ACTUAL resolved mode rather than the
+ * site's configured ThemeMode ("system" isn't itself renderable). Prefer
+ * `themeMode` from the root loader directly when "system" doesn't need
+ * special handling — this hook exists for the cases that do.
+ */
+export function useResolvedThemeMode(): ResolvedThemeMode {
+  const [mode, setMode] = useState<ResolvedThemeMode>(readResolvedThemeFromDom);
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setMode(readResolvedThemeFromDom());
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return mode;
+}
+
+export function cacheThemeModeLocally(mode: ThemeMode) {
   try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme.id);
-    localStorage.setItem(THEME_SETTINGS_STORAGE_KEY, JSON.stringify(toCssVariables(theme.tokens)));
+    localStorage.setItem(THEME_MODE_CACHE_KEY, mode);
   } catch {
-    // Storage can be unavailable; applying the theme still keeps the UI current.
+    // Storage can be unavailable (private browsing) — cache is best-effort only.
   }
 }
 
-export function setThemePreview(theme: SiteTheme) {
+export function readCachedThemeMode(): ThemeMode | null {
   try {
-    sessionStorage.setItem(THEME_PREVIEW_STORAGE_KEY, theme.id);
-    sessionStorage.setItem(
-      THEME_SETTINGS_STORAGE_KEY,
-      JSON.stringify(toCssVariables(theme.tokens)),
-    );
+    const value = localStorage.getItem(THEME_MODE_CACHE_KEY);
+    return value === "light" || value === "dark" || value === "system" ? value : null;
   } catch {
-    // Storage can be unavailable; the preview theme is still applied below.
+    return null;
   }
-  applyTheme(theme);
 }
 
-export function clearThemePreview() {
+// ---------------------------------------------------------------
+// Preview (draft, session-scoped) — mirrors homepage-sections.ts's
+// draft/preview convention via preview-mode.ts's `?preview=1` flag.
+// ---------------------------------------------------------------
+export function setThemePreviewMode(mode: ThemeMode) {
   try {
-    sessionStorage.removeItem(THEME_PREVIEW_STORAGE_KEY);
-    sessionStorage.removeItem(THEME_SETTINGS_STORAGE_KEY);
+    sessionStorage.setItem(THEME_PREVIEW_MODE_KEY, mode);
+  } catch {
+    // Storage can be unavailable; the caller still re-renders with the preview mode.
+  }
+}
+
+export function readThemePreviewMode(): ThemeMode | null {
+  try {
+    const value = sessionStorage.getItem(THEME_PREVIEW_MODE_KEY);
+    return value === "light" || value === "dark" || value === "system" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearThemePreviewMode() {
+  try {
+    sessionStorage.removeItem(THEME_PREVIEW_MODE_KEY);
   } catch {
     // Storage can be unavailable; clearing preview persistence is best effort.
   }
 }
 
-export async function loadActiveTheme(): Promise<SiteTheme> {
-  const settings = await getSiteSettingsPublic({ data: { keys: [ACTIVE_THEME_KEY, THEME_SETTINGS_KEY] } });
-  const themeSettings = normalizeThemeSettings(settings[THEME_SETTINGS_KEY]);
-  return getTheme(themeSettings?.activeTheme ?? settings[ACTIVE_THEME_KEY] ?? DEFAULT_THEME_ID);
+// ---------------------------------------------------------------
+// Admin actions — draft / publish / version history / rollback
+// ---------------------------------------------------------------
+/** Input helper: build a full settings object from partial edits over a base. */
+export function withThemeChanges(
+  base: WebsiteThemeSettings,
+  changes: Partial<Pick<WebsiteThemeSettings, "mode">> & {
+    colors?: Partial<{ light: ThemeColorOverrides; dark: ThemeColorOverrides }>;
+    shadows?: Partial<{ light: ThemeShadowOverrides; dark: ThemeShadowOverrides }>;
+    typography?: ThemeTypography;
+    logos?: ThemeLogoOverrides;
+  },
+): WebsiteThemeSettings {
+  return normalizeThemeSettings({
+    mode: changes.mode ?? base.mode,
+    colors: {
+      light: changes.colors?.light ?? base.colors.light,
+      dark: changes.colors?.dark ?? base.colors.dark,
+    },
+    shadows: {
+      light: changes.shadows?.light ?? base.shadows.light,
+      dark: changes.shadows?.dark ?? base.shadows.dark,
+    },
+    typography: changes.typography ?? base.typography,
+    logos: changes.logos ?? base.logos,
+  });
 }
 
-export async function saveActiveTheme(themeId: ThemeId) {
-  const theme = getTheme(themeId);
-  const current = await loadActiveTheme();
-  const settings: ThemeSettings = {
-    activeTheme: theme.id,
-    previousTheme: current.id === theme.id ? undefined : current.id,
-    updatedAt: new Date().toISOString(),
-  };
-  await setSiteSetting({ data: { key: ACTIVE_THEME_KEY, value: theme.id } });
-  await setSiteSetting({ data: { key: THEME_SETTINGS_KEY, value: settings } });
-  persistThemeLocally(theme);
-  applyTheme(theme);
+export async function saveThemeDraft(
+  settings: WebsiteThemeSettings,
+): Promise<WebsiteThemeSettings> {
+  const normalized = normalizeThemeSettings({ ...settings, updatedAt: new Date().toISOString() });
+  await setSiteSetting({ data: { key: WEBSITE_THEME_DRAFT_KEY, value: normalized } });
+  return normalized;
 }
 
-export async function rollbackActiveTheme() {
-  const raw = await getSiteSettingsPublic({ data: { keys: [THEME_SETTINGS_KEY] } });
-  const settings = normalizeThemeSettings(raw[THEME_SETTINGS_KEY]);
-  if (!settings?.previousTheme) return null;
-
-  const previous = getTheme(settings.previousTheme);
-  const nextSettings: ThemeSettings = {
-    activeTheme: previous.id,
-    previousTheme: settings.activeTheme,
-    updatedAt: new Date().toISOString(),
-  };
-  await setSiteSetting({ data: { key: ACTIVE_THEME_KEY, value: previous.id } });
-  await setSiteSetting({ data: { key: THEME_SETTINGS_KEY, value: nextSettings } });
-  persistThemeLocally(previous);
-  applyTheme(previous);
-  return previous;
+export async function publishTheme(settings: WebsiteThemeSettings): Promise<WebsiteThemeSettings> {
+  const normalized = normalizeThemeSettings({ ...settings, updatedAt: new Date().toISOString() });
+  // Keep the draft in sync with what's now live, so the next edit starts from it.
+  await setSiteSetting({ data: { key: WEBSITE_THEME_DRAFT_KEY, value: normalized } });
+  await setSiteSettingWithHistory({ data: { key: WEBSITE_THEME_KEY, value: normalized } });
+  return normalized;
 }
 
-export function normalizeThemeSettings(value: unknown): ThemeSettings | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as Record<string, unknown>;
-  const theme = getTheme(raw.activeTheme).id;
-  return {
-    activeTheme: theme,
-    previousTheme: raw.previousTheme ? getTheme(raw.previousTheme).id : undefined,
-    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
-  };
+export type ThemeHistoryEntry = {
+  id: string;
+  key: string;
+  value: unknown;
+  created_at: string;
+  created_by: string | null;
+  created_by_email: string | null;
+};
+
+export async function getThemeHistory(limit = 20): Promise<ThemeHistoryEntry[]> {
+  const rows = await getSiteSettingHistoryFn({ data: { key: WEBSITE_THEME_KEY, limit } });
+  return rows as ThemeHistoryEntry[];
 }
 
-function toCssVariables(tokens: ThemeTokens): Record<string, string> {
-  return {
-    "--radius": tokens.radius,
-    "--background": tokens.background,
-    "--foreground": tokens.foreground,
-    "--card": tokens.card,
-    "--card-foreground": tokens.cardForeground,
-    "--popover": tokens.popover,
-    "--popover-foreground": tokens.popoverForeground,
-    "--primary": tokens.primary,
-    "--primary-foreground": tokens.primaryForeground,
-    "--secondary": tokens.secondary,
-    "--secondary-foreground": tokens.secondaryForeground,
-    "--muted": tokens.muted,
-    "--muted-foreground": tokens.mutedForeground,
-    "--accent": tokens.accent,
-    "--accent-foreground": tokens.accentForeground,
-    "--destructive": tokens.destructive,
-    "--destructive-foreground": tokens.destructiveForeground,
-    "--border": tokens.border,
-    "--input": tokens.input,
-    "--ring": tokens.ring,
-    "--sidebar": tokens.sidebar,
-    "--sidebar-foreground": tokens.sidebarForeground,
-    "--sidebar-primary": tokens.sidebarPrimary,
-    "--sidebar-primary-foreground": tokens.sidebarPrimaryForeground,
-    "--sidebar-accent": tokens.sidebarAccent,
-    "--sidebar-accent-foreground": tokens.sidebarAccentForeground,
-    "--sidebar-border": tokens.sidebarBorder,
-    "--sidebar-ring": tokens.sidebarRing,
-    "--font-display": tokens.fontDisplay,
-    "--font-body": tokens.fontBody,
-    ...(tokens.surface ? { "--surface": tokens.surface } : {}),
-    ...(tokens.textSecondary ? { "--text-secondary": tokens.textSecondary } : {}),
-    ...(tokens.textMuted ? { "--text-muted": tokens.textMuted } : {}),
-    ...(tokens.headerBackground ? { "--header-background": tokens.headerBackground } : {}),
-    ...(tokens.footerBackground ? { "--footer-background": tokens.footerBackground } : {}),
-    ...(tokens.footerText ? { "--footer-text": tokens.footerText } : {}),
-    ...(tokens.cardShadow ? { "--shadow-card": tokens.cardShadow } : {}),
-    ...(tokens.floatingShadow ? { "--shadow-floating": tokens.floatingShadow } : {}),
-    ...(tokens.focusRing ? { "--focus-ring": tokens.focusRing } : {}),
-    ...(tokens.inputBackground ? { "--input-background": tokens.inputBackground } : {}),
-  };
+/** Loads a past version back into the draft — admin still previews before re-publishing. */
+export async function restoreThemeVersionToDraft(historyId: string): Promise<WebsiteThemeSettings> {
+  const result = await restoreSiteSettingVersionToDraft({
+    data: { historyId, draftKey: WEBSITE_THEME_DRAFT_KEY },
+  });
+  return normalizeThemeSettings(result.value);
+}
+
+/** Clears the draft's colors + shadows (+ logo) for ONE mode only — mode and the other palette are kept. */
+export async function resetThemeDraftScope(
+  base: WebsiteThemeSettings,
+  scope: "light" | "dark" | "typography" | "all",
+): Promise<WebsiteThemeSettings> {
+  const next: WebsiteThemeSettings =
+    scope === "all"
+      ? {
+          mode: DEFAULT_THEME_MODE,
+          colors: { light: {}, dark: {} },
+          shadows: { light: {}, dark: {} },
+          typography: {},
+          logos: {},
+        }
+      : scope === "typography"
+        ? { ...base, typography: {} }
+        : {
+            ...base,
+            colors: { ...base.colors, [scope]: {} },
+            shadows: { ...base.shadows, [scope]: {} },
+            logos: { ...base.logos, [scope]: undefined },
+          };
+  return saveThemeDraft(next);
 }

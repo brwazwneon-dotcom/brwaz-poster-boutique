@@ -1,33 +1,31 @@
 import { useEffect, useState } from "react";
 import { Eye, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  clearThemePreview,
-  getTheme,
-  THEME_PREVIEW_STORAGE_KEY,
-  type ThemeId,
-} from "@/lib/theme-system";
+import { clearThemePreviewMode, readThemePreviewMode, type ThemeMode } from "@/lib/theme-system";
+
+const MODE_LABEL: Record<ThemeMode, { en: string; ar: string }> = {
+  light: { en: "Light", ar: "فاتح" },
+  dark: { en: "Dark", ar: "داكن" },
+  system: { en: "System", ar: "النظام" },
+};
 
 export function ThemePreviewBanner() {
-  const { t } = useTranslation();
-  const [themeId, setThemeId] = useState<ThemeId | null>(null);
+  const { t, i18n } = useTranslation();
+  const [mode, setMode] = useState<ThemeMode | null>(null);
+  const isArabic = i18n.language?.startsWith("ar");
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(THEME_PREVIEW_STORAGE_KEY);
-      if (raw) setThemeId(getTheme(raw).id);
-    } catch {
-      /* sessionStorage may be unavailable in hardened browsers */
-    }
+    setMode(readThemePreviewMode());
   }, []);
 
-  if (!themeId) return null;
+  if (!mode) return null;
 
-  const theme = getTheme(themeId);
   const closePreview = () => {
-    clearThemePreview();
+    clearThemePreviewMode();
     window.location.reload();
   };
+
+  const label = isArabic ? MODE_LABEL[mode].ar : MODE_LABEL[mode].en;
 
   return (
     <div
@@ -37,7 +35,7 @@ export function ThemePreviewBanner() {
     >
       <Eye className="h-4 w-4 text-primary" aria-hidden />
       <span className="uppercase tracking-widest">
-        {t("admin.themePreviewLabel", { name: theme.name })}
+        {t("admin.themePreviewLabel", { name: label })}
       </span>
       <button
         type="button"

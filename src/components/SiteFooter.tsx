@@ -24,7 +24,7 @@ export function SiteFooter() {
   };
 
   return (
-    <footer className="mt-24 border-t border-border bg-background">
+    <footer className="mt-24 border-t border-border bg-footer-background text-footer-foreground">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
         <div>
           <Link to="/" aria-label="BRWAZWNEON home" className="inline-flex">

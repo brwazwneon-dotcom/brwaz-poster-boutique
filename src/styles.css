@@ -2,7 +2,16 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Keys off the real theme attributes (not a `.dark` class nothing ever
+ * sets): [data-theme="dark"] for the website (<html>, resolved server-side
+ * or via the system-mode pin script — see __root.tsx) and
+ * [data-admin-theme="dark"] for the admin dashboard, which is a fully
+ * separate, independently-toggled scope. A `dark:` utility used inside a
+ * storefront component reacts to the website's mode; one used inside an
+ * admin component reacts to the admin's own mode.
+ */
+@custom-variant dark (&:is([data-theme="dark"] *, [data-admin-theme="dark"] *));
 @custom-variant rtl (&:where([dir="rtl"] *));
 @custom-variant ltr (&:where([dir="ltr"] *));
 
@@ -37,16 +46,32 @@
 }
 
 /*
- * Design system definition.
+ * Design system definition — the website's ONE theme engine.
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
+ * :root defines the DARK palette (the site's default/current look — see
+ * theme-system.ts's DEFAULT_THEME_MODE). [data-theme="light"] overrides
+ * every color token for Light mode. "System" mode never appears as a
+ * literal attribute value — it's always resolved to a concrete "light" or
+ * "dark" before it reaches the DOM (server-side when possible, else by the
+ * inline pin script in __root.tsx before first paint). All colors MUST use
+ * oklch format. Non-color tokens (radius, fonts, z-index) are theme-
+ * independent and live in :root only.
+ *
+ * This is the ONLY place website colors are defined. Components must use
+ * the resulting utilities (bg-background, text-price, etc.) — never a
+ * literal hex/rgb value or a raw `bg-white`/`bg-black`.
+ *
+ * The Admin dashboard has its own, fully independent Light/Dark/System
+ * mechanism scoped to [data-admin-theme] (see AdminThemeProvider) — it
+ * never touches :root and isn't affected by anything below.
  *
  * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 1. Add the variable to :root (dark value) and [data-theme="light"]
+ *    (light value) — and to the `prefers-color-scheme: light` fallback
+ *    block right below it, kept in sync with [data-theme="light"].
  * 2. Register it in @theme inline as --color-<name>: var(--<name>)
  */
 
@@ -91,6 +116,38 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-header-background: var(--header-background);
+  --color-footer-background: var(--footer-background);
+  --color-footer-foreground: var(--footer-foreground);
+  --color-hero-background: var(--hero-background);
+  --color-product-card-background: var(--product-card-background);
+  --color-price: var(--price-color);
+  --color-sale: var(--sale-color);
+  --color-navigation-background: var(--navigation-background);
+  --color-navigation-text: var(--navigation-text);
+  --color-overlay: var(--overlay);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--destructive);
+  --color-error-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Theme-configurable shadows (Theme Settings → Light/Dark → Shadows).
+   * `--theme-shadow-*` is never defined by default, so the fallback (=
+   * Tailwind v4's own shadow-sm/md/lg values, see node_modules/tailwindcss/
+   * theme.css) is exactly what every shadow-sm/md/lg utility already
+   * renders today — a non-customized site is byte-identical. An admin
+   * override sets `--theme-shadow-*` inside :root (dark) or
+   * [data-theme="light"] via buildThemeOverrideCss, which then wins here. */
+  --shadow-sm: var(--theme-shadow-sm, 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1));
+  --shadow-md: var(--theme-shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1));
+  --shadow-lg: var(--theme-shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1));
 }
 
 :root {
@@ -127,47 +184,32 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(0.22 0 0);
   --sidebar-ring: oklch(0.55 0 0);
+
+  --surface: oklch(0.1 0 0);
+  --surface-elevated: oklch(0.14 0 0);
+  --header-background: oklch(0.06 0 0 / 92%);
+  --footer-background: oklch(0.06 0 0);
+  --footer-foreground: oklch(0.98 0 0);
+  --hero-background: oklch(0.05 0 0);
+  --product-card-background: var(--card);
+  --price-color: oklch(0.98 0 0);
+  --sale-color: oklch(0.7 0.19 35);
+  --navigation-background: var(--background);
+  --navigation-text: var(--foreground);
+  --overlay: oklch(0 0 0 / 70%);
+  --success: oklch(0.72 0.17 145);
+  --success-foreground: oklch(0.15 0 0);
+  --warning: oklch(0.8 0.16 85);
+  --warning-foreground: oklch(0.15 0 0);
+  --info: oklch(0.78 0.13 217);
+  --info-foreground: oklch(0.15 0 0);
+
   --font-display: "Bebas Neue", "Archivo Black", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-ar-heading: "Alexandria", "Noto Sans Arabic", Tahoma, sans-serif;
   --font-ar-body: "Alexandria", "Noto Sans Arabic", Tahoma, sans-serif;
   --font-ar-weight-heading: 700;
   --line-height-ar-heading: 1.25;
-}
-
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
 /* ── Admin-only light theme ────────────────────────────────────────── *
@@ -209,47 +251,29 @@
   --sidebar-ring: oklch(0.62 0.09 215);
 }
 
-@media (prefers-color-scheme: light) {
-  [data-admin-theme="system"] {
-    --background: oklch(0.995 0 0);
-    --foreground: oklch(0.16 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.16 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.16 0 0);
-    --primary: oklch(0.16 0 0);
-    --primary-foreground: oklch(0.99 0 0);
-    --secondary: oklch(0.95 0 0);
-    --secondary-foreground: oklch(0.16 0 0);
-    --muted: oklch(0.96 0 0);
-    --muted-foreground: oklch(0.46 0 0);
-    --accent: oklch(0.94 0.03 215);
-    --accent-foreground: oklch(0.16 0 0);
-    --destructive: oklch(0.58 0.22 27);
-    --destructive-foreground: oklch(0.99 0 0);
-    --border: oklch(0.89 0 0);
-    --input: oklch(0.93 0 0);
-    --ring: oklch(0.62 0.09 215);
-    --sidebar: oklch(0.975 0 0);
-    --sidebar-foreground: oklch(0.16 0 0);
-    --sidebar-primary: oklch(0.16 0 0);
-    --sidebar-primary-foreground: oklch(0.99 0 0);
-    --sidebar-accent: oklch(0.92 0.035 215);
-    --sidebar-accent-foreground: oklch(0.16 0 0);
-    --sidebar-border: oklch(0.89 0 0);
-    --sidebar-ring: oklch(0.62 0.09 215);
-  }
-}
+/* No `[data-admin-theme="system"]` media-query block: AdminThemeProvider
+   always resolves "system" to a concrete "light"/"dark" DOM attribute via
+   matchMedia (see its comment), so [data-admin-theme="light"] above already
+   covers the system+light-OS case, and the default (unscoped) dark palette
+   covers system+dark-OS — matching the website engine's identical approach. */
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
 
+  /* Optional admin typography overrides (Theme Settings -> General). Each
+     falls back to today's actual rendered value, so leaving them unset is
+     visually identical to before this block existed. */
+  html {
+    font-size: var(--theme-font-size-base, 16px);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-body);
+    font-weight: var(--theme-font-weight-body, 400);
     -webkit-font-smoothing: antialiased;
   }
 
@@ -258,71 +282,121 @@
   h3,
   .display {
     font-family: var(--font-display);
+    font-weight: var(--theme-font-weight-heading, 700);
     letter-spacing: 0.02em;
   }
 }
 
-/* Gallery White uses the same storefront components with a lighter token layer. */
-[data-site-theme="gallery-white"],
-[data-theme="gallery-white"] {
-  --color-background: #ffffff;
-  --color-surface: #f7f7f7;
-  --color-surface-elevated: #ffffff;
-  --color-text-primary: #111111;
-  --color-text-secondary: #666666;
-  --color-border: #e5e5e5;
-  --color-primary: #111111;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #00bee8;
-  --color-accent: #ffd400;
-  --header-background: rgba(255, 255, 255, 0.96);
-  --footer-background: #050505;
-  --theme-link: #007fa3;
+/* ── Website Light theme ───────────────────────────────────────────── *
+ * Full override of every token :root defines (dark, the default look).  *
+ * A real hierarchy — background / surface / elevated surface / card —   *
+ * not a flat white, so cards and modals still read as raised layers.    *
+ * --footer-background/--footer-foreground stay available as an opt-in   *
+ * (bg-footer-background text-footer-foreground) if SiteFooter should    *
+ * ever be a deliberately dark brand section — it isn't forced here, so  *
+ * the footer follows the theme like every other section by default.     *
+ * ───────────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.145 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.72 0.13 217);
+  --secondary-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.86 0.17 95);
+  --accent-foreground: oklch(0.145 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.93 0 0);
+  --ring: oklch(0.72 0.13 217);
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.145 0 0);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.94 0.03 217);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.72 0.13 217);
+
+  --surface: oklch(0.97 0 0);
+  --surface-elevated: oklch(1 0 0);
+  --header-background: oklch(0.99 0 0 / 94%);
+  --footer-background: oklch(0.99 0 0);
+  --footer-foreground: oklch(0.145 0 0);
+  --hero-background: oklch(0.97 0 0);
+  --product-card-background: oklch(1 0 0);
+  --price-color: oklch(0.145 0 0);
+  --sale-color: oklch(0.52 0.21 27);
+  --navigation-background: var(--background);
+  --navigation-text: var(--foreground);
+  --overlay: oklch(0 0 0 / 50%);
+  --success: oklch(0.65 0.17 145);
+  --success-foreground: oklch(0.15 0 0);
+  --warning: oklch(0.78 0.16 85);
+  --warning-foreground: oklch(0.15 0 0);
+  --info: oklch(0.72 0.13 217);
+  --info-foreground: oklch(0.15 0 0);
 }
 
-[data-site-theme="gallery-white"] header,
-[data-theme="gallery-white"] header {
-  background-color: var(--header-background);
-  border-bottom-color: var(--border);
-}
-
-[data-site-theme="gallery-white"] :is(input, textarea, select),
-[data-theme="gallery-white"] :is(input, textarea, select) {
-  background-color: var(--input-background);
-  color: var(--foreground);
-  border-color: var(--border);
-}
-
-[data-site-theme="gallery-white"] .bg-card,
-[data-theme="gallery-white"] .bg-card {
-  box-shadow: var(--shadow-card);
-}
-
-[data-site-theme="gallery-white"] a:hover,
-[data-theme="gallery-white"] a:hover {
-  color: var(--theme-link);
-}
-
-[data-site-theme="gallery-white"] .hover\:bg-accent:hover,
-[data-theme="gallery-white"] .hover\:bg-accent:hover {
-  background-color: #f7f7f7;
-}
-
-[data-site-theme="gallery-white"] :is(button, a, input, textarea, select):focus-visible,
-[data-theme="gallery-white"] :is(button, a, input, textarea, select):focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-[data-site-theme="gallery-white"] footer,
-[data-theme="gallery-white"] footer {
-  --foreground: var(--footer-text);
-  --muted-foreground: #c7c7c7;
-  --border: rgba(255, 255, 255, 0.16);
-  --accent: rgba(255, 255, 255, 0.1);
-  background-color: var(--footer-background);
-  border-top-color: rgba(255, 255, 255, 0.16);
-  color: var(--footer-text);
+/* Pre-JS / no-attribute fallback for "System" mode with a light OS
+   preference — mirrors [data-theme="light"] exactly (see the admin
+   theme's identical pattern above for why this can't just reference it:
+   CSS media queries can't "call" another ruleset, only duplicate it). */
+@media (prefers-color-scheme: light) {
+  html:not([data-theme]) {
+    --background: oklch(0.99 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.145 0 0);
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.72 0.13 217);
+    --secondary-foreground: oklch(0.145 0 0);
+    --muted: oklch(0.96 0 0);
+    --muted-foreground: oklch(0.5 0 0);
+    --accent: oklch(0.86 0.17 95);
+    --accent-foreground: oklch(0.145 0 0);
+    --destructive: oklch(0.58 0.22 27);
+    --destructive-foreground: oklch(0.99 0 0);
+    --border: oklch(0.9 0 0);
+    --input: oklch(0.93 0 0);
+    --ring: oklch(0.72 0.13 217);
+    --sidebar: oklch(0.97 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.145 0 0);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.94 0.03 217);
+    --sidebar-accent-foreground: oklch(0.145 0 0);
+    --sidebar-border: oklch(0.9 0 0);
+    --sidebar-ring: oklch(0.72 0.13 217);
+    --surface: oklch(0.97 0 0);
+    --surface-elevated: oklch(1 0 0);
+    --header-background: oklch(0.99 0 0 / 94%);
+    --footer-background: oklch(0.99 0 0);
+    --footer-foreground: oklch(0.145 0 0);
+    --hero-background: oklch(0.97 0 0);
+    --product-card-background: oklch(1 0 0);
+    --price-color: oklch(0.145 0 0);
+    --sale-color: oklch(0.52 0.21 27);
+    --navigation-background: var(--background);
+    --navigation-text: var(--foreground);
+    --overlay: oklch(0 0 0 / 50%);
+    --success: oklch(0.65 0.17 145);
+    --success-foreground: oklch(0.15 0 0);
+    --warning: oklch(0.78 0.16 85);
+    --warning-foreground: oklch(0.15 0 0);
+    --info: oklch(0.72 0.13 217);
+    --info-foreground: oklch(0.15 0 0);
+  }
 }
 
 @utility text-display {

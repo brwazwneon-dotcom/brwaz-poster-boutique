@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { getAllSiteSettingsAdmin, setSiteSetting } from "@/lib/db-admin.functions";
 import { AdminThemeToggle } from "@/components/admin/layout/AdminThemeToggle";
 import { useAdminTheme } from "@/components/admin/layout/AdminThemeProvider";
+import { WebsiteAppearanceTab } from "@/components/admin/WebsiteAppearanceTab";
 import { LoadingForm } from "@/components/admin/layout/LoadingState";
 import { PERFORMANCE_DEFAULTS, type PerformanceFlags } from "@/lib/performance-flags";
 import {
@@ -391,9 +392,9 @@ function AppearanceSection() {
     <div>
       <h2 className="text-lg font-semibold">Appearance</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Admin theme — this only changes how the dashboard looks in your browser, not the
-        storefront. The website's own theme editor (brand colors, draft/publish, versioning)
-        is a separate, larger piece of work that hasn't been built yet.
+        Admin theme — this only changes how the dashboard looks in your browser, not the storefront.
+        The website's own theme (Light/Dark/System, draft/publish, version history) is managed
+        separately below and is completely independent from this one.
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-4 rounded-sm border border-border p-3">
@@ -427,6 +428,10 @@ function AppearanceSection() {
           <div className="h-10 w-full rounded-sm border-2 border-ring" />
           <span className="text-[10px] text-muted-foreground">Ring</span>
         </div>
+      </div>
+
+      <div className="mt-8 border-t border-border pt-6">
+        <WebsiteAppearanceTab />
       </div>
     </div>
   );
