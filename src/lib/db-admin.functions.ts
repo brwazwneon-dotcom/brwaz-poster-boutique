@@ -1155,6 +1155,113 @@ export const getPostersByIdsForPickerAdmin = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------
+// Category image visibility — the Categories tab's "Manage images" used to
+// just jump to the Products tab filtered by posters.category_id, which
+// silently showed an EMPTY list for any parent category whose images all
+// actually live on its subcategories (the normal case — e.g. "Football"
+// itself owns none directly, "Messi"/"Ronaldo" etc. under it do), or on
+// any poster placed here only via poster_categories (migration 026's
+// Additional Categories). Both of these two functions expand a category
+// into its full "tree" of matching poster ids (itself + its subcategories
+// + anything additionally placed on any of those) so neither case reads
+// as broken.
+// ---------------------------------------------------------------
+
+// One cheap indexed count per category id (own primary posters + own
+// poster_categories placements) — the Categories tab sums a parent with
+// its subcategories' counts client-side to show a tree total next to
+// each row, without an N+1 query per category.
+export const getCategoryImageCountsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .handler(async () => {
+    const primary = (await sql()`
+      select category_id, count(*)::int as n from posters
+      where category_id is not null
+      group by category_id
+    `) as unknown as Array<{ category_id: string; n: number }>;
+
+    let extra: Array<{ category_id: string; n: number }> = [];
+    try {
+      extra = (await sql()`
+        select category_id, count(*)::int as n from poster_categories group by category_id
+      `) as unknown as Array<{ category_id: string; n: number }>;
+    } catch (err) {
+      if (!(err instanceof Error) || !MIGRATION_026_NOT_APPLIED.test(err.message)) throw err;
+    }
+
+    const counts: Record<string, number> = {};
+    for (const r of primary) counts[r.category_id] = (counts[r.category_id] ?? 0) + r.n;
+    for (const r of extra) counts[r.category_id] = (counts[r.category_id] ?? 0) + r.n;
+    return counts;
+  });
+
+// Paginated, searchable image listing for a category "tree" (a parent +
+// its subcategory ids, or just one subcategory's own id) — powers the
+// Categories tab's "Manage images" panel. Same
+// primary-category-OR-poster_categories matching as
+// searchPostersForPickerAdmin's categoryId filter, just widened to a list
+// of ids instead of one, and falls back to primary-only matching if
+// migration 026 hasn't been applied yet.
+export const searchCategoryImagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as { categoryTreeIds: string[]; query?: string; offset?: number; limit?: number },
+  )
+  .handler(async ({ data }) => {
+    const limit = Math.min(Math.max(data.limit ?? 24, 1), 50);
+    const offset = Math.max(data.offset ?? 0, 0);
+    const query = (data.query ?? "").trim();
+    const ids = data.categoryTreeIds;
+    if (ids.length === 0) return [];
+
+    const baseSelect = `select p.id, p.title, p.slug, p.image_url, p.hidden, p.category_id,
+              c.name as category_name, c.slug as category_slug
+       from posters p
+       left join categories c on c.id = p.category_id
+       where ($2 = '' or p.title ilike '%' || $2 || '%')`;
+    let rows: unknown[];
+    try {
+      rows = await sql()(
+        `${baseSelect}
+           and (
+             p.category_id = any($1)
+             or p.id in (select poster_id from poster_categories where category_id = any($1))
+           )
+         order by p.created_at desc
+         offset $3 limit $4`,
+        [ids, query, offset, limit],
+      );
+    } catch (err) {
+      if (!(err instanceof Error) || !MIGRATION_026_NOT_APPLIED.test(err.message)) throw err;
+      rows = await sql()(
+        `${baseSelect} and p.category_id = any($1)
+         order by p.created_at desc
+         offset $3 limit $4`,
+        [ids, query, offset, limit],
+      );
+    }
+    return (
+      rows as unknown as Array<{
+        id: string;
+        title: string;
+        slug: string;
+        image_url: string;
+        hidden: boolean;
+        category_name: string | null;
+        category_slug: string | null;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      image_url: r.image_url,
+      hidden: r.hidden,
+      category: r.category_slug ? { name: r.category_name ?? "", slug: r.category_slug } : null,
+    }));
+  });
+
+// ---------------------------------------------------------------
 // Dual Category Sections — admin-defined "Category A + Category B" side
 // by side homepage blocks. Fully dynamic (any poster/category pair per
 // row); rendered publicly via listDualCategorySectionsPublic in

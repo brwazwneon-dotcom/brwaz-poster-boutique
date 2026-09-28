@@ -296,6 +296,7 @@ export function ProductsTab({
   const [bulkBadge, setBulkBadge] = useState("");
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
   const [listCategoryFilter, setListCategoryFilter] = useState("");
+  const [listSearchQuery, setListSearchQuery] = useState("");
   const [recropping, setRecropping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const categoriesRef = useRef<AdminCategory[]>([]);
@@ -911,7 +912,10 @@ export function ProductsTab({
 
   const visibleProducts = products
     .filter((p) => (onlyNeedsReview ? p.review_status !== "approved" : true))
-    .filter((p) => (listCategoryFilter ? p.category_id === listCategoryFilter : true));
+    .filter((p) => (listCategoryFilter ? p.category_id === listCategoryFilter : true))
+    .filter((p) =>
+      listSearchQuery.trim() ? p.title.toLowerCase().includes(listSearchQuery.trim().toLowerCase()) : true,
+    );
 
   const gridItems = gridFilter === "warning" ? queue.filter((q) => q.status === "warning") : queue;
   const totalPages = Math.max(1, Math.ceil(gridItems.length / GRID_PAGE_SIZE));
@@ -922,6 +926,13 @@ export function ProductsTab({
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Products</h2>
         <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={listSearchQuery}
+            onChange={(e) => setListSearchQuery(e.target.value)}
+            placeholder="Search by title…"
+            className="w-48 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+          />
           <select
             value={listCategoryFilter}
             onChange={(e) => setListCategoryFilter(e.target.value)}

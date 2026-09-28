@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { listCategoriesAdmin, upsertCategory, deleteCategory } from "@/lib/db-admin.functions";
+import {
+  listCategoriesAdmin,
+  upsertCategory,
+  deleteCategory,
+  getCategoryImageCountsAdmin,
+} from "@/lib/db-admin.functions";
 import { uploadPosterImage } from "@/lib/image-upload.functions";
 import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCategory } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
+import { CategoryImagesPanel } from "@/components/admin/CategoryImagesPanel";
 
 export function CategoriesTab({
   onManageImages,
 }: {
-  // Set by Dashboard — jumps to the Products tab pre-filtered to this
-  // category's posters, instead of duplicating image management here.
+  // Set by Dashboard — optional escape hatch from inside the Category
+  // Images panel below to the full Products tab (bulk edit, Website
+  // Placement, etc.), pre-filtered to this category's posters.
   onManageImages?: (categoryId: string) => void;
 } = {}) {
   const confirm = useConfirm();
@@ -19,8 +26,31 @@ export function CategoriesTab({
   const [editing, setEditing] = useState<Partial<AdminCategory> | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Own primary + Additional-Category image counts, per category id — a
+  // parent category's displayed count adds in its subcategories' counts
+  // (see categoryTreeCount below), since that's how an admin actually
+  // thinks of "Football"'s images. Loaded once per tab visit; cheap (two
+  // indexed group-by queries), not per-row.
+  const [imageCounts, setImageCounts] = useState<Record<string, number>>({});
+  // The category (or subcategory) whose images panel is currently open —
+  // null when closed. treeIds is [itself] for a subcategory, or
+  // [itself, ...its subcategory ids] for a parent, so the panel and its
+  // search both cover images placed on the subcategories too, not just
+  // the parent's own primary category_id.
+  const [imagesPanelFor, setImagesPanelFor] = useState<{
+    id: string;
+    label: string;
+    treeIds: string[];
+  } | null>(null);
 
-  const load = async () => setCategories((await listCategoriesAdmin()) as AdminCategory[]);
+  const load = async () => {
+    const [cats, counts] = await Promise.all([
+      listCategoriesAdmin() as Promise<AdminCategory[]>,
+      getCategoryImageCountsAdmin() as Promise<Record<string, number>>,
+    ]);
+    setCategories(cats);
+    setImageCounts(counts);
+  };
   useEffect(() => {
     load();
   }, []);
@@ -233,6 +263,8 @@ export function CategoriesTab({
           .filter((c) => !c.parent_id)
           .map((main) => {
             const subs = categories.filter((c) => c.parent_id === main.id);
+            const treeIds = [main.id, ...subs.map((s) => s.id)];
+            const treeCount = treeIds.reduce((sum, id) => sum + (imageCounts[id] ?? 0), 0);
             return (
               <div key={main.id}>
                 <div className="flex items-center justify-between rounded-sm border border-border p-3">
@@ -242,17 +274,18 @@ export function CategoriesTab({
                       /{main.slug}
                       {main.hidden ? " · hidden" : ""}
                       {subs.length > 0 ? ` · ${subs.length} subcategories` : ""}
+                      {` · ${treeCount} image${treeCount === 1 ? "" : "s"}`}
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {onManageImages && (
-                      <button
-                        onClick={() => onManageImages(main.id)}
-                        className="text-xs text-cyan-500 hover:underline"
-                      >
-                        Manage images
-                      </button>
-                    )}
+                    <button
+                      onClick={() =>
+                        setImagesPanelFor({ id: main.id, label: main.name, treeIds })
+                      }
+                      className="text-xs text-cyan-500 hover:underline"
+                    >
+                      Manage images
+                    </button>
                     <button
                       onClick={() => setEditing(main)}
                       className="text-xs text-cyan-500 hover:underline"
@@ -276,16 +309,17 @@ export function CategoriesTab({
                       <div className="text-xs">
                         {s.name}
                         {s.hidden ? " · hidden" : ""}
+                        {` · ${imageCounts[s.id] ?? 0} image${(imageCounts[s.id] ?? 0) === 1 ? "" : "s"}`}
                       </div>
                       <div className="flex gap-2">
-                        {onManageImages && (
-                          <button
-                            onClick={() => onManageImages(s.id)}
-                            className="text-xs text-cyan-500 hover:underline"
-                          >
-                            Manage images
-                          </button>
-                        )}
+                        <button
+                          onClick={() =>
+                            setImagesPanelFor({ id: s.id, label: s.name, treeIds: [s.id] })
+                          }
+                          className="text-xs text-cyan-500 hover:underline"
+                        >
+                          Manage images
+                        </button>
                         <button
                           onClick={() => setEditing(s)}
                           className="text-xs text-cyan-500 hover:underline"
@@ -329,6 +363,22 @@ export function CategoriesTab({
           <p className="text-sm text-muted-foreground">No categories yet.</p>
         )}
       </div>
+
+      {imagesPanelFor && (
+        <CategoryImagesPanel
+          categoryLabel={imagesPanelFor.label}
+          categoryTreeIds={imagesPanelFor.treeIds}
+          onClose={() => setImagesPanelFor(null)}
+          onOpenInProducts={
+            onManageImages
+              ? () => {
+                  onManageImages(imagesPanelFor.id);
+                  setImagesPanelFor(null);
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }
