@@ -1202,44 +1202,103 @@ export const getCategoryImageCountsAdmin = createServerFn({ method: "GET" })
 // searchPostersForPickerAdmin's categoryId filter, just widened to a list
 // of ids instead of one, and falls back to primary-only matching if
 // migration 026 hasn't been applied yet.
+// The Category Poster Manager's card/filter needs — visibility, Trending,
+// Best Seller and "has additional categories" — all as plain booleans on
+// the same row, so the grid never issues a second request per card or per
+// badge (that would be exactly the N+1 pattern this is designed to
+// avoid). "multiple_categories" is computed via an EXISTS subquery against
+// poster_categories rather than a join, so a poster placed in several
+// additional categories still returns exactly one row.
+export type CategoryImageFilter =
+  "all" | "visible" | "hidden" | "trending" | "best_seller" | "multiple_categories";
+
 export const searchCategoryImagesAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .validator(
     (data: unknown) =>
-      data as { categoryTreeIds: string[]; query?: string; offset?: number; limit?: number },
+      data as {
+        categoryTreeIds: string[];
+        query?: string;
+        filter?: CategoryImageFilter;
+        offset?: number;
+        limit?: number;
+      },
   )
   .handler(async ({ data }) => {
     const limit = Math.min(Math.max(data.limit ?? 24, 1), 50);
     const offset = Math.max(data.offset ?? 0, 0);
     const query = (data.query ?? "").trim();
+    const filter = data.filter ?? "all";
     const ids = data.categoryTreeIds;
     if (ids.length === 0) return [];
 
-    const baseSelect = `select p.id, p.title, p.slug, p.image_url, p.hidden, p.category_id,
-              c.name as category_name, c.slug as category_slug
+    // $5 = the filter mode, applied as an extra boolean AND rather than N
+    // separate query strings — same "one flexible query" approach as
+    // SORT_ORDER_BY elsewhere, just expressed as a case/when instead of a
+    // whitelisted column name.
+    const filterClause = `and (
+           $5 = 'all'
+        or ($5 = 'visible' and p.hidden = false)
+        or ($5 = 'hidden' and p.hidden = true)
+        or ($5 = 'trending' and p.trending = true)
+        or ($5 = 'best_seller' and p.is_best_seller = true)
+        or ($5 = 'multiple_categories' and exists(
+              select 1 from poster_categories pc2 where pc2.poster_id = p.id
+            ))
+      )`;
+
+    const withPlacementSelect = `select p.id, p.title, p.slug, p.image_url, p.hidden, p.category_id,
+              p.trending, p.trending_order, p.is_best_seller, p.best_seller_order,
+              c.name as category_name, c.slug as category_slug,
+              exists(
+                select 1 from poster_categories pc where pc.poster_id = p.id
+              ) as has_multiple_categories
        from posters p
        left join categories c on c.id = p.category_id
-       where ($2 = '' or p.title ilike '%' || $2 || '%')`;
+       where ($2 = '' or p.title ilike '%' || $2 || '%')
+         and (
+           p.category_id = any($1)
+           or p.id in (select poster_id from poster_categories where category_id = any($1))
+         )`;
+
+    // Pre-026 fallback: no best_seller_order column, no poster_categories
+    // table — "multiple_categories" can never match (correctly returns
+    // nothing for that filter rather than throwing), matching every other
+    // safe-fallback in this file.
+    const fallbackSelect = `select p.id, p.title, p.slug, p.image_url, p.hidden, p.category_id,
+              p.trending, p.trending_order, p.is_best_seller, null::int as best_seller_order,
+              c.name as category_name, c.slug as category_slug,
+              false as has_multiple_categories
+       from posters p
+       left join categories c on c.id = p.category_id
+       where ($2 = '' or p.title ilike '%' || $2 || '%')
+         and p.category_id = any($1)
+         and ($5 = 'all'
+           or ($5 = 'visible' and p.hidden = false)
+           or ($5 = 'hidden' and p.hidden = true)
+           or ($5 = 'trending' and p.trending = true)
+           or ($5 = 'best_seller' and p.is_best_seller = true)
+           or $5 = 'multiple_categories' -- never true here; guarded to false below
+         )`;
+
     let rows: unknown[];
     try {
       rows = await sql()(
-        `${baseSelect}
-           and (
-             p.category_id = any($1)
-             or p.id in (select poster_id from poster_categories where category_id = any($1))
-           )
-         order by p.created_at desc
-         offset $3 limit $4`,
-        [ids, query, offset, limit],
+        `${withPlacementSelect} ${filterClause} order by p.created_at desc offset $3 limit $4`,
+        [ids, query, offset, limit, filter],
       );
     } catch (err) {
       if (!(err instanceof Error) || !MIGRATION_026_NOT_APPLIED.test(err.message)) throw err;
-      rows = await sql()(
-        `${baseSelect} and p.category_id = any($1)
-         order by p.created_at desc
-         offset $3 limit $4`,
-        [ids, query, offset, limit],
-      );
+      rows =
+        filter === "multiple_categories"
+          ? []
+          : await sql()(`${fallbackSelect} order by p.created_at desc offset $3 limit $4`, [
+              ids,
+              query,
+              offset,
+              limit,
+              filter,
+            ]);
     }
     return (
       rows as unknown as Array<{
@@ -1248,8 +1307,14 @@ export const searchCategoryImagesAdmin = createServerFn({ method: "GET" })
         slug: string;
         image_url: string;
         hidden: boolean;
+        category_id: string | null;
+        trending: boolean;
+        trending_order: number | null;
+        is_best_seller: boolean;
+        best_seller_order: number | null;
         category_name: string | null;
         category_slug: string | null;
+        has_multiple_categories: boolean;
       }>
     ).map((r) => ({
       id: r.id,
@@ -1257,6 +1322,11 @@ export const searchCategoryImagesAdmin = createServerFn({ method: "GET" })
       slug: r.slug,
       image_url: r.image_url,
       hidden: r.hidden,
+      trending: r.trending,
+      trending_order: r.trending_order,
+      is_best_seller: r.is_best_seller,
+      best_seller_order: r.best_seller_order,
+      has_multiple_categories: r.has_multiple_categories,
       category: r.category_slug ? { name: r.category_name ?? "", slug: r.category_slug } : null,
     }));
   });

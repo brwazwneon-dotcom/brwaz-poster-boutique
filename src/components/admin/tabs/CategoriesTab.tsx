@@ -11,14 +11,14 @@ import { optimizeImage } from "@/lib/image-optimize";
 import { fileToDataUrl, type AdminCategory } from "./shared";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
-import { CategoryImagesPanel } from "@/components/admin/CategoryImagesPanel";
+import { CategoryPosterManager } from "@/components/admin/CategoryPosterManager";
 
 export function CategoriesTab({
   onManageImages,
 }: {
   // Set by Dashboard — optional escape hatch from inside the Category
-  // Images panel below to the full Products tab (bulk edit, Website
-  // Placement, etc.), pre-filtered to this category's posters.
+  // Poster Manager below to the full Products tab (bulk edit, Bulk
+  // Upload Studio, etc.), pre-filtered to this category's posters.
   onManageImages?: (categoryId: string) => void;
 } = {}) {
   const confirm = useConfirm();
@@ -32,15 +32,21 @@ export function CategoriesTab({
   // thinks of "Football"'s images. Loaded once per tab visit; cheap (two
   // indexed group-by queries), not per-row.
   const [imageCounts, setImageCounts] = useState<Record<string, number>>({});
-  // The category (or subcategory) whose images panel is currently open —
-  // null when closed. treeIds is [itself] for a subcategory, or
-  // [itself, ...its subcategory ids] for a parent, so the panel and its
-  // search both cover images placed on the subcategories too, not just
-  // the parent's own primary category_id.
-  const [imagesPanelFor, setImagesPanelFor] = useState<{
+  // The category (or subcategory) whose Poster Manager view is currently
+  // open — null shows the normal Categories list. treeIds is [itself] for
+  // a subcategory, or [itself, ...its subcategory ids] for a parent, so
+  // the manager's search/filter/grid all cover images placed on the
+  // subcategories too, not just the parent's own primary category_id.
+  // Set fresh on every "Manage Posters" click (a new object, so the view
+  // remounts with a clean search/filter/page each visit) — the manager
+  // itself preserves that state internally while its own poster editor
+  // opens and closes, which is all Phase 2 asks for.
+  const [posterManagerFor, setPosterManagerFor] = useState<{
     id: string;
     label: string;
+    parentLabel?: string;
     treeIds: string[];
+    totalCount: number;
   } | null>(null);
 
   const load = async () => {
@@ -104,6 +110,21 @@ export function CategoriesTab({
   };
 
   if (categories === null) return <LoadingRows />;
+
+  if (posterManagerFor) {
+    return (
+      <CategoryPosterManager
+        categoryId={posterManagerFor.id}
+        label={posterManagerFor.label}
+        parentLabel={posterManagerFor.parentLabel}
+        treeIds={posterManagerFor.treeIds}
+        totalCount={posterManagerFor.totalCount}
+        categories={categories}
+        onBack={() => setPosterManagerFor(null)}
+        onOpenInProducts={onManageImages ? () => onManageImages(posterManagerFor.id) : undefined}
+      />
+    );
+  }
 
   return (
     <div>
@@ -280,11 +301,16 @@ export function CategoriesTab({
                   <div className="flex gap-2">
                     <button
                       onClick={() =>
-                        setImagesPanelFor({ id: main.id, label: main.name, treeIds })
+                        setPosterManagerFor({
+                          id: main.id,
+                          label: main.name,
+                          treeIds,
+                          totalCount: treeCount,
+                        })
                       }
-                      className="text-xs text-cyan-500 hover:underline"
+                      className="text-xs font-medium text-cyan-500 hover:underline"
                     >
-                      Manage images
+                      Manage Posters
                     </button>
                     <button
                       onClick={() => setEditing(main)}
@@ -309,16 +335,36 @@ export function CategoriesTab({
                       <div className="text-xs">
                         {s.name}
                         {s.hidden ? " · hidden" : ""}
-                        {` · ${imageCounts[s.id] ?? 0} image${(imageCounts[s.id] ?? 0) === 1 ? "" : "s"}`}
+                        {" · "}
+                        <button
+                          onClick={() =>
+                            setPosterManagerFor({
+                              id: s.id,
+                              label: s.name,
+                              parentLabel: main.name,
+                              treeIds: [s.id],
+                              totalCount: imageCounts[s.id] ?? 0,
+                            })
+                          }
+                          className="text-cyan-500 hover:underline"
+                        >
+                          {imageCounts[s.id] ?? 0} image{(imageCounts[s.id] ?? 0) === 1 ? "" : "s"}
+                        </button>
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() =>
-                            setImagesPanelFor({ id: s.id, label: s.name, treeIds: [s.id] })
+                            setPosterManagerFor({
+                              id: s.id,
+                              label: s.name,
+                              parentLabel: main.name,
+                              treeIds: [s.id],
+                              totalCount: imageCounts[s.id] ?? 0,
+                            })
                           }
-                          className="text-xs text-cyan-500 hover:underline"
+                          className="text-xs font-medium text-cyan-500 hover:underline"
                         >
-                          Manage images
+                          Manage Posters
                         </button>
                         <button
                           onClick={() => setEditing(s)}
@@ -363,22 +409,6 @@ export function CategoriesTab({
           <p className="text-sm text-muted-foreground">No categories yet.</p>
         )}
       </div>
-
-      {imagesPanelFor && (
-        <CategoryImagesPanel
-          categoryLabel={imagesPanelFor.label}
-          categoryTreeIds={imagesPanelFor.treeIds}
-          onClose={() => setImagesPanelFor(null)}
-          onOpenInProducts={
-            onManageImages
-              ? () => {
-                  onManageImages(imagesPanelFor.id);
-                  setImagesPanelFor(null);
-                }
-              : undefined
-          }
-        />
-      )}
     </div>
   );
 }
