@@ -1322,6 +1322,7 @@ export const searchCategoryImagesAdmin = createServerFn({ method: "GET" })
       slug: r.slug,
       image_url: r.image_url,
       hidden: r.hidden,
+      category_id: r.category_id,
       trending: r.trending,
       trending_order: r.trending_order,
       is_best_seller: r.is_best_seller,
