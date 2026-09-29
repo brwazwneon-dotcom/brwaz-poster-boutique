@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, ImageOff, Loader2, RotateCcw, ChevronDown } from "lucide-react";
+import {
+  Search,
+  ImageOff,
+  Loader2,
+  RotateCcw,
+  ChevronDown,
+  Pencil,
+  Eye,
+  EyeOff,
+  Flame,
+  Star,
+  MoreHorizontal,
+} from "lucide-react";
 import {
   searchCategoryImagesAdmin,
   bulkUpdatePosters,
@@ -105,6 +117,14 @@ export function CategoryPosterManager({
   const [bulkCategoryChoice, setBulkCategoryChoice] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const actionsRef = useRef<HTMLDivElement | null>(null);
+
+  // ---- Per-card Quick Actions ----
+  // A poster id currently running any quick action — disables that
+  // card's whole action row (not just the clicked button) so two
+  // concurrent patches on the same poster can never race, and a
+  // second click can never fire a duplicate request.
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -279,6 +299,90 @@ export function CategoryPosterManager({
       refetch();
     } finally {
       setBulkBusy(false);
+    }
+  };
+
+  // ---- Quick Actions (per poster card) ----
+  // Same bulkUpdatePosters/deletePoster calls as the bulk bar above, just
+  // with a one-element ids array — no second backend function, no
+  // duplicated patch logic. A real production write fires the moment the
+  // admin clicks one of these (Hide/Trending/Best Seller), by design —
+  // unlike the bulk bar's category/delete actions there's no extra
+  // confirm step for these three, matching how instant a single toggle
+  // is expected to feel; Delete still confirms, same wording as the bulk
+  // one, just for the one poster.
+  const runQuickUpdate = async (
+    poster: CategoryImageRow,
+    patch: { hidden?: boolean; trending?: boolean; is_best_seller?: boolean },
+    successMsg: string,
+  ) => {
+    if (busyIds.has(poster.id)) return;
+    setBusyIds((prev) => new Set(prev).add(poster.id));
+    try {
+      await bulkUpdatePosters({ data: { ids: [poster.id], patch } });
+      toast.success(successMsg);
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(poster.id);
+        return next;
+      });
+    }
+  };
+
+  const quickToggleHide = (poster: CategoryImageRow) =>
+    runQuickUpdate(
+      poster,
+      { hidden: !poster.hidden },
+      poster.hidden ? `"${poster.title}" is now visible` : `"${poster.title}" is now hidden`,
+    );
+  const quickToggleTrending = (poster: CategoryImageRow) =>
+    runQuickUpdate(
+      poster,
+      { trending: !poster.trending },
+      poster.trending
+        ? `Removed "${poster.title}" from Trending`
+        : `Added "${poster.title}" to Trending`,
+    );
+  const quickToggleBestSeller = (poster: CategoryImageRow) =>
+    runQuickUpdate(
+      poster,
+      { is_best_seller: !poster.is_best_seller },
+      poster.is_best_seller
+        ? `Removed "${poster.title}" from Best Seller`
+        : `Added "${poster.title}" to Best Seller`,
+    );
+
+  // Reuses the exact same bulk category picker UI (Add/Remove Category
+  // above) by selecting just this one poster and opening it directly —
+  // no second category-management UI.
+  const openCategoriesFor = (poster: CategoryImageRow) => {
+    setCardMenuFor(null);
+    setSelected(new Set([poster.id]));
+    setActionsOpen(true);
+    setBulkPanel(null);
+  };
+
+  const quickDelete = async (poster: CategoryImageRow) => {
+    setCardMenuFor(null);
+    if (!(await confirm(`Delete "${poster.title}"? This poster will be permanently removed.`)))
+      return;
+    setBusyIds((prev) => new Set(prev).add(poster.id));
+    try {
+      await deletePoster({ data: poster.id });
+      toast.success(`Deleted "${poster.title}"`);
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(poster.id);
+        return next;
+      });
     }
   };
 
@@ -524,64 +628,139 @@ export function CategoryPosterManager({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {posters.map((p) => (
-            <div
-              key={p.id}
-              className="group relative overflow-hidden rounded-sm border border-border bg-card text-left transition hover:border-foreground/40"
-            >
-              <label
-                className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-background/90"
-                onClick={(e) => e.stopPropagation()}
+          {posters.map((p) => {
+            const busy = busyIds.has(p.id);
+            return (
+              <div
+                key={p.id}
+                className="group relative overflow-hidden rounded-sm border border-border bg-card text-left transition hover:border-foreground/40"
               >
-                <input
-                  type="checkbox"
-                  checked={selected.has(p.id)}
-                  onChange={() => toggleSelected(p.id)}
-                  aria-label={`Select ${p.title}`}
-                />
-              </label>
-              <button onClick={() => setEditingPoster(p)} className="block w-full text-left">
-                <div className="aspect-square w-full overflow-hidden bg-muted">
-                  {p.image_url ? (
-                    <img
-                      src={p.image_url}
-                      alt={p.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <ImageOff className="h-5 w-5 text-muted-foreground" />
+                <label
+                  className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-background/90"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggleSelected(p.id)}
+                    aria-label={`Select ${p.title}`}
+                  />
+                </label>
+                <button onClick={() => setEditingPoster(p)} className="block w-full text-left">
+                  <div className="aspect-square w-full overflow-hidden bg-muted">
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageOff className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 p-2">
+                    <div className="truncate text-xs font-medium">{p.title}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {p.hidden ? "○ Hidden" : "✓ Visible"}
                     </div>
-                  )}
-                </div>
-                <div className="space-y-1 p-2">
-                  <div className="truncate text-xs font-medium">{p.title}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {p.hidden ? "○ Hidden" : "✓ Visible"}
+                    <div className="flex flex-wrap gap-1">
+                      {p.trending && (
+                        <span className="rounded-sm bg-success/15 px-1 py-0.5 text-[9px] font-semibold text-success">
+                          🔥 Trending
+                        </span>
+                      )}
+                      {p.is_best_seller && (
+                        <span className="rounded-sm bg-warning/15 px-1 py-0.5 text-[9px] font-semibold text-warning">
+                          ★ Best Seller
+                        </span>
+                      )}
+                      {p.has_multiple_categories && (
+                        <span className="rounded-sm bg-info/15 px-1 py-0.5 text-[9px] font-semibold text-info">
+                          🔵 Multiple
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {p.trending && (
-                      <span className="rounded-sm bg-success/15 px-1 py-0.5 text-[9px] font-semibold text-success">
-                        🔥 Trending
-                      </span>
+                </button>
+
+                {/* ---- Quick Actions — one request per click, no editor
+                     required. Disabling the whole row while `busy` (rather
+                     than just the clicked button) prevents two concurrent
+                     patches racing on the same poster. ---- */}
+                <div className="flex items-center gap-0.5 border-t border-border p-1">
+                  <button
+                    onClick={() => setEditingPoster(p)}
+                    disabled={busy}
+                    title="Edit"
+                    aria-label={`Edit ${p.title} poster`}
+                    className="flex flex-1 items-center justify-center rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => quickToggleHide(p)}
+                    disabled={busy}
+                    title={p.hidden ? "Show" : "Hide"}
+                    aria-label={p.hidden ? `Show ${p.title} poster` : `Hide ${p.title} poster`}
+                    className="flex flex-1 items-center justify-center rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : p.hidden ? (
+                      <Eye className="h-3 w-3" />
+                    ) : (
+                      <EyeOff className="h-3 w-3" />
                     )}
-                    {p.is_best_seller && (
-                      <span className="rounded-sm bg-warning/15 px-1 py-0.5 text-[9px] font-semibold text-warning">
-                        ★ Best Seller
-                      </span>
-                    )}
-                    {p.has_multiple_categories && (
-                      <span className="rounded-sm bg-info/15 px-1 py-0.5 text-[9px] font-semibold text-info">
-                        🔵 Multiple
-                      </span>
-                    )}
-                  </div>
+                  </button>
+                  <button
+                    onClick={() => quickToggleTrending(p)}
+                    disabled={busy}
+                    title={p.trending ? "Remove Trending" : "Trending"}
+                    aria-label={
+                      p.trending
+                        ? `Remove ${p.title} poster from Trending`
+                        : `Add ${p.title} poster to Trending`
+                    }
+                    className={`flex flex-1 items-center justify-center rounded-sm p-1 hover:bg-accent disabled:opacity-40 ${
+                      p.trending ? "text-success" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Flame className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => quickToggleBestSeller(p)}
+                    disabled={busy}
+                    title={p.is_best_seller ? "Remove Best Seller" : "Best Seller"}
+                    aria-label={
+                      p.is_best_seller
+                        ? `Remove ${p.title} poster from Best Seller`
+                        : `Add ${p.title} poster to Best Seller`
+                    }
+                    className={`flex flex-1 items-center justify-center rounded-sm p-1 hover:bg-accent disabled:opacity-40 ${
+                      p.is_best_seller
+                        ? "text-warning"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Star className="h-3 w-3" />
+                  </button>
+                  <CardMoreMenu
+                    poster={p}
+                    busy={busy}
+                    open={cardMenuFor === p.id}
+                    onOpen={() => setCardMenuFor(p.id)}
+                    onClose={() => setCardMenuFor(null)}
+                    onCategories={() => openCategoriesFor(p)}
+                    onDelete={() => quickDelete(p)}
+                  />
                 </div>
-              </button>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -602,6 +781,74 @@ export function CategoryPosterManager({
             className="rounded-sm border border-border px-3 py-1.5 uppercase tracking-widest hover:bg-accent disabled:opacity-40"
           >
             Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CardMoreMenu({
+  poster,
+  busy,
+  open,
+  onOpen,
+  onClose,
+  onCategories,
+  onDelete,
+}: {
+  poster: CategoryImageRow;
+  busy: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onCategories: () => void;
+  onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open, onClose]);
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button
+        onClick={() => (open ? onClose() : onOpen())}
+        disabled={busy}
+        title="More"
+        aria-label={`More actions for ${poster.title} poster`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex w-full items-center justify-center rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+      >
+        <MoreHorizontal className="h-3 w-3" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 w-40 rounded-sm border border-border bg-card p-1 shadow-lg"
+        >
+          <button
+            role="menuitem"
+            onClick={onCategories}
+            aria-label={`Manage categories for ${poster.title} poster`}
+            className="w-full rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent"
+          >
+            Categories
+          </button>
+          <button
+            role="menuitem"
+            onClick={onDelete}
+            aria-label={`Delete ${poster.title} poster`}
+            className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-red-500 hover:bg-accent"
+          >
+            Delete
           </button>
         </div>
       )}
