@@ -1171,28 +1171,79 @@ export const getPostersByIdsForPickerAdmin = createServerFn({ method: "GET" })
 // poster_categories placements) — the Categories tab sums a parent with
 // its subcategories' counts client-side to show a tree total next to
 // each row, without an N+1 query per category.
+// One category id -> stats breakdown, used by both the Categories tab's
+// per-card statistics (Phase 4) and its plain image-count badges. Two
+// aggregated group-by queries total — never one query per category — so
+// this stays cheap no matter how many categories/subcategories exist.
+export type CategoryStats = {
+  total: number;
+  visible: number;
+  hidden: number;
+  trending: number;
+  best_seller: number;
+};
+
+const emptyStats = (): CategoryStats => ({
+  total: 0,
+  visible: 0,
+  hidden: 0,
+  trending: 0,
+  best_seller: 0,
+});
+
 export const getCategoryImageCountsAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
     const primary = (await sql()`
-      select category_id, count(*)::int as n from posters
+      select category_id,
+             count(*)::int as total,
+             count(*) filter (where hidden = false)::int as visible,
+             count(*) filter (where hidden = true)::int as hidden,
+             count(*) filter (where trending = true)::int as trending,
+             count(*) filter (where is_best_seller = true)::int as best_seller
+      from posters
       where category_id is not null
       group by category_id
-    `) as unknown as Array<{ category_id: string; n: number }>;
+    `) as unknown as Array<{
+      category_id: string;
+      total: number;
+      visible: number;
+      hidden: number;
+      trending: number;
+      best_seller: number;
+    }>;
 
-    let extra: Array<{ category_id: string; n: number }> = [];
+    let extra: typeof primary = [];
     try {
       extra = (await sql()`
-        select category_id, count(*)::int as n from poster_categories group by category_id
-      `) as unknown as Array<{ category_id: string; n: number }>;
+        select pc.category_id,
+               count(*)::int as total,
+               count(*) filter (where p.hidden = false)::int as visible,
+               count(*) filter (where p.hidden = true)::int as hidden,
+               count(*) filter (where p.trending = true)::int as trending,
+               count(*) filter (where p.is_best_seller = true)::int as best_seller
+        from poster_categories pc
+        join posters p on p.id = pc.poster_id
+        group by pc.category_id
+      `) as unknown as typeof primary;
     } catch (err) {
       if (!(err instanceof Error) || !MIGRATION_026_NOT_APPLIED.test(err.message)) throw err;
     }
 
-    const counts: Record<string, number> = {};
-    for (const r of primary) counts[r.category_id] = (counts[r.category_id] ?? 0) + r.n;
-    for (const r of extra) counts[r.category_id] = (counts[r.category_id] ?? 0) + r.n;
-    return counts;
+    const stats: Record<string, CategoryStats> = {};
+    const add = (r: (typeof primary)[number]) => {
+      const s = stats[r.category_id] ?? emptyStats();
+      stats[r.category_id] = {
+        total: s.total + r.total,
+        visible: s.visible + r.visible,
+        hidden: s.hidden + r.hidden,
+        trending: s.trending + r.trending,
+        best_seller: s.best_seller + r.best_seller,
+      };
+    };
+    for (const r of primary) add(r);
+    for (const r of extra) add(r);
+    return stats;
   });
 
 // Paginated, searchable image listing for a category "tree" (a parent +
