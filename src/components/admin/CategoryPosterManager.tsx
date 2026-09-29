@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Search, ImageOff, Loader2, RotateCcw, ChevronDown } from "lucide-react";
 import {
@@ -151,6 +151,10 @@ export function CategoryPosterManager({
           limit: PAGE_SIZE,
         },
       })) as CategoryImageRow[],
+    // Keeps the previous page's grid on screen (instead of flashing back
+    // to the skeleton) while a new search/filter/page request is
+    // in-flight — the pagination row's own spinner already signals that.
+    placeholderData: keepPreviousData,
   });
 
   const changeFilter = (f: CategoryImageFilter) => {
@@ -309,6 +313,7 @@ export function CategoryPosterManager({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search posters..."
+            aria-label="Search posters"
             className="w-full rounded-sm border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
           />
         </div>
@@ -320,6 +325,7 @@ export function CategoryPosterManager({
           <button
             key={f.value}
             onClick={() => changeFilter(f.value)}
+            aria-pressed={filter === f.value}
             className={`shrink-0 rounded-sm border px-3 py-1.5 text-xs font-medium ${
               filter === f.value
                 ? "border-primary bg-primary/10 text-foreground"
@@ -369,6 +375,8 @@ export function CategoryPosterManager({
             <button
               onClick={() => setActionsOpen((o) => !o)}
               disabled={bulkBusy}
+              aria-haspopup="menu"
+              aria-expanded={actionsOpen}
               className="flex items-center gap-1 rounded-sm border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
             >
               {bulkBusy ? (
@@ -391,6 +399,7 @@ export function CategoryPosterManager({
                     <select
                       value={bulkCategoryChoice}
                       onChange={(e) => setBulkCategoryChoice(e.target.value)}
+                      aria-label={bulkPanel === "add_category" ? "Add category" : "Remove category"}
                       className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
                     >
                       <option value="">Choose a category…</option>
@@ -528,6 +537,7 @@ export function CategoryPosterManager({
                   type="checkbox"
                   checked={selected.has(p.id)}
                   onChange={() => toggleSelected(p.id)}
+                  aria-label={`Select ${p.title}`}
                 />
               </label>
               <button onClick={() => setEditingPoster(p)} className="block w-full text-left">

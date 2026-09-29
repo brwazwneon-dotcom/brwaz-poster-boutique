@@ -172,6 +172,7 @@ export function CategoriesTab({
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
               placeholder="Search categories..."
+              aria-label="Search categories"
               className="w-48 rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-xs outline-none focus:border-primary"
             />
           </div>
@@ -411,7 +412,7 @@ export function CategoriesTab({
                               totalCount: subStats.total,
                             })
                           }
-                          className="rounded-sm border border-border px-2 py-1 text-xs font-medium hover:bg-accent"
+                          className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
                         >
                           Manage Posters
                         </button>
@@ -523,13 +524,20 @@ function MoreMenu({ onDelete }: { onDelete: () => void }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title="More"
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className="rounded-sm border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-28 rounded-sm border border-border bg-card p-1 shadow-lg">
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 w-28 rounded-sm border border-border bg-card p-1 shadow-lg"
+        >
           <button
+            role="menuitem"
             onClick={() => {
               setOpen(false);
               onDelete();
