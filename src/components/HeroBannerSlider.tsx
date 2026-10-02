@@ -54,6 +54,12 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
   const overlay = cfg?.overlay_opacity ?? 0.55;
 
   const [idx, setIdx] = useState(0);
+  // Slides whose <img> is rendered. Every slide sits inside the viewport
+  // (stacked, only opacity differs), so loading="lazy" alone never deferred
+  // anything — all banners downloaded together with the first one. Now only
+  // the visible slide and, while autoplay runs, the next one are rendered; a
+  // slide stays rendered once shown so going back doesn't reload it.
+  const [mountedSlides, setMountedSlides] = useState<Record<number, true>>({ 0: true });
   const [failedIds, setFailedIds] = useState<Record<string, true>>({});
   const touchX = useRef<number | null>(null);
   const loggedFailures = useRef<Set<string>>(new Set());
@@ -66,6 +72,7 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
 
   useEffect(() => {
     setIdx(0);
+    setMountedSlides({ 0: true });
     setFailedIds({});
     loggedFailures.current.clear();
   }, [banners]);
@@ -83,18 +90,19 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, [autoplay, autoplayActive, validBanners.length]);
 
+  // Rendering the next slide's <picture> (instead of the old `new Image()`
+  // preload of its plain src) warms exactly the variant the browser will
+  // show — mobile/AVIF/WebP — rather than possibly a second, larger file.
   useEffect(() => {
-    if (!autoplayActive || validBanners.length < 2) return;
-    const next = validBanners[(idx + 1) % validBanners.length];
-    const src =
-      next?.mobileSrc && window.matchMedia("(max-width: 640px)").matches
-        ? next.mobileSrc
-        : next?.src;
-    if (!src) return;
-    const img = new Image();
-    img.decoding = "async";
-    img.src = src;
-  }, [autoplayActive, idx, validBanners]);
+    const want =
+      autoplayActive && validBanners.length >= 2 ? [idx, (idx + 1) % validBanners.length] : [idx];
+    setMountedSlides((prev) => {
+      if (want.every((i) => prev[i])) return prev;
+      const next = { ...prev };
+      for (const i of want) next[i] = true;
+      return next;
+    });
+  }, [autoplayActive, idx, validBanners.length]);
 
   if (validBanners.length === 0) return <>{fallback}</>;
 
@@ -138,26 +146,40 @@ export function HeroBannerSlider({ fallback }: { fallback: React.ReactNode }) {
             }`}
             aria-hidden={i !== idx}
           >
-            <picture className="contents">
-              {b.mobileSrc ? <source media="(max-width: 640px)" srcSet={b.mobileSrc} /> : null}
-              {b.avifSrcSet ? (
-                <source type="image/avif" srcSet={b.avifSrcSet} sizes={b.sizes ?? "100vw"} />
-              ) : null}
-              {b.webpSrcSet ? (
-                <source type="image/webp" srcSet={b.webpSrcSet} sizes={b.sizes ?? "100vw"} />
-              ) : null}
-              <img
-                src={src}
-                sizes={b.sizes ?? "100vw"}
-                alt={b.alt_text ?? b.title ?? ""}
-                className="h-full w-full object-cover"
-                style={{ objectPosition }}
-                loading={i === 0 ? "eager" : "lazy"}
-                fetchPriority={i === 0 ? "high" : "auto"}
-                decoding="async"
-                onError={(e) => markFailed(b, e.currentTarget.currentSrc || src)}
-              />
-            </picture>
+            {mountedSlides[i] || i === idx ? (
+              <picture className="contents">
+                {b.mobileSrc ? <source media="(max-width: 640px)" srcSet={b.mobileSrc} /> : null}
+                {b.avifSrcSet ? (
+                  <source type="image/avif" srcSet={b.avifSrcSet} sizes={b.sizes ?? "100vw"} />
+                ) : null}
+                {b.webpSrcSet ? (
+                  <source type="image/webp" srcSet={b.webpSrcSet} sizes={b.sizes ?? "100vw"} />
+                ) : null}
+                <img
+                  src={src}
+                  sizes={b.sizes ?? "100vw"}
+                  alt={b.alt_text ?? b.title ?? ""}
+                  className="h-full w-full object-cover"
+                  style={{ objectPosition }}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  fetchPriority={i === 0 ? "high" : "auto"}
+                  decoding="async"
+                  onError={(e) => markFailed(b, e.currentTarget.currentSrc || src)}
+                  // The first banner is server-rendered now, so it can fail
+                  // before hydration attaches onError (Safari doesn't
+                  // re-fire it) — catch that case when React attaches.
+                  ref={
+                    i === 0
+                      ? (el) => {
+                          if (el && el.complete && el.naturalWidth === 0) {
+                            markFailed(b, el.currentSrc || src);
+                          }
+                        }
+                      : undefined
+                  }
+                />
+              </picture>
+            ) : null}
           </div>
         );
       })}

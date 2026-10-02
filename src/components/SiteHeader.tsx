@@ -527,7 +527,12 @@ export function SiteHeader({
                 height={88}
                 loading="eager"
                 decoding="async"
-                fetchPriority="high"
+                // No fetchPriority="high" here: this desktop copy is
+                // display:none below lg, and the mobile logo above (same
+                // URL, earlier in the DOM) already claims high priority —
+                // its SSR preload covers this one too, so desktop loses
+                // nothing while mobile no longer has a hidden image
+                // declaring itself critical.
                 onError={handleLogoError}
               />
             )}

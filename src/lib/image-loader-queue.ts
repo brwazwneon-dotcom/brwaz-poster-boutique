@@ -44,6 +44,26 @@ function hasFreshResponsivePending(): boolean {
   return responsivePending.size > 0;
 }
 
+/**
+ * For images the browser loads itself (SafeImage's native-lazy path): resolves
+ * once no resized-variant request is pending, or after HOLD_MS — the same
+ * "don't fetch the original while its small variant is on the way" rule the
+ * queue applies to its own items via isHeld().
+ */
+export function waitForResponsiveHold(signal?: AbortSignal): Promise<void> {
+  const start = Date.now();
+  return new Promise<void>((resolve) => {
+    const check = () => {
+      if (signal?.aborted || Date.now() - start > HOLD_MS || !hasFreshResponsivePending()) {
+        resolve();
+        return;
+      }
+      setTimeout(check, 60);
+    };
+    check();
+  });
+}
+
 function isHeld(item: QueueItem): boolean {
   if (item.responsive || item.signal?.aborted) return false;
   if (Date.now() - item.enqueuedAt > HOLD_MS) return false;

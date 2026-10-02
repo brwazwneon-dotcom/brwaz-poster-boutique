@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { getHeroBannersPublic, getSiteSettingsPublic } from "@/lib/db-public.functions";
 
 export type HeroBanner = {
@@ -38,20 +38,27 @@ export const DEFAULT_HERO_BANNER_CONFIG: HeroBannerConfig = {
 // join — `image_url` doubles as `src` directly. webp_srcset/avif_srcset
 // (populated at upload time by src/lib/responsive-image.ts, admin-side)
 // map straight onto the camelCase props HeroBannerSlider's <picture> reads.
+//
+// Shared by useHeroBanners() and the homepage route loader, which fills this
+// query on the server so the SSR HTML already contains either the real first
+// banner or the hero.jpg fallback — never the fallback first and the banner
+// swapped in after hydration (that downloaded both).
+export const heroBannersQueryOptions = queryOptions({
+  queryKey: ["hero-banners"],
+  staleTime: 60_000,
+  queryFn: async () => {
+    const banners = await getHeroBannersPublic();
+    return banners.map((b) => ({
+      ...b,
+      src: b.image_url,
+      webpSrcSet: b.webp_srcset ?? undefined,
+      avifSrcSet: b.avif_srcset ?? undefined,
+    })) as HeroBanner[];
+  },
+});
+
 export function useHeroBanners() {
-  return useQuery({
-    queryKey: ["hero-banners"],
-    staleTime: 60_000,
-    queryFn: async () => {
-      const banners = await getHeroBannersPublic();
-      return banners.map((b) => ({
-        ...b,
-        src: b.image_url,
-        webpSrcSet: b.webp_srcset ?? undefined,
-        avifSrcSet: b.avif_srcset ?? undefined,
-      })) as HeroBanner[];
-    },
-  });
+  return useQuery(heroBannersQueryOptions);
 }
 
 export function useHeroBannerConfig() {

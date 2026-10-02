@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
-import { enqueueImageLoad } from "@/lib/image-loader-queue";
+import { enqueueImageLoad, waitForResponsiveHold } from "@/lib/image-loader-queue";
 
 type Props = React.ImgHTMLAttributes<HTMLImageElement> & {
   avifSrcSet?: string;
@@ -19,15 +19,33 @@ export function SafeImage({
   decoding,
   sizes,
   fetchPriority,
+  style,
   ...rest
 }: Props) {
-  const [errored, setErrored] = useState(false);
-  const [retrySrc, setRetrySrc] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const attemptsRef = useRef(0);
+  // The fallback URL being retried, tagged with the src it replaces so a new
+  // `src` automatically starts over from the primary URL.
+  const [retry, setRetry] = useState<{ for: string | undefined; url: string } | null>(null);
+  const displaySrc = retry && retry.for === src ? retry.url : src;
+  const key = displaySrc ?? "";
+  // Load state is recorded per URL, so a new src is "not loaded" in the very
+  // render it arrives in — a plain boolean still said "loaded" for one commit
+  // and briefly rendered the new image eagerly, bypassing lazy loading.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [erroredFor, setErroredFor] = useState<string | null>(null);
+  // Lazy images are fetched by the browser itself (native loading="lazy"),
+  // not preloaded through the queue on mount — preloading every mounted image
+  // made loading="lazy" meaningless. Eager / high-priority images (heroes,
+  // first slides) keep the queue preload exactly as before.
+  const nativeLazy = (loading ?? "lazy") === "lazy" && fetchPriority !== "high";
+  // Native path: the real <img> is only rendered after mount (never in SSR
+  // HTML, so its load event can't fire before React is listening) and after
+  // any pending resized-variant request settles (see waitForResponsiveHold).
+  const [readyFor, setReadyFor] = useState<string | null>(null);
+  const errored = erroredFor === key;
+  const loaded = loadedFor === key || !displaySrc || displaySrc === IMAGE_FALLBACK;
+  const nativeReady = readyFor === key;
   const mountedRef = useRef(true);
   const signalRef = useRef<AbortController | null>(null);
-  const displaySrc = retrySrc ?? src;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -37,15 +55,7 @@ export function SafeImage({
   }, []);
 
   useEffect(() => {
-    setErrored(false);
-    setRetrySrc(null);
-    setLoaded(false);
-    attemptsRef.current = 0;
-
-    if (!displaySrc || displaySrc === IMAGE_FALLBACK) {
-      setLoaded(true);
-      return;
-    }
+    if (!displaySrc || displaySrc === IMAGE_FALLBACK) return;
 
     signalRef.current?.abort();
     const ac = new AbortController();
@@ -58,56 +68,74 @@ export function SafeImage({
         ? { avifSrcSet, webpSrcSet, sizes }
         : undefined;
 
+    if (nativeLazy) {
+      if (responsive) {
+        setReadyFor(displaySrc);
+      } else {
+        void waitForResponsiveHold(ac.signal).then(() => {
+          if (mountedRef.current && !ac.signal.aborted) setReadyFor(displaySrc);
+        });
+      }
+      return () => {
+        ac.abort();
+      };
+    }
+
     enqueueImageLoad(displaySrc, fallbackSrc, ac.signal, responsive, {
       priority: fetchPriority === "high",
     })
       .then(() => {
         if (mountedRef.current && !ac.signal.aborted) {
-          setLoaded(true);
+          setLoadedFor(displaySrc);
         }
       })
       .catch(() => {
         if (mountedRef.current && !ac.signal.aborted) {
-          setErrored(true);
-          setLoaded(true);
+          setErroredFor(displaySrc);
         }
       });
 
     return () => {
       ac.abort();
     };
-  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes, fetchPriority]);
+  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes, fetchPriority, nativeLazy]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
-      attemptsRef.current += 1;
-      if (attemptsRef.current === 1 && fallbackSrc && fallbackSrc !== src) {
-        setRetrySrc(fallbackSrc);
+      // Decided by which URL just failed, not an attempt counter: the
+      // primary falls back to fallbackSrc once; anything else is final.
+      if (displaySrc === src && fallbackSrc && fallbackSrc !== src) {
+        setRetry({ for: src, url: fallbackSrc });
       } else {
-        setErrored(true);
+        setErroredFor(key);
       }
       onError?.(e);
     },
-    [fallbackSrc, src, onError],
+    [displaySrc, key, fallbackSrc, src, onError],
   );
 
-  if (!loaded && !errored && displaySrc && displaySrc !== IMAGE_FALLBACK) {
-    return (
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
-        style={{
-          background:
-            "linear-gradient(110deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.06) 100%)",
-          backgroundColor: "rgba(255,255,255,0.08)",
-        }}
-      />
-    );
-  }
+  const pending = !loaded && !errored && !!displaySrc && displaySrc !== IMAGE_FALLBACK;
+  const skeleton = (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
+      style={{
+        background:
+          "linear-gradient(110deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.06) 100%)",
+        backgroundColor: "rgba(255,255,255,0.08)",
+      }}
+    />
+  );
+
+  // Queue path: nothing but the skeleton until the preload finishes.
+  // Native path: the skeleton until mount; then the real lazy <img>
+  // (invisible) under the skeleton until the browser has loaded it.
+  if (pending && (!nativeLazy || !nativeReady)) return skeleton;
 
   const img = (
     <img
       {...rest}
+      style={pending ? { ...style, opacity: 0 } : style}
       src={errored || !displaySrc ? IMAGE_FALLBACK : displaySrc}
       sizes={sizes}
       fetchPriority={fetchPriority}
@@ -115,20 +143,32 @@ export function SafeImage({
       decoding={decoding ?? "async"}
       onError={handleError}
       onLoad={(e) => {
-        if (!loaded) setLoaded(true);
+        if (!loaded) setLoadedFor(key);
         onLoad?.(e);
       }}
     />
   );
 
-  if (!avifSrcSet && !webpSrcSet) return img;
+  // Sources only for the primary URL: once the fallback / IMAGE_FALLBACK is
+  // shown, a still-matching <source> would override the <img src> and keep
+  // displaying the variant that just failed.
+  const content =
+    (!avifSrcSet && !webpSrcSet) || displaySrc !== src || errored ? (
+      img
+    ) : (
+      <picture className="contents">
+        {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
+        {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
+        {img}
+      </picture>
+    );
 
+  if (!pending) return content;
   return (
-    <picture className="contents">
-      {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
-      {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
-      {img}
-    </picture>
+    <>
+      {content}
+      {skeleton}
+    </>
   );
 }
 

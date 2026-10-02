@@ -3,6 +3,7 @@ import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react
 import { useTranslation } from "react-i18next";
 import hero from "@/assets/hero.jpg";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
+import { heroBannersQueryOptions } from "@/lib/hero-banners";
 import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { LazyOnView } from "@/components/LazyOnView";
@@ -68,6 +69,18 @@ const DualCategorySections = lazy(() =>
 );
 
 export const Route = createFileRoute("/")({
+  // Server: wait for the hero banners (one small indexed query, run in
+  // parallel with the root loader) so the SSR HTML is either the real first
+  // banner or the hero.jpg fallback, and the dehydrated cache (router.tsx)
+  // hands the same data to the client's first render. A failure just leaves
+  // the query empty, the old client-fetched behavior. Client navigations
+  // don't wait: the hero falls back as before until the data arrives.
+  loader: async ({ context }) => {
+    const banners = context.queryClient
+      .ensureQueryData(heroBannersQueryOptions)
+      .catch(() => undefined);
+    if (typeof window === "undefined") await banners;
+  },
   head: () => ({
     meta: [
       { title: "BRWAZWNEON — Premium Framed Posters & Custom Design | مصر" },
@@ -81,10 +94,13 @@ export const Route = createFileRoute("/")({
       { property: "og:url", content: "https://brwazwneon.com/" },
       { property: "og:type", content: "website" },
     ],
-    links: [
-      { rel: "canonical", href: "https://brwazwneon.com/" },
-      { rel: "preload", as: "image", href: hero, fetchPriority: "high" },
-    ],
+    // No hand-written preload for the fallback hero.jpg: it fired on every
+    // homepage load (and on every client-side navigation back to /) even
+    // once Cloudinary hero banners replace that fallback. The fallback
+    // <img fetchPriority="high"> in HeroBannerSection is preloaded by React
+    // itself whenever it is actually server-rendered, so it stays fast when
+    // it really is the hero.
+    links: [{ rel: "canonical", href: "https://brwazwneon.com/" }],
   }),
   component: Index,
 });
@@ -100,7 +116,9 @@ function Index() {
   const resolveSubtitle = (s: HomeSectionConfig) =>
     (isArabic ? s.subtitle_ar : s.subtitle_en) || s.subtitle || undefined;
 
-  const RENDERERS: Record<string, (s: HomeSectionConfig) => ReactNode> = {
+  // `aboveFold` = rendered eagerly at the top of the page (see the idx < 2
+  // rule below) rather than mounted later by LazyOnView.
+  const RENDERERS: Record<string, (s: HomeSectionConfig, aboveFold: boolean) => ReactNode> = {
     homepage_slider: () => <HomepageSlider key="homepage_slider" />,
     hero_banners: () => <HeroBannerSection key="hero_banners" />,
     "best-sellers": (s) => (
@@ -134,20 +152,21 @@ function Index() {
     "recommended-for-you": () => <PersonalizedSections key="recommended-for-you" />,
     "wall-of-inspiration": () => <WallOfInspiration key="wall-of-inspiration" />,
     "room-transformation": () => <RoomTransformation key="room-transformation" />,
-    categories: (s) => (
+    categories: (s, aboveFold) => (
       <CategoryGrids
         key="categories"
         title={resolveTitle(s)}
         subtitle={resolveSubtitle(s)}
         itemsCount={s.items_count ?? 8}
+        aboveFold={aboveFold}
       />
     ),
     "dual-category": () => <DualCategorySections key="dual-category" />,
   };
 
-  const renderSection = (section: HomeSectionConfig) => {
+  const renderSection = (section: HomeSectionConfig, aboveFold: boolean) => {
     const renderer = RENDERERS[section.key];
-    if (renderer) return renderer(section);
+    if (renderer) return renderer(section, aboveFold);
     if (section.custom && section.manual_ids?.length) {
       return (
         <TrendingNow
@@ -168,7 +187,7 @@ function Index() {
         .filter((s) => s.enabled && s.visible !== false)
         .slice(0, perf.max_home_sections)
         .map((s, idx) => {
-          const node = renderSection(s);
+          const node = renderSection(s, idx < 2);
           if (!node) return null;
           const guarded = (
             <HomepageSectionBoundary key={`section-${s.id ?? s.key}`} sectionKey={s.key}>

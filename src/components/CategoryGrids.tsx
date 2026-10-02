@@ -420,7 +420,16 @@ async function resolveCategoryGridArtwork(
   return null;
 }
 
-function CategoryGridCard({ image, index }: { image: RailImage; index: number }) {
+function CategoryGridCard({
+  image,
+  index,
+  priority,
+}: {
+  image: RailImage;
+  index: number;
+  priority: boolean;
+}) {
+  const isPriority = priority && index < 4;
   return (
     <div className="relative aspect-[2/3] w-full overflow-hidden" dir="ltr">
       <FramePreview
@@ -429,8 +438,8 @@ function CategoryGridCard({ image, index }: { image: RailImage; index: number })
         webpSrcSet={image.webpSrcSet}
         title={image.title}
         color="black"
-        loading={index < 4 ? "eager" : "lazy"}
-        fetchPriority={index < 4 ? "high" : undefined}
+        loading={isPriority ? "eager" : "lazy"}
+        fetchPriority={isPriority ? "high" : undefined}
         aspectClassName="aspect-[2/3]"
         className="h-full w-full"
       />
@@ -547,7 +556,15 @@ function useCollectionRails(categories: Category[], isArabic: boolean) {
   });
 }
 
-function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isArabic: boolean }) {
+function CollectionRailSection({
+  rail,
+  isArabic,
+  isFirstRail,
+}: {
+  rail: CollectionRail;
+  isArabic: boolean;
+  isFirstRail: boolean;
+}) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [canScrollStart, setCanScrollStart] = useState(false);
   const [canScrollEnd, setCanScrollEnd] = useState(false);
@@ -654,7 +671,7 @@ function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isAra
             className="group block min-w-0 basis-[42%] shrink-0 snap-start sm:basis-[30%] md:basis-[22%] lg:basis-[16%] xl:basis-[13%]"
             aria-label={`${rail.title} - ${image.title}`}
           >
-            <CategoryGridCard image={image} index={index} />
+            <CategoryGridCard image={image} index={index} priority={isFirstRail} />
           </Link>
         ))}
       </div>
@@ -662,7 +679,18 @@ function CollectionRailSection({ rail, isArabic }: { rail: CollectionRail; isAra
   );
 }
 
-export function CategoryGrids(_: { title?: string; subtitle?: string; itemsCount?: number }) {
+export function CategoryGrids({
+  aboveFold = false,
+}: {
+  title?: string;
+  subtitle?: string;
+  itemsCount?: number;
+  /** True only when the homepage renders this section eagerly at the top.
+   *  Below the fold it is mounted by LazyOnView ~600px before it scrolls
+   *  in; a high fetchPriority there would just bypass the shared image
+   *  queue for cards nobody can see yet. */
+  aboveFold?: boolean;
+}) {
   const { i18n } = useTranslation();
   const isArabic = i18n.language.startsWith("ar");
   const { data: categories = [] } = useCategories();
@@ -673,8 +701,13 @@ export function CategoryGrids(_: { title?: string; subtitle?: string; itemsCount
   return (
     <section data-home-category-grid="true" className="border-t border-border bg-background">
       <div className="container-page py-10 sm:py-14">
-        {rails.map((rail) => (
-          <CollectionRailSection key={rail.category.id} rail={rail} isArabic={isArabic} />
+        {rails.map((rail, railIndex) => (
+          <CollectionRailSection
+            key={rail.category.id}
+            rail={rail}
+            isArabic={isArabic}
+            isFirstRail={aboveFold && railIndex === 0}
+          />
         ))}
       </div>
     </section>

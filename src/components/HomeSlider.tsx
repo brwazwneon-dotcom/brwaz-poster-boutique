@@ -16,7 +16,7 @@ type Slide = {
 
 export function HomepageSlider() {
   const { t } = useTranslation();
-  const { data: slides = [] } = useQuery({
+  const { data: slides = [], isPending } = useQuery({
     queryKey: ["homepage-slider"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -25,14 +25,29 @@ export function HomepageSlider() {
   });
 
   const [idx, setIdx] = useState(0);
-  // Only mount the first slide immediately; defer the rest until after
-  // first paint so the LCP image isn't fighting for bandwidth.
-  const [mountAll, setMountAll] = useState(false);
+  // Slides whose image is mounted (SafeImage starts downloading on mount).
+  // Only the visible slide and the one autoplay shows next — never all of
+  // them — so on mobile the off-screen slides don't compete with the first
+  // paint. A slide stays mounted once shown so going back doesn't reload it.
+  const [mounted, setMounted] = useState<Record<number, true>>({ 0: true });
+  // The "next" slide is held back until after first paint so slide 1 (the
+  // above-the-fold image) gets the bandwidth to itself.
+  const [warm, setWarm] = useState(false);
   useEffect(() => {
     if (slides.length < 2) return;
-    const t = window.setTimeout(() => setMountAll(true), 1200);
+    const t = window.setTimeout(() => setWarm(true), 1200);
     return () => window.clearTimeout(t);
   }, [slides.length]);
+
+  useEffect(() => {
+    const want = warm && slides.length >= 2 ? [idx, (idx + 1) % slides.length] : [idx];
+    setMounted((prev) => {
+      if (want.every((i) => prev[i])) return prev;
+      const next = { ...prev };
+      for (const i of want) next[i] = true;
+      return next;
+    });
+  }, [idx, warm, slides.length]);
 
   useEffect(() => {
     if (slides.length < 2) return;
@@ -40,7 +55,23 @@ export function HomepageSlider() {
     return () => window.clearInterval(id);
   }, [slides.length]);
 
-  if (slides.length === 0) return null;
+  if (slides.length === 0) {
+    // Hold the slider's exact box while the slides are still loading (this
+    // is also what SSR renders) — returning null here let the whole page
+    // below, hero included, jump down ~40vh when the slides arrived.
+    if (!isPending) return null;
+    return (
+      <section
+        data-homepage-slider="loading"
+        aria-hidden="true"
+        className="relative isolate overflow-hidden border-b border-border bg-card"
+      >
+        <div className="relative h-[40vh] min-h-[260px] w-full sm:h-[55vh] md:h-[65vh]">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60" />
+        </div>
+      </section>
+    );
+  }
 
   const go = (n: number) => setIdx((n + slides.length) % slides.length);
 
@@ -57,7 +88,7 @@ export function HomepageSlider() {
           className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60"
         />
         {slides.map((s, i) => {
-          if (i > 0 && !mountAll) return null;
+          if (!mounted[i] && i !== idx) return null;
           const inner = (
             <SafeImage
               src={s.image_url}
