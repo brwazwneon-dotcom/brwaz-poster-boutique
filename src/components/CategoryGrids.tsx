@@ -420,6 +420,22 @@ async function resolveCategoryGridArtwork(
   return null;
 }
 
+// Rail posters are stored at full size (often 700-1600 px wide, 100-600 KB) but
+// a rail card shows the artwork about 100-120 CSS px wide (400 px covers a 3x
+// screen). Ask Cloudinary for the size that is shown, in a modern format (same
+// transform the Collections showcase and other components already use). Other
+// hosts, and URLs that already carry a transform, are left untouched; the
+// stored original stays the fallback if the rendition fails to load.
+const RAIL_IMAGE_WIDTH = 400;
+function railImageUrl(url: string): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !url.includes("res.cloudinary.com")) return url;
+  const rest = url.slice(at + marker.length);
+  if (!/^v\d+\//.test(rest) && /^[a-z]{1,3}_[^/]+\//.test(rest)) return url;
+  return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_${RAIL_IMAGE_WIDTH}/${rest}`;
+}
+
 function CategoryGridCard({
   image,
   index,
@@ -433,7 +449,8 @@ function CategoryGridCard({
   return (
     <div className="relative aspect-[2/3] w-full overflow-hidden" dir="ltr">
       <FramePreview
-        posterUrl={image.url}
+        posterUrl={railImageUrl(image.url)}
+        posterFallbackUrl={image.url}
         avifSrcSet={image.avifSrcSet}
         webpSrcSet={image.webpSrcSet}
         title={image.title}
