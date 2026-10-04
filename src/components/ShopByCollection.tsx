@@ -649,14 +649,17 @@ export function CollectionCover({
 
   // --- Preload next image into memory before it becomes current ---
   const preloaded = useRef<Set<string>>(new Set());
+  // Only for cards that can rotate (near the viewport): off-screen cards never
+  // show the next image, so fetching it up front is wasted bandwidth.
   useEffect(() => {
+    if (!shouldRotate) return;
     if (!nextUrl || nextUrl === currentUrl || preloaded.current.has(nextUrl)) return;
     preloaded.current.add(nextUrl);
     const img = new Image();
     img.decoding = "async";
     img.src = showcaseImageUrl(nextUrl);
     if (typeof img.decode === "function") img.decode().catch(() => {});
-  }, [nextUrl, currentUrl]);
+  }, [shouldRotate, nextUrl, currentUrl]);
 
   // Clear preload cache when pool changes
   useEffect(() => {
