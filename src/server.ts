@@ -50,12 +50,80 @@ function withLanguageVary(response: Response): Response {
   });
 }
 
+// The framework emits one <link rel="modulepreload"> per JS chunk the page
+// needs (about 51 on the homepage), all at the same priority as the render-
+// blocking CSS and the hero image. On a slow connection they share the pipe
+// equally, which pushed the stylesheet and the hero image back by about a
+// second each (measured). Keeping the hints but marking them low priority lets
+// the CSS and hero go first while the JS still downloads in parallel.
+const MODULEPRELOAD_TAG = /<link\b[^>]*?\brel=(["'])modulepreload\1[^>]*>/gi;
+const FETCHPRIORITY_ATTR = /\sfetchpriority\s*=/i;
+// A <link> tag is far shorter than this; it bounds how much text is held back
+// waiting for a tag to finish when a chunk ends mid-tag.
+const MAX_HELD_TAG_LENGTH = 2048;
+
+export function lowerModulePreloadPriority(html: string): string {
+  return html.replace(MODULEPRELOAD_TAG, (tag) =>
+    FETCHPRIORITY_ATTR.test(tag) ? tag : tag.replace(/(\s*\/?>)$/, ' fetchpriority="low"$1'),
+  );
+}
+
+// Index up to which `text` can be rewritten and flushed now: everything before
+// a trailing, still-incomplete tag (a chunk can end in the middle of a <link>).
+function safeFlushLength(text: string): number {
+  const lastOpen = text.lastIndexOf("<");
+  if (lastOpen === -1 || text.indexOf(">", lastOpen) !== -1) return text.length;
+  return text.length - lastOpen > MAX_HELD_TAG_LENGTH ? text.length : lastOpen;
+}
+
+function withLowPriorityModulePreloads(response: Response): Response {
+  const contentType = response.headers.get("content-type") ?? "";
+  // Compressed bodies can't be rewritten as text; this entry normally returns
+  // them uncompressed (the platform compresses afterwards), so skipping is a
+  // safe no-op rather than a risk.
+  if (
+    !contentType.includes("text/html") ||
+    !response.body ||
+    response.headers.has("content-encoding")
+  ) {
+    return response;
+  }
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let held = "";
+  const body = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        const text = held + decoder.decode(chunk, { stream: true });
+        const end = safeFlushLength(text);
+        held = text.slice(end);
+        if (end > 0) {
+          controller.enqueue(encoder.encode(lowerModulePreloadPriority(text.slice(0, end))));
+        }
+      },
+      flush(controller) {
+        const rest = held + decoder.decode();
+        if (rest) controller.enqueue(encoder.encode(lowerModulePreloadPriority(rest)));
+      },
+    }),
+  );
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return withLanguageVary(await normalizeCatastrophicSsrResponse(response));
+      return withLowPriorityModulePreloads(
+        withLanguageVary(await normalizeCatastrophicSsrResponse(response)),
+      );
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

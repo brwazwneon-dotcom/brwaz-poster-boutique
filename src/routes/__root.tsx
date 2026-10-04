@@ -41,6 +41,8 @@ import {
 } from "@/lib/theme-system";
 
 const SITE_URL = "https://brwazwneon.com";
+const GOOGLE_FONTS_CSS =
+  "https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&family=Bebas+Neue&family=Inter:wght@400;600&display=swap";
 const TIKTOK_PIXEL_ID = "D9E35TRC77UDPAPRP140";
 
 declare global {
@@ -234,12 +236,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "dns-prefetch", href: "https://connect.facebook.net" },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
       { rel: "dns-prefetch", href: "https://ipapi.co" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&family=Bebas+Neue&family=Inter:wght@400;600&display=swap",
-      },
+      // Fetched right away, but as a preload rather than a stylesheet: a
+      // <link rel="stylesheet"> to another origin blocks the first paint until
+      // it (and its connection setup) finishes, which left the hero image
+      // downloaded but unpainted. The inline script below attaches it as a
+      // real stylesheet without blocking rendering.
+      { rel: "preload", as: "style", href: GOOGLE_FONTS_CSS },
     ],
     scripts: [
+      {
+        // Script-inserted stylesheets don't block rendering. Reuses the
+        // preload above, so there is a single request. <noscript> in
+        // RootHtml covers visitors without JavaScript.
+        children: `(function(){try{var u=${JSON.stringify(GOOGLE_FONTS_CSS)};if(document.querySelector('link[rel="stylesheet"][href="'+u+'"]'))return;var l=document.createElement('link');l.rel='stylesheet';l.href=u;document.head.appendChild(l);}catch(e){}})();`,
+      },
       {
         // Only fires when the published website theme mode is "System" (SSR
         // deliberately leaves data-theme unset in that case, since the server
@@ -333,6 +343,9 @@ function RootHtml({ children }: { children: ReactNode }) {
     >
       <head>
         <HeadContent />
+        <noscript>
+          <link rel="stylesheet" href={GOOGLE_FONTS_CSS} />
+        </noscript>
         {/* Admin-customized token overrides, rendered server-side (or "" ->
             nothing) so there is no flash and no customization means no extra
             markup at all. Placed after HeadContent so it sits after the
