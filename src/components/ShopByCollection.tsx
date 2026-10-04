@@ -465,6 +465,21 @@ export function seedShuffle<T>(arr: T[], seed: number): T[] {
   return out;
 }
 
+// Uploads are stored at full size (often 1000x1500 px, 150-600 KB) but a
+// showcase card shows the poster at roughly 140-150 CSS px wide (480 px covers
+// a 3x screen). Ask Cloudinary for the size that is shown, in a modern format
+// (same transform other components here already use). Other hosts, and URLs
+// that already carry a transform, are left untouched.
+const SHOWCASE_IMAGE_WIDTH = 480;
+function showcaseImageUrl(url: string): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !url.includes("res.cloudinary.com")) return url;
+  const rest = url.slice(at + marker.length);
+  if (!/^v\d+\//.test(rest) && /^[a-z]{1,3}_[^/]+\//.test(rest)) return url;
+  return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_${SHOWCASE_IMAGE_WIDTH}/${rest}`;
+}
+
 export function CollectionCover({
   card,
   showcase,
@@ -549,6 +564,17 @@ export function CollectionCover({
     }
     setBroken((b) => ({ ...b, [url]: true }));
   };
+  // If the resized rendition fails to load, retry once with the stored
+  // original before giving up on the image (error bookkeeping stays keyed on
+  // the original URL).
+  const handleShowcaseImageError = (e: React.SyntheticEvent<HTMLImageElement>, url: string) => {
+    const img = e.currentTarget;
+    if (url && showcaseImageUrl(url) !== url && img.getAttribute("src") !== url) {
+      img.setAttribute("src", url);
+      return;
+    }
+    handleImageError(url);
+  };
 
   // --- Shuffled queue ---
   const [queueSeed, setQueueSeed] = useState(0);
@@ -628,7 +654,7 @@ export function CollectionCover({
     preloaded.current.add(nextUrl);
     const img = new Image();
     img.decoding = "async";
-    img.src = nextUrl;
+    img.src = showcaseImageUrl(nextUrl);
     if (typeof img.decode === "function") img.decode().catch(() => {});
   }, [nextUrl, currentUrl]);
 
@@ -676,12 +702,12 @@ export function CollectionCover({
         {isPhotoPrinting && valid.length > 0 ? (
           <div className="relative h-full w-full overflow-hidden">
             <img
-              src={currentUrl || fallbackPrimary}
+              src={showcaseImageUrl(currentUrl || fallbackPrimary)}
               alt={card.title}
               loading="eager"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover object-center"
-              onError={() => handleImageError(currentUrl)}
+              onError={(e) => handleShowcaseImageError(e, currentUrl || fallbackPrimary)}
             />
           </div>
         ) : (
@@ -717,17 +743,17 @@ export function CollectionCover({
                   <div className="relative h-full w-full overflow-hidden">
                     <img
                       key={`c-${currentUrl}`}
-                      src={currentUrl}
+                      src={showcaseImageUrl(currentUrl)}
                       alt={card.title}
                       decoding="async"
                       className={`absolute inset-0 z-0 h-full w-full ${bw ? "grayscale" : ""}`}
                       style={{ objectFit: "cover", objectPosition: "center", display: "block" }}
-                      onError={() => handleImageError(currentUrl)}
+                      onError={(e) => handleShowcaseImageError(e, currentUrl)}
                     />
                     {shouldRotate && nextUrl && nextUrl !== currentUrl && (
                       <img
                         key={`n-${nextUrl}`}
-                        src={nextUrl}
+                        src={showcaseImageUrl(nextUrl)}
                         alt=""
                         aria-hidden={true}
                         decoding="async"
@@ -739,7 +765,7 @@ export function CollectionCover({
                           opacity: transitioning ? 1 : 0,
                           transition: `opacity ${transitionMs}ms ease-in-out`,
                         }}
-                        onError={() => handleImageError(nextUrl)}
+                        onError={(e) => handleShowcaseImageError(e, nextUrl)}
                       />
                     )}
                   </div>
