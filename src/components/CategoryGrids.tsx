@@ -5,11 +5,12 @@ import {
   type Category,
 } from "@/lib/use-categories";
 import { FramePreview } from "@/components/FramePreview";
+import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { getShowcaseProductsForCategoriesPublic } from "@/lib/db-public.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { trackCustom } from "@/lib/meta-pixel";
 
@@ -436,6 +437,15 @@ function railImageUrl(url: string): string {
   return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_${RAIL_IMAGE_WIDTH}/${rest}`;
 }
 
+// A failed image must never remove its card. SafeImage already tries the
+// rendition and then the stored original; if both fail it settles on its
+// built-in placeholder (same frame, same size) and stays there. That is final
+// for the life of the component, so a brief network or CDN failure would leave a
+// card empty until a reload. Remount the poster a few times, with growing pauses,
+// so a temporary failure heals itself; a permanent one (e.g. a deleted asset)
+// simply keeps the placeholder after the last attempt.
+const IMAGE_RETRY_DELAYS_MS = [1500, 5000, 15000];
+
 function CategoryGridCard({
   image,
   index,
@@ -446,9 +456,39 @@ function CategoryGridCard({
   priority: boolean;
 }) {
   const isPriority = priority && index < 4;
+  const [attempt, setAttempt] = useState(0);
+  const retryTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+    },
+    [],
+  );
+
+  // `load` does not bubble, so listen in the capture phase. The placeholder is a
+  // data-URI image: it "loads" exactly when SafeImage has given up on both URLs.
+  const handleLoadCapture = (e: React.SyntheticEvent<HTMLDivElement>) => {
+    const target = e.target;
+    if (!(target instanceof HTMLImageElement) || target.getAttribute("src") !== IMAGE_FALLBACK) {
+      return;
+    }
+    const delay = IMAGE_RETRY_DELAYS_MS[attempt];
+    if (delay === undefined || retryTimer.current !== null) return;
+    retryTimer.current = window.setTimeout(() => {
+      retryTimer.current = null;
+      setAttempt((current) => current + 1);
+    }, delay);
+  };
+
   return (
-    <div className="relative aspect-[2/3] w-full overflow-hidden" dir="ltr">
+    <div
+      className="relative aspect-[2/3] w-full overflow-hidden"
+      dir="ltr"
+      onLoadCapture={handleLoadCapture}
+    >
       <FramePreview
+        key={attempt}
         posterUrl={railImageUrl(image.url)}
         posterFallbackUrl={image.url}
         avifSrcSet={image.avifSrcSet}
