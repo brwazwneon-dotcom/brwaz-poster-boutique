@@ -161,6 +161,54 @@ export const getOrderGroupAdmin = createServerFn({ method: "GET" })
     return rows;
   });
 
+// ---------------------------------------------------------------
+// Poster images for order lines that never stored one.
+//
+// `orders` has a single `poster_image` column. A "N Frames Bundle" checkout is
+// one row holding every poster NAME in `poster_title` but only the FIRST
+// poster's image, so tiles 2..N have nothing to show; a single line whose
+// poster had no real image at checkout stores ''. The only record of the other
+// posters is their name, so this looks the names up in `posters` — read-only,
+// one query for the whole order, nothing is written back to the order.
+//
+// A title is not unique in `posters` (many rows share one), so a name only
+// resolves when it is unambiguous: exactly one distinct real (http) image among
+// the posters of that title that already existed when the order was placed.
+// Anything else (no match, renamed/deleted poster, two different images) is
+// left out and the admin keeps its "Image unavailable" placeholder — a
+// placeholder is better than another poster's photo on an order.
+// ---------------------------------------------------------------
+const MAX_LOOKUP_NAMES = 40;
+
+export const resolveOrderPosterImagesAdmin = createServerFn({ method: "GET" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => data as { names: string[]; orderedAt: string })
+  .handler(async ({ data }) => {
+    const names = [...new Set((data.names ?? []).map((n) => String(n).trim()).filter(Boolean))]
+      .filter((n) => n.length <= 200)
+      .slice(0, MAX_LOOKUP_NAMES);
+    const orderedAt = new Date(data.orderedAt);
+    const images: Record<string, string> = {};
+    if (names.length === 0 || Number.isNaN(orderedAt.getTime())) return { images };
+    const rows = (await sql()`
+      select title, image_url
+      from posters
+      where title = any(${names})
+        and created_at <= ${orderedAt.toISOString()}::timestamptz
+        and image_url ~ '^https?://'
+    `) as Array<{ title: string; image_url: string }>;
+    const byTitle = new Map<string, Set<string>>();
+    for (const r of rows) {
+      const urls = byTitle.get(r.title) ?? new Set<string>();
+      urls.add(r.image_url);
+      byTitle.set(r.title, urls);
+    }
+    for (const [title, urls] of byTitle) {
+      if (urls.size === 1) images[title] = [...urls][0];
+    }
+    return { images };
+  });
+
 export const markOrderNotificationsSeenAdmin = createServerFn({ method: "POST" }).handler(
   async () => {
     await sql()`

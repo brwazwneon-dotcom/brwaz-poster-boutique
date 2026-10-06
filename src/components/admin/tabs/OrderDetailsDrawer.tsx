@@ -8,6 +8,7 @@ import { updateOrderStatus } from "@/lib/db-admin.functions";
 import { resolveCustomDesignImageAdmin } from "@/lib/image-upload.functions";
 import {
   getOrderGroupAdmin,
+  resolveOrderPosterImagesAdmin,
   getOrderTimelineAdmin,
   logOrderEventAdmin,
   getOrderNotesAdmin,
@@ -121,6 +122,49 @@ function useResolvedItemImage(item: AdminOrder): string | null {
   return directSrc ?? resolved;
 }
 
+// Poster names on this order that have no stored image of their own (see
+// resolveOrderPosterImagesAdmin): every bundle tile after the first, and any
+// line whose `poster_image` isn't a usable URL. One batched, read-only lookup
+// for the whole order, only once the order's lines have loaded — never per
+// tile — and it only fills gaps: a stored image always wins over it.
+function catalogLookupNames(items: AdminOrder[]): string[] {
+  const names = new Set<string>();
+  for (const item of items) {
+    const hasStored = looksLikeUrl(item.poster_image);
+    const bundle = parseBundleTitle(item.poster_title);
+    if (bundle.isBundle) {
+      bundle.posterNames.forEach((name, idx) => {
+        if (idx > 0 || !hasStored) names.add(name);
+      });
+    } else if (!hasStored && !parseCustomImageMeta(item.notes) && item.poster_title) {
+      names.add(item.poster_title);
+    }
+  }
+  return [...names];
+}
+
+function useCatalogPosterImages(items: AdminOrder[] | null): Record<string, string> {
+  const [images, setImages] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setImages({});
+    if (!items || items.length === 0) return;
+    const names = catalogLookupNames(items);
+    if (names.length === 0) return;
+    let cancelled = false;
+    resolveOrderPosterImagesAdmin({ data: { names, orderedAt: String(items[0].created_at) } })
+      .then((r) => {
+        if (!cancelled) setImages(r.images);
+      })
+      .catch(() => {
+        /* best-effort — the tiles keep their "Image unavailable" placeholder */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+  return images;
+}
+
 const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
   not_sent: "border-border bg-muted/40 text-muted-foreground",
   prepared: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
@@ -216,6 +260,9 @@ function cloudinaryThumb(url: string): string {
   return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_144,h_216,c_fill/${url.slice(at + marker.length)}`;
 }
 
+const CATALOG_IMAGE_NOTE =
+  "Image from the poster catalog, matched by name — this order didn't store it";
+
 const THUMB_SIZE = "h-[84px] w-14 sm:h-[108px] sm:w-[72px]";
 
 // A poster/product thumbnail. Falls back to a clearly-labeled placeholder
@@ -229,10 +276,13 @@ function ItemThumb({
   src,
   alt,
   priority,
+  note,
 }: {
   src: string | null;
   alt: string;
   priority?: boolean;
+  /** Hover hint, e.g. that this is the catalog's image and not one the order stored. */
+  note?: string;
 }) {
   const [trulyFailed, setTrulyFailed] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -275,6 +325,7 @@ function ItemThumb({
         type="button"
         onClick={() => setZoomOpen(true)}
         aria-label="View poster image"
+        title={note}
         className={cn(
           "relative block shrink-0 overflow-hidden rounded-md border border-border bg-muted/20",
           THUMB_SIZE,
@@ -388,12 +439,26 @@ function ItemMeta({ item }: { item: AdminOrder }) {
 }
 
 // A single poster: one thumbnail, one title, its own frame/size/price.
-function SingleItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
+function SingleItemCard({
+  item,
+  priority,
+  catalog,
+}: {
+  item: AdminOrder;
+  priority?: boolean;
+  catalog: Record<string, string>;
+}) {
   const title = item.poster_title || "Untitled item";
-  const src = useResolvedItemImage(item);
+  const ownSrc = useResolvedItemImage(item);
+  const catalogSrc = ownSrc ? null : (catalog[title] ?? null);
   return (
     <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
-      <ItemThumb src={src} alt={`${title} poster`} priority={priority} />
+      <ItemThumb
+        src={ownSrc ?? catalogSrc}
+        alt={`${title} poster`}
+        priority={priority}
+        note={catalogSrc ? CATALOG_IMAGE_NOTE : undefined}
+      />
       <div className="min-w-0 flex-1">
         <div dir="auto" className="text-sm font-semibold text-foreground">
           {title}
@@ -416,16 +481,22 @@ function SingleItemCard({ item, priority }: { item: AdminOrder; priority?: boole
 // knows each one's `image` at add-to-cart time (`BundlePoster` in
 // src/lib/cart.tsx), but `orders` has exactly one `poster_image` column and
 // nothing else is ever written to it — see this session's root-cause note.
-// Those tiles get the same honest placeholder a missing single-item image
-// gets; nothing here ever copies the first poster's photo onto them.
+// Those tiles look their poster up BY NAME in the catalog (see
+// resolveOrderPosterImagesAdmin: read-only, only when the name is
+// unambiguous) and show that, hover-labelled as a catalog image. When the
+// name can't be matched safely they get the honest placeholder a missing
+// single-item image gets; nothing here ever copies the first poster's photo
+// onto them.
 function BundleItemCard({
   item,
   bundle,
   priority,
+  catalog,
 }: {
   item: AdminOrder;
   bundle: BundleTitleParts;
   priority?: boolean;
+  catalog: Record<string, string>;
 }) {
   // Same defensive resolution as a single item's thumbnail (bundle rows
   // don't carry customImageMeta today, so this is a no-op guard for them —
@@ -443,22 +514,27 @@ function BundleItemCard({
 
       {bundle.posterNames.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3">
-          {bundle.posterNames.map((name, idx) => (
-            <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
-              <ItemThumb
-                src={idx === 0 ? firstSrc : null}
-                alt={`${name} poster`}
-                priority={priority && idx === 0}
-              />
-              <div
-                dir="auto"
-                title={name}
-                className="mt-1 truncate text-[10px] leading-tight text-muted-foreground"
-              >
-                {idx + 1}. {name}
+          {bundle.posterNames.map((name, idx) => {
+            const ownSrc = idx === 0 ? firstSrc : null;
+            const catalogSrc = ownSrc ? null : (catalog[name] ?? null);
+            return (
+              <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
+                <ItemThumb
+                  src={ownSrc ?? catalogSrc}
+                  alt={`${name} poster`}
+                  priority={priority && idx === 0}
+                  note={catalogSrc ? CATALOG_IMAGE_NOTE : undefined}
+                />
+                <div
+                  dir="auto"
+                  title={name}
+                  className="mt-1 truncate text-[10px] leading-tight text-muted-foreground"
+                >
+                  {idx + 1}. {name}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -469,12 +545,20 @@ function BundleItemCard({
 
 // One ordered line: a single poster, or a bundle — see BundleItemCard for
 // why a bundle's posters get their own tiles instead of one shared image.
-function OrderItemCard({ item, priority }: { item: AdminOrder; priority?: boolean }) {
+function OrderItemCard({
+  item,
+  priority,
+  catalog,
+}: {
+  item: AdminOrder;
+  priority?: boolean;
+  catalog: Record<string, string>;
+}) {
   const bundle = parseBundleTitle(item.poster_title);
   if (bundle.isBundle) {
-    return <BundleItemCard item={item} bundle={bundle} priority={priority} />;
+    return <BundleItemCard item={item} bundle={bundle} priority={priority} catalog={catalog} />;
   }
-  return <SingleItemCard item={item} priority={priority} />;
+  return <SingleItemCard item={item} priority={priority} catalog={catalog} />;
 }
 
 export function OrderDetailsDrawer({
@@ -495,6 +579,7 @@ export function OrderDetailsDrawer({
   // same checkout (same customer_id + created_at; see getOrderGroupAdmin),
   // so a 4-frame order shows and confirms as one order, not four.
   const [group, setGroup] = useState<AdminOrder[] | null>(null);
+  const catalogImages = useCatalogPosterImages(group);
   const [timeline, setTimeline] = useState<OrderTimelineEvent[] | null>(null);
   const [notes, setNotes] = useState<OrderNote[] | null>(null);
   const [templateKey, setTemplateKey] = useState<WhatsAppTemplateKey>("confirmation");
@@ -816,7 +901,7 @@ export function OrderDetailsDrawer({
               </div>
               <div className="mt-3 space-y-2">
                 {items.map((i, idx) => (
-                  <OrderItemCard key={i.id} item={i} priority={idx === 0} />
+                  <OrderItemCard key={i.id} item={i} priority={idx === 0} catalog={catalogImages} />
                 ))}
                 {photoOrders.map((ph) => (
                   <div
