@@ -4,6 +4,7 @@ import { useMarketingConfig } from "@/lib/use-marketing";
 import { setMarketingConfig, trackEvent } from "@/lib/meta-pixel";
 import { setGA4Config, gaPageView } from "@/lib/ga4";
 import { trackVisit } from "@/lib/analytics";
+import { notifyLivePresence } from "@/lib/live-presence";
 import { rememberPublicRoute } from "@/lib/preview-mode";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 
@@ -81,6 +82,9 @@ export function MarketingBoot() {
         /* noop */
       }
     }
+    // Live Visitors heartbeat: deferred to idle, fire-and-forget, and gated to
+    // production hosts inside (see src/lib/live-presence.ts).
+    notifyLivePresence(pathname);
 
     // Fire PageView whenever we haven't fired it yet for this path AND
     // tracking is enabled — this covers the "config arrived late" case
