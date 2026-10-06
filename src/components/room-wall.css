@@ -298,10 +298,12 @@
   }
 }
 
+/* The artwork fills the whole opening of the frame: no light mat around it
+   (the mat used to add an 8% white border on every side). */
 .rw-mat {
   width: 100%;
   height: 100%;
-  padding: 8%;
+  padding: 0;
   background: var(--mat);
   box-shadow: inset 0 0 0.6cqw rgba(0, 0, 0, 0.22);
 }

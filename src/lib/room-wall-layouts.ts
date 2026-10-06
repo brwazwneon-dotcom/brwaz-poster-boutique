@@ -28,19 +28,57 @@ function frame(size: WallSize, d: WallPlacement, m: WallPlacement): WallFrame {
   return { size, aspect: ASPECT[size], d, m };
 }
 
-/** Frames hang in this order: the middle one first, then outwards. */
-export const WALL_LAYOUTS: Record<3 | 6, WallFrame[]> = {
-  6: [
-    frame("40x60", { l: 42, t: 4, w: 16 }, { l: 38, t: 4, w: 24 }),
-    frame("30x40", { l: 27.5, t: 8, w: 13 }, { l: 17, t: 9, w: 19 }),
-    frame("30x40", { l: 59.5, t: 8, w: 13 }, { l: 64, t: 9, w: 19 }),
-    frame("20x30", { l: 16.5, t: 11, w: 9 }, { l: 3.5, t: 13, w: 12 }),
-    frame("20x30", { l: 74.5, t: 11, w: 9 }, { l: 84.5, t: 13, w: 12 }),
-    frame("20x30", { l: 46.5, t: 31, w: 7 }, { l: 45, t: 42, w: 10 }),
-  ],
-  3: [
-    frame("40x60", { l: 40.5, t: 5, w: 19 }, { l: 35, t: 5, w: 30 }),
-    frame("30x40", { l: 22, t: 9, w: 16 }, { l: 2.5, t: 12, w: 30 }),
-    frame("30x40", { l: 62, t: 9, w: 16 }, { l: 67.5, t: 12, w: 30 }),
-  ],
+/** An evenly spaced grid of identical frames, centred on the wall. */
+type Grid = { cols: number; rows: number; w: number; gapX: number; gapY: number; top: number };
+
+/** Placements in row-major order (left to right, top to bottom). */
+function gridPlacements(aspect: number, g: Grid): WallPlacement[] {
+  const height = g.w / aspect;
+  const left = (100 - (g.cols * g.w + (g.cols - 1) * g.gapX)) / 2;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const out: WallPlacement[] = [];
+  for (let r = 0; r < g.rows; r += 1) {
+    for (let c = 0; c < g.cols; c += 1) {
+      out.push({
+        l: round(left + c * (g.w + g.gapX)),
+        t: round(g.top + r * (height + g.gapY)),
+        w: g.w,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Identical frames of one size on a grid. `desktop` and `phone` size the same
+ * grid for the wide and the tall stage; `order` lists the grid cells (row-major
+ * indices) in the order the frames hang.
+ */
+function gridLayout(size: WallSize, desktop: Grid, phone: Grid, order: number[]): WallFrame[] {
+  const d = gridPlacements(ASPECT[size], desktop);
+  const m = gridPlacements(ASPECT[size], phone);
+  return order.map((i) => frame(size, d[i], m[i]));
+}
+
+/**
+ * 6 x 20x30 as 3 + 3, and 4 x 30x40 in one row: every frame in a layout has
+ * the same size. The grids stay clear of the lamp, the books and the vase on
+ * the console, and everything is in stage-width units so the room scales as a
+ * whole on any screen.
+ */
+export const WALL_LAYOUTS: Record<4 | 6, WallFrame[]> = {
+  // Cells: 0 1 2 / 3 4 5. The middle of the top row hangs first, then outwards.
+  6: gridLayout(
+    "20x30",
+    { cols: 3, rows: 2, w: 11.5, gapX: 2.5, gapY: 2.5, top: 3.5 },
+    { cols: 3, rows: 2, w: 17, gapX: 2.5, gapY: 2.5, top: 3 },
+    [1, 0, 2, 4, 3, 5],
+  ),
+  // Cells: 0 1 2 3. The two middle frames hang first, then the outer two.
+  4: gridLayout(
+    "30x40",
+    { cols: 4, rows: 1, w: 17, gapX: 3, gapY: 0, top: 8 },
+    { cols: 4, rows: 1, w: 21, gapX: 2.5, gapY: 0, top: 10 },
+    [1, 2, 0, 3],
+  ),
 };

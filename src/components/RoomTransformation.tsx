@@ -14,6 +14,7 @@ import { priceForFrame, usePricing } from "@/lib/use-settings";
 import "./room-wall.css";
 
 const BUNDLE_KEY = "bundle-6-20x30";
+const BUNDLE_KEY_4 = "bundle-4-30x40";
 
 // Serve Cloudinary uploads at the size they are shown, in a modern format.
 function thumb(url: string, width: number): string {
@@ -33,7 +34,7 @@ export function RoomTransformation() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [near, setNear] = useState(false);
-  const [count, setCount] = useState<3 | 6>(6);
+  const [count, setCount] = useState<4 | 6>(6);
   const isAr = i18n.language?.startsWith("ar");
 
   useEffect(() => {
@@ -91,7 +92,8 @@ export function RoomTransformation() {
   const subheading = isAr ? settings.subheadingAr : settings.subheadingEn;
   const posters = postersQuery.data ?? [];
   const layout = WALL_LAYOUTS[count];
-  const step = count === 6 ? 0.13 : 0.3;
+  // Hang delay between frames; the last one must still finish by progress 1.
+  const step = count === 6 ? 0.13 : 0.2;
   const glow = ease(clamp((progress - 0.55) / 0.4, 0, 1));
   const filled = progress > 0.7;
 
@@ -100,7 +102,12 @@ export function RoomTransformation() {
   const bundlePrice = pricing.offers.bundle6_20x30;
   const regular6 = unit * 6;
   const saving = Math.max(0, regular6 - bundlePrice);
-  const regular3 = unit * 3;
+
+  // Bundle offer (4 frames 30x40) — the same numbers the /offers page shows.
+  const unit4 = priceForFrame(pricing, "pvc", "30x40");
+  const bundlePrice4 = pricing.offers.bundle4_30x40;
+  const regular4 = unit4 * 4;
+  const saving4 = Math.max(0, regular4 - bundlePrice4);
 
   return (
     <section
@@ -119,7 +126,7 @@ export function RoomTransformation() {
                 aria-label={isAr ? "عدد البراويز" : "Number of frames"}
                 className="inline-flex overflow-hidden rounded-sm border border-border"
               >
-                {([3, 6] as const).map((n) => (
+                {([4, 6] as const).map((n) => (
                   <button
                     key={n}
                     type="button"
@@ -253,27 +260,43 @@ export function RoomTransformation() {
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">
-                      {isAr ? "3 براويز" : "3 frames"}
+                    <div className="text-[10px] uppercase tracking-[0.35em] text-primary">
+                      {isAr ? "عرض الباقة" : "Bundle offer"}
                     </div>
                     <div className="text-display mt-1 text-2xl">
-                      {isAr ? `3 × 20×30 سم = ${regular3} جنيه` : `3 × 20×30 cm = ${regular3} EGP`}
+                      {isAr ? "4 براويز · 30×40 سم" : "4 frames · 30×40 cm"}
                     </div>
-                    {saving > 0 && (
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {isAr
-                          ? `زوّدهم لـ 6 وخد الباقة بـ ${bundlePrice} جنيه بدل ${regular6}، وفّر ${saving} جنيه`
-                          : `Go to 6 and get the bundle for ${bundlePrice} EGP instead of ${regular6} — save ${saving} EGP`}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isAr
+                        ? `يعني ${Math.round(bundlePrice4 / 4)} جنيه للبرواز الواحد`
+                        : `That is about ${Math.round(bundlePrice4 / 4)} EGP per frame`}
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    {saving4 > 0 && (
+                      <div className="text-sm text-muted-foreground line-through">
+                        {regular4} {isAr ? "جنيه" : "EGP"}
+                      </div>
+                    )}
+                    <div className="text-display text-4xl leading-none">
+                      {bundlePrice4}{" "}
+                      <span className="text-base text-muted-foreground">
+                        {isAr ? "جنيه" : "EGP"}
+                      </span>
+                    </div>
+                    {saving4 > 0 && (
+                      <div className="mt-1 text-xs font-semibold text-primary">
+                        {isAr ? `وفّر ${saving4} جنيه` : `Save ${saving4} EGP`}
                       </div>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setCount(6)}
-                    className="inline-flex w-full justify-center rounded-sm border border-primary px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-primary transition hover:bg-primary hover:text-primary-foreground sm:w-auto"
+                  <Link
+                    to="/offers"
+                    search={{ bundle: BUNDLE_KEY_4 }}
+                    className="inline-flex w-full justify-center rounded-sm bg-primary px-7 py-3.5 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition hover:brightness-110 sm:w-auto"
                   >
-                    {isAr ? "شوف حيطة الـ 6" : "See the 6-frame wall"}
-                  </button>
+                    {isAr ? "اطلب الباقة" : "Get the bundle"}
+                  </Link>
                 </div>
               )}
             </div>
