@@ -22,11 +22,14 @@ import {
   Settings,
   Printer,
   Columns2,
+  Radio,
+  DatabaseBackup,
 } from "lucide-react";
 
 export type Tab =
   | "dashboard"
   | "analytics"
+  | "live-visitors"
   | "finance"
   | "promotions"
   | "products"
@@ -45,6 +48,7 @@ export type Tab =
   | "dual-category"
   | "mockups"
   | "health"
+  | "backups"
   | "settings";
 
 export type NavItem = {
@@ -83,6 +87,12 @@ export const NAV_GROUPS: NavGroup[] = [
           "attribution",
           "reports",
         ],
+      },
+      {
+        id: "live-visitors",
+        label: "Live Visitors",
+        icon: Radio,
+        keywords: ["online now", "realtime", "location", "country", "city", "who is on the site"],
       },
     ],
   },
@@ -173,6 +183,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "System",
     items: [
       { id: "health", label: "System Health", icon: Activity, keywords: ["status", "diagnostics"] },
+      {
+        id: "backups",
+        label: "Backup & Recovery",
+        icon: DatabaseBackup,
+        keywords: ["backup", "restore", "recovery", "snapshot", "database"],
+      },
       {
         id: "settings",
         label: "Settings",

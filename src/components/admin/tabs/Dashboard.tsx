@@ -28,6 +28,8 @@ import { PhotoPrintingTab } from "./PhotoPrintingTab";
 import { FrameMockupsTab } from "./FrameMockupsTab";
 import { SystemHealthTab } from "./SystemHealthTab";
 import { SettingsTab } from "./SettingsTab";
+import { LiveVisitorsTab } from "./LiveVisitorsTab";
+import { BackupCenterTab } from "./BackupCenterTab";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -175,6 +177,16 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               {visitedTabs.has("mockups") && (
                 <div hidden={tab !== "mockups"}>
                   <FrameMockupsTab />
+                </div>
+              )}
+              {visitedTabs.has("live-visitors") && (
+                <div hidden={tab !== "live-visitors"}>
+                  <LiveVisitorsTab active={tab === "live-visitors"} />
+                </div>
+              )}
+              {visitedTabs.has("backups") && (
+                <div hidden={tab !== "backups"}>
+                  <BackupCenterTab active={tab === "backups"} />
                 </div>
               )}
               {visitedTabs.has("health") && (
