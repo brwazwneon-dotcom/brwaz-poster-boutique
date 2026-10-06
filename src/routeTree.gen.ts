@@ -27,6 +27,7 @@ import { Route as TrackOrderRouteImport } from './routes/track-order'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
+import { Route as ApiCronBackupRouteImport } from './routes/api/cron-backup'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
 import { Route as PosterSlugRouteImport } from './routes/poster.$slug'
@@ -122,6 +123,11 @@ const ApiAdminAssistantRoute = ApiAdminAssistantRouteImport.update({
   path: '/api/admin-assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronBackupRoute = ApiCronBackupRouteImport.update({
+  id: '/api/cron-backup',
+  path: '/api/cron-backup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
   id: '/category/$slug',
   path: '/category/$slug',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
+  '/api/cron-backup': typeof ApiCronBackupRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
+  '/api/cron-backup': typeof ApiCronBackupRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   '/trending': typeof TrendingRoute
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
+  '/api/cron-backup': typeof ApiCronBackupRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
+    | '/api/cron-backup'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
+    | '/api/cron-backup'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/wishlist'
     | '/api/admin-assistant'
+    | '/api/cron-backup'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -310,6 +322,7 @@ export interface RootRouteChildren {
   TrendingRoute: typeof TrendingRoute
   WishlistRoute: typeof WishlistRoute
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
+  ApiCronBackupRoute: typeof ApiCronBackupRoute
   CategorySlugRoute: typeof CategorySlugRoute
   LandingAudienceRoute: typeof LandingAudienceRoute
   PosterSlugRoute: typeof PosterSlugRoute
@@ -444,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminAssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron-backup': {
+      id: '/api/cron-backup'
+      path: '/api/cron-backup'
+      fullPath: '/api/cron-backup'
+      preLoaderRoute: typeof ApiCronBackupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/category/$slug': {
       id: '/category/$slug'
       path: '/category/$slug'
@@ -494,6 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrendingRoute: TrendingRoute,
   WishlistRoute: WishlistRoute,
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,
+  ApiCronBackupRoute: ApiCronBackupRoute,
   CategorySlugRoute: CategorySlugRoute,
   LandingAudienceRoute: LandingAudienceRoute,
   PosterSlugRoute: PosterSlugRoute,
