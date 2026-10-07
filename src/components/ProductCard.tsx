@@ -1,4 +1,7 @@
 import { memo } from "react";
+import { Link } from "@tanstack/react-router";
+import { Maximize2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { WishlistHeart } from "@/components/WishlistHeart";
@@ -24,6 +27,8 @@ export const ProductCard = memo(function ProductCard({
   onToggle,
   gridMode,
 }: Props) {
+  const { i18n } = useTranslation();
+  const viewLabel = i18n.language?.startsWith("ar") ? "عرض البوستر" : "View poster";
   const fallbackUrl = product.fallbackArtworkUrl || IMAGE_FALLBACK;
   const safeUrl = product.cardArtworkUrl || fallbackUrl || IMAGE_FALLBACK;
 
@@ -47,6 +52,17 @@ export const ProductCard = memo(function ProductCard({
       )}
     >
       <WishlistHeart posterId={product.id} />
+      <Link
+        to="/poster/$id"
+        params={{ id: product.id }}
+        aria-label={viewLabel}
+        title={viewLabel}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="absolute bottom-2 left-2 z-20 flex h-8 w-8 items-center justify-center rounded-sm bg-background/90 text-foreground opacity-90 transition hover:opacity-100 focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+      >
+        <Maximize2 className="h-4 w-4" aria-hidden />
+      </Link>
       <PosterBadge badge={product.badge} />
       <FramePreview
         posterUrl={safeUrl}

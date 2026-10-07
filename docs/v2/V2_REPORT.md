@@ -57,6 +57,10 @@ Concept: editorial print-shop. Warm paper (#F3EFE6) + ink (#0E0E0E), logo yellow
 - Poster page localized (ar/en): labels, price currency, delivery lines, toasts.
 - Verified with mock data at 390px: custom-design, photo-printing, search, offers, sets, footer, product page (en + ar), cart; desktop product page en + ar (layout mirrors correctly). No horizontal overflow.
 
+## Slice 8: category page + card → product page
+- Category page verified in the new theme (mock categories/posters, mobile + desktop): framed ink-bordered cards, yellow active sort chip, no overflow.
+- Product cards now carry a small "View poster" icon (always visible on touch, on hover/focus on desktop) linking to `/poster/$id`; click does not toggle the card's selection, so the existing multi-select / bundle flow is untouched. Verified: 8 links, click navigates to the right poster.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
@@ -73,4 +77,4 @@ Reason: the checkout has no server-side price authority; fixing it requires DB c
 2. Admin V2 phase 2: bulk product editing, order workflow/WhatsApp actions, analytics consolidation (Overview tab done).
 3. Checkout UI split + order protection (needs SQL approval).
 4. Restyle hero/section headers with `v2-eyebrow`/`Reveal` across existing sections; Lighthouse before/after with real data.
-5. Link product cards to `/poster/$id` (currently the page is reachable by URL; card behavior unchanged to protect the selection/bundle flow).
+5. (done in slice 8) card → product page link.
