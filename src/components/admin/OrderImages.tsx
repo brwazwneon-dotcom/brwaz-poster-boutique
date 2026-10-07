@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
-import { frameCssFor, frameSpecFor } from "@/lib/frame-geometry";
+import { FramePreview } from "@/components/FramePreview";
+import { MOCKUP_ASSET_GEOMETRY, posterRectPct } from "@/lib/frame-mockup-geometry";
+import { frameSpecFor } from "@/lib/frame-geometry";
 import {
   downloadOriginal,
   imageSourceFromStored,
@@ -188,67 +190,45 @@ export function EntryThumb({ entry, className }: { entry: OrderImageEntry; class
   );
 }
 
-/** The customer's image inside the frame that was actually ordered. */
+/** Visible-opening ratio (width / height) of a bundled mockup. */
+function openingAspect(tone: "black" | "white" | "wood") {
+  const r = posterRectPct(MOCKUP_ASSET_GEOMETRY[tone], 0);
+  const g = MOCKUP_ASSET_GEOMETRY[tone];
+  return ((r.width / 100) * g.width) / ((r.height / 100) * g.height);
+}
+
+/**
+ * The customer's image inside the ordered frame, using the same FramePreview
+ * (and the same bundled mockup image) as the storefront — one fitting logic.
+ */
 export function FramedOrderImage({
   entry,
   src,
   fallbackSrc,
-  onLoaded,
 }: {
   entry: Pick<OrderImageEntry, "frame_type" | "frame_color" | "size" | "title">;
   src: string;
   fallbackSrc?: string;
-  onLoaded?: () => void;
 }) {
   const spec = frameSpecFor(entry);
-  const css = frameCssFor(spec);
+  const ratio = MOCKUP_ASSET_GEOMETRY.black.width / MOCKUP_ASSET_GEOMETRY.black.height;
   return (
     <div
       data-testid="framed-order-image"
       data-frame-family={spec.family}
       data-frame-tone={spec.tone}
-      data-aspect={spec.aspect.toFixed(4)}
-      // Geometry is inline (not utility classes) so the frame is correct
-      // wherever it is mounted and can be verified in isolation.
-      style={{
-        position: "relative",
-        aspectRatio: `${spec.aspect}`,
-        // Fit inside the viewport without ever changing the aspect ratio.
-        width: `min(88vw, calc(68vh * ${spec.aspect}))`,
-        background: css.background,
-        boxShadow: css.boxShadow,
-      }}
+      style={{ width: `min(88vw, calc(68vh * ${ratio}))` }}
     >
-      <div
-        data-testid="frame-opening"
-        style={{
-          position: "absolute",
-          overflow: "hidden",
-          background: "#171717",
-          left: `${spec.mouldingXPct}%`,
-          right: `${spec.mouldingXPct}%`,
-          top: `${spec.mouldingYPct}%`,
-          bottom: `${spec.mouldingYPct}%`,
-          boxShadow: css.innerShadow,
-        }}
-      >
-        <SafeImage
-          src={src}
-          fallbackSrc={fallbackSrc}
-          alt={entry.title}
-          loading="eager"
-          draggable={false}
-          onLoad={onLoaded}
-          style={{
-            display: "block",
-            width: "100%",
-            height: "100%",
-            userSelect: "none",
-            objectFit: "cover",
-            objectPosition: "center",
-          }}
-        />
-      </div>
+      <FramePreview
+        posterUrl={src}
+        posterFallbackUrl={fallbackSrc}
+        title={entry.title}
+        frameType={spec.family}
+        color={spec.tone}
+        aspectClassName="aspect-[2/3]"
+        className="h-full w-full"
+        loading="eager"
+      />
     </div>
   );
 }
@@ -264,7 +244,6 @@ export function OrderImagePreviewModal({
 }) {
   const [i, setI] = useState(Math.min(Math.max(startIndex, 0), entries.length - 1));
   const [open, setOpen] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const entry = entries[i];
   const closingRef = useRef(false);
 
@@ -305,7 +284,6 @@ export function OrderImagePreviewModal({
     retry: 1,
     queryFn: () => previewUrl(entry.source),
   });
-  useEffect(() => setLoaded(false), [i]);
 
   if (!entry) return null;
   const spec = frameSpecFor(entry);
@@ -338,17 +316,7 @@ export function OrderImagePreviewModal({
         )}
       >
         <div className="relative">
-          <FramedOrderImage
-            entry={entry}
-            src={pv.data?.url ?? ""}
-            fallbackSrc={pv.data?.full}
-            onLoaded={() => setLoaded(true)}
-          />
-          {!loaded && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-white/70" />
-            </div>
-          )}
+          <FramedOrderImage entry={entry} src={pv.data?.url ?? ""} fallbackSrc={pv.data?.full} />
         </div>
 
         <div className="mt-4 max-w-[92vw] text-center text-xs text-white/80">
@@ -357,10 +325,15 @@ export function OrderImagePreviewModal({
             {entry.frame_type} · {entry.frame_color} · {entry.size} · × {entry.quantity}
           </div>
           {entry.customization && <div className="mt-0.5 text-white/60">{entry.customization}</div>}
-          {spec.fallback && (
+          {!spec.fallback && Math.abs(spec.printAspect / openingAspect(spec.tone) - 1) > 0.05 && (
             <div className="mt-0.5 text-amber-300">
-              Size “{entry.size}” not recognised — showing a default 30×40 ratio.
+              Print is {spec.widthCm} × {spec.heightCm} cm (
+              {spec.printAspect > 1 ? "landscape" : "portrait"}); the mockup opening has a fixed
+              shape, so the crop shown is approximate.
             </div>
+          )}
+          {spec.fallback && (
+            <div className="mt-0.5 text-amber-300">Size “{entry.size}” not recognised.</div>
           )}
           <div className="mt-1 text-white/50">
             {entries.length > 1 ? `${i + 1} / ${entries.length}` : null}
