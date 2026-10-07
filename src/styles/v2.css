@@ -106,3 +106,23 @@
   .v2-card:hover > :is(div, picture):not(.absolute) { transform: none; }
   .v2-pop { animation: none; }
 }
+
+/* Arabic: letter-spacing/uppercase break letter joining, so neutralise them. */
+:is([dir="rtl"], :lang(ar)) :is(.v2-eyebrow, .v2-bottom-nav a, .v2-bottom-nav button) {
+  letter-spacing: 0;
+  text-transform: none;
+}
+:is([dir="rtl"], :lang(ar)) .v2-eyebrow { font-size: 0.8rem; }
+
+/* Accessibility: keyboard skip link + consistent focus ring (keyboard only). */
+.v2-skip-link {
+  position: fixed; top: 0.5rem; inset-inline-start: 0.5rem; z-index: 200;
+  transform: translateY(-200%);
+  background: var(--primary); color: var(--primary-foreground);
+  padding: 0.75rem 1rem; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.v2-skip-link:focus { transform: none; }
+:where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--ring, currentColor);
+  outline-offset: 2px;
+}

@@ -451,7 +451,7 @@ function CustomDesignPage() {
       {/* HERO */}
       <section className="border-b border-border bg-card">
         <div className="container-page py-14 sm:py-20">
-          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          <p className="v2-eyebrow">
             {t("customDesign.eyebrow")}
           </p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("customDesign.title")}</h1>

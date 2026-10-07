@@ -367,7 +367,7 @@ function Photo4x6Page() {
       {/* HERO */}
       <section className="border-b border-border bg-card">
         <div className="container-page py-16 sm:py-20">
-          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          <p className="v2-eyebrow">
             AI-Enhanced Personal Prints
           </p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">4×6 Photo Printing</h1>

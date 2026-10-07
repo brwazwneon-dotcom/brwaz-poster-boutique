@@ -104,7 +104,7 @@ export function CustomerReviews({
         <div className="mx-auto max-w-3xl text-center">
           <div
             className={cn(
-              "inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.5em] text-muted-foreground transition-all duration-500",
+              "inline-flex items-center gap-2 v2-eyebrow transition-all duration-500",
               inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
             )}
           >

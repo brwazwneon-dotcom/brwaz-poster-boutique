@@ -121,7 +121,7 @@ function BestSellersPage() {
   return (
     <div className="min-h-screen bg-background">
       <section className="container-page pt-16 pb-8">
-        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+        <p className="v2-eyebrow">
           <Flame className="mr-1 inline h-3 w-3" /> All Best Sellers
         </p>
         <h1 className="text-display mt-3 text-4xl sm:text-6xl">

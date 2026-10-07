@@ -32,7 +32,7 @@ export function RecentlyViewed({
       <div className="container-page py-16">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+            <p className="v2-eyebrow">
               Just for you
             </p>
             <h2 className="text-display mt-3 text-3xl sm:text-5xl">{title}</h2>

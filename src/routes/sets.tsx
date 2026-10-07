@@ -63,7 +63,7 @@ function SetsPage() {
     <div className="bg-background text-foreground">
       <section className="border-b border-border">
         <div className="container-page py-16">
-          <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+          <p className="v2-eyebrow">
             {t("sets.curatedBundles")}
           </p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">{t("sets.heading")}</h1>

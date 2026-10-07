@@ -282,9 +282,12 @@ function RootComponent() {
             <RecentlyViewedProvider>
               <MaintenanceGate>
                 <div className={`flex min-h-screen flex-col${isAdmin ? "" : " v2-has-bottom-nav"}`}>
+                  <a href="#main" className="v2-skip-link">
+                    Skip to content
+                  </a>
                   <AnnouncementBar />
                   <SiteHeader />
-                  <main className="flex-1">
+                  <main id="main" tabIndex={-1} className="flex-1 outline-none">
                     <Outlet />
                   </main>
                   <SiteFooter />

@@ -130,7 +130,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       <div className="container-page py-16">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+            <p className="v2-eyebrow">
               <Flame className="mr-1 inline h-3 w-3" /> Trending
             </p>
             <h2 className="text-display mt-3 text-4xl sm:text-6xl">

@@ -316,7 +316,7 @@ function CustomDesignSection() {
   return (
     <section className="border-t border-border bg-background">
       <div className="container-page py-20">
-        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+        <p className="v2-eyebrow">
           {t("customDesign.title")}
         </p>
         <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("customDesign.heading")}</h2>
@@ -360,7 +360,7 @@ function HowItWorksSection() {
   return (
     <section className="border-t border-border bg-background">
       <div className="container-page py-20 text-center">
-        <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+        <p className="v2-eyebrow">
           {t("howItWorks.label")}
         </p>
         <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("howItWorks.title")}</h2>
@@ -397,7 +397,7 @@ function QualitySection() {
   return (
     <section className="border-t border-border bg-card">
       <div className="container-page py-20">
-        <p className="text-center text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+        <p className="text-center v2-eyebrow">
           {t("quality.label")}
         </p>
         <h2 className="text-display mt-3 text-center text-4xl sm:text-6xl">{t("quality.title")}</h2>

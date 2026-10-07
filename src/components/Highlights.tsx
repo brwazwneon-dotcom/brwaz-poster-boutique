@@ -60,7 +60,7 @@ export function Highlights() {
       <div className="container-page py-8 sm:py-10">
         <div className="mb-5 flex items-end justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground">
+            <p className="v2-eyebrow">
               {t("home.highlights")}
             </p>
             <h2 className="text-display mt-2 text-2xl sm:text-3xl">{t("home.highlights")}</h2>
