@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Minus, Plus, ShieldCheck, Truck, Wallet } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/poster-options";
 import { priceForFrame, usePricing } from "@/lib/use-settings";
 import { Reveal } from "@/components/v2/Reveal";
+import { setStickyBarHeight } from "@/lib/floating-tools";
 import { cn } from "@/lib/utils";
 
 type PosterRow = {
@@ -46,6 +47,13 @@ function PosterPage() {
   const [color, setColor] = useState<FrameColorId>("black");
   const [qty, setQty] = useState(1);
   const [pop, setPop] = useState(false);
+
+  // Lift floating widgets (WhatsApp, offers) above the mobile purchase bar.
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    setStickyBarHeight(76);
+    return () => setStickyBarHeight(null);
+  }, []);
 
   const { data: poster, isLoading } = useQuery({
     queryKey: ["poster-page", id],
@@ -120,7 +128,7 @@ function PosterPage() {
   return (
     <article className="container-page pb-28 pt-8 md:pb-16 md:pt-12">
       <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] md:gap-14">
-        <div className="mx-auto w-full max-w-md md:max-w-none">
+        <div className="mx-auto w-full max-w-md md:sticky md:top-24 md:max-w-[30rem] md:self-start md:justify-self-center">
           <FramePreview
             posterUrl={poster.image_url}
             title={poster.title}

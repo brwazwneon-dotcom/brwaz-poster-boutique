@@ -36,6 +36,12 @@ No migrations added to `supabase/migrations`; SQL is proposal-only in `docs/v2/p
 - **Pre-existing issue (not from V2):** Arabic home page logs React error #418 (hydration text mismatch). Reproduced identically on untouched `main`. Likely language detection (SSR vs `i18nextLng`); needs its own investigation.
 - Security review of the V2 diff: poster route validates UUID and filters `hidden=false`; Overview reads via `security_invoker` view (admin RLS applies) and is only mounted after the admin check; `search_posters_v2` is read-only, `SECURITY DEFINER` with pinned `search_path`; checkout draft stores only the 4 delivery fields locally. No secrets, no new write paths to the database.
 
+## Slice 5: visual QA with mocked data (no real backend)
+Browser-level Supabase mocks (Playwright route interception) were used to render real components.
+- Frame wall measured at 1440px: 6 cells all 229×344, 24px gaps, 3 top + 3 bottom; at 390px: 6 cells 109×163, 12px gaps. 30×40 tab: 4 equal cells in one row (208×277 desktop, 79×105 mobile). No horizontal overflow.
+- Poster page found two visual defects, both fixed: (1) on mobile the floating WhatsApp button overlapped the sticky Add-to-cart bar (now lifts via `--sticky-bar-h`); (2) on desktop the image was oversized (now max 30rem and sticky).
+- Caveat: FramePreview mockups include a wall backdrop, so each wall cell reads as a tile; switching to `bare` previews is a design choice for later.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
