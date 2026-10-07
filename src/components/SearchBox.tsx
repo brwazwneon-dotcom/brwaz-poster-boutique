@@ -293,8 +293,8 @@ export function SearchBox({
                   {hits.map((h) => (
                     <li key={h.id}>
                       <Link
-                        to="/category/$slug"
-                        params={{ slug: h.category_slug ?? "" }}
+                        to="/poster/$id"
+                        params={{ id: h.id }}
                         onClick={() => {
                           pushRecentSearch(debounced);
                           setOpen(false);
