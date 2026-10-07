@@ -1,4 +1,13 @@
 import { sql } from "@/lib/neon.server";
+import {
+  MAX_QUERY_LENGTH,
+  MIN_QUERY_LENGTH,
+  buildIndex,
+  normalizeText,
+  searchIndex,
+  type SearchDoc,
+  type SearchSource,
+} from "@/lib/search-core";
 import type { Category } from "@/lib/use-categories";
 
 // A concrete, recursively-serializable JSON type — TanStack Start's
@@ -696,44 +705,84 @@ export type SearchHitRow = {
   badge: string | null;
 };
 
-// Backs the header search dropdown and the /search results page. Simple
-// title ILIKE match — the old Supabase version was a `search_posters` RPC
-// (full-text search), but there's no admin-managed search-ranking config
-// to replicate here, so a straightforward substring match on title
-// (ranked by view count) covers the same "find a poster by name" need.
+// Backs the header search dropdown, the /search results page and the assistant.
+//
+// A small, server-side "search index" of the visible catalogue (id, title, image,
+// category + parent names, tags, views — about 150 bytes per poster) is loaded with
+// ONE query and kept in memory for SEARCH_INDEX_TTL_MS. Each search is then ranked in
+// process (src/lib/search-core.ts: normalised exact / prefix / phrase / all-words /
+// category / alias / typo tiers) instead of running a `title ILIKE '%q%'` query per
+// keystroke. The browser still only ever receives the ranked top N (never the catalogue).
+// No extension, index or migration is needed; stored titles are never modified.
+const SEARCH_INDEX_TTL_MS = 30_000;
+let searchIndexCache: { at: number; docs: SearchDoc[] } | null = null;
+let searchIndexLoading: Promise<SearchDoc[]> | null = null;
+
+async function loadSearchIndex(): Promise<SearchDoc[]> {
+  const rows = (await sql()(
+    `select p.id, p.title, p.image_url, p.category_id, c.slug as category_slug,
+            c.name as category_name, c.name_ar as category_name_ar,
+            par.name as parent_name, par.name_ar as parent_name_ar,
+            p.tags, p.badge, p.views_count
+     from posters p
+     left join categories c on c.id = p.category_id
+     left join categories par on par.id = c.parent_id
+     where p.hidden = false and ${VALID_IMAGE_SQL}
+       and coalesce(c.show_in_search, true)
+     order by p.views_count desc nulls last, p.created_at asc, p.id asc`,
+  )) as unknown as SearchSource[];
+  return buildIndex(rows);
+}
+
+/** One shared load at a time; a failed refresh keeps serving the last good index. */
+async function getSearchIndex(): Promise<SearchDoc[]> {
+  const now = Date.now();
+  if (searchIndexCache && now - searchIndexCache.at < SEARCH_INDEX_TTL_MS) {
+    return searchIndexCache.docs;
+  }
+  if (!searchIndexLoading) {
+    searchIndexLoading = loadSearchIndex()
+      .then((docs) => {
+        searchIndexCache = { at: Date.now(), docs };
+        return docs;
+      })
+      .catch((err) => {
+        if (searchIndexCache) return searchIndexCache.docs; // stale beats an error page
+        throw err;
+      })
+      .finally(() => {
+        searchIndexLoading = null;
+      });
+  }
+  return searchIndexLoading;
+}
+
+/** Test hook. */
+export function resetSearchIndexCacheForTests(): void {
+  searchIndexCache = null;
+  searchIndexLoading = null;
+}
+
 export async function fetchSearchPostersFromDb(
   query: string,
   limit: number,
 ): Promise<SearchHitRow[]> {
-  const q = query.trim();
-  if (!q) return [];
-  // Matches title OR any tag (tags is where an admin can put aliases —
-  // "CR7", "رونالدو" — alongside a poster titled "Cristiano Ronaldo"
-  // without a schema change), ranked so a title match outranks a
-  // tag-only match, then by popularity.
-  const pattern = `%${q}%`;
-  const rows = await sql()(
-    `select p.id, p.title, p.image_url, p.category_id, c.slug as category_slug,
-            c.name as category_name, p.tags, p.badge
-     from posters p
-     left join categories c on c.id = p.category_id
-     where p.hidden = false and ${VALID_IMAGE_SQL}
-       and (p.title ilike $1 or exists (
-         select 1 from unnest(p.tags) as tag where tag ilike $1
-       ))
-     order by (p.title ilike $1) desc, p.views_count desc nulls last
-     limit $2`,
-    [pattern, limit],
-  );
-  return rows as unknown as SearchHitRow[];
+  // Cheap guard first: a too-short / empty query never touches the database.
+  if (normalizeText(query.slice(0, MAX_QUERY_LENGTH)).length < MIN_QUERY_LENGTH) return [];
+  const docs = await getSearchIndex();
+  return searchIndex(docs, query, limit);
 }
 
 export async function fetchTrendingSearchesFromDb(limit: number): Promise<string[]> {
+  // Only searches that found something and are long enough to mean a word: the old query
+  // also offered zero-result searches ("hulk") and 2-letter typing fragments ("ma", "me")
+  // as "trending".
   const rows = await sql()`
-    select query, count(*)::int as cnt
+    select lower(trim(query)) as query, count(*)::int as cnt
     from search_queries
     where created_at > now() - interval '30 days'
-    group by query
+      and results_count > 0 and length(trim(query)) >= 3
+    group by lower(trim(query))
     order by cnt desc
     limit ${limit}
   `;

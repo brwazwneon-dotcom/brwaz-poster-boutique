@@ -58,6 +58,7 @@ import {
   type CleanEvent,
 } from "@/lib/analytics-events-schema";
 import { normalizeSource } from "@/lib/attribution";
+import { MAX_QUERY_LENGTH, MAX_RESULTS } from "@/lib/search-core";
 import type { Category } from "@/lib/use-categories";
 
 export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(
@@ -416,7 +417,15 @@ export const getRelatedPostersPublic = createServerFn({ method: "GET" })
   });
 
 export const searchPostersPublic = createServerFn({ method: "GET" })
-  .validator((data: unknown) => data as { q: string; limit: number })
+  // Untrusted input: bounded query length and result count (the old validator was a bare
+  // cast, so a caller could ask for any `limit`). The query itself is never put in SQL.
+  .validator((data: unknown) => {
+    const d = (data ?? {}) as { q?: unknown; limit?: unknown };
+    const q = typeof d.q === "string" ? d.q.slice(0, MAX_QUERY_LENGTH) : "";
+    const n = Math.floor(Number(d.limit));
+    const limit = Number.isFinite(n) ? Math.min(MAX_RESULTS, Math.max(1, n)) : 8;
+    return { q, limit };
+  })
   .handler(async ({ data }) => {
     return fetchSearchPostersFromDb(data.q, data.limit);
   });
@@ -424,7 +433,7 @@ export const searchPostersPublic = createServerFn({ method: "GET" })
 export const getTrendingSearchesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
   .handler(async ({ data }) => {
-    return fetchTrendingSearchesFromDb(data.limit ?? 8);
+    return fetchTrendingSearchesFromDb(Math.min(20, Math.max(1, Math.floor(data.limit ?? 8) || 8)));
   });
 
 export const getWallOfInspirationPostersPublic = createServerFn({ method: "GET" }).handler(
