@@ -1,11 +1,12 @@
 // Real-browser checks for the invoice image and the framed preview.
 //   node tests/e2e/order-visuals.mjs
+// Run `npx vite build` first (the app CSS is injected so the modal is styled as in prod).
 // Needs Chromium (PLAYWRIGHT_BROWSERS_PATH) and playwright (PLAYWRIGHT_MODULE
 // can point at it). Nothing here talks to Supabase or the network.
 import { build } from "vite";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, readdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
@@ -20,7 +21,12 @@ await build({
   root,
   configFile: false,
   logLevel: "error",
-  resolve: { alias: { "@": resolve(root, "src") } },
+  resolve: {
+    alias: [
+      { find: "@/integrations/supabase/client", replacement: resolve(root, "tests/e2e/supabase-stub.ts") },
+      { find: "@", replacement: resolve(root, "src") },
+    ],
+  },
   esbuild: { jsx: "automatic" },
   build: {
     outDir: dist,
@@ -39,6 +45,11 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.setContent('<html><body style="margin:0"><div id="root"></div></body></html>');
+// Real compiled Tailwind CSS from `npx vite build` so the modal is styled exactly as in the app.
+const assetsDir = resolve(root, ".output/public/assets");
+const css = existsSync(assetsDir) ? readdirSync(assetsDir).filter((f) => /^styles-.*\.css$/.test(f)) : [];
+if (!css.length) throw new Error("Run `npx vite build` first: the app CSS is needed for the modal checks");
+await page.addStyleTag({ path: resolve(assetsDir, css[0]) });
 await page.addScriptTag({ path: resolve(dist, "harness.js") });
 
 const row = (i, o = {}) => ({
@@ -169,6 +180,107 @@ const fit = await page.evaluate(() => {
 });
 await page.screenshot({ path: resolve(out, "framed-mobile.png") });
 check("mobile: wide frame fits the viewport width", () => assert.ok(fit.w <= fit.vw, JSON.stringify(fit)));
+// ---------- preview modal (open / navigate / ESC / download) ----------
+await page.setViewportSize({ width: 1200, height: 900 });
+const mEntries = [
+  { frame_type: "High Quality PVC", frame_color: "Black", size: "20 x 30 cm" },
+  { frame_type: "Wooden Portrait", frame_color: "Wood", size: "50 x 70 cm" },
+  { frame_type: "Wooden Portrait", frame_color: "White", size: "100 x 60 cm" },
+];
+const frameInfo = () =>
+  page.evaluate(() => {
+    const f = document.querySelector('[data-testid="framed-order-image"]');
+    const img = f?.querySelector("img");
+    return {
+      dialog: !!document.querySelector('[role="dialog"]'),
+      tone: f?.dataset.frameTone, family: f?.dataset.frameFamily,
+      loaded: !!img && img.complete && img.naturalWidth > 0,
+      counter: (document.querySelector('[role="dialog"]')?.textContent.match(/(\d) \/ (\d)/) ?? [])[0],
+      closed: window.__closed,
+    };
+  });
+await page.evaluate((e) => window.harness.modal(e, 0), mEntries);
+await page.waitForFunction(() => { const i = document.querySelector('[data-testid="framed-order-image"] img'); return i && i.naturalWidth > 0; });
+await page.waitForTimeout(450); // fade-in
+let st = await frameInfo();
+check("modal opens on the first image inside its own frame", () => { assert.ok(st.dialog); assert.equal(st.family, "pvc"); assert.equal(st.tone, "black"); assert.ok(st.loaded); assert.equal(st.counter, "1 / 3"); });
+await page.screenshot({ path: resolve(out, "modal-1.png") });
+await page.keyboard.press("ArrowRight");
+await page.waitForTimeout(200);
+st = await frameInfo();
+check("ArrowRight → next image with ITS frame (wood, 2/3)", () => { assert.equal(st.counter, "2 / 3"); assert.equal(st.family, "wood"); assert.equal(st.tone, "wood"); });
+await page.getByLabel("Next image").click();
+await page.waitForTimeout(200);
+st = await frameInfo();
+check("Next button → 3/3 white wooden landscape", () => { assert.equal(st.counter, "3 / 3"); assert.equal(st.tone, "white"); });
+await page.screenshot({ path: resolve(out, "modal-3.png") });
+await page.getByLabel("Next image").click();
+await page.waitForTimeout(200);
+st = await frameInfo();
+check("wraps to 1 / 3", () => assert.equal(st.counter, "1 / 3"));
+await page.getByLabel("Previous image").click();
+await page.waitForTimeout(200);
+st = await frameInfo();
+check("Previous wraps back to 3 / 3", () => assert.equal(st.counter, "3 / 3"));
+
+// Download: fresh attachment URL for the ORIGINAL path, no resize, no blob
+await page.evaluate(() => {
+  window.__clicks = [];
+  HTMLAnchorElement.prototype.click = function () { window.__clicks.push({ href: this.href, download: this.download }); };
+  window.__signCalls.length = 0;
+});
+await page.getByText("Download original").click();
+await page.waitForTimeout(300);
+const dl = await page.evaluate(() => ({ calls: window.__signCalls, clicks: window.__clicks }));
+check("download signs the original path with a download header, short TTL, no transform", () => {
+  const c = dl.calls[0];
+  assert.equal(c.bucket, "custom-designs");
+  assert.equal(c.path, "uuid/photo-2.png");
+  assert.ok(c.ttl <= 300);
+  assert.match(c.opts.download, /^BRW-1-3-Item-3\.png$/);
+  assert.equal(c.opts.transform, undefined);
+  assert.equal(dl.clicks.length, 1);
+  assert.ok(!dl.clicks[0].href.startsWith("blob:"));
+});
+const prevCalls = await page.evaluate(() => window.__signCalls.length);
+check("preview used a resized (1600px) rendition elsewhere in the session", () => assert.ok(prevCalls >= 1));
+
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+st = await frameInfo();
+check("ESC closes the modal (and calls onClose)", () => { assert.equal(st.closed, true); });
+
+// backdrop click closes; click on the image does not
+await page.evaluate((e) => window.harness.modal(e, 1), mEntries);
+await page.waitForSelector('[data-testid="framed-order-image"]');
+await page.locator('[data-testid="framed-order-image"]').click();
+await page.waitForTimeout(300);
+st = await frameInfo();
+check("still open after clicking the image", () => assert.equal(st.closed, false));
+await page.mouse.click(5, 5);
+await page.waitForTimeout(400);
+st = await frameInfo();
+check("backdrop click closes", () => assert.equal(st.closed, true));
+
+// single image: no arrows
+await page.evaluate((e) => window.harness.modal(e, 0), [mEntries[0]]);
+await page.waitForSelector('[data-testid="framed-order-image"]');
+const arrows = await page.getByLabel("Next image").count();
+check("no arrows for a single image", () => assert.equal(arrows, 0));
+
+// mobile: tall frame + controls inside the viewport
+await page.setViewportSize({ width: 375, height: 667 });
+await page.evaluate((e) => window.harness.modal(e, 1), mEntries);
+await page.waitForSelector('[data-testid="framed-order-image"]');
+await page.waitForTimeout(300);
+const mob = await page.evaluate(() => {
+  const r = document.querySelector('[data-testid="framed-order-image"]').getBoundingClientRect();
+  const b = [...document.querySelectorAll("button")].map((x) => x.getBoundingClientRect());
+  return { fw: r.width, fh: r.height, vw: innerWidth, vh: innerHeight, offscreen: b.filter((x) => x.right > innerWidth + 1 || x.left < -1).length };
+});
+await page.screenshot({ path: resolve(out, "modal-mobile.png") });
+check("mobile: frame and buttons fit the screen", () => { assert.ok(mob.fw <= mob.vw); assert.ok(mob.fh <= mob.vh, JSON.stringify(mob)); assert.equal(mob.offscreen, 0); });
+
 check("no page errors", () => assert.deepEqual(errors, []));
 
 await browser.close();
