@@ -9,95 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WishlistRouteImport } from './routes/wishlist'
-import { Route as TrendingRouteImport } from './routes/trending'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as SetsRouteImport } from './routes/sets'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as ProductsFeedMetaDotcsvRouteImport } from './routes/products-feed-meta[.]csv'
-import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
-import { Route as Photo4x6RouteImport } from './routes/photo-4x6'
-import { Route as OfflineRouteImport } from './routes/offline'
-import { Route as OffersRouteImport } from './routes/offers'
-import { Route as CustomDesignRouteImport } from './routes/custom-design'
-import { Route as CartRouteImport } from './routes/cart'
-import { Route as BestSellersRouteImport } from './routes/best-sellers'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
-import { Route as CategorySlugRouteImport } from './routes/category.$slug'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BestSellersRouteImport } from './routes/best-sellers'
+import { Route as CartRouteImport } from './routes/cart'
+import { Route as CustomDesignRouteImport } from './routes/custom-design'
+import { Route as OffersRouteImport } from './routes/offers'
+import { Route as OfflineRouteImport } from './routes/offline'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
+import { Route as Photo4x6RouteImport } from './routes/photo-4x6'
+import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
+import { Route as ProductsFeedMetaDotcsvRouteImport } from './routes/products-feed-meta[.]csv'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as SetsRouteImport } from './routes/sets'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TrendingRouteImport } from './routes/trending'
+import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
+import { Route as CategorySlugRouteImport } from './routes/category.$slug'
+import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
 import { Route as ApiPublicHooksBackupRouteImport } from './routes/api/public/hooks/backup'
 
-const WishlistRoute = WishlistRouteImport.update({
-  id: '/wishlist',
-  path: '/wishlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TrendingRoute = TrendingRouteImport.update({
-  id: '/trending',
-  path: '/trending',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetsRoute = SetsRouteImport.update({
-  id: '/sets',
-  path: '/sets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProductsFeedMetaDotcsvRoute = ProductsFeedMetaDotcsvRouteImport.update({
-  id: '/products-feed-meta.csv',
-  path: '/products-feed-meta.csv',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
-  id: '/photo-printing',
-  path: '/photo-printing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Photo4x6Route = Photo4x6RouteImport.update({
-  id: '/photo-4x6',
-  path: '/photo-4x6',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OfflineRoute = OfflineRouteImport.update({
-  id: '/offline',
-  path: '/offline',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OffersRoute = OffersRouteImport.update({
-  id: '/offers',
-  path: '/offers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomDesignRoute = CustomDesignRouteImport.update({
-  id: '/custom-design',
-  path: '/custom-design',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CartRoute = CartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BestSellersRoute = BestSellersRouteImport.update({
-  id: '/best-sellers',
-  path: '/best-sellers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -105,14 +41,84 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/admin.lazy').then((d) => d.Route))
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LandingAudienceRoute = LandingAudienceRouteImport.update({
-  id: '/landing/$audience',
-  path: '/landing/$audience',
+const BestSellersRoute = BestSellersRouteImport.update({
+  id: '/best-sellers',
+  path: '/best-sellers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomDesignRoute = CustomDesignRouteImport.update({
+  id: '/custom-design',
+  path: '/custom-design',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OffersRoute = OffersRouteImport.update({
+  id: '/offers',
+  path: '/offers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfflineRoute = OfflineRouteImport.update({
+  id: '/offline',
+  path: '/offline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Photo4x6Route = Photo4x6RouteImport.update({
+  id: '/photo-4x6',
+  path: '/photo-4x6',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhotoPrintingRoute = PhotoPrintingRouteImport.update({
+  id: '/photo-printing',
+  path: '/photo-printing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsFeedMetaDotcsvRoute = ProductsFeedMetaDotcsvRouteImport.update({
+  id: '/products-feed-meta.csv',
+  path: '/products-feed-meta.csv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetsRoute = SetsRouteImport.update({
+  id: '/sets',
+  path: '/sets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrendingRoute = TrendingRouteImport.update({
+  id: '/trending',
+  path: '/trending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAssistantRoute = ApiAdminAssistantRouteImport.update({
+  id: '/api/admin-assistant',
+  path: '/api/admin-assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
@@ -120,9 +126,9 @@ const CategorySlugRoute = CategorySlugRouteImport.update({
   path: '/category/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminAssistantRoute = ApiAdminAssistantRouteImport.update({
-  id: '/api/admin-assistant',
-  path: '/api/admin-assistant',
+const LandingAudienceRoute = LandingAudienceRouteImport.update({
+  id: '/landing/$audience',
+  path: '/landing/$audience',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHooksBackupRoute = ApiPublicHooksBackupRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
   OfflineRoute: typeof OfflineRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   Photo4x6Route: typeof Photo4x6Route
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   ProductsFeedMetaDotcsvRoute: typeof ProductsFeedMetaDotcsvRoute
@@ -292,102 +305,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/wishlist': {
-      id: '/wishlist'
-      path: '/wishlist'
-      fullPath: '/wishlist'
-      preLoaderRoute: typeof WishlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/trending': {
-      id: '/trending'
-      path: '/trending'
-      fullPath: '/trending'
-      preLoaderRoute: typeof TrendingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sets': {
-      id: '/sets'
-      path: '/sets'
-      fullPath: '/sets'
-      preLoaderRoute: typeof SetsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/products-feed-meta.csv': {
-      id: '/products-feed-meta.csv'
-      path: '/products-feed-meta.csv'
-      fullPath: '/products-feed-meta.csv'
-      preLoaderRoute: typeof ProductsFeedMetaDotcsvRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/photo-printing': {
-      id: '/photo-printing'
-      path: '/photo-printing'
-      fullPath: '/photo-printing'
-      preLoaderRoute: typeof PhotoPrintingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/photo-4x6': {
-      id: '/photo-4x6'
-      path: '/photo-4x6'
-      fullPath: '/photo-4x6'
-      preLoaderRoute: typeof Photo4x6RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/offline': {
-      id: '/offline'
-      path: '/offline'
-      fullPath: '/offline'
-      preLoaderRoute: typeof OfflineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/offers': {
-      id: '/offers'
-      path: '/offers'
-      fullPath: '/offers'
-      preLoaderRoute: typeof OffersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/custom-design': {
-      id: '/custom-design'
-      path: '/custom-design'
-      fullPath: '/custom-design'
-      preLoaderRoute: typeof CustomDesignRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/best-sellers': {
-      id: '/best-sellers'
-      path: '/best-sellers'
-      fullPath: '/best-sellers'
-      preLoaderRoute: typeof BestSellersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -397,18 +319,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/landing/$audience': {
-      id: '/landing/$audience'
-      path: '/landing/$audience'
-      fullPath: '/landing/$audience'
-      preLoaderRoute: typeof LandingAudienceRouteImport
+    '/best-sellers': {
+      id: '/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/best-sellers'
+      preLoaderRoute: typeof BestSellersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/custom-design': {
+      id: '/custom-design'
+      path: '/custom-design'
+      fullPath: '/custom-design'
+      preLoaderRoute: typeof CustomDesignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offers': {
+      id: '/offers'
+      path: '/offers'
+      fullPath: '/offers'
+      preLoaderRoute: typeof OffersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offline': {
+      id: '/offline'
+      path: '/offline'
+      fullPath: '/offline'
+      preLoaderRoute: typeof OfflineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/photo-4x6': {
+      id: '/photo-4x6'
+      path: '/photo-4x6'
+      fullPath: '/photo-4x6'
+      preLoaderRoute: typeof Photo4x6RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/photo-printing': {
+      id: '/photo-printing'
+      path: '/photo-printing'
+      fullPath: '/photo-printing'
+      preLoaderRoute: typeof PhotoPrintingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products-feed-meta.csv': {
+      id: '/products-feed-meta.csv'
+      path: '/products-feed-meta.csv'
+      fullPath: '/products-feed-meta.csv'
+      preLoaderRoute: typeof ProductsFeedMetaDotcsvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sets': {
+      id: '/sets'
+      path: '/sets'
+      fullPath: '/sets'
+      preLoaderRoute: typeof SetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trending': {
+      id: '/trending'
+      path: '/trending'
+      fullPath: '/trending'
+      preLoaderRoute: typeof TrendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin-assistant': {
+      id: '/api/admin-assistant'
+      path: '/api/admin-assistant'
+      fullPath: '/api/admin-assistant'
+      preLoaderRoute: typeof ApiAdminAssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/category/$slug': {
@@ -418,11 +438,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CategorySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin-assistant': {
-      id: '/api/admin-assistant'
-      path: '/api/admin-assistant'
-      fullPath: '/api/admin-assistant'
-      preLoaderRoute: typeof ApiAdminAssistantRouteImport
+    '/landing/$audience': {
+      id: '/landing/$audience'
+      path: '/landing/$audience'
+      fullPath: '/landing/$audience'
+      preLoaderRoute: typeof LandingAudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/backup': {
@@ -444,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
   OfflineRoute: OfflineRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   Photo4x6Route: Photo4x6Route,
   PhotoPrintingRoute: PhotoPrintingRoute,
   ProductsFeedMetaDotcsvRoute: ProductsFeedMetaDotcsvRoute,

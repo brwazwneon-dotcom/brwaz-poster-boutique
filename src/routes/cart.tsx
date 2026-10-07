@@ -3,9 +3,16 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
+import {
+  buildItemNotes,
+  computeCheckout,
+  pricingSnapshot,
+  unitPriceFor,
+  validateCheckoutLines,
+} from "@/lib/order-pricing";
 import {
   labelForColor,
   labelForFrame,
@@ -223,30 +230,40 @@ const GOVERNORATES = [
 ];
 
 function CartPage() {
-  const { items, remove, setQty, update, clear, total } = useCart();
+  const { items: storedItems, remove, setQty, update, clear } = useCart();
   const settings = useSiteSettings();
   const pricing = usePricing();
   const photo4x6 = usePhoto4x6Config();
   const navigate = useNavigate();
-  const subtotal = total;
-  // Frame count for double-face-tape upsell: each item is one frame per qty,
-  // bundles count all posters inside the bundle × qty.
-  const frameCount = items.reduce(
-    (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
-    0,
+  const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
+  // Prices stored in the browser's cart can be stale (admin changed prices
+  // after the item was added), so every line is re-priced from the current
+  // admin pricing before anything is displayed or submitted.
+  const items = useMemo(
+    () => storedItems.map((i) => ({ ...i, price: unitPriceFor(i, pricing) })),
+    [storedItems, pricing],
   );
-  // Total posters in cart (bundle posters count individually) — drives the
-  // tiered bundle discount and the "add N more to unlock" hint.
-  const posterCount = items.reduce(
-    (s, i) => s + (i.bundle ? i.bundle.posters.length : 1) * i.qty,
-    0,
+  // One calculation feeds the cart UI, the Meta events and the order rows.
+  const checkout = useMemo(
+    () => computeCheckout(storedItems, pricing, settings, tapeChoice === true),
+    [storedItems, pricing, settings, tapeChoice],
   );
+  const subtotal = checkout.subtotal;
+  const total = subtotal;
+  const { frameCount, posterCount, packaging: packagingFee, tapeTotal, shipping, grand } = checkout;
+  const remainingForFree = checkout.remainingForFree;
+  const freeShipPct = checkout.freeShippingPct;
+  const bundle = {
+    tier: checkout.autoOfferSets > 0 ? ("auto" as const) : null,
+    amount: checkout.discount,
+  };
+  const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
   // Individual same-size counts — duplicates of the same poster (qty > 1)
   // count as separate frames toward the bundle offers.
   const indiv20x30 = items.reduce((s, i) => s + (!i.bundle && i.size === "20x30" ? i.qty : 0), 0);
   const indiv30x40 = items.reduce((s, i) => s + (!i.bundle && i.size === "30x40" ? i.qty : 0), 0);
   // Average unit price the customer is currently paying for a given size —
-  // used to compute the exact bundle discount when a full set is present.
+  // used to size the "add N more" nudge.
   const avgUnitFor = (size: "20x30" | "30x40") => {
     let qty = 0;
     let sum = 0;
@@ -258,27 +275,6 @@ function CartPage() {
     }
     return qty > 0 ? sum / qty : 0;
   };
-  // Auto-apply the bundle offer once the customer reaches a full set of the
-  // same size (duplicates count). Discount = (regular total for N frames) −
-  // (flat offer price), per completed set.
-  const autoOffer20Sets = Math.floor(indiv20x30 / 6);
-  const autoOffer30Sets = Math.floor(indiv30x40 / 4);
-  const autoOffer20Discount = Math.max(
-    0,
-    Math.round((avgUnitFor("20x30") * 6 - pricing.offers.bundle6_20x30) * autoOffer20Sets),
-  );
-  const autoOffer30Discount = Math.max(
-    0,
-    Math.round((avgUnitFor("30x40") * 4 - pricing.offers.bundle4_30x40) * autoOffer30Sets),
-  );
-  const autoOfferSets = autoOffer20Sets + autoOffer30Sets;
-  const bundle = {
-    tier: autoOfferSets > 0 ? ("auto" as const) : null,
-    amount: autoOffer20Discount + autoOffer30Discount,
-  };
-  // Packaging: 20 EGP per bundle (explicit /offers bundles + auto-detected sets).
-  const bundleQty = items.reduce((s, i) => s + (i.bundle ? i.qty : 0), 0);
-  const packagingFee = (bundleQty + autoOfferSets) * pricing.packagingFee;
   const bundleNudges = [
     {
       key: "bundle-6-20x30" as const,
@@ -311,20 +307,10 @@ function CartPage() {
       const progressPct = Math.min(100, Math.round((n.have / n.need) * 100));
       return { ...n, savings, savingsPct, progressPct };
     });
-  const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   const [tapeOpen, setTapeOpen] = useState(false);
   const [photoUpsellOpen, setPhotoUpsellOpen] = useState(false);
   const [photoUpsellShown, setPhotoUpsellShown] = useState(false);
   const tapeUnit = pricing.doubleFaceTapePrice;
-  const tapeTotal = tapeChoice === true ? frameCount * tapeUnit : 0;
-  const discountedSubtotal = Math.max(0, subtotal - bundle.amount);
-  const shipping = computeShipping(discountedSubtotal + tapeTotal, settings);
-  const grand = discountedSubtotal + packagingFee + tapeTotal + shipping;
-  const remainingForFree = Math.max(0, settings.freeShippingThreshold - discountedSubtotal);
-  const freeShipPct =
-    settings.freeShippingThreshold > 0
-      ? Math.min(100, Math.round((discountedSubtotal / settings.freeShippingThreshold) * 100))
-      : 100;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
@@ -454,6 +440,19 @@ function CartPage() {
       return toast.error("رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01");
     if (paymentMethod === "instapay" && !screenshot)
       return toast.error(t("cart.uploadPaymentScreenshot"));
+    const lineIssues = validateCheckoutLines(checkout);
+    if (lineIssues.length > 0) {
+      logCheckoutStep({
+        step: "order_validation",
+        table: "orders",
+        operation: "validate",
+        payload: { issues: lineIssues },
+        error: new Error(lineIssues.map((x) => x.code).join(",")),
+      });
+      const msg = t("cart.checkoutFailed") ?? "فشل إنشاء الطلب، يرجى المحاولة مرة أخرى";
+      setCheckoutError(msg);
+      return toast.error(msg);
+    }
 
     setCheckoutError(null);
     submittingRef.current = true;
@@ -585,23 +584,19 @@ function CartPage() {
         });
       }
 
-      const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
       const testFlag = isTestMode();
       const guestSessionId = visitorId();
-      // Apply bundle discount pro-rata to each item so DB totals line up
-      // exactly with what the customer sees at checkout.
-      const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
+      // Every number below comes from the same computeCheckout() result the
+      // customer is looking at, with discount / packaging / shipping split
+      // across lines in whole cents so the stored rows add up to `grand`.
       const itemRowMap: Array<{
         rowId: string;
         item: (typeof items)[number];
       }> = [];
 
-      const rows = items.map((i) => {
+      const rows = checkout.lines.map((line, idx) => {
+        const i = items[idx];
         const rowId = crypto.randomUUID();
-        const linePackaging = i.bundle ? pricing.packagingFee * i.qty : 0;
-        const lineGross = i.price * i.qty;
-        const lineDiscount = Math.round(lineGross * discountRatio);
-        const lineNet = lineGross - lineDiscount;
         itemRowMap.push({ rowId, item: i });
         return {
           id: rowId,
@@ -619,11 +614,13 @@ function CartPage() {
             ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
             : i.title,
           poster_image: i.customImagePath ?? i.image,
-          notes: i.customImageMeta ? JSON.stringify(i.customImageMeta) : null,
-          subtotal: lineNet,
-          packaging_fee: linePackaging,
-          shipping_cost: shippingPerItem,
-          total_price: lineNet + linePackaging + shippingPerItem,
+          // Custom-image metadata + an immutable snapshot of the price the
+          // customer was charged, so later catalog price edits never touch it.
+          notes: buildItemNotes(i.customImageMeta, pricingSnapshot(line)) as string | null,
+          subtotal: line.net,
+          packaging_fee: line.packaging,
+          shipping_cost: line.shipping,
+          total_price: line.total,
           status: "new",
           payment_method: paymentMethod,
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
@@ -632,7 +629,7 @@ function CartPage() {
         };
       });
       // Append the double-face-tape line as its own order row when chosen.
-      if (tapeChoice === true && tapeTotal > 0) {
+      if (checkout.tape) {
         rows.push({
           id: crypto.randomUUID(),
           guest_session_id: guestSessionId,
@@ -643,20 +640,33 @@ function CartPage() {
           frame_type: labelForFrame("pvc"),
           frame_color: labelForColor("black"),
           size: labelForSize("20x30"),
-          quantity: frameCount,
+          quantity: checkout.tape.frames,
           selected_poster: null,
           poster_title: "Double Face Tape",
           poster_image: "",
-          subtotal: tapeTotal,
+          notes: null,
+          subtotal: checkout.tape.total,
           packaging_fee: 0,
           shipping_cost: 0,
-          total_price: tapeTotal,
+          total_price: checkout.tape.total,
           status: "new",
           payment_method: paymentMethod,
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",
           payment_screenshot: screenshotPath,
           is_test: testFlag,
         } as (typeof rows)[number]);
+      }
+      // Integrity guard: the rows we are about to store must add up to the
+      // exact total the customer was shown.
+      const rowsTotalCents = rows.reduce((s, r) => s + Math.round(Number(r.total_price) * 100), 0);
+      if (rowsTotalCents !== Math.round(grand * 100)) {
+        throwCheckoutError({
+          step: "order_validation",
+          table: "orders",
+          operation: "validate",
+          payload: { rowsTotalCents, grandCents: Math.round(grand * 100) },
+          error: new Error("Order rows do not add up to the checkout total"),
+        });
       }
       const orderPayloadDebug = {
         customer: { name, phone, governorate, address },
@@ -722,7 +732,7 @@ function CartPage() {
           if (item.bundle && Array.isArray(item.bundle.posters) && item.bundle.posters.length > 0) {
             for (let idx = 0; idx < item.bundle.posters.length; idx++) {
               const poster = item.bundle.posters[idx];
-              const pId = asUuid(poster.id);
+              const pId = asUuid(poster.posterId);
               if (pId) {
                 orderPostersToInsert.push({
                   order_id: rowId,
