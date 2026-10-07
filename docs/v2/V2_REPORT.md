@@ -42,6 +42,14 @@ Browser-level Supabase mocks (Playwright route interception) were used to render
 - Poster page found two visual defects, both fixed: (1) on mobile the floating WhatsApp button overlapped the sticky Add-to-cart bar (now lifts via `--sticky-bar-h`); (2) on desktop the image was oversized (now max 30rem and sticky).
 - Caveat: FramePreview mockups include a wall backdrop, so each wall cell reads as a tile; switching to `bare` previews is a design choice for later.
 
+## Slice 6: radical visual redesign — theme "Poster Wall" (new default)
+Concept: editorial print-shop. Warm paper (#F3EFE6) + ink (#0E0E0E), logo yellow/cyan accents, square corners, hard-edged "printed" frames with offset shadows, yellow marker under section titles, ink rules between sections with alternating darker paper bands, cinematic dark hero kept on the light page, ink footer with yellow rule, ink mobile bottom nav.
+- Implemented as a real theme: `SITE_THEMES["poster-wall"]` + `[data-site-theme="poster-wall"]` block in `styles/v2.css` (static on `<html>` so first paint is correct), default via `DEFAULT_THEME_ID`. Existing themes (incl. dark Classic) remain selectable in Admin → Appearance.
+- Legacy handling: a stored `brw-classic` with no admin `theme_settings` record (the old implicit default) maps to Poster Wall; an explicit admin choice is respected. The head script no longer flashes stored Classic vars.
+- Admin console is pinned to the dark console theme (`ThemeBoot`) because it was not verified in the light theme.
+- Verified (mock data): desktop + mobile home, product page, cart/checkout; no overflow; contrast tokens unit-tested (AA). Not verified: admin in light theme (intentionally pinned), every secondary page (category, search, custom-design, photo-printing), RTL visuals.
+- Second agent: a separate session (`session_015KtAbLfGULTrwGWUzKfdsw`) was opened on `main` for edits to the old site, with instructions not to touch this branch and not to deploy.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

@@ -171,7 +171,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:image",
         content: `${SITE_URL}/icon-512.png`,
       },
-      { name: "theme-color", content: "#000000" },
+      { name: "theme-color", content: "#F3EFE6" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "BRWAZWNEON" },
@@ -200,7 +200,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        children: `(function(){try{var s=sessionStorage.getItem('brw_theme_settings')||localStorage.getItem('brw_theme_settings');var id=sessionStorage.getItem('brw_theme_preview')||localStorage.getItem('brw_active_theme');if(!s)return;var vars=JSON.parse(s);var root=document.documentElement;if(id){root.dataset.siteTheme=id;root.dataset.theme=id;}Object.keys(vars).forEach(function(k){root.style.setProperty(k,vars[k]);});}catch(e){}})();`,
+        children: `(function(){try{var s=sessionStorage.getItem('brw_theme_settings')||localStorage.getItem('brw_theme_settings');var id=sessionStorage.getItem('brw_theme_preview')||localStorage.getItem('brw_active_theme');if(!s||(id==='brw-classic'&&!sessionStorage.getItem('brw_theme_preview')))return;var vars=JSON.parse(s);var root=document.documentElement;if(id){root.dataset.siteTheme=id;root.dataset.theme=id;}Object.keys(vars).forEach(function(k){root.style.setProperty(k,vars[k]);});}catch(e){}})();`,
       },
       {
         type: "application/ld+json",
@@ -247,7 +247,13 @@ function RootShell({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
   return (
-    <html lang={lang} dir={lang === "ar" ? "rtl" : "ltr"} data-build-id={__BUILD_ID__}>
+    <html
+      lang={lang}
+      dir={lang === "ar" ? "rtl" : "ltr"}
+      data-site-theme="poster-wall"
+      data-theme="poster-wall"
+      data-build-id={__BUILD_ID__}
+    >
       <head>
         <HeadContent />
       </head>

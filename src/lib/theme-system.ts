@@ -7,7 +7,12 @@ export const THEME_SETTINGS_STORAGE_KEY = "brw_theme_settings";
 export const THEME_PREVIEW_STORAGE_KEY = "brw_theme_preview";
 
 export type ThemeId =
-  "brw-classic" | "neon-gallery" | "warm-studio" | "midnight-luxe" | "gallery-white";
+  | "poster-wall"
+  | "brw-classic"
+  | "neon-gallery"
+  | "warm-studio"
+  | "midnight-luxe"
+  | "gallery-white";
 
 export type ThemeTokens = {
   radius: string;
@@ -74,9 +79,61 @@ export type ThemeSettings = {
   updatedAt?: string;
 };
 
-export const DEFAULT_THEME_ID: ThemeId = "brw-classic";
+export const DEFAULT_THEME_ID: ThemeId = "poster-wall";
 
 export const SITE_THEMES: SiteTheme[] = [
+  {
+    id: "poster-wall",
+    name: "Poster Wall",
+    description:
+      "V2 editorial print-shop look: warm paper, ink-black type, hard-edged frames, yellow and cyan accents.",
+    badge: "V2 · DEFAULT",
+    badgeAr: "V2 · الافتراضي",
+    isLight: true,
+    preview: ["#F3EFE6", "#0E0E0E", "#FFD400", "#00BEE8"],
+    tokens: {
+      radius: "0rem",
+      background: "#F3EFE6",
+      foreground: "#0E0E0E",
+      card: "#FBF9F4",
+      cardForeground: "#0E0E0E",
+      popover: "#FBF9F4",
+      popoverForeground: "#0E0E0E",
+      primary: "#0E0E0E",
+      primaryForeground: "#F3EFE6",
+      secondary: "#00BEE8",
+      secondaryForeground: "#0E0E0E",
+      muted: "#E8E2D3",
+      mutedForeground: "#5E5A50",
+      accent: "#FFD400",
+      accentForeground: "#0E0E0E",
+      destructive: "#B42318",
+      destructiveForeground: "#FFFFFF",
+      border: "#CFC8B6",
+      input: "#CFC8B6",
+      ring: "#0E0E0E",
+      sidebar: "#E8E2D3",
+      sidebarForeground: "#0E0E0E",
+      sidebarPrimary: "#0E0E0E",
+      sidebarPrimaryForeground: "#F3EFE6",
+      sidebarAccent: "#FFD400",
+      sidebarAccentForeground: "#0E0E0E",
+      sidebarBorder: "#CFC8B6",
+      sidebarRing: "#0E0E0E",
+      fontDisplay: '"Bebas Neue", "Archivo Black", system-ui, sans-serif',
+      fontBody: '"Inter", system-ui, sans-serif',
+      surface: "#E8E2D3",
+      textSecondary: "#3D3A33",
+      textMuted: "#5E5A50",
+      headerBackground: "rgba(243,239,230,0.96)",
+      footerBackground: "#0E0E0E",
+      footerText: "#F3EFE6",
+      cardShadow: "6px 6px 0 #0E0E0E",
+      floatingShadow: "4px 4px 0 #0E0E0E",
+      focusRing: "0 0 0 3px #FFD400",
+      inputBackground: "#FBF9F4",
+    },
+  },
   {
     id: "brw-classic",
     name: "BRW Classic",
@@ -342,7 +399,11 @@ export async function loadActiveTheme(): Promise<SiteTheme> {
   if (error) throw error;
   const map = new Map((data ?? []).map((row) => [row.key, row.value as unknown]));
   const settings = normalizeThemeSettings(map.get(THEME_SETTINGS_KEY));
-  return getTheme(settings?.activeTheme ?? map.get(ACTIVE_THEME_KEY) ?? DEFAULT_THEME_ID);
+  const stored = settings?.activeTheme ?? map.get(ACTIVE_THEME_KEY);
+  // "brw-classic" was the old implicit default. If it was never chosen through the admin
+  // (no theme_settings record), treat it as "no choice" so the V2 look applies.
+  if (!settings && stored === "brw-classic") return getTheme(DEFAULT_THEME_ID);
+  return getTheme(stored ?? DEFAULT_THEME_ID);
 }
 
 export async function saveActiveTheme(themeId: ThemeId) {

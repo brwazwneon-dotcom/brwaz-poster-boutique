@@ -126,3 +126,172 @@
   outline: 2px solid var(--ring, currentColor);
   outline-offset: 2px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * THEME: Poster Wall (V2 default) — editorial print-shop identity.
+ * Warm paper, ink-black type, hard-edged frames with offset "print"
+ * shadows, yellow/cyan accents from the logo. Tokens mirror
+ * SITE_THEMES["poster-wall"] so first paint is correct before JS.
+ * ═══════════════════════════════════════════════════════════════════ */
+[data-site-theme="poster-wall"] {
+  --radius: 0rem;
+  --background: #f3efe6;
+  --foreground: #0e0e0e;
+  --card: #fbf9f4;
+  --card-foreground: #0e0e0e;
+  --popover: #fbf9f4;
+  --popover-foreground: #0e0e0e;
+  --primary: #0e0e0e;
+  --primary-foreground: #f3efe6;
+  --secondary: #00bee8;
+  --secondary-foreground: #0e0e0e;
+  --muted: #e8e2d3;
+  --muted-foreground: #5e5a50;
+  --accent: #ffd400;
+  --accent-foreground: #0e0e0e;
+  --border: #cfc8b6;
+  --input: #cfc8b6;
+  --ring: #0e0e0e;
+  --v2-ink: #0e0e0e;
+  --v2-paper: #f3efe6;
+  --v2-yellow: #ffd400;
+  --v2-cyan: #00bee8;
+  --v2-print: 5px 5px 0 var(--v2-ink);
+  color-scheme: light;
+}
+
+/* Header: paper with a hard ink rule; announcement bar stays ink + yellow */
+[data-site-theme="poster-wall"] header {
+  background-color: rgba(243, 239, 230, 0.96);
+  border-bottom: 2px solid var(--v2-ink);
+}
+
+/* Type: tighter, bigger display headings with a yellow marker bar */
+[data-site-theme="poster-wall"] h1.text-display,
+[data-site-theme="poster-wall"] h2.text-display {
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+}
+[data-site-theme="poster-wall"] h2.text-display {
+  display: inline-block;
+  background-image: linear-gradient(var(--v2-yellow), var(--v2-yellow));
+  background-repeat: no-repeat;
+  background-size: 100% 0.28em;
+  background-position: 0 92%;
+}
+:is([data-site-theme="poster-wall"] [dir="rtl"], [dir="rtl"][data-site-theme="poster-wall"]) h2.text-display {
+  background-image: none; /* Arabic descenders collide with the marker */
+}
+[data-site-theme="poster-wall"] .v2-eyebrow {
+  color: var(--v2-ink);
+  font-weight: 600;
+}
+[data-site-theme="poster-wall"] .v2-eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  margin-inline-end: 0.7em;
+  background: var(--v2-yellow);
+  border: 1.5px solid var(--v2-ink);
+}
+
+/* Solid buttons: ink block, hard offset shadow that "presses" on hover */
+[data-site-theme="poster-wall"] :is(a, button).bg-primary {
+  border: 2px solid var(--v2-ink);
+  box-shadow: 3px 3px 0 var(--v2-yellow);
+  transition: transform var(--v2-dur-fast) var(--v2-ease), box-shadow var(--v2-dur-fast) var(--v2-ease);
+}
+[data-site-theme="poster-wall"] :is(a, button).bg-primary:hover:not(:disabled) {
+  opacity: 1;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--v2-yellow);
+}
+[data-site-theme="poster-wall"] :is(a, button).bg-primary:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--v2-yellow);
+}
+/* Outlined buttons / chips become 2px ink */
+[data-site-theme="poster-wall"] :is(a, button).border-border:not(.v2-bottom-nav *) {
+  border-color: var(--v2-ink);
+  border-width: 1.5px;
+}
+[data-site-theme="poster-wall"] :is(input, textarea, select) {
+  background: var(--card);
+  border: 1.5px solid var(--v2-ink);
+}
+[data-site-theme="poster-wall"] :is(input, textarea, select):focus-visible {
+  outline: 3px solid var(--v2-yellow);
+  outline-offset: 0;
+}
+
+/* Poster cards: printed-sheet lift on hover instead of the inset ring */
+[data-site-theme="poster-wall"] .v2-card { border: 2px solid var(--v2-ink); background: var(--card); }
+[data-site-theme="poster-wall"] .v2-card::after { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  [data-site-theme="poster-wall"] .v2-card {
+    transition: transform var(--v2-dur-fast) var(--v2-ease), box-shadow var(--v2-dur-fast) var(--v2-ease);
+  }
+  [data-site-theme="poster-wall"] .v2-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: var(--v2-print);
+  }
+  [data-site-theme="poster-wall"] .v2-card:hover > :is(div, picture):not(.absolute) { transform: none; }
+}
+
+/* Homepage rhythm: every second section sits on a darker paper band with ink rules */
+[data-site-theme="poster-wall"] [id^="home-"] { border-top: 2px solid var(--v2-ink); }
+[data-site-theme="poster-wall"] [id^="home-"]:nth-of-type(even) {
+  --background: #e9e3d3;
+  background: var(--background);
+}
+
+/* Poster wall + product page frames get the same hard edge */
+[data-site-theme="poster-wall"] .v2-wall-cell { border: 2px solid var(--v2-ink); box-shadow: 4px 4px 0 var(--v2-ink); }
+[data-site-theme="poster-wall"] .v2-wall { gap: calc(var(--v2-gap) + 4px); }
+
+/* Footer: ink block with paper text */
+[data-site-theme="poster-wall"] footer {
+  --foreground: #f3efe6;
+  --muted-foreground: #bdb7a6;
+  --border: rgba(243, 239, 230, 0.2);
+  --accent: rgba(243, 239, 230, 0.1);
+  background-color: var(--v2-ink);
+  color: #f3efe6;
+  border-top: 4px solid var(--v2-yellow);
+}
+
+/* Mobile bottom nav + sticky bars take the ink treatment */
+[data-site-theme="poster-wall"] .v2-bottom-nav {
+  background: var(--v2-ink);
+  border-top: 3px solid var(--v2-yellow);
+}
+[data-site-theme="poster-wall"] .v2-bottom-nav a,
+[data-site-theme="poster-wall"] .v2-bottom-nav button { color: #bdb7a6; }
+[data-site-theme="poster-wall"] .v2-bottom-nav [aria-current="page"] { color: var(--v2-yellow); }
+[data-site-theme="poster-wall"] .v2-skip-link { background: var(--v2-yellow); color: var(--v2-ink); }
+
+/* Selection */
+[data-site-theme="poster-wall"] ::selection { background: var(--v2-yellow); color: var(--v2-ink); }
+
+/* Cinematic hero: stays dark on the paper page (contrast + keeps the LCP image treatment). */
+[data-site-theme="poster-wall"] :is(#home-hero_banners, #home-homepage_slider) {
+  --background: #0e0e0e;
+  --foreground: #f3efe6;
+  --card: #171717;
+  --card-foreground: #f3efe6;
+  --muted: #1f1f1f;
+  --muted-foreground: #c9c3b2;
+  --border: rgba(243, 239, 230, 0.22);
+  --primary: #ffd400;
+  --primary-foreground: #0e0e0e;
+  --accent: #2a2a2a;
+  --accent-foreground: #f3efe6;
+  --v2-yellow: #f3efe6;
+  background: #0e0e0e;
+  color: #f3efe6;
+  border-top: 0;
+}
+[data-site-theme="poster-wall"] :is(#home-hero_banners, #home-homepage_slider) :is(a, button).border-border {
+  border-color: #f3efe6;
+}

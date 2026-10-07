@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import {
   applyTheme,
   clearThemePreview,
@@ -9,8 +10,15 @@ import {
 } from "@/lib/theme-system";
 
 export function ThemeBoot() {
+  const isAdmin = useRouterState({ select: (s) => s.location.pathname.startsWith("/admin") });
   useEffect(() => {
     let cancelled = false;
+
+    // The admin console keeps the dark console theme; the storefront theme is customer-facing only.
+    if (isAdmin) {
+      applyTheme(getTheme("brw-classic"));
+      return;
+    }
 
     const previewTheme = readSession(THEME_PREVIEW_STORAGE_KEY);
     if (previewTheme) {
@@ -31,7 +39,7 @@ export function ThemeBoot() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdmin]);
 
   return null;
 }
