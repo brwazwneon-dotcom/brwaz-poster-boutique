@@ -161,7 +161,7 @@
 }
 
 /* Header: paper with a hard ink rule; announcement bar stays ink + yellow */
-[data-site-theme="poster-wall"] header {
+[data-site-theme="poster-wall"] header.sticky {
   background-color: rgba(243, 239, 230, 0.96);
   border-bottom: 2px solid var(--v2-ink);
 }

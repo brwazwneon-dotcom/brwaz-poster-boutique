@@ -50,6 +50,13 @@ Concept: editorial print-shop. Warm paper (#F3EFE6) + ink (#0E0E0E), logo yellow
 - Verified (mock data): desktop + mobile home, product page, cart/checkout; no overflow; contrast tokens unit-tested (AA). Not verified: admin in light theme (intentionally pinned), every secondary page (category, search, custom-design, photo-printing), RTL visuals.
 - Second agent: a separate session (`session_015KtAbLfGULTrwGWUzKfdsw`) was opened on `main` for edits to the old site, with instructions not to touch this branch and not to deploy.
 
+## Slice 7: theme QA across pages + RTL (bugs found and fixed)
+- **Pre-existing RTL bug (also on `main`/old site):** `FramePreview` artwork was shifted/clipped on Arabic pages because `.frame-opening { position: relative }` in `styles.css` out-ranks the `absolute` utility; in RTL the in-flow start edge flips so the `left:%` offset lands wrong. Fixed by pinning `position:absolute` inline in `FramePreview.tsx`; English output unchanged (verified by screenshots).
+- Closed mobile menu drawer leaked its `shadow-2xl` onto the left screen edge (invisible on dark, a grey stripe on paper). Shadow now only when open.
+- My `header` theme rule also hit the product page `<header>` (stray rule under the price); scoped to `header.sticky`.
+- Poster page localized (ar/en): labels, price currency, delivery lines, toasts.
+- Verified with mock data at 390px: custom-design, photo-printing, search, offers, sets, footer, product page (en + ar), cart; desktop product page en + ar (layout mirrors correctly). No horizontal overflow.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

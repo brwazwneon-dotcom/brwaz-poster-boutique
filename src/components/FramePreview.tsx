@@ -111,6 +111,9 @@ export const FramePreview = memo(function FramePreview({
       <div
         className="frame-opening absolute z-0 overflow-hidden"
         style={{
+          // `.frame-opening { position: relative }` (styles.css) out-ranks the `absolute` utility,
+          // which shifts the artwork in RTL pages; pin it explicitly.
+          position: "absolute",
           top: `${m.top}%`,
           left: `${m.left}%`,
           width: `${m.width}%`,

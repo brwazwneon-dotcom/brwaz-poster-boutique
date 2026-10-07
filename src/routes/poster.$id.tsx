@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Minus, Plus, ShieldCheck, Truck, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { FramePreview } from "@/components/FramePreview";
@@ -41,6 +42,9 @@ export const Route = createFileRoute("/poster/$id")({
 function PosterPage() {
   const { id } = Route.useParams();
   const { add } = useCart();
+  const { i18n } = useTranslation();
+  const ar = i18n.language?.startsWith("ar");
+  const L = (en: string, a: string) => (ar ? a : en);
   const pricing = usePricing();
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [size, setSize] = useState<SizeId>("30x40");
@@ -77,16 +81,20 @@ function PosterPage() {
   const total = unit * qty;
 
   if (isLoading)
-    return <div className="container-page py-16 text-sm text-muted-foreground">Loading…</div>;
+    return (
+      <div className="container-page py-16 text-sm text-muted-foreground">
+        {L("Loading…", "جارٍ التحميل…")}
+      </div>
+    );
   if (!poster)
     return (
       <div className="container-page py-24 text-center">
-        <p className="text-muted-foreground">Poster not found.</p>
+        <p className="text-muted-foreground">{L("Poster not found.", "البوستر غير موجود.")}</p>
         <Link
           to="/"
           className="mt-6 inline-flex rounded-sm border border-border px-6 py-3 text-xs uppercase tracking-widest"
         >
-          Back to shop
+          {L("Back to shop", "رجوع للمتجر")}
         </Link>
       </div>
     );
@@ -105,7 +113,7 @@ function PosterPage() {
         price: unit,
       });
     }
-    toast.success(`Added ${qty} × ${poster.title}`);
+    toast.success(ar ? `تمت إضافة ${qty} × ${poster.title}` : `Added ${qty} × ${poster.title}`);
     setPop(true);
     window.setTimeout(() => setPop(false), 340);
   };
@@ -121,7 +129,7 @@ function PosterPage() {
         className,
       )}
     >
-      Add to cart · {total} EGP
+      {L("Add to cart", "أضف للسلة")} · {total} {L("EGP", "ج.م")}
     </button>
   );
 
@@ -153,11 +161,13 @@ function PosterPage() {
               </Link>
             ) : null}
             <h1 className="text-display mt-2 text-4xl sm:text-5xl">{poster.title}</h1>
-            <p className="mt-3 text-2xl font-semibold">{unit > 0 ? `${unit} EGP` : "—"}</p>
+            <p className="mt-3 text-2xl font-semibold">
+              {unit > 0 ? `${unit} ${L("EGP", "ج.م")}` : "—"}
+            </p>
           </header>
 
           <fieldset>
-            <legend className="v2-eyebrow mb-2">Frame</legend>
+            <legend className="v2-eyebrow mb-2">{L("Frame", "الإطار")}</legend>
             <div className="flex flex-wrap gap-2">
               {FRAME_TYPES.map((f) => (
                 <button
@@ -179,7 +189,7 @@ function PosterPage() {
           </fieldset>
 
           <fieldset>
-            <legend className="v2-eyebrow mb-2">Color</legend>
+            <legend className="v2-eyebrow mb-2">{L("Color", "اللون")}</legend>
             <div className="flex gap-3">
               {CUSTOMER_FRAME_COLORS.map((c) => (
                 <button
@@ -199,7 +209,7 @@ function PosterPage() {
           </fieldset>
 
           <fieldset>
-            <legend className="v2-eyebrow mb-2">Size</legend>
+            <legend className="v2-eyebrow mb-2">{L("Size", "المقاس")}</legend>
             <div className="flex flex-wrap gap-2">
               {sizes.map((s) => (
                 <button
@@ -227,7 +237,7 @@ function PosterPage() {
             <div className="flex items-center rounded-sm border border-border">
               <button
                 type="button"
-                aria-label="Decrease quantity"
+                aria-label={L("Decrease quantity", "تقليل الكمية")}
                 className="h-11 w-11 grid place-items-center"
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
               >
@@ -238,7 +248,7 @@ function PosterPage() {
               </span>
               <button
                 type="button"
-                aria-label="Increase quantity"
+                aria-label={L("Increase quantity", "زيادة الكمية")}
                 className="h-11 w-11 grid place-items-center"
                 onClick={() => setQty((q) => Math.min(20, q + 1))}
               >
@@ -250,14 +260,17 @@ function PosterPage() {
 
           <ul className="grid gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
             <li className="flex items-center gap-2">
-              <Truck className="h-4 w-4" /> Delivery across Egypt · free over{" "}
-              {pricing.freeShippingThreshold} EGP
+              <Truck className="h-4 w-4" />{" "}
+              {L("Delivery across Egypt · free over", "توصيل لكل مصر · مجاناً فوق")}{" "}
+              {pricing.freeShippingThreshold} {L("EGP", "ج.م")}
             </li>
             <li className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" /> Cash on delivery or Instapay
+              <Wallet className="h-4 w-4" />{" "}
+              {L("Cash on delivery or Instapay", "الدفع عند الاستلام أو إنستا باي")}
             </li>
             <li className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Print quality guaranteed
+              <ShieldCheck className="h-4 w-4" />{" "}
+              {L("Print quality guaranteed", "جودة الطباعة مضمونة")}
             </li>
           </ul>
           {poster.description ? (

@@ -337,7 +337,8 @@ export function SiteHeader() {
           aria-label={catalogLabel}
           dir={isAr ? "rtl" : "ltr"}
           className={cn(
-            "absolute top-0 flex h-[100dvh] w-[88vw] max-w-[380px] flex-col overflow-hidden bg-card text-foreground shadow-2xl transition-transform duration-300 ease-out will-change-transform",
+            "absolute top-0 flex h-[100dvh] w-[88vw] max-w-[380px] flex-col overflow-hidden bg-card text-foreground transition-transform duration-300 ease-out will-change-transform",
+            mobileMenuOpen ? "shadow-2xl" : "shadow-none",
             drawerSide === "right" ? "right-0" : "left-0",
             mobileMenuOpen
               ? "translate-x-0"
