@@ -91,7 +91,7 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
           categoryName: "Movies",
           frameType,
           size,
-          color: (["black", "white", "wood"] as const)[Math.floor(rnd() * 3)],
+          color: frameType === "wood" ? "wood" : (["black", "white"] as const)[Math.floor(rnd() * 2)],
           price: 1,
           qty: 1 + Math.floor(rnd() * (isBundle ? 2 : 8)),
           customImagePath: !isBundle && rnd() > 0.8 ? `u/${i}.jpg` : undefined,
@@ -179,6 +179,8 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
     expect(() => call([{ ...ok, size: "99x99" }])).toThrow();
     expect(() => call([{ ...ok, frame_type: "gold" }])).toThrow();
     expect(() => call([{ ...ok, color: "pink" }])).toThrow();
+    expect(() => call([{ ...ok, frame_type: "wood", color: "black" }])).toThrow(); // Wooden has no colour
+    expect(() => call([{ ...ok, frame_type: "pvc", color: "wood" }])).toThrow(); // PVC has no wood colour
     expect(() => call([{ ...ok, image: "blob:http://x/1" }])).toThrow();
     expect(() => call([])).toThrow();
     expect(() => call([ok], { method: "bitcoin" })).toThrow();

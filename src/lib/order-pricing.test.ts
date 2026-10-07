@@ -269,6 +269,18 @@ describe("validateCheckoutLines", () => {
     );
     expect(validateCheckoutLines(t3).map((i) => i.code)).toContain("blob_image");
   });
+  it("rejects Wooden+Black, PVC+Wood and sizes the frame does not come in", () => {
+    const codes = (o: Partial<CartItem>) =>
+      validateCheckoutLines(computeCheckout([item(o)], pricing, settings, false)).map(
+        (i) => i.code,
+      );
+    expect(codes({ frameType: "wood", color: "black" })).toContain("bad_combo");
+    expect(codes({ frameType: "wood", color: "white" })).toContain("bad_combo");
+    expect(codes({ frameType: "pvc", color: "wood" })).toContain("bad_combo");
+    expect(codes({ frameType: "pvc", size: "100x60" })).toContain("bad_combo");
+    expect(codes({ frameType: "wood", color: "wood", size: "100x60" })).not.toContain("bad_combo");
+    expect(codes({ frameType: "pvc", color: "white", size: "40x50" })).not.toContain("bad_combo");
+  });
   it("rejects an empty cart and duplicate line ids", () => {
     expect(
       validateCheckoutLines(computeCheckout([], pricing, settings, false)).map((i) => i.code),

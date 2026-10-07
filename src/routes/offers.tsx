@@ -14,6 +14,8 @@ import {
   type FrameColorId,
   type FrameTypeId,
   type SizeId,
+  allowedColors,
+  normalizeFrameColor,
 } from "@/lib/poster-options";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -207,7 +209,14 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
   const [frameType, setFrameType] = useState<FrameTypeId>("pvc");
   const [color, setColor] = useState<FrameColorId>("black");
   const enabledVariants = useEnabledFrameVariants();
-  const availableColors = FRAME_COLORS.filter((c) => enabledVariants.includes(c.id));
+  // PVC: black/white only (those the admin enabled). Wooden Portrait has no colour.
+  const availableColors = FRAME_COLORS.filter(
+    (c) => allowedColors(frameType).includes(c.id) && enabledVariants.includes(c.id),
+  );
+  const effectiveColor = normalizeFrameColor(
+    frameType,
+    availableColors.some((c) => c.id === color) ? color : (availableColors[0]?.id ?? color),
+  );
   const { add } = useCart();
 
   const categoryIds = useMemo(
@@ -283,7 +292,7 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
       categoryName: "Bundle",
       frameType,
       size: bundle.size,
-      color,
+      color: effectiveColor,
       price: bundle.price,
       bundle: {
         key: bundle.key,
@@ -302,7 +311,9 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
   const waMsg =
     `Hi BRWAZWNEON, I'd like the ${bundle.title} (${bundle.sizeLabel}) — ${bundle.price} ${t("egp")}\n` +
     `Frame: ${FRAME_TYPES.find((f) => f.id === frameType)?.label}\n` +
-    `Color: ${FRAME_COLORS.find((c) => c.id === color)?.label}\n` +
+    (frameType === "wood"
+      ? ""
+      : `Color: ${FRAME_COLORS.find((c) => c.id === effectiveColor)?.label}\n`) +
     `Posters:\n` +
     selectedIds.map((id, i) => `${i + 1}. ${selectedMap.get(id)?.title ?? id}`).join("\n");
 
@@ -382,7 +393,7 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
                         sizes={image?.sizes}
                         title={p.title}
                         frameType={frameType}
-                        color={color}
+                        color={effectiveColor}
                         aspectClassName="h-full w-full"
                         loading="lazy"
                         posterFallbackUrl={p.image_url || ""}
@@ -406,34 +417,39 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
               <OptionButton
                 key={f.id}
                 active={frameType === f.id}
-                onClick={() => setFrameType(f.id)}
+                onClick={() => {
+                  setFrameType(f.id);
+                  setColor((c) => normalizeFrameColor(f.id, c));
+                }}
               >
                 {f.label}
               </OptionButton>
             ))}
           </OptionGroup>
 
-          <OptionGroup label={t("offers.frameColor")}>
-            {(availableColors.length ? availableColors : FRAME_COLORS).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setColor(c.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
-                  color === c.id
-                    ? "border-primary bg-accent"
-                    : "border-border hover:border-muted-foreground",
-                )}
-              >
-                <span
-                  className="h-5 w-5 rounded-full border border-border"
-                  style={{ backgroundColor: c.swatch }}
-                />
-                {c.label}
-              </button>
-            ))}
-          </OptionGroup>
+          {frameType !== "wood" && (
+            <OptionGroup label={t("offers.frameColor")}>
+              {availableColors.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setColor(c.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
+                    effectiveColor === c.id
+                      ? "border-primary bg-accent"
+                      : "border-border hover:border-muted-foreground",
+                  )}
+                >
+                  <span
+                    className="h-5 w-5 rounded-full border border-border"
+                    style={{ backgroundColor: c.swatch }}
+                  />
+                  {c.label}
+                </button>
+              ))}
+            </OptionGroup>
+          )}
 
           <div className="mt-6 grid grid-cols-2 gap-2">
             <button

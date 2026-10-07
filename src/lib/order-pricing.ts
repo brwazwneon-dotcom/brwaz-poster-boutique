@@ -20,6 +20,7 @@
  * largest-remainder allocation, so line values always add up exactly.
  */
 import type { CartItem } from "./cart";
+import { isValidFrameCombo } from "./poster-options";
 import { computeShipping, priceForFrame, type Pricing, type SiteSettings } from "./use-settings";
 
 export const AUTO_OFFER_SETS = [
@@ -282,6 +283,8 @@ export function validateCheckoutLines(totals: CheckoutTotals): CheckoutIssue[] {
     if (!Number.isInteger(i.qty) || i.qty < 1) add("bad_quantity", "Invalid quantity");
     if (!Number.isFinite(l.unit) || l.unit <= 0) add("bad_price", "Missing or non-positive price");
     if (!i.frameType || !i.size || !i.color) add("missing_frame", "Missing frame type/size/color");
+    if (i.frameType && i.size && i.color && !isValidFrameCombo(i.frameType, i.size, i.color))
+      add("bad_combo", "Frame type, size and colour do not form an orderable combination");
     if (!i.title) add("missing_title", "Missing item title");
     if (!i.image && !i.customImagePath && !i.bundle) add("missing_image", "Missing image");
     if (i.customImagePath && i.customImagePath.startsWith("blob:"))

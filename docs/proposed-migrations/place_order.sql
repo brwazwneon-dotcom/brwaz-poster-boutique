@@ -115,8 +115,10 @@ BEGIN
     l_qty    := l_qty || (it->>'qty')::int;
     l_bundle := l_bundle || (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object');
     l_custom := l_custom || (COALESCE(it->>'custom_image_path','') <> '');
-    IF COALESCE(it->>'color','') NOT IN ('black','white','wood') THEN
-      RAISE EXCEPTION 'invalid frame colour on line %', i USING ERRCODE = '22023';
+    -- PVC: black/white only. Wooden Portrait: no colour ("wood" is the internal no-colour marker).
+    IF NOT ((l_frame[i] = 'wood' AND it->>'color' = 'wood')
+         OR (l_frame[i] = 'pvc' AND it->>'color' IN ('black','white'))) THEN
+      RAISE EXCEPTION 'invalid frame/colour combination on line %', i USING ERRCODE = '22023';
     END IF;
     IF COALESCE(it->>'title','') = '' THEN RAISE EXCEPTION 'missing title on line %', i USING ERRCODE = '22023'; END IF;
     IF COALESCE(it->>'custom_image_path','') LIKE 'blob:%' OR COALESCE(it->>'image','') LIKE 'blob:%' THEN

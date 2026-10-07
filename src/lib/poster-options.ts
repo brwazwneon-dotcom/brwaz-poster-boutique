@@ -58,3 +58,36 @@ export const labelForFrame = (id: FrameTypeId) => FRAME_TYPES.find((f) => f.id =
 export const labelForSize = (id: SizeId) => SIZES.find((s) => s.id === id)?.label ?? id;
 export const labelForColor = (id: FrameColorId) =>
   FRAME_COLORS.find((c) => c.id === id)?.label ?? id;
+
+/**
+ * Colour rule (confirmed with the shop owner):
+ *  - High Quality PVC → black or white only.
+ *  - Wooden Portrait  → a wood board with NO frame and NO colour choice. The id
+ *    "wood" is kept internally as the "no colour" marker (older orders carry it).
+ * Every place that lets the customer change frame type or colour must go through
+ * these helpers so "Wooden + Black" and "PVC + Wood" can never be created.
+ */
+export function allowedColors(frameType: FrameTypeId): readonly FrameColorId[] {
+  return frameType === "wood" ? (["wood"] as const) : (["black", "white"] as const);
+}
+
+export function normalizeFrameColor(frameType: FrameTypeId, color: FrameColorId): FrameColorId {
+  if (frameType === "wood") return "wood";
+  return color === "white" ? "white" : "black";
+}
+
+export function isValidFrameCombo(frameType: FrameTypeId, size: SizeId, color: FrameColorId) {
+  return sizesForFrame(frameType).includes(size) && allowedColors(frameType).includes(color);
+}
+
+/** Snap any (frame type, size, colour) to a combination that can really be ordered. */
+export function normalizeFrameCombo<
+  T extends { frameType: FrameTypeId; size: SizeId; color: FrameColorId },
+>(c: T): T {
+  const allowed = sizesForFrame(c.frameType);
+  return {
+    ...c,
+    size: allowed.includes(c.size) ? c.size : allowed[0],
+    color: normalizeFrameColor(c.frameType, c.color),
+  };
+}

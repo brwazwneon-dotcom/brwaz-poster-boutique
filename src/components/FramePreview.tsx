@@ -17,9 +17,10 @@ import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { registerGridNode, unregisterGridNode } from "@/hooks/use-grid-observer";
 
 export function pickMockupKey(frameType: FrameTypeId, color: FrameColorId): keyof FrameMockups {
-  if (frameType === "wood" || color === "wood") return "wood";
-  if (color === "white") return "white";
-  return "black";
+  // Wooden Portrait is the wood board; PVC is only ever black or white (a stale
+  // "wood" colour on a PVC item must not switch it to the wooden mockup).
+  if (frameType === "wood") return "wood";
+  return color === "white" ? "white" : "black";
 }
 
 type Props = {

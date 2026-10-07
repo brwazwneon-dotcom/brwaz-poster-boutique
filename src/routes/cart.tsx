@@ -13,17 +13,7 @@ import {
   unitPriceFor,
   validateCheckoutLines,
 } from "@/lib/order-pricing";
-import {
-  labelForColor,
-  labelForFrame,
-  labelForSize,
-  FRAME_TYPES,
-  FRAME_COLORS,
-  sizesForFrame,
-  type FrameTypeId,
-  type SizeId,
-  type FrameColorId,
-} from "@/lib/poster-options";
+import { labelForColor, normalizeFrameColor, labelForFrame, labelForSize, FRAME_TYPES, FRAME_COLORS, sizesForFrame, type FrameTypeId, type SizeId, type FrameColorId } from "@/lib/poster-options";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2, Plus, Minus, Upload, X, FileText } from "lucide-react";
 import {
@@ -240,7 +230,14 @@ function CartPage() {
   // after the item was added), so every line is re-priced from the current
   // admin pricing before anything is displayed or submitted.
   const items = useMemo(
-    () => storedItems.map((i) => ({ ...i, price: unitPriceFor(i, pricing) })),
+    () =>
+      storedItems.map((i) => ({
+        ...i,
+        // carts saved before the colour rule (or edited in the browser) may hold
+        // "Wooden + Black" / "PVC + Wood": snap them to a real combination
+        color: normalizeFrameColor(i.frameType, i.color),
+        price: unitPriceFor(i, pricing),
+      })),
     [storedItems, pricing],
   );
   // One calculation feeds the cart UI, the Meta events and the order rows.
@@ -1094,6 +1091,7 @@ navigate({ to: "/order-confirmed", replace: true });
                                 update(i.id, {
                                   frameType,
                                   size,
+                                  color: normalizeFrameColor(frameType, i.color),
                                   price: priceForFrame(pricing, frameType, size) || i.price,
                                 });
                               }}
@@ -1128,26 +1126,34 @@ navigate({ to: "/order-confirmed", replace: true });
                               ))}
                             </select>
                           </label>
-                          <label className="flex flex-col gap-0.5">
-                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
-                              {t("product.frameColor")}
-                            </span>
-                            <select
-                              value={i.color}
-                              onChange={(e) =>
-                                update(i.id, { color: e.target.value as FrameColorId })
-                              }
-                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                            >
-                              {FRAME_COLORS.filter((c) => c.id === "black" || c.id === "white").map(
-                                (c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.label}
-                                  </option>
-                                ),
-                              )}
-                            </select>
-                          </label>
+                          {/* Wooden Portrait is a board with no frame colour */}
+                          {i.frameType !== "wood" && (
+                            <label className="flex flex-col gap-0.5">
+                              <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                                {t("product.frameColor")}
+                              </span>
+                              <select
+                                value={i.color}
+                                onChange={(e) =>
+                                  update(i.id, {
+                                    color: normalizeFrameColor(
+                                      i.frameType,
+                                      e.target.value as FrameColorId,
+                                    ),
+                                  })
+                                }
+                                className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+                              >
+                                {FRAME_COLORS.filter((c) => c.id === "black" || c.id === "white").map(
+                                  (c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </label>
+                          )}
                         </div>
                       )}
                       {i.bundle && (
