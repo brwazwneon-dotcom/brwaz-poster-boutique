@@ -90,9 +90,13 @@ async function makeBitmap(w: number, h: number, hue: number) {
       host.style.zoom = "0.3"; // keep several frames on screen; ratios are unaffected
       root.appendChild(host);
       createRoot(host).render(
-        createElement(FramedOrderImage, { entry: { ...f, title: `t${i}` }, src: dataUrl }),
+        createElement(
+          QueryClientProvider,
+          { client: new QueryClient() },
+          createElement(FramedOrderImage, { entry: { ...f, title: `t${i}` }, src: dataUrl }),
+        ),
       );
     });
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1500));
   },
 };
