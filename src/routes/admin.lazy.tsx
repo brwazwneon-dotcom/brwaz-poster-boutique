@@ -3,6 +3,16 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { PreviewAsClient } from "@/components/admin/PreviewAsClient";
 import { TestModeControls } from "@/components/admin/TestModeControls";
 import { OrderDetailsExtras } from "@/components/admin/OrderDetailsExtras";
+import {
+  EntryActions,
+  EntryThumb,
+  OrderImagePreviewModal,
+  useOrderImageEntries,
+  type OrderImageEntry,
+  type OrderRowLite,
+} from "@/components/admin/OrderImages";
+import { OrderInvoiceControls } from "@/components/admin/OrderInvoiceControls";
+import { countsAsRevenue, parseItemNotes } from "@/lib/order-pricing";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -3471,7 +3481,8 @@ function OrdersTab() {
 
   const stats = {
     total: groups.length,
-    revenue: groups.reduce((s, g) => s + g.total, 0),
+    // Cancelled and test orders are not revenue.
+    revenue: groups.reduce((s, g) => (countsAsRevenue(g) ? s + g.total : s), 0),
     newCount: groups.filter((g) => g.status === "new").length,
     processing: groups.filter((g) => g.status === "confirmed" || g.status === "processing").length,
     delivered: groups.filter((g) => g.status === "delivered").length,
@@ -3844,17 +3855,11 @@ function OrderDetailsModal({
   const qc = useQueryClient();
   const message = useMemo(() => buildWhatsAppMessage(g), [g]);
   const waHref = waLinkFor(g.phone, message);
-  const rawNote = (g.items[0] as OrderRowRaw).notes;
-  const customerNotes = (() => {
-    if (!rawNote) return null;
-    try {
-      const m = JSON.parse(rawNote);
-      if (m.originalFilename) return null;
-    } catch {
-      // Notes can be plain text from older orders.
-    }
-    return rawNote;
-  })();
+  // Plain-text customer note only (JSON notes carry image metadata + the
+  // pricing snapshot and are rendered per item instead).
+  const customerNotes = parseItemNotes((g.items[0] as OrderRowRaw).notes).text;
+  const imageEntries = useOrderImageEntries(g.items as unknown as OrderRowLite[]);
+  const [previewAt, setPreviewAt] = useState<number | null>(null);
 
   const copyMessage = async () => {
     try {
@@ -3980,7 +3985,13 @@ function OrderDetailsModal({
             </div>
             <div className="grid gap-3">
               {g.items.map((it, idx) => (
-                <ItemCard key={it.id} item={it as OrderRowRaw} index={idx + 1} />
+                <ItemCard
+                  key={it.id}
+                  item={it as OrderRowRaw}
+                  index={idx + 1}
+                  entries={imageEntries.filter((e) => e.rowId === it.id)}
+                  onPreview={(entry) => setPreviewAt(imageEntries.indexOf(entry))}
+                />
               ))}
             </div>
           </div>
@@ -3997,6 +4008,23 @@ function OrderDetailsModal({
               <TotalCell label="Total" value={`${Math.round(g.total)} EGP`} emphasize />
             </div>
           </div>
+
+          <OrderInvoiceControls
+            group={{
+              primaryNumber: g.primaryNumber,
+              created_at: g.created_at,
+              customer_name: g.customer_name,
+              phone: g.phone,
+              governorate: g.governorate,
+              address: g.address,
+              status: g.status,
+              payment_method: g.payment_method,
+              payment_status: g.payment_status,
+              is_test: g.is_test,
+              items: g.items as unknown as import("@/lib/order-invoice").InvoiceRow[],
+            }}
+            entries={imageEntries}
+          />
 
           {/* Payment screenshot (only for instapay orders) */}
           {g.items[0].payment_method === "instapay" && (
@@ -4074,6 +4102,13 @@ function OrderDetailsModal({
           <OrderDetailsExtras g={g} />
         </div>
       </div>
+      {previewAt != null && imageEntries.length > 0 && (
+        <OrderImagePreviewModal
+          entries={imageEntries}
+          startIndex={previewAt}
+          onClose={() => setPreviewAt(null)}
+        />
+      )}
     </div>
   );
 }
@@ -4095,176 +4130,48 @@ function TotalCell({
   );
 }
 
-function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
-  const [zoom, setZoom] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
-  const [resolvedUrl, setResolvedUrl] = useState<string>("");
-
-  // Resolve a poster_image value to a valid signed URL.
-  // The value should be a permanent storage path (e.g. "uuid/filename.webp").
-  const resolveImageUrl = async (val: string): Promise<string> => {
-    if (!val) return "";
-    // Already a valid HTTP URL — return as-is (pre-signed URL from posters table)
-    if (val.startsWith("http://") || val.startsWith("https://")) return val;
-    // Storage path with folder (e.g. "uuid/filename.webp") — sign it directly
-    if (val.includes("/")) {
-      try {
-        return await signStoragePathFromUrl("custom-designs", val);
-      } catch {
-        try {
-          return await signStoragePathFromUrl("posters", val);
-        } catch {
-          return "";
-        }
-      }
-    }
-    // Legacy: bare filename or blob URL — should not happen after backfill.
-    // Minimal fallback: try signing as custom-designs path.
-    console.warn(
-      "[image-resolve] Unexpected poster_image value (expected storage path):",
-      val,
-      "Order:", item.order_number ?? item.id
-    );
-    try {
-      return await signStoragePathFromUrl("custom-designs", val);
-    } catch {
-      return "";
-    }
-  };
-
-  const download = async () => {
-    const url = resolvedUrl || (await resolveImageUrl(item.poster_image));
-    if (!url) return;
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `${item.order_number ?? item.id.slice(0, 8)}-${(item.poster_title ?? "poster").replace(/\W+/g, "-")}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(url, "_blank");
-    }
-  };
-
-  useEffect(() => {
-    const fetchImages = async () => {
-      const resolveImageUrls = async (vals: string[]): Promise<string[]> => {
-        return (await Promise.all(vals.map(resolveImageUrl))).filter(Boolean);
-      };
-
-      // First try to fetch from order_posters (new format for bundles)
-      if (item.id) {
-        try {
-          const { data, error } = await supabase
-            .from("order_posters")
-            .select("poster_image")
-            .eq("order_id", item.id)
-            .order("position", { ascending: true });
-          if (error) throw error;
-          const rawUrls = (data ?? [])
-            .map((r) => r.poster_image)
-            .filter(Boolean);
-          if (rawUrls.length > 0) {
-            const resolved = await resolveImageUrls(rawUrls);
-            setImages(resolved);
-            return;
-          }
-        } catch (e) {
-          console.error("Failed to fetch order_posters:", e);
-        }
-      }
-
-      // Fallback: resolve item.poster_image
-      if (!item.poster_image) {
-        setImages([]);
-        return;
-      }
-      const resolved = await resolveImageUrl(item.poster_image);
-      if (resolved) {
-        setImages([resolved]);
-        return;
-      }
-      setImages([]);
-    };
-    fetchImages();
-  }, [item.id, item.selected_poster, item.poster_image]);
-
-  useEffect(() => {
-    if (images.length > 0) {
-      setResolvedUrl(images[0]);
-    }
-  }, [images]);
-
+function ItemCard({
+  item,
+  index,
+  entries,
+  onPreview,
+}: {
+  item: OrderRowRaw;
+  index: number;
+  entries: OrderImageEntry[];
+  onPreview: (entry: OrderImageEntry) => void;
+}) {
+  // Everything shown here comes from the order row itself (snapshot taken at
+  // checkout) — never from the live product/pricing tables.
+  const parsed = parseItemNotes(item.notes);
+  const unit = parsed.pricing?.unit_price ?? null;
   return (
-    <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[140px_1fr]">
-      <div className="relative">
-        <div className="flex flex-col h-full">
-          {resolvedUrl || item.poster_image ? (
-            <div>
-              {/* Main image preview */}
+    <div className="grid gap-4 rounded-sm border border-border bg-background p-3 sm:grid-cols-[160px_1fr]">
+      <div className="space-y-3">
+        {entries.length > 0 ? (
+          entries.map((entry) => (
+            <div key={entry.key}>
               <button
                 type="button"
-                onClick={() => setZoom(true)}
-                className="block w-full overflow-hidden rounded-sm bg-muted flex-shrink-0"
+                onClick={() => onPreview(entry)}
+                className="block w-full overflow-hidden rounded-sm bg-muted"
+                aria-label={`Preview ${entry.title}`}
               >
-                <SafeImage
-                  src={resolvedUrl}
-                  alt={item.poster_title ?? "Item"}
-                  className="aspect-[2/3] w-full object-cover"
-                />
+                <EntryThumb entry={entry} className="aspect-[2/3]" />
               </button>
-              {/* Thumbnails of additional images from poster_images table */}
-              {images.length > 1 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {images.map((imgUrl, i) => {
-                    const isFirst = i === 0;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setZoom(true)}
-                        className={cn(
-                          "flex-1 rounded-sm border border-border bg-muted flex-shrink-0",
-                          isFirst ? "border-primary" : "border-transparent",
-                          "hover:border-border"
-                        )}
-                      >
-                        <SafeImage
-                          src={imgUrl}
-                          alt={`Item ${index} image ${i + 1}`}
-                          className="aspect-[2/3] w-full object-cover"
-                        />
-                      </button>
-                    );
-                  })}
+              {entries.length > 1 && (
+                <div className="mt-1 truncate text-[10px] text-muted-foreground" title={entry.title}>
+                  {entry.title}
                 </div>
               )}
+              <EntryActions entry={entry} onPreview={() => onPreview(entry)} className="mt-1.5" />
             </div>
-          ) : (
-            <div className="flex aspect-[2/3] w-full items-center justify-center rounded-sm bg-muted text-[10px] uppercase text-muted-foreground">
-              No image
-            </div>
-          )}
-        </div>
-        <div className="mt-2 flex gap-1">
-          <button
-            onClick={() => setZoom(true)}
-            className="flex-1 rounded-sm border border-border py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
-          >
-            <Eye className="mx-auto h-3 w-3" />
-          </button>
-          <button
-            onClick={download}
-            className="flex-1 rounded-sm border border-border py-1.5 text-[10px] uppercase tracking-widest hover:bg-accent"
-          >
-            <Download className="mx-auto h-3 w-3" />
-          </button>
-        </div>
+          ))
+        ) : (
+          <div className="flex aspect-[2/3] w-full items-center justify-center rounded-sm bg-muted text-[10px] uppercase text-muted-foreground">
+            No image
+          </div>
+        )}
       </div>
 
       <div className="min-w-0">
@@ -4290,75 +4197,61 @@ function ItemCard({ item, index }: { item: OrderRowRaw; index: number }) {
           <Spec label="Frame color" value={item.frame_color} />
           <Spec label="Size" value={item.size} />
           <Spec label="Quantity" value={`× ${item.quantity}`} />
-          {item.subtotal ? (
-            <Spec label="Unit / subtotal" value={`${Math.round(Number(item.subtotal))} EGP`} />
+          {unit != null ? (
+            <Spec label="Unit price" value={`${Math.round(unit * 100) / 100} EGP`} />
+          ) : item.subtotal ? (
+            <Spec label="Line subtotal" value={`${Math.round(Number(item.subtotal))} EGP`} />
+          ) : null}
+          {parsed.pricing && parsed.pricing.discount > 0 ? (
+            <Spec label="Offer discount" value={`− ${parsed.pricing.discount} EGP`} />
           ) : null}
           <Spec label="Ref" value={item.order_number ?? item.id.slice(0, 8)} />
         </div>
-        {item.notes &&
-          (() => {
-            try {
-              const meta = JSON.parse(item.notes);
-              if (meta.originalFilename) {
-                const fmt = (b: number) =>
-                  b < 1024
-                    ? `${b} B`
-                    : b < 1048576
-                      ? `${(b / 1024).toFixed(1)} KB`
-                      : `${(b / 1048576).toFixed(1)} MB`;
-                const dim =
-                  meta.originalWidth && meta.originalHeight
-                    ? `${meta.originalWidth} × ${meta.originalHeight} px`
-                    : null;
-                return (
-                  <div className="mt-3 space-y-1 rounded-sm border border-border bg-accent/20 p-2 text-xs">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Original file
-                    </div>
-                    <div className="truncate font-medium" title={meta.originalFilename}>
-                      {meta.originalFilename}
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
-                      {dim && <span>{dim}</span>}
-                      <span>{fmt(meta.originalFileSize)}</span>
-                      <span className="uppercase">{meta.originalMimeType}</span>
-                    </div>
-                  </div>
-                );
-              }
-            } catch {
-              // Item notes can be plain text from older orders.
-            }
-            return (
-              <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Item note
-                </div>
-                <div className="mt-0.5">{item.notes}</div>
+        {parsed.meta && typeof parsed.meta.originalFilename === "string" && (() => {
+          const meta = parsed.meta as {
+            originalFilename: string;
+            originalWidth?: number;
+            originalHeight?: number;
+            originalFileSize?: number;
+            originalMimeType?: string;
+          };
+          const fmt = (b: number) =>
+            b < 1024
+              ? `${b} B`
+              : b < 1048576
+                ? `${(b / 1024).toFixed(1)} KB`
+                : `${(b / 1048576).toFixed(1)} MB`;
+          const dim =
+            meta.originalWidth && meta.originalHeight
+              ? `${meta.originalWidth} × ${meta.originalHeight} px`
+              : null;
+          return (
+            <div className="mt-3 space-y-1 rounded-sm border border-border bg-accent/20 p-2 text-xs">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Original file (customer upload)
               </div>
-            );
-          })()}
+              <div className="truncate font-medium" title={meta.originalFilename}>
+                {meta.originalFilename}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                {dim && <span>{dim}</span>}
+                {meta.originalFileSize ? <span>{fmt(meta.originalFileSize)}</span> : null}
+                {meta.originalMimeType ? (
+                  <span className="uppercase">{meta.originalMimeType}</span>
+                ) : null}
+              </div>
+            </div>
+          );
+        })()}
+        {parsed.text && (
+          <div className="mt-3 rounded-sm border border-border bg-muted/40 p-2 text-xs">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Item note
+            </div>
+            <div className="mt-0.5">{parsed.text}</div>
+          </div>
+        )}
       </div>
-
-      {zoom && resolvedUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setZoom(false)}
-        >
-          <img
-            src={resolvedUrl}
-            alt={item.poster_title ?? ""}
-            className="max-h-full max-w-full object-contain"
-          />
-          <button
-            onClick={() => setZoom(false)}
-            className="absolute right-4 top-4 rounded-sm border border-border bg-card/90 p-2 text-foreground hover:bg-card"
-            aria-label="Close preview"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -7360,6 +7253,7 @@ function ExportsTab() {
     packaging_fee?: number | null;
     total_price?: number | null;
     status: string;
+    is_test?: boolean | null;
   };
   type RawVisit = {
     visitor_id: string;
@@ -7394,7 +7288,7 @@ function ExportsTab() {
   }
 
   async function loadCustomerRows() {
-    const orders = await fetchAll<RawOrder>("orders");
+    const orders = (await fetchAll<RawOrder>("orders")).filter(countsAsRevenue);
     const map = new Map<
       string,
       {
@@ -7481,7 +7375,7 @@ function ExportsTab() {
   }
 
   async function loadRevenueRows() {
-    const orders = await fetchAll<RawOrder>("orders");
+    const orders = (await fetchAll<RawOrder>("orders")).filter(countsAsRevenue);
     const byDay = new Map<
       string,
       { orders: number; revenue: number; shipping: number; packaging: number }
