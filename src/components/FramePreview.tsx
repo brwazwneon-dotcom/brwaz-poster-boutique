@@ -2,7 +2,17 @@ import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
-import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import {
+  MOCKUP_DEFAULTS,
+  useFrameMockups,
+  type FrameMockup,
+  type FrameMockups,
+} from "@/lib/use-settings";
+import {
+  MOCKUP_ASSET_GEOMETRY,
+  mockupStageWidthCss,
+  posterRectPct,
+} from "@/lib/frame-mockup-geometry";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { registerGridNode, unregisterGridNode } from "@/hooks/use-grid-observer";
 
@@ -55,6 +65,10 @@ export const FramePreview = memo(function FramePreview({
   const [showLoading, setShowLoading] = useState(true);
   const hasPoster = !!posterUrl;
   const useMockup = !bare && !!m.image;
+  // The bundled mockup images have measured geometry (frame-mockup-geometry.ts);
+  // an admin-uploaded custom mockup keeps using the admin's own opening numbers.
+  const geo =
+    useMockup && m.image === MOCKUP_DEFAULTS[key].image ? MOCKUP_ASSET_GEOMETRY[key] : null;
   const allLoaded = (artwork ? true : posterLoaded) && (!useMockup || mockupLoaded);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +105,126 @@ export const FramePreview = memo(function FramePreview({
   const rotateY = m.rotateY ?? 0;
   const perspective = Math.max(200, m.perspective ?? 1000);
   const borderRadius = `${m.borderRadius ?? 0}%`;
+
+  if (geo) {
+    const rect = posterRectPct(geo);
+    return (
+      <div
+        ref={rootRef}
+        className={cn(
+          "relative isolate w-full overflow-hidden drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]",
+          aspectClassName,
+          className,
+        )}
+        style={{ backgroundColor: "transparent", containerType: "size" }}
+        title={title}
+      >
+        {/* Stage = the mockup image at its own aspect ratio. Everything inside is
+            positioned in % of the image, so the poster/frame relationship can
+            never change with the box size or breakpoint. */}
+        <div
+          data-testid="frame-stage"
+          data-mockup={key}
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: mockupStageWidthCss(geo),
+            aspectRatio: `${geo.width} / ${geo.height}`,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <div
+            className="frame-opening"
+            data-testid="frame-poster-layer"
+            style={{
+              position: "absolute",
+              zIndex: 0,
+              overflow: "hidden",
+              lineHeight: 0,
+              left: `${rect.left}%`,
+              top: `${rect.top}%`,
+              width: `${rect.width}%`,
+              height: `${rect.height}%`,
+            }}
+          >
+            {artwork ? (
+              <div className="absolute inset-0 overflow-hidden leading-none [&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
+                {artwork}
+              </div>
+            ) : (
+              <SafeImage
+                src={posterUrl}
+                avifSrcSet={avifSrcSet}
+                webpSrcSet={webpSrcSet}
+                sizes={sizes}
+                alt={title ?? ""}
+                loading={loading}
+                fetchPriority={fetchPriority}
+                className="frame-artwork relative z-[1] block h-full w-full select-none object-cover object-center"
+                draggable={false}
+                fallbackSrc={posterFallbackUrl}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  maxWidth: "none",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  transform: "none",
+                  scale: "1",
+                  backfaceVisibility: "hidden",
+                }}
+                onLoad={() => {
+                  if (posterUrl) setPosterLoaded(true);
+                }}
+              />
+            )}
+            {!artwork && !posterLoaded && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-[3] animate-pulse"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+              />
+            )}
+          </div>
+          {/* Inline sizing: the global `img { height: auto }` reset is unlayered and
+              would otherwise beat the h-full utility and shrink the frame art. */}
+          <img
+            src={m.image}
+            alt=""
+            loading={loading}
+            decoding="async"
+            aria-hidden="true"
+            className="pointer-events-none select-none"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 10,
+              width: "100%",
+              height: "100%",
+              maxWidth: "none",
+              objectFit: "fill",
+            }}
+            draggable={false}
+            onLoad={() => setMockupLoaded(true)}
+            onError={() => setMockupLoaded(true)}
+          />
+        </div>
+
+        {!artwork && showLoading && !allLoaded && (
+          <div className="pointer-events-none absolute inset-0 z-[30] flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+            <div className="flex flex-col items-center gap-2 rounded-md bg-card/90 px-4 py-3 shadow-lg ring-1 ring-border">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Loading
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -148,7 +282,9 @@ export const FramePreview = memo(function FramePreview({
               scale: "1",
               backfaceVisibility: "hidden",
             }}
-            onLoad={() => { if (posterUrl) setPosterLoaded(true); }}
+            onLoad={() => {
+              if (posterUrl) setPosterLoaded(true);
+            }}
           />
         )}
         {!artwork && !posterLoaded && (
@@ -183,6 +319,7 @@ export const FramePreview = memo(function FramePreview({
           decoding="async"
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-fill select-none"
+          style={{ width: "100%", height: "100%", maxWidth: "none" }}
           draggable={false}
           onLoad={() => setMockupLoaded(true)}
           onError={() => setMockupLoaded(true)}
