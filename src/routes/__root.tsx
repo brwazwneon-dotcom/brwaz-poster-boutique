@@ -32,6 +32,7 @@ import { AppPreloader } from "@/components/AppPreloader";
 import { FloatingActions } from "@/components/FloatingActions";
 import { MobileBottomNav } from "@/components/v2/MobileBottomNav";
 import { ThemeBoot } from "@/components/ThemeBoot";
+import { LanguageBoot } from "@/components/LanguageBoot";
 import { ThemePreviewBanner } from "@/components/ThemePreviewBanner";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 
@@ -307,6 +308,7 @@ function RootComponent() {
               <IdleBoots />
               <TikTokPixelBoot currentPage={locationHref} />
               <PreviewBadge />
+              <LanguageBoot />
               <ThemeBoot />
               <ThemePreviewBanner />
               <SocialProofGated isAdmin={isAdmin} />

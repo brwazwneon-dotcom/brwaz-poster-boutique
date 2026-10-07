@@ -67,6 +67,12 @@ Ran the repo's real `search_posters` v1 and the proposed v2 side by side. The te
 ## Slice 10: order protection SQL written and tested (scratch PostgreSQL)
 Found from the repo's own migrations: anonymous visitors can currently insert an order with `total_price = 0` and `payment_status = 'verified'`. `02_orders_idempotency_and_price_check.sql` is now a real BEFORE INSERT guard (exempts admin/service_role; blocks forged payment state, inconsistent totals, absurd quantities, and prices below a configurable % of list). Ships in `log` mode first. 13-case test table in `order_guard_test_results.md`; testing found and fixed two bugs in my draft (SECURITY DEFINER hid the caller role; array concat error). Not applied anywhere. It is a floor/consistency check, not full server-side pricing.
 
+## Slice 11: Arabic hydration (React #418) — root cause fixed, measured
+- **Root cause (found with the dev build's full message):** the server always renders English (even with `Accept-Language: ar`; `<html lang="en">`), while the client's language detector picked Arabic *before* hydrating. For every Arabic visitor the first client render differed from the server HTML, so React discarded the server DOM and rebuilt the page (wasted SSR + slower first paint).
+- **Fix:** `lib/i18n.ts` no longer detects at init; it renders the first pass in the server's language, then `LanguageBoot` applies the visitor's language right after hydration (same order as before: stored `brw_preferred_lang` → browser language → `ar`; unsupported → `ar`; choice cached in localStorage as the old detector did).
+- **Measured** (Playwright, tagging the server-rendered `<main>`/`<header>` nodes, locale `ar`): baseline `main` → both nodes replaced (page rebuilt); this branch → both preserved. English unchanged. Language/persistence verified for ar/en/stored combinations and `fr` → ar.
+- **Residual:** one text mismatch can still be logged for Arabic visitors inside a lazily-hydrating Suspense boundary (hero "Shop Now") when the language switches before that boundary has hydrated; it only regenerates that boundary, not the page. A full fix needs the server to render the visitor's language (cookie/Accept-Language per request), a larger change.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
