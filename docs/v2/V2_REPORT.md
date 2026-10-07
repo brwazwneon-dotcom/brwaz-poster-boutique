@@ -67,11 +67,26 @@ Ran the repo's real `search_posters` v1 and the proposed v2 side by side. The te
 ## Slice 10: order protection SQL written and tested (scratch PostgreSQL)
 Found from the repo's own migrations: anonymous visitors can currently insert an order with `total_price = 0` and `payment_status = 'verified'`. `02_orders_idempotency_and_price_check.sql` is now a real BEFORE INSERT guard (exempts admin/service_role; blocks forged payment state, inconsistent totals, absurd quantities, and prices below a configurable % of list). Ships in `log` mode first. 13-case test table in `order_guard_test_results.md`; testing found and fixed two bugs in my draft (SECURITY DEFINER hid the caller role; array concat error). Not applied anywhere. It is a floor/consistency check, not full server-side pricing.
 
-## Slice 11: Arabic hydration (React #418) — root cause fixed, measured
-- **Root cause (found with the dev build's full message):** the server always renders English (even with `Accept-Language: ar`; `<html lang="en">`), while the client's language detector picked Arabic *before* hydrating. For every Arabic visitor the first client render differed from the server HTML, so React discarded the server DOM and rebuilt the page (wasted SSR + slower first paint).
-- **Fix:** `lib/i18n.ts` no longer detects at init; it renders the first pass in the server's language, then `LanguageBoot` applies the visitor's language right after hydration (same order as before: stored `brw_preferred_lang` → browser language → `ar`; unsupported → `ar`; choice cached in localStorage as the old detector did).
-- **Measured** (Playwright, tagging the server-rendered `<main>`/`<header>` nodes, locale `ar`): baseline `main` → both nodes replaced (page rebuilt); this branch → both preserved. English unchanged. Language/persistence verified for ar/en/stored combinations and `fr` → ar.
-- **Residual:** one text mismatch can still be logged for Arabic visitors inside a lazily-hydrating Suspense boundary (hero "Shop Now") when the language switches before that boundary has hydrated; it only regenerates that boundary, not the page. A full fix needs the server to render the visitor's language (cookie/Accept-Language per request), a larger change.
+## Slice 11: Arabic hydration + language SSR — root cause fixed, measured
+- **Root cause:** the server always rendered English (`<html lang="en">`) even for `Accept-Language: ar`, while the client's detector picked Arabic before hydrating. For every Arabic visitor the first client render differed from the server HTML, so React discarded the server DOM and rebuilt the page (React #418).
+- **Fix (two layers):** (1) the server now chooses the language per request — cookie `brw_lang`, else `Accept-Language` (first supported tag; none supported → `ar`; no header at all → `en`, so crawlers/bots see the same HTML as before) — via a root loader (`lib/request-lang.ts`), and renders with a per-request i18n instance; (2) the client starts in the server's language by reading `<html lang>`, then `LanguageBoot` reconciles with the visitor's saved preference (localStorage) and writes the cookie, so only a visitor with an old localStorage preference and no cookie sees one transition, on the first visit. A manual language switch persists to cookie + localStorage.
+- **Measured** (Playwright, Pixel-like 390px, 4× CPU throttle, mock backend, `main` vs this branch):
+  - Arabic visitor (`Accept-Language: ar`): hydration errors 1 → **0**; server `<main>`/`<header>` DOM preserved (baseline: replaced); CLS 0.142 (first attempt, language switched after hydration) → **0.004**.
+  - Visits 2 and 3 of a visitor with an old localStorage preference: 0 hydration errors; language toggle updates html lang/dir, cookie and localStorage; reload keeps the choice.
+  - English visitors unchanged.
+- Note on the metric: the baseline's low Arabic CLS (0.003) was an artifact of React replacing nodes; field CLS would have shown the language flip. Server-side language removes the flip itself.
+- 5 unit tests for `resolveRequestLang`.
+
+## Slice 12: performance BEFORE / AFTER (local, mock backend, 4× CPU throttle, 390px, median of 5–7 runs; indicative, not Lighthouse)
+| | main (before) | this branch (after) |
+|---|---|---|
+| LCP (hero image) | 796–816 ms | 708–772 ms (not slower; earlier +40–70 ms readings were noise/order of sections, rechecked with 7 runs and long-task data) |
+| FCP | ~724 ms | ~676 ms |
+| CLS, English | 0.001–0.006 | 0.001–0.004 |
+| CLS, Arabic | 0.003 | 0.004 (after server-side language) |
+| CSS (raw, home) | 31.3 KB | 33.1 KB (+1.8 KB: V2 theme) |
+| JS requested on home (raw) | ~343–357 KB / 62 files | ~350–362 KB / 66–67 files (+~2–5%: V2 section chunks; entry chunk +0.6% gz) |
+Not measured: real Lighthouse, real network/CDN, real data. Re-run on a Vercel preview before any release.
 
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.

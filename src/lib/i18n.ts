@@ -5,11 +5,13 @@ import ar from "./locales/ar.json";
 
 const SUPPORTED_LANGS = ["ar", "en"];
 
-// The server always renders with SERVER_LANG. The client must render its FIRST pass with the same
-// language, otherwise React throws a hydration mismatch (#418) and discards the server HTML for every
-// visitor whose preferred language differs. The real preference is applied right after hydration
-// (see `applyPreferredLanguage`, called from LanguageBoot).
-const SERVER_LANG = "en";
+// The server picks the language per request (cookie / Accept-Language, see request-lang.ts) and writes it
+// to <html lang>. The client must render its FIRST pass in that same language, otherwise React throws a
+// hydration mismatch (#418) and discards the server HTML. We read it back from <html lang>. If the visitor's
+// own preference differs (e.g. localStorage from before the cookie existed), `applyPreferredLanguage`
+// (LanguageBoot) reconciles right after hydration and writes the cookie so the next visit is clean.
+const SERVER_LANG: "ar" | "en" =
+  typeof document !== "undefined" && document.documentElement.lang === "ar" ? "ar" : "en";
 const STORAGE_KEY = "brw_preferred_lang";
 
 i18n.use(initReactI18next).init({
@@ -53,16 +55,32 @@ function persistLanguage(lang: string) {
   } catch {
     /* storage unavailable */
   }
+  try {
+    document.cookie = `brw_lang=${lang}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  } catch {
+    /* cookies unavailable */
+  }
 }
 i18n.on("languageChanged", (lang) => {
   if (persistEnabled && typeof window !== "undefined") persistLanguage(lang);
 });
 
+// Resolves once the visitor's language has been applied. UI that would visibly reorder/relabel on the
+// language switch (e.g. the fixed mobile nav, which flips in RTL) waits for it so it never causes a layout shift.
+let markLanguageReady: () => void = () => {};
+export const languageReady: Promise<void> = new Promise((resolve) => {
+  markLanguageReady = resolve;
+});
+
 export function applyPreferredLanguage() {
   const lang = detectPreferredLanguage();
   persistEnabled = true;
-  if (i18n.language !== lang) void i18n.changeLanguage(lang);
-  else persistLanguage(lang);
+  if (i18n.language !== lang) {
+    void i18n.changeLanguage(lang).finally(markLanguageReady);
+  } else {
+    persistLanguage(lang);
+    markLanguageReady();
+  }
 }
 
 export default i18n;

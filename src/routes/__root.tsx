@@ -9,8 +9,9 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import i18n from "@/lib/i18n";
+import { getRequestLang } from "@/lib/request-lang";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -238,6 +239,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
+  loader: async () => ({ lang: await getRequestLang() }),
+  staleTime: Infinity,
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -245,8 +248,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
-  const { i18n } = useTranslation();
-  const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
+  // Language is decided per request on the server (loader) and re-read from <html lang> by the client,
+  // so the first client render always matches the server HTML. `useLanguage` keeps lang/dir in sync later.
+  const router = useRouter();
+  const lang =
+    (router.state.matches[0]?.loaderData as { lang?: "ar" | "en" } | undefined)?.lang ?? "en";
   return (
     <html
       lang={lang}
@@ -273,6 +279,13 @@ function RootComponent() {
   const pathname = location.pathname;
   const locationHref = location.href;
   const isAdmin = pathname.startsWith("/admin");
+  const { lang } = Route.useLoaderData();
+  // Server: one i18n instance per request (the global singleton is shared by concurrent requests).
+  // Client: the singleton, which already starts in the server's language.
+  const i18nInstance = useMemo(
+    () => (typeof window === "undefined" ? i18n.cloneInstance({ lng: lang }) : i18n),
+    [lang],
+  );
   useLanguage();
 
   useEffect(() => {
@@ -282,7 +295,7 @@ function RootComponent() {
   }, []);
 
   return (
-    <I18nextProvider i18n={i18n}>
+    <I18nextProvider i18n={i18nInstance}>
       <QueryClientProvider client={queryClient}>
         <CartProvider>
           <WishlistProvider>

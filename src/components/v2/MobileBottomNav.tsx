@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Heart, Home, LayoutGrid, Search, ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { languageReady } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { setStickyBarHeight } from "@/lib/floating-tools";
 
@@ -13,7 +14,17 @@ export function MobileBottomNav() {
   const ar = i18n.language?.startsWith("ar");
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
-  const hidden = HIDDEN_PREFIXES.some((p) => path.startsWith(p));
+  // Mount only after the visitor's language is applied: the nav flips order/labels in RTL, which would
+  // otherwise register as a large layout shift on Arabic visits.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void languageReady.then(() => live && setReady(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const hidden = !ready || HIDDEN_PREFIXES.some((p) => path.startsWith(p));
   useEffect(() => {
     if (hidden || !window.matchMedia("(max-width: 767px)").matches) return;
     setStickyBarHeight(56); // floating widgets sit above the nav
