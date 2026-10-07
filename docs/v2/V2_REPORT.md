@@ -61,6 +61,9 @@ Concept: editorial print-shop. Warm paper (#F3EFE6) + ink (#0E0E0E), logo yellow
 - Category page verified in the new theme (mock categories/posters, mobile + desktop): framed ink-bordered cards, yellow active sort chip, no overflow.
 - Product cards now carry a small "View poster" icon (always visible on touch, on hover/focus on desktop) linking to `/poster/$id`; click does not toggle the card's selection, so the existing multi-select / bundle flow is untouched. Verified: 8 links, click navigates to the right poster.
 
+## Slice 9: Search V2 SQL actually tested (scratch PostgreSQL 16, not production)
+Ran the repo's real `search_posters` v1 and the proposed v2 side by side. The test found and fixed two defects in my first draft: lost typo tolerance (`spidermn`, `batmn`) and ~4× slower than v1 at 10k rows. New `03_search_v2_indexed.sql` (precomputed normalized columns + trigram GIN, trigger-maintained) is ~90–105 ms at 10k rows vs ~130 ms for v1, handles typos, "spiderman" ↔ "Spider-Man", Arabic hamza/ya folding, excludes hidden posters. Full table in `docs/v2/proposed-sql/search_v2_test_results.md`. Apply order for the owner: 01 → 03 (on a Supabase branch first; 03 backfills every poster row once). Nothing applied anywhere.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
