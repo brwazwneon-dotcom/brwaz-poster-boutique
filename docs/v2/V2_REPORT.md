@@ -49,7 +49,7 @@ Reason: the checkout has no server-side price authority; fixing it requires DB c
 ## Verification
 - `vite build` OK. Entry JS gz 196,129 → 196,857 B (+0.4%); CSS gz 31.85 → 32.65 KB; total JS gz +~3.4 KB (new lazy route/section chunks only).
 - Playwright (dummy backend): `/`, `/poster/:id` (not-found state), `/search`, `/cart` at 390px; `/` at 320, 390, 1440: horizontal overflow 0px everywhere; bottom nav visible <768px only; zero non-network console errors; reduced-motion context loads fine.
-- Unit tests: 42 pass; `PosterPerformanceStats.test.tsx` fails to load (missing `@testing-library/dom` in this sandbox install — pre-existing, unrelated).
+- Unit tests: 48 pass (6 new: order grouping, checkout draft); `PosterPerformanceStats.test.tsx` fails to load (missing `@testing-library/dom` in this sandbox install — pre-existing, unrelated).
 - `tsc`: no errors in new/changed files (repo has ~73 pre-existing type errors elsewhere).
 - NOT verified: visuals with real data (needs Supabase), Lighthouse/LCP before-after, real-device keyboard/AT pass, RTL visual pass.
 
