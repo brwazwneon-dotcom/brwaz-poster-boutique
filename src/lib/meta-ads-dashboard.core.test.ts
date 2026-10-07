@@ -131,7 +131,17 @@ describe("dashboard marketing tiles — real numbers", () => {
     expect(t.roas).toBeNull();
   });
 
-  it("older than 12 hours is flagged stale, not hidden", () => {
+  it("data from the last daily sync (13h, 24h old) is fresh; the threshold is 30 hours", () => {
+    expect(STALE_AFTER_MS).toBe(30 * 3_600_000);
+    for (const hours of [13, 24, 29]) {
+      const s = status({
+        lastSuccess: { finishedAt: iso(-hours * 3_600_000), dateFrom: null, dateTo: null },
+      });
+      expect(build({ status: s, covered: true, report: report() }).stale).toBe(false);
+    }
+  });
+
+  it("older than 30 hours is flagged stale, not hidden", () => {
     const old = status({
       lastSuccess: { finishedAt: iso(-(STALE_AFTER_MS + 60_000)), dateFrom: null, dateTo: null },
     });

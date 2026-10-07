@@ -144,7 +144,7 @@ describe("Executive Dashboard — marketing tiles", () => {
     fns.tiles.mockResolvedValue(tiles({ stale: true }));
     await mount(<DashboardTab />);
     const t = await settle("stale");
-    expect(t).toContain("older than 12 hours or the last sync failed");
+    expect(t).toContain("older than 30 hours or the last sync failed");
     expect(t).toContain("607 EGP");
   });
 

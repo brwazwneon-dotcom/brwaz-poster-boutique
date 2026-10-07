@@ -197,7 +197,7 @@ function MarketingTiles({
         Spend is Meta-reported{tiles.dataThrough ? ` through ${tiles.dataThrough}` : ""}. Orders and
         revenue are website orders credited to a Meta campaign (last touch), excluding cancelled —
         placed orders, not delivered.
-        {tiles.stale ? " Meta data is older than 12 hours or the last sync failed." : ""}
+        {tiles.stale ? " Meta data is older than 30 hours or the last sync failed." : ""}
         {onNavigate && (
           <>
             {" "}

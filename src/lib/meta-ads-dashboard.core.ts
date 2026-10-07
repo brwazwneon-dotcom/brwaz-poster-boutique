@@ -3,7 +3,10 @@
 // that the Meta Ads report computed — never a placeholder, never a guess.
 import type { MetaAdsReport, MetaAdsStatusView, MetaDashboardTiles } from "@/lib/meta-ads.types";
 
-export const STALE_AFTER_MS = 12 * 3_600_000;
+// The Meta sync now runs daily (cron, vercel.json), so a healthy install is at most ~24h old.
+// 30h = one daily run plus slack for a late or retried run: older than that means a sync was
+// really missed. (It was 12h when the sync was manual-only.)
+export const STALE_AFTER_MS = 30 * 3_600_000;
 
 export function buildDashboardTiles(input: {
   status: MetaAdsStatusView;

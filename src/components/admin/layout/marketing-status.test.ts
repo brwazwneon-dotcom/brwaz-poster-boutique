@@ -48,13 +48,21 @@ describe("marketingStatusLabel", () => {
       ).text,
     ).toBe("Meta Ads: synced just now");
   });
-  it("older than 12 hours is stale, and days are shown as days", () => {
+  it("a daily-synced install is not stale (13h, 24h), but older than 30 hours is, and days are shown as days", () => {
+    for (const h of [13, 24, 29]) {
+      expect(
+        marketingStatusLabel(
+          status({ lastSuccess: { finishedAt: ago(h), dateFrom: null, dateTo: null } }),
+          NOW,
+        ),
+      ).toEqual({ text: `Meta Ads: synced ${h}h ago`, tone: "ok" });
+    }
     expect(
       marketingStatusLabel(
-        status({ lastSuccess: { finishedAt: ago(13), dateFrom: null, dateTo: null } }),
+        status({ lastSuccess: { finishedAt: ago(31), dateFrom: null, dateTo: null } }),
         NOW,
       ),
-    ).toEqual({ text: "Meta Ads: stale, last synced 13h ago", tone: "warn" });
+    ).toEqual({ text: "Meta Ads: stale, last synced 31h ago", tone: "warn" });
     expect(
       marketingStatusLabel(
         status({ lastSuccess: { finishedAt: ago(72), dateFrom: null, dateTo: null } }),

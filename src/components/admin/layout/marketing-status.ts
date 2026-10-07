@@ -1,6 +1,7 @@
 import type { MetaAdsStatusView } from "@/lib/meta-ads.types";
 
-const STALE_HOURS = 12;
+// Keep in step with STALE_AFTER_MS (meta-ads-dashboard.core.ts): the sync is daily now.
+const STALE_HOURS = 30;
 
 export type MarketingStatusLabel = { text: string; tone: "ok" | "warn" | "muted" };
 
