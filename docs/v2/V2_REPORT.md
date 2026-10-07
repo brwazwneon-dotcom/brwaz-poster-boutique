@@ -21,6 +21,14 @@ No migrations added to `supabase/migrations`; SQL is proposal-only in `docs/v2/p
 - Homepage sections below the first two now fade/slide in via `Reveal` (never hides in-view content).
 - Not verifiable here: Overview needs an authenticated admin session + real data.
 
+## Slice 3: checkout / cart (logic and pricing untouched)
+- **Bug fix: `/order-confirmed` did not exist.** After a successful order (when the post-order message is enabled) checkout navigated to a missing route. Added `routes/order-confirmed.tsx` (next steps, WhatsApp, continue shopping; bilingual, noindex).
+- **Bug fix: bundle orders never saved their posters.** `cart.tsx` read `poster.id` but `BundlePoster` has `posterId`, so 6-pack/4-pack orders skipped `order_posters` rows (admin couldn't see the images). One-token fix.
+- **No lost state:** delivery fields (name/phone/governorate/address) persist locally for 7 days (`lib/checkout-draft.ts`), cleared on success. Payment data/screenshots never stored. Verified: refresh restores the phone.
+- **Mobile sticky total + Confirm bar** (<1024px) that calls the same guarded `handlePlaceOrderClick` (double-submit ref intact); extra bottom padding so it never covers fields.
+- Server-side price authority / idempotency still needs the SQL in `proposed-sql/02` (not applied).
+- Admin: bulk poster edit (move/hide/feature/delete), grouped orders and WhatsApp actions already existed, so I did not duplicate them.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

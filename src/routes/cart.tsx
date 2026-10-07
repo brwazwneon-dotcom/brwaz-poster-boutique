@@ -36,6 +36,12 @@ const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  clearCheckoutDraft,
+  readCheckoutDraft,
+  writeCheckoutDraft,
+} from "@/lib/checkout-draft";
+
 const EG_PHONE_RE = /^01\d{9}$/;
 const CHECKOUT_DEBUG = true;
 
@@ -329,6 +335,22 @@ function CartPage() {
   const [phone, setPhone] = useState("");
   const [governorate, setGovernorate] = useState("");
   const [address, setAddress] = useState("");
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => {
+    const d = readCheckoutDraft();
+    if (d) {
+      setName((v) => v || d.name);
+      setPhone((v) => v || d.phone);
+      setGovernorate((v) => v || d.governorate);
+      setAddress((v) => v || d.address);
+    }
+    setDraftReady(true);
+  }, []);
+  useEffect(() => {
+    if (!draftReady) return;
+    const id = window.setTimeout(() => writeCheckoutDraft({ name, phone, governorate, address }), 400);
+    return () => window.clearTimeout(id);
+  }, [draftReady, name, phone, governorate, address]);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "instapay">("cod");
@@ -722,7 +744,7 @@ function CartPage() {
           if (item.bundle && Array.isArray(item.bundle.posters) && item.bundle.posters.length > 0) {
             for (let idx = 0; idx < item.bundle.posters.length; idx++) {
               const poster = item.bundle.posters[idx];
-              const pId = asUuid(poster.id);
+              const pId = asUuid(poster.posterId);
               if (pId) {
                 orderPostersToInsert.push({
                   order_id: rowId,
@@ -884,6 +906,7 @@ navigate({ to: "/order-confirmed", replace: true });
         });
       }
       clear();
+      clearCheckoutDraft();
       setName("");
       setPhone("");
       setGovernorate("");
@@ -905,7 +928,7 @@ navigate({ to: "/order-confirmed", replace: true });
   };
 
   return (
-    <div className="container-page py-16">
+    <div className="container-page py-16 pb-28 lg:pb-16">
       <h1 className="text-display text-5xl sm:text-7xl">{t("cart.title")}</h1>
       <p className="mt-3 text-xs uppercase tracking-[0.25em] text-muted-foreground">
         🚚 Shipping Across Egypt: {settings.shippingFee} EGP · 🎉 Free over{" "}
@@ -1708,6 +1731,29 @@ navigate({ to: "/order-confirmed", replace: true });
               {zoomItem.title}
             </div>
           </div>
+        </div>
+      )}
+      {items.length > 0 && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-3 border-t border-border bg-background/95 px-4 pt-3 lg:hidden"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {t("cart.total")}
+            </div>
+            <div className="text-xl font-semibold tabular-nums">
+              {grand} <span className="text-xs text-muted-foreground">{t("egp")}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handlePlaceOrderClick}
+            disabled={submitting}
+            className="min-h-12 flex-1 rounded-sm bg-primary px-4 text-xs font-semibold uppercase tracking-widest text-primary-foreground disabled:opacity-50"
+          >
+            {submitting ? t("cart.placingOrder") : t("cart.confirmOrder")}
+          </button>
         </div>
       )}
     </div>

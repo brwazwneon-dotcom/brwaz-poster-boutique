@@ -17,6 +17,7 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as CustomDesignRouteImport } from './routes/custom-design'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as OfflineRouteImport } from './routes/offline'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as Photo4x6RouteImport } from './routes/photo-4x6'
 import { Route as PhotoPrintingRouteImport } from './routes/photo-printing'
 import { Route as ProductsFeedMetaDotcsvRouteImport } from './routes/products-feed-meta[.]csv'
@@ -69,6 +70,11 @@ const OffersRoute = OffersRouteImport.update({
 const OfflineRoute = OfflineRouteImport.update({
   id: '/offline',
   path: '/offline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Photo4x6Route = Photo4x6RouteImport.update({
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/custom-design': typeof CustomDesignRoute
   '/offers': typeof OffersRoute
   '/offline': typeof OfflineRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/photo-4x6': typeof Photo4x6Route
   '/photo-printing': typeof PhotoPrintingRoute
   '/products-feed-meta.csv': typeof ProductsFeedMetaDotcsvRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/custom-design'
     | '/offers'
     | '/offline'
+    | '/order-confirmed'
     | '/photo-4x6'
     | '/photo-printing'
     | '/products-feed-meta.csv'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   CustomDesignRoute: typeof CustomDesignRoute
   OffersRoute: typeof OffersRoute
   OfflineRoute: typeof OfflineRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   Photo4x6Route: typeof Photo4x6Route
   PhotoPrintingRoute: typeof PhotoPrintingRoute
   ProductsFeedMetaDotcsvRoute: typeof ProductsFeedMetaDotcsvRoute
@@ -359,6 +372,13 @@ declare module '@tanstack/react-router' {
       path: '/offline'
       fullPath: '/offline'
       preLoaderRoute: typeof OfflineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/photo-4x6': {
@@ -464,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   CustomDesignRoute: CustomDesignRoute,
   OffersRoute: OffersRoute,
   OfflineRoute: OfflineRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   Photo4x6Route: Photo4x6Route,
   PhotoPrintingRoute: PhotoPrintingRoute,
   ProductsFeedMetaDotcsvRoute: ProductsFeedMetaDotcsvRoute,
