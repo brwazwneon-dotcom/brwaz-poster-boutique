@@ -160,7 +160,16 @@ export function RoomTransformation() {
                           ? `لوحة ${artwork.title} داخل برواز على الحائط`
                           : `${artwork.title} framed artwork on the wall`
                       }
-                      className="h-full w-full object-contain"
+                      className="h-full w-full object-cover object-center"
+                      // inline: the global unlayered `img { height: auto }` reset beats h-full
+                      // and would leave an empty band under the artwork
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        maxWidth: "none",
+                        objectFit: "cover",
+                        objectPosition: "center",
+                      }}
                       loading="lazy"
                     />
                   ) : (
