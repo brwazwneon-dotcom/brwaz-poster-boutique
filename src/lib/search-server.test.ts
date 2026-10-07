@@ -61,15 +61,29 @@ describe("search server: one cached index, not a query per search", () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  it("the index refreshes after 30 seconds (new/hidden posters show up quickly)", async () => {
+  it("after 30 seconds the old index answers INSTANTLY while ONE background refresh runs", async () => {
     await fetchSearchPostersFromDb("spider", 8);
     vi.setSystemTime(Date.now() + 29_000);
     await fetchSearchPostersFromDb("spider", 8);
     expect(db.query).toHaveBeenCalledTimes(1);
     vi.setSystemTime(Date.now() + 2_000);
     db.query.mockResolvedValue([row("9", "THOR (1)", "MARVEL")]);
-    const hits = await fetchSearchPostersFromDb("thor", 8);
+    // stale answer (no THOR yet), refresh started in the background — and shared by concurrent searches
+    const stale = await fetchSearchPostersFromDb("thor", 8);
+    await Promise.all([fetchSearchPostersFromDb("thor", 8), fetchSearchPostersFromDb("thor", 8)]);
+    expect(stale).toEqual([]);
     expect(db.query).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5);
+    const fresh = await fetchSearchPostersFromDb("thor", 8);
+    expect(fresh[0].title).toBe("THOR (1)");
+    expect(db.query).toHaveBeenCalledTimes(2);
+  });
+
+  it("an index older than 5 minutes is not served: the request waits for the refresh", async () => {
+    await fetchSearchPostersFromDb("spider", 8);
+    vi.setSystemTime(Date.now() + 6 * 60_000);
+    db.query.mockResolvedValue([row("9", "THOR (1)", "MARVEL")]);
+    const hits = await fetchSearchPostersFromDb("thor", 8);
     expect(hits[0].title).toBe("THOR (1)");
   });
 

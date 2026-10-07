@@ -734,12 +734,12 @@ async function loadSearchIndex(): Promise<SearchDoc[]> {
   return buildIndex(rows);
 }
 
-/** One shared load at a time; a failed refresh keeps serving the last good index. */
-async function getSearchIndex(): Promise<SearchDoc[]> {
-  const now = Date.now();
-  if (searchIndexCache && now - searchIndexCache.at < SEARCH_INDEX_TTL_MS) {
-    return searchIndexCache.docs;
-  }
+// Fresh for 30s. Between 30s and 5min old the (slightly stale) index is served IMMEDIATELY and a
+// single background refresh runs, so no visitor waits for the database after the first load. Past
+// 5min a request waits for the refresh. A failed refresh keeps serving the last good index.
+const SEARCH_INDEX_MAX_STALE_MS = 5 * 60_000;
+
+function refreshSearchIndex(): Promise<SearchDoc[]> {
   if (!searchIndexLoading) {
     searchIndexLoading = loadSearchIndex()
       .then((docs) => {
@@ -755,6 +755,16 @@ async function getSearchIndex(): Promise<SearchDoc[]> {
       });
   }
   return searchIndexLoading;
+}
+
+async function getSearchIndex(): Promise<SearchDoc[]> {
+  const age = searchIndexCache ? Date.now() - searchIndexCache.at : Infinity;
+  if (searchIndexCache && age < SEARCH_INDEX_TTL_MS) return searchIndexCache.docs;
+  if (searchIndexCache && age < SEARCH_INDEX_MAX_STALE_MS) {
+    void refreshSearchIndex().catch(() => undefined);
+    return searchIndexCache.docs;
+  }
+  return refreshSearchIndex();
 }
 
 /** Test hook. */
