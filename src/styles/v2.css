@@ -1,0 +1,108 @@
+/* BRWAZWNEON V2 design layer. Additive: only classes prefixed `v2-`.
+ * Uses existing theme variables so every theme keeps working.
+ * Motion: transform/opacity only, <=500ms, disabled under reduced motion. */
+:root {
+  --v2-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --v2-dur-fast: 180ms;
+  --v2-dur: 420ms;
+  --v2-gap: clamp(0.75rem, 2vw, 1.5rem);
+  --v2-section-y: clamp(3.5rem, 8vw, 7rem);
+}
+
+/* Reveal: content is visible by default; hidden only after JS marks it armed. */
+.v2-reveal[data-armed="true"]:not([data-shown="true"]) {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+.v2-reveal[data-armed="true"] {
+  transition:
+    opacity var(--v2-dur) var(--v2-ease),
+    transform var(--v2-dur) var(--v2-ease);
+  transition-delay: var(--v2-delay, 0ms);
+}
+
+/* Editorial section header */
+.v2-eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.v2-rule {
+  display: block;
+  height: 1px;
+  width: 3rem;
+  background: currentColor;
+  opacity: 0.5;
+  transform-origin: left center;
+}
+[dir="rtl"] .v2-rule { transform-origin: right center; }
+
+/* Poster card: frame "reveals" on hover (desktop pointers only) */
+.v2-card { position: relative; isolation: isolate; }
+.v2-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 0 var(--foreground);
+  transition: box-shadow var(--v2-dur-fast) var(--v2-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .v2-card:hover::after { box-shadow: inset 0 0 0 6px color-mix(in oklab, var(--foreground) 88%, transparent); }
+  .v2-card > * { transition: transform var(--v2-dur) var(--v2-ease); }
+  .v2-card:hover > :is(div, picture):not(.absolute) { transform: scale(0.965); }
+}
+
+/* Poster wall: equal frames, equal gaps, no leftover space */
+.v2-wall {
+  display: grid;
+  gap: var(--v2-gap);
+  width: 100%;
+  margin-inline: auto;
+}
+.v2-wall[data-layout="20x30"] { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 46rem; } /* 3 top + 3 bottom */
+.v2-wall[data-layout="30x40"] { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 58rem; } /* one row of 4 */
+.v2-wall-cell { aspect-ratio: 2 / 3; overflow: hidden; background: var(--muted); }
+.v2-wall[data-layout="30x40"] .v2-wall-cell { aspect-ratio: 3 / 4; }
+.v2-wall-cell > * { width: 100%; height: 100%; }
+.v2-wall[data-armed="true"] .v2-wall-cell {
+  transition: opacity var(--v2-dur) var(--v2-ease), transform var(--v2-dur) var(--v2-ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.v2-wall[data-armed="true"]:not([data-shown="true"]) .v2-wall-cell { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.97); }
+
+/* Mobile bottom navigation */
+.v2-bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: var(--z-floating-tools, 60);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: color-mix(in oklab, var(--background) 96%, transparent);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@media (min-width: 768px) { .v2-bottom-nav { display: none; } }
+.v2-bottom-nav a, .v2-bottom-nav button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; min-height: 56px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.v2-bottom-nav [aria-current="page"] { color: var(--foreground); }
+.v2-has-bottom-nav { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) { .v2-has-bottom-nav { padding-bottom: 0; } }
+
+/* Cart feedback */
+@keyframes v2-pop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.v2-pop { animation: v2-pop 320ms var(--v2-ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-reveal[data-armed="true"], .v2-reveal[data-armed="true"]:not([data-shown="true"]) { opacity: 1; transform: none; transition: none; }
+  .v2-wall[data-armed="true"] .v2-wall-cell, .v2-wall[data-armed="true"]:not([data-shown="true"]) .v2-wall-cell { opacity: 1; transform: none; transition: none; }
+  .v2-card > *, .v2-card::after { transition: none; }
+  .v2-card:hover > :is(div, picture):not(.absolute) { transform: none; }
+  .v2-pop { animation: none; }
+}

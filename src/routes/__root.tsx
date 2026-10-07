@@ -30,6 +30,7 @@ import { SalesNotifications } from "@/components/SocialProof";
 import { TestModeBadge } from "@/components/TestModeBadge";
 import { AppPreloader } from "@/components/AppPreloader";
 import { FloatingActions } from "@/components/FloatingActions";
+import { MobileBottomNav } from "@/components/v2/MobileBottomNav";
 import { ThemeBoot } from "@/components/ThemeBoot";
 import { ThemePreviewBanner } from "@/components/ThemePreviewBanner";
 import { usePerformanceFlags } from "@/lib/performance-flags";
@@ -280,7 +281,7 @@ function RootComponent() {
           <WishlistProvider>
             <RecentlyViewedProvider>
               <MaintenanceGate>
-                <div className="flex min-h-screen flex-col">
+                <div className={`flex min-h-screen flex-col${isAdmin ? "" : " v2-has-bottom-nav"}`}>
                   <AnnouncementBar />
                   <SiteHeader />
                   <main className="flex-1">
@@ -288,6 +289,7 @@ function RootComponent() {
                   </main>
                   <SiteFooter />
                 </div>
+                {!isAdmin && <MobileBottomNav />}
                 {!isAdmin && <FloatingActionsGated />}
                 {!isAdmin && <FloatingOfferGated />}
                 <AssistantButtonGated isAdmin={isAdmin} />

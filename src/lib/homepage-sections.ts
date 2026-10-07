@@ -28,7 +28,8 @@ export type HomeSectionKey =
   | "faq"
   | "quality-section"
   | "wall-of-inspiration"
-  | "room-transformation";
+  | "room-transformation"
+  | "frame-wall";
 
 export type SectionSourceType =
   | "manual"
@@ -90,6 +91,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "quality-section": "Quality Section",
   "wall-of-inspiration": "Wall of Inspiration",
   "room-transformation": "Room Transformation",
+  "frame-wall": "Frame Wall (6 / 4 sets)",
 };
 
 export interface HomeSectionRegistryEntry {
@@ -106,20 +108,22 @@ export interface HomeSectionRegistryEntry {
 export const HOME_SECTION_REGISTRY: HomeSectionRegistryEntry[] = [
   { key: "homepage_slider", label: "Homepage Slider", component: "HomepageSlider", defaultOrder: 1, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { display_type: "slider" } },
   { key: "hero_banners", label: "Hero Banners", component: "HeroBannerSection", defaultOrder: 2, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "trending-now", label: "Trending Now", component: "TrendingNow", defaultOrder: 3, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Trending Now", title_ar: "الترند الآن", source_type: "trending", display_type: "slider", items_count: 12 } },
   { key: "collections", label: "Shop by Collection", component: "ShopByCollection", defaultOrder: 4, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
+  { key: "trending-now", label: "Trending Now", component: "TrendingNow", defaultOrder: 3, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Trending Now", title_ar: "الترند الآن", source_type: "trending", display_type: "slider", items_count: 12 } },
   { key: "best-sellers", label: "Best Sellers", component: "BestSellers", defaultOrder: 5, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Best Sellers", title_ar: "الأكثر مبيعاً", subtitle_en: "Our top picks — hand-selected.", subtitle_ar: "اختياراتنا المميزة", source_type: "best_sellers", display_type: "carousel", items_count: 12 } },
+  { key: "frame-sets", label: "Frame Sets", component: "FrameSetsHome", defaultOrder: 15, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
+  { key: "room-transformation", label: "Room Transformation", component: "RoomTransformation", defaultOrder: 13, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
+  { key: "frame-wall", label: "Frame Wall (6 / 4 sets)", component: "FrameWall", defaultOrder: 26, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Build your wall", title_ar: "كوّن حائطك" } },
+  { key: "categories", label: "Category grids", component: "CategoryGrids", defaultOrder: 24, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { display_type: "grid", items_count: 8 } },
   { key: "custom-design", label: "Custom Design", component: "CustomDesignSection", defaultOrder: 5, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "photo-enhancement", label: "Photo Enhancement Before / After", component: "PhotoEnhancementBeforeAfter", defaultOrder: 6, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
+  { key: "wall-of-inspiration", label: "Wall of Inspiration", component: "WallOfInspiration", defaultOrder: 12, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "reviews", label: "Customer Reviews", component: "CustomerReviews", defaultOrder: 7, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "how-it-works", label: "How It Works", component: "HowItWorksSection", defaultOrder: 8, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "trusted-quality", label: "Trusted Quality", component: "TrustedQuality", defaultOrder: 9, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Why Choose Us", title_ar: "ليه تختار برواز نيون", subtitle_en: "We deliver quality, not just frames.", subtitle_ar: "بنقدم جودة مش براويز بس" } },
+  { key: "how-it-works", label: "How It Works", component: "HowItWorksSection", defaultOrder: 8, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "quality-section", label: "Quality Section", component: "QualitySection", defaultOrder: 10, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "faq", label: "FAQ", component: "StorefrontFAQ", defaultOrder: 11, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "wall-of-inspiration", label: "Wall of Inspiration", component: "WallOfInspiration", defaultOrder: 12, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "room-transformation", label: "Room Transformation", component: "RoomTransformation", defaultOrder: 13, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "highlights", label: "Highlights", component: "Highlights", defaultOrder: 14, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "frame-sets", label: "Frame Sets", component: "FrameSetsHome", defaultOrder: 15, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "before-after", label: "Before / After", component: "BeforeAfter", defaultOrder: 16, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
   { key: "recently-viewed", label: "Recently Viewed", component: "PersonalizedSections", defaultOrder: 17, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
   { key: "for-you", label: "For You", component: "PersonalizedSections", defaultOrder: 18, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
@@ -128,7 +132,6 @@ export const HOME_SECTION_REGISTRY: HomeSectionRegistryEntry[] = [
   { key: "trust", label: "Trust statement", component: "—", defaultOrder: 21, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
   { key: "about", label: "About BRWAZWNEON", component: "—", defaultOrder: 22, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
   { key: "benefits", label: "Benefits bar", component: "—", defaultOrder: 23, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
-  { key: "categories", label: "Category grids", component: "CategoryGrids", defaultOrder: 24, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { display_type: "grid", items_count: 8 } },
   { key: "offers", label: "Special Offers", component: "—", defaultOrder: 25, defaultEnabled: false, defaultVisible: true, adminReorderable: true },
 ];
 

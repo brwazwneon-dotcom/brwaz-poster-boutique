@@ -83,7 +83,7 @@ export function SearchBox({
   }, [open]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(normalize(value)), 120);
+    const t = setTimeout(() => setDebounced(normalize(value)), 220);
     return () => clearTimeout(t);
   }, [value]);
 
@@ -105,6 +105,9 @@ export function SearchBox({
     enabled: debounced.length >= 1,
     staleTime: 60_000,
     queryFn: async () => {
+      // V2 (Arabic-aware, token matching) when deployed; falls back to v1 if the function is absent.
+      const v2 = await supabase.rpc("search_posters_v2" as never, { q: debounced, lim: 8 } as never);
+      if (!v2.error) return (v2.data ?? []) as SearchHit[];
       const { data, error } = await supabase.rpc("search_posters", { q: debounced, lim: 8 });
       if (error) throw error;
       return (data ?? []) as SearchHit[];
@@ -265,6 +268,23 @@ export function SearchBox({
                     {
                       term: debounced,
                     },
+                  )}
+                  {trending.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {trending.slice(0, 6).map((tr) => (
+                        <button
+                          key={tr}
+                          type="button"
+                          onClick={() => {
+                            setValue(tr);
+                            go(tr);
+                          }}
+                          className="rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground hover:border-primary"
+                        >
+                          {tr}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

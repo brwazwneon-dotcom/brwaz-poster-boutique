@@ -31,6 +31,9 @@ const RoomTransformation = lazy(() =>
     default: module.RoomTransformation,
   })),
 );
+const FrameWall = lazy(() =>
+  import("@/components/v2/FrameWall").then((module) => ({ default: module.FrameWall })),
+);
 const WallOfInspiration = lazy(() =>
   import("@/components/WallOfInspiration").then((module) => ({
     default: module.WallOfInspiration,
@@ -129,6 +132,9 @@ function Index() {
     "recommended-for-you": () => <PersonalizedSections key="recommended-for-you" />,
     "wall-of-inspiration": () => <WallOfInspiration key="wall-of-inspiration" />,
     "room-transformation": () => <RoomTransformation key="room-transformation" />,
+    "frame-wall": (s) => (
+      <FrameWall key="frame-wall" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
+    ),
     categories: (s) => (
       <CategoryGrids
         key="categories"
