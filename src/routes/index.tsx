@@ -6,6 +6,7 @@ import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { LazyOnView } from "@/components/LazyOnView";
+import { Reveal } from "@/components/v2/Reveal";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { Printer } from "lucide-react";
 
@@ -183,9 +184,11 @@ function Index() {
             );
           }
           return (
-            <div key={`lazy-${s.id ?? s.key}-${idx}`} id={`home-${s.key}`}>
-              <LazyOnView minHeight={520}>{guarded}</LazyOnView>
-            </div>
+            <Reveal key={`lazy-${s.id ?? s.key}-${idx}`}>
+              <div id={`home-${s.key}`}>
+                <LazyOnView minHeight={520}>{guarded}</LazyOnView>
+              </div>
+            </Reveal>
           );
         })}
     </div>

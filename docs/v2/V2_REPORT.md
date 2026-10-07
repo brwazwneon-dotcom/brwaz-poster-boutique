@@ -16,6 +16,11 @@ No migrations added to `supabase/migrations`; SQL is proposal-only in `docs/v2/p
 | Search | Debounce 120→220ms, cached by react-query (already), no-result recovery chips, client tries `search_posters_v2` and falls back to v1 |
 | Proposed SQL | `01_search_posters_v2.sql` (Arabic normalization, token-AND, prefix/exact boosts, typo tolerance; additive) and `02_orders_idempotency_and_price_check.sql` |
 
+## Slice 2 additions
+- **Admin V2 "Overview" tab** (new default admin landing, `components/admin/OverviewTab.tsx`): today / 7d / 30d revenue and order counts, avg order value, open orders, Instapay awaiting payment (flagged), poster totals/hidden/no-image/needs-review, recent-orders table (carts grouped from per-line order rows), orders-by-status, shortcuts to System Health, Backups, Image health, Products, Live visitors, Error logs. Read-only, uses the `real_orders` view (test orders excluded), 60s refresh, error state. Registered in nav, i18n (en/ar) and types; existing tabs untouched.
+- Homepage sections below the first two now fade/slide in via `Reveal` (never hides in-view content).
+- Not verifiable here: Overview needs an authenticated admin session + real data.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
@@ -29,7 +34,7 @@ Reason: the checkout has no server-side price authority; fixing it requires DB c
 
 ## Still to do (recommended order)
 1. Review/apply `01_search_posters_v2.sql` on a Supabase branch; compare results to v1.
-2. Admin V2 (ops overview, product health, system health consolidation) — not started.
+2. Admin V2 phase 2: bulk product editing, order workflow/WhatsApp actions, analytics consolidation (Overview tab done).
 3. Checkout UI split + order protection (needs SQL approval).
 4. Restyle hero/section headers with `v2-eyebrow`/`Reveal` across existing sections; Lighthouse before/after with real data.
 5. Link product cards to `/poster/$id` (currently the page is reachable by URL; card behavior unchanged to protect the selection/bundle flow).

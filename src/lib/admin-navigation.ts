@@ -1,6 +1,7 @@
 import type { Tab } from "./admin-types";
 
 export const ADMIN_TABS: Tab[] = [
+  "overview",
   "analytics",
   "reports",
   "assistant",
@@ -64,6 +65,7 @@ export const ADMIN_TABS: Tab[] = [
 
 export const NAVIGATION_GROUPS = {
   core: [
+    "overview",
     "analytics",
     "realtime",
     "orders",

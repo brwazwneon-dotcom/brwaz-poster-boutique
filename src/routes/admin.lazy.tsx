@@ -138,6 +138,9 @@ export const Route = createLazyFileRoute("/admin")({
   component: AdminPageWithI18n,
 });
 
+const OverviewTab = lazy(() =>
+  import("@/components/admin/OverviewTab").then((m) => ({ default: m.OverviewTab })),
+);
 const AbandonedOrdersTab = lazy(() =>
   import("@/components/admin/AbandonedOrdersTab").then((module) => ({
     default: module.AbandonedOrdersTab,
@@ -325,7 +328,7 @@ function AdminPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("analytics");
+  const [tab, setTab] = useState<Tab>("overview");
   const [isGroupOpen, setIsGroupOpen] = useState<Record<string, boolean>>(() => {
     const open: Record<string, boolean> = {};
     Object.keys(NAVIGATION_GROUPS).forEach((key) => {
@@ -502,6 +505,7 @@ function AdminPage() {
 
       <div className="mt-8">
         <Suspense fallback={<AdminTabFallback />}>
+          {tab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
           {tab === "analytics" && <AnalyticsTab onNavigate={setActiveTab} />}
           {tab === "realtime" && <RealtimeAnalyticsTab />}
           {tab === "behavior" && <BehaviorTab />}

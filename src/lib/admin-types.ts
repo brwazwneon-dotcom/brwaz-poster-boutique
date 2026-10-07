@@ -57,4 +57,5 @@ export type Tab =
   | "exports"
   | "branding"
   | "appearance"
-  | "settings";
+  | "settings"
+  | "overview";
