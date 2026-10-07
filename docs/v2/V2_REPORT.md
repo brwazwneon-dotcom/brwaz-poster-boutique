@@ -64,6 +64,9 @@ Concept: editorial print-shop. Warm paper (#F3EFE6) + ink (#0E0E0E), logo yellow
 ## Slice 9: Search V2 SQL actually tested (scratch PostgreSQL 16, not production)
 Ran the repo's real `search_posters` v1 and the proposed v2 side by side. The test found and fixed two defects in my first draft: lost typo tolerance (`spidermn`, `batmn`) and ~4× slower than v1 at 10k rows. New `03_search_v2_indexed.sql` (precomputed normalized columns + trigram GIN, trigger-maintained) is ~90–105 ms at 10k rows vs ~130 ms for v1, handles typos, "spiderman" ↔ "Spider-Man", Arabic hamza/ya folding, excludes hidden posters. Full table in `docs/v2/proposed-sql/search_v2_test_results.md`. Apply order for the owner: 01 → 03 (on a Supabase branch first; 03 backfills every poster row once). Nothing applied anywhere.
 
+## Slice 10: order protection SQL written and tested (scratch PostgreSQL)
+Found from the repo's own migrations: anonymous visitors can currently insert an order with `total_price = 0` and `payment_status = 'verified'`. `02_orders_idempotency_and_price_check.sql` is now a real BEFORE INSERT guard (exempts admin/service_role; blocks forged payment state, inconsistent totals, absurd quantities, and prices below a configurable % of list). Ships in `log` mode first. 13-case test table in `order_guard_test_results.md`; testing found and fixed two bugs in my draft (SECURITY DEFINER hid the caller role; array concat error). Not applied anywhere. It is a floor/consistency check, not full server-side pricing.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
