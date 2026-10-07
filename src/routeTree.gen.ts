@@ -28,6 +28,7 @@ import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ApiAdminAssistantRouteImport } from './routes/api/admin-assistant'
 import { Route as ApiCronBackupRouteImport } from './routes/api/cron-backup'
+import { Route as ApiCronMetaSyncRouteImport } from './routes/api/cron-meta-sync'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as LandingAudienceRouteImport } from './routes/landing.$audience'
 import { Route as PosterSlugRouteImport } from './routes/poster.$slug'
@@ -128,6 +129,11 @@ const ApiCronBackupRoute = ApiCronBackupRouteImport.update({
   path: '/api/cron-backup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronMetaSyncRoute = ApiCronMetaSyncRouteImport.update({
+  id: '/api/cron-meta-sync',
+  path: '/api/cron-meta-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
   id: '/category/$slug',
   path: '/category/$slug',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/api/cron-backup': typeof ApiCronBackupRoute
+  '/api/cron-meta-sync': typeof ApiCronMetaSyncRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/api/cron-backup': typeof ApiCronBackupRoute
+  '/api/cron-meta-sync': typeof ApiCronMetaSyncRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/wishlist': typeof WishlistRoute
   '/api/admin-assistant': typeof ApiAdminAssistantRoute
   '/api/cron-backup': typeof ApiCronBackupRoute
+  '/api/cron-meta-sync': typeof ApiCronMetaSyncRoute
   '/category/$slug': typeof CategorySlugRoute
   '/landing/$audience': typeof LandingAudienceRoute
   '/poster/$slug': typeof PosterSlugRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/wishlist'
     | '/api/admin-assistant'
     | '/api/cron-backup'
+    | '/api/cron-meta-sync'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/wishlist'
     | '/api/admin-assistant'
     | '/api/cron-backup'
+    | '/api/cron-meta-sync'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/wishlist'
     | '/api/admin-assistant'
     | '/api/cron-backup'
+    | '/api/cron-meta-sync'
     | '/category/$slug'
     | '/landing/$audience'
     | '/poster/$slug'
@@ -323,6 +335,7 @@ export interface RootRouteChildren {
   WishlistRoute: typeof WishlistRoute
   ApiAdminAssistantRoute: typeof ApiAdminAssistantRoute
   ApiCronBackupRoute: typeof ApiCronBackupRoute
+  ApiCronMetaSyncRoute: typeof ApiCronMetaSyncRoute
   CategorySlugRoute: typeof CategorySlugRoute
   LandingAudienceRoute: typeof LandingAudienceRoute
   PosterSlugRoute: typeof PosterSlugRoute
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronBackupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron-meta-sync': {
+      id: '/api/cron-meta-sync'
+      path: '/api/cron-meta-sync'
+      fullPath: '/api/cron-meta-sync'
+      preLoaderRoute: typeof ApiCronMetaSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/category/$slug': {
       id: '/category/$slug'
       path: '/category/$slug'
@@ -515,6 +535,7 @@ const rootRouteChildren: RootRouteChildren = {
   WishlistRoute: WishlistRoute,
   ApiAdminAssistantRoute: ApiAdminAssistantRoute,
   ApiCronBackupRoute: ApiCronBackupRoute,
+  ApiCronMetaSyncRoute: ApiCronMetaSyncRoute,
   CategorySlugRoute: CategorySlugRoute,
   LandingAudienceRoute: LandingAudienceRoute,
   PosterSlugRoute: PosterSlugRoute,
