@@ -111,6 +111,12 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
         ar: "ما الذي يميّز جودة الطباعة لديكم؟",
       },
       {
+        id: "frame-vs-wooden",
+        enabled: true,
+        en: "What is the difference between the PVC Frame and the Wooden Portrait?",
+        ar: "ما الفرق بين البرواز (PVC) والوودن بورتريه؟",
+      },
+      {
         id: "design-preview",
         enabled: true,
         en: "Can I review my design before printing?",
@@ -203,6 +209,10 @@ const FAQ_ANSWERS: Record<string, LocalizedCopy> = {
   "print-quality": {
     en: "We use professional printing equipment and carefully prepare colors and image details before printing to achieve a clear, balanced result.",
     ar: "نعتمد على معدات وتقنيات طباعة احترافية متقدمة، مع ضبط دقيق للألوان والتفاصيل قبل الطباعة، لضمان نتيجة واضحة ومتوازنة قدر الإمكان.",
+  },
+  "frame-vs-wooden": {
+    en: "The High Quality PVC is a framed piece covered with a glass-like acrylic layer that gives the print a nice gloss, and it comes in black or white. The Wooden Portrait is a premium imported Spanish wood board with no frame: the image is printed on the wood and protected by two protective layers against scratches, water, and dust. It has no frame colour options.",
+    ar: "برواز High Quality PVC هو برواز بطبقة أكريليك زجاجية تعطي الصورة لمعة جميلة، ومتوفر باللونين الأسود والأبيض. أما الوودن بورتريه فهو تابلوه من الخشب الإسباني المستورد بدون فريم، وتُغطّى الصورة بطبقتي حماية تحافظان عليها من الخدوش والمياه والأتربة، وليس له خيارات ألوان للإطار.",
   },
   "design-preview": {
     en: "Yes. For custom orders, you can review the design or preview before printing to confirm the size, orientation, and image placement.",
