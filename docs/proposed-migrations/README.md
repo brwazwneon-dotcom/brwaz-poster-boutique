@@ -1,9 +1,23 @@
 # Proposed (NOT applied) — server-side order pricing
 
-**Status: proposal only.** Files in this folder are deliberately outside
-`supabase/migrations/` so nothing applies or syncs them automatically. Review,
-then move into `supabase/migrations/` yourself (or ask for it) once approved.
-The SQL has **not** been run against any database.
+**Status: proposal only — NOT applied to any Supabase project.** Files in this
+folder are deliberately outside `supabase/migrations/` so nothing applies or
+syncs them automatically. Review, then move into `supabase/migrations/` once
+approved.
+
+**What was tested:** `place_order.sql` runs on a scratch local Postgres 16
+(`tests/db/schema.sql` is a minimal stand-in for the tables). A parity test
+(`src/lib/place-order-parity.test.ts`, skipped unless `PG_PARITY=1`) feeds 150
+random carts — random admin prices, bundles, tape, custom images, free-shipping
+edge cases — to both the SQL function and `order-pricing.ts`; every line total,
+discount, packaging, shipping and the grand total match to the cent. It also
+checks that invalid quantities/sizes/frames/colours/blob images/payment data are
+rejected and that price fields sent by the browser are ignored.
+
+**What was NOT tested:** real Supabase (RLS, the `order_number`/notification
+triggers on `orders`, the `selected_poster` foreign key, `auth.uid()` behaviour,
+PostgREST `rpc` permissions) and the checkout change that calls it (not written
+yet — switching checkout before the function exists would break ordering).
 
 ## Why
 Checkout inserts `orders` rows straight from the browser. The only server-side
@@ -28,4 +42,6 @@ authoritative.
 4. Checkout switches from `.insert(rows)` to `.rpc('place_order', …)`.
 
 Step 3 + 4 must ship together; applying step 3 before the app change would
-break checkout. See `place_order.sql` for the draft.
+break checkout. Order of work if approved: apply the migration (additive, the
+direct insert still works) → ship the checkout change calling `place_order` →
+only then `REVOKE INSERT` on `public.orders`.
