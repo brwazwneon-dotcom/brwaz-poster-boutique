@@ -7,10 +7,11 @@ import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { searchPostersPublic } from "@/lib/db-public.functions";
+import { getTrendingSearchesPublic, searchPostersPublic } from "@/lib/db-public.functions";
+import { MIN_QUERY_LENGTH, normalizeText } from "@/lib/search-core";
 import { trackEvent } from "@/lib/meta-pixel";
 import { logSearchQuery } from "@/lib/analytics";
-import { SearchBox, pushRecentSearch } from "@/components/SearchBox";
+import { SEARCH_DEBOUNCE_MS, SearchBox, pushRecentSearch } from "@/components/SearchBox";
 import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
 import { useInView } from "@/hooks/use-in-view";
 
@@ -56,13 +57,18 @@ function SearchPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (input !== q) navigate({ search: { q: input }, replace: true });
-    }, 180);
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [input, q, navigate]);
 
   const term = q.trim();
+  // The request key is the normalised text (case, accents, Arabic letter variants, punctuation and
+  // spaces folded): "Spider ", "spider" and "SPIDER!" are one cached request, and anything shorter
+  // than MIN_QUERY_LENGTH never reaches the server.
+  const searchKey = normalizeText(term);
+  const canSearch = searchKey.length >= MIN_QUERY_LENGTH;
   useEffect(() => {
-    if (term.length < 2) return;
+    if (!canSearch) return;
     const t = setTimeout(() => {
       try {
         trackEvent("Search", { search_string: term });
@@ -72,18 +78,33 @@ function SearchPage() {
       pushRecentSearch(term);
     }, 400);
     return () => clearTimeout(t);
-  }, [term]);
+  }, [term, canSearch]);
 
-  const { data, isFetching } = useQuery({
-    queryKey: ["search-posters", term],
-    enabled: term.length >= 1,
+  const { data, isFetching } = useQuery<PosterRow[]>({
+    queryKey: ["search-posters", searchKey],
+    enabled: canSearch,
     staleTime: 60_000,
-    queryFn: async () => {
-      return searchPostersPublic({ data: { q: term, limit: 120 } }) as Promise<PosterRow[]>;
+    // Keep the previous results on screen while the next ones load: no skeleton flash and no
+    // layout jump between pauses in typing.
+    placeholderData: (prev) => prev,
+    // react-query aborts the in-flight request when the text changes (signal), so only the
+    // latest text is ever answered.
+    queryFn: async ({ signal }) => {
+      return searchPostersPublic({
+        data: { q: searchKey, limit: 120 },
+        signal,
+      }) as Promise<PosterRow[]>;
     },
   });
 
-  const results = data ?? [];
+  // Shown only when a search comes back empty: popular searches that DID find something.
+  const { data: trending = [] } = useQuery<string[]>({
+    queryKey: ["trending-searches"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => getTrendingSearchesPublic({ data: { limit: 8 } }),
+  });
+
+  const results = canSearch ? (data ?? []) : [];
   const visibleResults = results.slice(0, visibleCount);
   const images = usePosterResponsiveImages(
     results.map((p) => p.id),
@@ -104,7 +125,7 @@ function SearchPage() {
   }, [results.length, sentinelInView, visibleCount]);
 
   useEffect(() => {
-    if (term.length < 2 || isFetching) return;
+    if (!canSearch || isFetching) return;
     const t = setTimeout(() => {
       try {
         logSearchQuery(term, results.length);
@@ -113,7 +134,7 @@ function SearchPage() {
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [term, isFetching, results.length]);
+  }, [term, canSearch, isFetching, results.length]);
 
   return (
     <div className="container-page py-12">
@@ -128,19 +149,40 @@ function SearchPage() {
 
       <div className="mt-3 text-xs uppercase tracking-widest text-muted-foreground">
         {term
-          ? isFetching
-            ? t("common.search") + "…"
-            : `${results.length} ${results.length === 1 ? t("search.result") : t("search.results")}`
+          ? !canSearch
+            ? t("search.minChars", { defaultValue: "Type at least 2 characters" })
+            : isFetching
+              ? t("common.search") + "…"
+              : `${results.length} ${results.length === 1 ? t("search.result") : t("search.results")}`
           : t("search.searchHint")}
       </div>
 
-      {term && results.length === 0 && !isFetching ? (
+      {canSearch && results.length === 0 && !isFetching ? (
         <div className="mt-10 rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-          {t("search.noResults")}
+          <div>{t("search.noResults")}</div>
+          {trending.length > 0 ? (
+            <div className="mt-5">
+              <div className="mb-2 text-xs uppercase tracking-widest">
+                {t("search.tryThese", { defaultValue: "Popular searches" })}
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {trending.map((s) => (
+                  <Link
+                    key={s}
+                    to="/search"
+                    search={{ q: s }}
+                    className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:border-primary"
+                  >
+                    {s}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
-          {term && isFetching && results.length === 0 ? (
+          {canSearch && isFetching && results.length === 0 ? (
             // Hold the results' space while the search runs; otherwise the
             // page is short and the footer, already on screen, jumps down
             // when the results arrive.

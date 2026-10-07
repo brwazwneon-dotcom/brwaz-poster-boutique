@@ -5,6 +5,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { searchPostersPublic, getTrendingSearchesPublic } from "@/lib/db-public.functions";
 import { FramedArtwork } from "@/components/FramedArtwork";
+import { MIN_QUERY_LENGTH, normalizeText } from "@/lib/search-core";
+
+// One request per typing pause, never per keystroke: a query is sent only after the visitor
+// stops typing for SEARCH_DEBOUNCE_MS and has typed at least MIN_QUERY_LENGTH characters.
+export const SEARCH_DEBOUNCE_MS = 300;
 
 const RECENT_KEY = "brw_recent_searches_v1";
 const MAX_RECENT = 6;
@@ -17,13 +22,9 @@ export type SearchHit = {
   category_name: string | null;
 };
 
-function normalize(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// Same normalisation the server ranks with (case, accents, Arabic letter variants, punctuation,
+// extra spaces), so "Spider ", "spider" and "SPIDER!" share one cached request.
+const normalize = normalizeText;
 
 function readRecent(): string[] {
   if (typeof window === "undefined") return [];
@@ -77,13 +78,14 @@ export function SearchBox({
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setRecent(readRecent());
   }, [open]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(normalize(value)), 120);
+    const t = setTimeout(() => setDebounced(normalize(value)), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [value]);
 
@@ -100,12 +102,20 @@ export function SearchBox({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const { data: hits = [], isFetching } = useQuery({
+  // The dropdown is for the header box only: the /search page already shows full results for the
+  // same text, so its own box must not fire a second request per keystroke.
+  const suggestEnabled = variant === "header" && debounced.length >= MIN_QUERY_LENGTH;
+  const { data: hits = [], isFetching } = useQuery<SearchHit[]>({
     queryKey: ["search-suggest", debounced],
-    enabled: debounced.length >= 1,
+    enabled: suggestEnabled,
     staleTime: 60_000,
-    queryFn: async () => {
-      return searchPostersPublic({ data: { q: debounced, limit: 8 } }) as Promise<SearchHit[]>;
+    placeholderData: (prev) => prev,
+    // react-query aborts the previous request when the text changes (signal), so a stale
+    // suggestion request never keeps running on the server for text the visitor already left.
+    queryFn: async ({ signal }) => {
+      return searchPostersPublic({ data: { q: debounced, limit: 8 }, signal }) as Promise<
+        SearchHit[]
+      >;
     },
   });
 
@@ -153,14 +163,18 @@ export function SearchBox({
       ? "pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
       : "pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground";
 
-  const showResults = open && debounced.length >= 1;
-  const showEmpty = open && debounced.length < 1;
+  const showResults = open && suggestEnabled;
+  // Empty / too-short text: recent + trending searches (header and page), plus a hint while the
+  // text is below the minimum length.
+  const showEmpty = open && debounced.length < MIN_QUERY_LENGTH;
+  const tooShort = value.trim().length > 0 && debounced.length < MIN_QUERY_LENGTH;
 
   return (
     <div ref={wrapRef} className="relative w-full">
       <form onSubmit={submit} className="relative">
         <SearchIcon className={iconCls} />
         <input
+          ref={inputRef}
           autoFocus={autoFocus}
           value={value}
           onChange={(e) => {
@@ -173,13 +187,38 @@ export function SearchBox({
           aria-label={t("header.search")}
           autoComplete="off"
           spellCheck={false}
+          enterKeyHint="search"
         />
+        {value ? (
+          <button
+            type="button"
+            aria-label={t("common.clear", { defaultValue: isArabic ? "مسح" : "Clear search" })}
+            onClick={() => {
+              setValue("");
+              setDebounced("");
+              setOpen(true);
+              inputRef.current?.focus();
+            }}
+            className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </form>
 
       {(showResults || showEmpty) && (
         <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[70vh] overflow-y-auto rounded-sm border border-border bg-background shadow-2xl">
           {showEmpty && (
             <div className="p-3 text-xs">
+              {tooShort && (
+                <div className="px-2 pb-3 text-muted-foreground">
+                  {text(
+                    "header.typeMore",
+                    "Type at least 2 characters to search",
+                    "اكتب حرفين على الأقل للبحث",
+                  )}
+                </div>
+              )}
               {recent.length > 0 && (
                 <div className="mb-3">
                   <div className="mb-2 flex items-center gap-2 px-2 uppercase tracking-widest text-muted-foreground">
