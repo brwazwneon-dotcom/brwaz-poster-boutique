@@ -295,3 +295,86 @@
 [data-site-theme="poster-wall"] :is(#home-hero_banners, #home-homepage_slider) :is(a, button).border-border {
   border-color: #f3efe6;
 }
+
+/* ═══════════════════ MOTION GRAPHICS (decorative, CSS-only) ═══════════════════ */
+
+/* — Falling frames / confetti layer — */
+.v2-fall { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; contain: strict; }
+.v2-fall-item {
+  position: absolute; top: 0; width: var(--w); aspect-ratio: 2 / 3;
+  animation: v2-fall var(--dur) linear var(--delay) infinite;
+  animation-play-state: paused; will-change: transform;
+}
+.v2-fall[data-on="true"] .v2-fall-item,
+.v2-fall[data-on="true"] .v2-fall-body { animation-play-state: running; }
+.v2-fall-body {
+  display: block; width: 100%; height: 100%;
+  background: var(--c); border: 2px solid var(--v2-ink, #0e0e0e);
+  box-shadow: 3px 3px 0 var(--v2-ink, #0e0e0e);
+  animation: v2-sway calc(var(--dur) / 3.2) ease-in-out var(--delay) infinite alternate;
+  animation-play-state: paused;
+}
+/* little "mat + artwork" detail so falling frames read as posters */
+.v2-fall[data-kind="frames"] .v2-fall-body {
+  background:
+    linear-gradient(var(--v2-ink, #0e0e0e), var(--v2-ink, #0e0e0e)) center 38% / 46% 4% no-repeat,
+    linear-gradient(color-mix(in oklab, var(--c) 55%, white), color-mix(in oklab, var(--c) 55%, white)) center 40% / 62% 56% no-repeat,
+    var(--c);
+}
+.v2-fall[data-kind="confetti"] .v2-fall-item { aspect-ratio: 1; animation-timing-function: cubic-bezier(.3,.1,.7,1); animation-iteration-count: 2; }
+.v2-fall[data-kind="confetti"] .v2-fall-body { border-width: 1px; box-shadow: none; border-radius: 1px; animation-name: v2-spin; animation-duration: calc(var(--dur) / 2); animation-timing-function: linear; }
+@keyframes v2-fall { from { transform: translate3d(0, -20vh, 0); } to { transform: translate3d(0, 120vh, 0); } }
+@keyframes v2-sway { from { transform: translateX(calc(var(--sway) * -1)) rotate(calc(var(--rot) * -1)); } to { transform: translateX(var(--sway)) rotate(var(--rot)); } }
+@keyframes v2-spin { to { transform: rotate3d(1, .6, .3, var(--spin)) translateX(var(--sway)); } }
+@media (max-width: 639px) { .v2-fall-item[data-phone-hidden] { display: none; } }
+
+/* — Marquee bands (kinetic type) — */
+.v2-marquees { position: relative; padding-block: 1.1rem; overflow: hidden; background: var(--v2-paper, #f3efe6); }
+.v2-marquee { overflow: hidden; width: 112%; margin-inline: -6%; border-block: 2px solid var(--v2-ink, #0e0e0e); }
+.v2-marquee[data-tone="yellow"] { background: var(--v2-yellow, #ffd400); color: var(--v2-ink, #0e0e0e); transform: rotate(-1.4deg); }
+.v2-marquee[data-tone="ink"] { background: var(--v2-ink, #0e0e0e); color: var(--v2-yellow, #ffd400); transform: rotate(1.1deg); margin-top: -0.35rem; }
+.v2-marquee-track { display: flex; width: max-content; animation: v2-marquee 34s linear infinite; }
+.v2-marquee[data-reverse="true"] .v2-marquee-track { animation-direction: reverse; animation-duration: 42s; }
+.v2-marquee-item {
+  display: inline-flex; align-items: center; gap: 1.4rem; padding: 0.55rem 1.4rem;
+  font-family: var(--font-display); font-size: clamp(1.15rem, 2.6vw, 1.9rem); letter-spacing: 0.08em; white-space: nowrap;
+}
+[dir="rtl"] .v2-marquee-item, :lang(ar) .v2-marquee-item { font-family: var(--font-ar-heading); letter-spacing: 0; font-size: clamp(1rem, 2.2vw, 1.5rem); }
+.v2-marquee-item b { font-weight: 400; color: var(--v2-cyan, #00bee8); }
+@keyframes v2-marquee { to { transform: translate3d(-50%, 0, 0); } }
+.v2-marquee:hover .v2-marquee-track { animation-play-state: paused; }
+
+/* — Poster wall: frames DROP onto the wall and settle with a small overshoot — */
+.v2-wall[data-armed="true"] .v2-wall-cell { transition: none; }
+.v2-wall[data-armed="true"]:not([data-shown="true"]) .v2-wall-cell { opacity: 0; transform: translate3d(0, -140%, 0) rotate(calc((var(--i, 0) - 2.5) * 3deg)); }
+.v2-wall[data-armed="true"][data-shown="true"] .v2-wall-cell {
+  animation: v2-drop 900ms cubic-bezier(.22, 1.25, .36, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms);
+}
+@keyframes v2-drop {
+  0% { opacity: 0; transform: translate3d(0, -140%, 0) rotate(calc((var(--i, 0) - 2.5) * 3deg)); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+/* — Section titles: the yellow marker is drawn in when the section scrolls into view — */
+[data-site-theme="poster-wall"] .v2-reveal[data-armed="true"][data-shown="true"] h2.text-display {
+  animation: v2-mark 800ms var(--v2-ease) 150ms both;
+}
+@keyframes v2-mark { from { background-size: 0% 0.28em; } to { background-size: 100% 0.28em; } }
+
+/* — Card entrance on category/trending grids is intentionally NOT animated (LCP). — */
+
+/* — Hero floaters sit above the dark hero image, never over the headline — */
+.v2-hero-floaters { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+
+/* — Order confirmed: confetti shower — */
+.v2-celebrate { position: relative; overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-fall { display: none; }
+  .v2-marquee-track { animation: none; }
+  .v2-marquee { transform: none; }
+  .v2-wall[data-armed="true"][data-shown="true"] .v2-wall-cell { animation: none; opacity: 1; transform: none; }
+  [data-site-theme="poster-wall"] .v2-reveal[data-armed="true"][data-shown="true"] h2.text-display { animation: none; }
+}

@@ -29,7 +29,8 @@ export type HomeSectionKey =
   | "quality-section"
   | "wall-of-inspiration"
   | "room-transformation"
-  | "frame-wall";
+  | "frame-wall"
+  | "marquee";
 
 export type SectionSourceType =
   | "manual"
@@ -92,6 +93,7 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "wall-of-inspiration": "Wall of Inspiration",
   "room-transformation": "Room Transformation",
   "frame-wall": "Frame Wall (6 / 4 sets)",
+  marquee: "Marquee ticker",
 };
 
 export interface HomeSectionRegistryEntry {
@@ -108,6 +110,7 @@ export interface HomeSectionRegistryEntry {
 export const HOME_SECTION_REGISTRY: HomeSectionRegistryEntry[] = [
   { key: "homepage_slider", label: "Homepage Slider", component: "HomepageSlider", defaultOrder: 1, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { display_type: "slider" } },
   { key: "hero_banners", label: "Hero Banners", component: "HeroBannerSection", defaultOrder: 2, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
+  { key: "marquee", label: "Marquee ticker", component: "MarqueeBands", defaultOrder: 2, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "collections", label: "Shop by Collection", component: "ShopByCollection", defaultOrder: 4, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "trending-now", label: "Trending Now", component: "TrendingNow", defaultOrder: 3, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Trending Now", title_ar: "الترند الآن", source_type: "trending", display_type: "slider", items_count: 12 } },
   { key: "best-sellers", label: "Best Sellers", component: "BestSellers", defaultOrder: 5, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Best Sellers", title_ar: "الأكثر مبيعاً", subtitle_en: "Our top picks — hand-selected.", subtitle_ar: "اختياراتنا المميزة", source_type: "best_sellers", display_type: "carousel", items_count: 12 } },

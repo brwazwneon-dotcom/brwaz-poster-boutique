@@ -103,6 +103,12 @@ Before: 1 critical + 4 serious rule violations; no colour-contrast violations (t
 - `scrollable-region-focusable`: horizontal scrollers without focusable content (Highlights, Customer Reviews, category chips) are keyboard-focusable.
 Not covered: screen-reader testing on real devices, admin console, reduced-motion visual review beyond CSS (`prefers-reduced-motion` disables all V2 motion).
 
+## Slice 15: motion graphics ("things falling and moving")
+- `components/v2/Motion.tsx` + CSS in `styles/v2.css`: (1) **falling posters/frames** (pure CSS, two nested animations: fall + sway/rotate, deterministic positions so no hydration mismatch) behind the hero (edges only, behind the text/buttons), behind "Build your wall", (2) **two crossing marquee bands** (yellow/ink, opposite directions, new homepage section `marquee` after the hero, admin-reorderable, Arabic variant), (3) **frames drop onto the wall** with a small overshoot and stagger when the wall scrolls into view, (4) **yellow marker is drawn in** under section titles on reveal, (5) **confetti shower** on the order-confirmed page.
+- Performance guards: transform/opacity only, ≤ 56 elements on a page, animation paused while off-screen (IntersectionObserver), items hidden on phones (every 3rd), nothing on the LCP image, none on product grids. `prefers-reduced-motion`: falling layers hidden, marquee static, wall/marker animation off (verified).
+- Re-measured after adding it: LCP ~670–740 ms (not slower), CLS 0.004, axe 0 violations, 266-combination sweep 0 overflow / 0 errors.
+- Screen recording of the motion (mock data): `brwaz-v2-motion.mp4` (not committed; sent in chat).
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

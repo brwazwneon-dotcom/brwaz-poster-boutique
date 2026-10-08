@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { PosterWall, WALL_COUNT, type WallLayout } from "./PosterWall";
 import { Reveal } from "./Reveal";
+import { FallingLayer } from "./Motion";
 import { cn } from "@/lib/utils";
 
 const LAYOUTS: Array<{ id: WallLayout; label: string; sub: string }> = [
@@ -33,8 +34,9 @@ export function FrameWall({ title, subtitle }: { title?: string; subtitle?: stri
   if (data.length < WALL_COUNT["20x30"]) return null;
 
   return (
-    <section className="border-t border-border">
-      <div className="container-page" style={{ paddingBlock: "var(--v2-section-y)" }}>
+    <section className="relative overflow-hidden border-t border-border">
+      <FallingLayer kind="frames" count={12} opacity={0.55} />
+      <div className="container-page relative z-10" style={{ paddingBlock: "var(--v2-section-y)" }}>
         <Reveal className="mb-8 text-center">
           <p className="v2-eyebrow">Offers</p>
           <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || "Build your wall"}</h2>

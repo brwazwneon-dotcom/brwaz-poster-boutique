@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, MessageCircle, Package, PhoneCall } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { whatsappLink } from "@/lib/whatsapp";
+import { FallingLayer } from "@/components/v2/Motion";
 
 export const Route = createFileRoute("/order-confirmed")({
   head: () => ({
@@ -35,8 +36,9 @@ function OrderConfirmed() {
     },
   ];
   return (
-    <section className="container-page py-20 text-center" dir={ar ? "rtl" : "ltr"}>
-      <CheckCircle2 className="mx-auto h-14 w-14 text-primary" aria-hidden />
+    <section className="v2-celebrate container-page py-20 text-center" dir={ar ? "rtl" : "ltr"}>
+      <FallingLayer kind="confetti" count={56} />
+      <CheckCircle2 className="relative z-10 mx-auto h-14 w-14 text-primary" aria-hidden />
       <h1 className="text-display mt-6 text-4xl sm:text-6xl">
         {L("Order received", "تم استلام طلبك")}
       </h1>

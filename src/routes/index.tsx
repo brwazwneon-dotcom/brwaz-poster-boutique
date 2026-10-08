@@ -7,6 +7,7 @@ import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { LazyOnView } from "@/components/LazyOnView";
 import { Reveal } from "@/components/v2/Reveal";
+import { FallingLayer, MarqueeBands } from "@/components/v2/Motion";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { Printer } from "lucide-react";
 
@@ -102,6 +103,7 @@ function Index() {
   const RENDERERS: Record<string, (s: HomeSectionConfig) => ReactNode> = {
     homepage_slider: () => <HomepageSlider key="homepage_slider" />,
     hero_banners: () => <HeroBannerSection key="hero_banners" />,
+    marquee: () => <MarqueeBands key="marquee" ar={isArabic} />,
     "best-sellers": (s) => (
       <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
     ),
@@ -221,6 +223,7 @@ function HeroBannerSection() {
       data-hero-banner-section="true"
       className="relative isolate overflow-hidden border-b border-border"
     >
+      <FallingLayer kind="frames" count={10} edges />
       <HeroBannerSlider
         fallback={
           <>
@@ -237,7 +240,7 @@ function HeroBannerSection() {
           </>
         }
       />
-      <div className="container-page flex min-h-[85vh] flex-col justify-end py-20">
+      <div className="container-page relative z-10 flex min-h-[85vh] flex-col justify-end py-20">
         <div
           dir="rtl"
           className="max-w-3xl animate-in fade-in-0 slide-in-from-bottom-4 text-right duration-700 ease-out"
