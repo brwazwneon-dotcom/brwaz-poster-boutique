@@ -72,7 +72,7 @@ export const Route = createFileRoute("/category/$slug")({
   head: ({ params }) => {
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;
-    const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
+    const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC frames and Wooden Portrait boards, delivered across Egypt with cash on delivery.`;
     const url = `https://brwazwneon.com/category/${params.slug}`;
     return {
       meta: [

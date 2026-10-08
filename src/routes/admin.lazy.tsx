@@ -5254,7 +5254,7 @@ function GridDisplayModeCard() {
     {
       id: "wood",
       label: "Wooden Portrait Preview",
-      hint: "Show poster inside wooden frame mockup",
+      hint: "Show poster on the Wooden Portrait mockup",
     },
   ];
   const save = async (next: GridDisplayMode) => {
