@@ -155,21 +155,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { property: "og:site_name", content: "BRWAZWNEON" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "BRWAZWNEON — Premium Framed Posters" },
       {
         name: "twitter:description",
         content:
           "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery.",
       },
-      {
-        property: "og:image",
-        content: `${SITE_URL}/icon-512.png`,
-      },
-      {
-        name: "twitter:image",
-        content: `${SITE_URL}/icon-512.png`,
-      },
+      // Link preview (WhatsApp, Facebook, Telegram, X…): the brand logo, 1200×630.
+      // This used to be icon-512.png, which is just the letter "B".
+      { property: "og:image", content: `${SITE_URL}/og-image.jpg` },
+      { property: "og:image:secure_url", content: `${SITE_URL}/og-image.jpg` },
+      { property: "og:image:type", content: "image/jpeg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "BRWAZWNEON — برواز ونيون" },
+      { name: "twitter:image", content: `${SITE_URL}/og-image.jpg` },
+      { name: "twitter:image:alt", content: "BRWAZWNEON — برواز ونيون" },
       { name: "theme-color", content: "#000000" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
@@ -211,7 +214,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               "@id": `${SITE_URL}/#org`,
               name: "BRWAZWNEON",
               url: SITE_URL,
-              logo: `${SITE_URL}/icon-512.png`,
+              logo: `${SITE_URL}/assets/brwazwneon-logo.png`,
               areaServed: "EG",
               address: {
                 "@type": "PostalAddress",
