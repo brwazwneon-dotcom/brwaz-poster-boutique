@@ -31,11 +31,6 @@ const RoomTransformation = lazy(() =>
     default: module.RoomTransformation,
   })),
 );
-const WallOfInspiration = lazy(() =>
-  import("@/components/WallOfInspiration").then((module) => ({
-    default: module.WallOfInspiration,
-  })),
-);
 const PhotoEnhancementBeforeAfter = lazy(() =>
   import("@/components/PhotoEnhancementBeforeAfter").then((module) => ({
     default: module.PhotoEnhancementBeforeAfter,
@@ -127,7 +122,6 @@ function Index() {
     "for-you": () => <PersonalizedSections key="for-you" />,
     "because-you-liked": () => <PersonalizedSections key="because-you-liked" />,
     "recommended-for-you": () => <PersonalizedSections key="recommended-for-you" />,
-    "wall-of-inspiration": () => <WallOfInspiration key="wall-of-inspiration" />,
     "room-transformation": () => <RoomTransformation key="room-transformation" />,
     categories: (s) => (
       <CategoryGrids

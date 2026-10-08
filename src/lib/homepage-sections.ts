@@ -27,7 +27,6 @@ export type HomeSectionKey =
   | "how-it-works"
   | "faq"
   | "quality-section"
-  | "wall-of-inspiration"
   | "room-transformation";
 
 export type SectionSourceType =
@@ -88,7 +87,6 @@ export const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   "how-it-works": "How It Works",
   faq: "FAQ",
   "quality-section": "Quality Section",
-  "wall-of-inspiration": "Wall of Inspiration",
   "room-transformation": "Room Transformation",
 };
 
@@ -116,7 +114,6 @@ export const HOME_SECTION_REGISTRY: HomeSectionRegistryEntry[] = [
   { key: "trusted-quality", label: "Trusted Quality", component: "TrustedQuality", defaultOrder: 9, defaultEnabled: true, defaultVisible: true, adminReorderable: true, defaultConfig: { title_en: "Why Choose Us", title_ar: "ليه تختار برواز نيون", subtitle_en: "We deliver quality, not just frames.", subtitle_ar: "بنقدم جودة مش براويز بس" } },
   { key: "quality-section", label: "Quality Section", component: "QualitySection", defaultOrder: 10, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "faq", label: "FAQ", component: "StorefrontFAQ", defaultOrder: 11, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
-  { key: "wall-of-inspiration", label: "Wall of Inspiration", component: "WallOfInspiration", defaultOrder: 12, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "room-transformation", label: "Room Transformation", component: "RoomTransformation", defaultOrder: 13, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "highlights", label: "Highlights", component: "Highlights", defaultOrder: 14, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
   { key: "frame-sets", label: "Frame Sets", component: "FrameSetsHome", defaultOrder: 15, defaultEnabled: true, defaultVisible: true, adminReorderable: true },
@@ -148,6 +145,9 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = HOME_SECTION_REGISTRY
 export const HOME_SECTIONS_KEY = "homepage_sections_v1";
 export const HOME_SECTIONS_DRAFT_KEY = "homepage_sections_draft_v1";
 
+/** Sections that no longer exist; saved homepage configs may still list them. */
+const RETIRED_SECTION_KEYS = new Set(["wall-of-inspiration"]);
+
 export function normalizeHomeSectionKey(key: string) {
   return key === "hero" ? "hero_banners" : key;
 }
@@ -160,7 +160,7 @@ export function normalizeHomeSections(raw: unknown): HomeSectionConfig[] {
     if (!item || typeof item !== "object") continue;
     const it = item as Record<string, unknown>;
     const key = typeof it.key === "string" ? normalizeHomeSectionKey(it.key) : undefined;
-    if (!key) continue;
+    if (!key || RETIRED_SECTION_KEYS.has(key)) continue;
     const isCustom = it.custom === true || key.startsWith("custom-");
     if (seen.has(key)) continue;
     seen.add(key);
