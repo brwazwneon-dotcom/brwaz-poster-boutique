@@ -18,10 +18,10 @@ Scope note: the 12-agent plan was executed by one coordinator working inline (no
 12. **Agent-by-agent** — 1 UX: Phase 1 doc. 2 Visual: theme. 3 Motion: v2.css/Reveal. 4 Search: SQL v2/indexed + tests. 5 Performance: before/after + CLS fix. 6 Product: `/poster/$id`. 7 Checkout: draft, sticky bar, confirm page, bundle fix. 8 Admin: Overview tab. 9 Room: 6/4-frame wall (verified geometry). 10 QA/Security: SQL attack tests, hydration root cause, RTL frame bug, drawer shadow leak. 11 Mobile: 320/390 checks, no overflow. 12 Desktop: 1440 checks. (1920 px and 412/430 px not tested.)
 13. **Files changed** — 58 files, ≈+2.5k/−0.2k lines vs `main` (`git diff --stat origin/main...HEAD`).
 14. **Database changes** — proposed only, none applied: `01`, `03` (adds 2 nullable columns, trigger, indexes on `posters`; backfills every row once), `02` (BEFORE INSERT guard on `orders`, ships in `log` mode; optional idempotency columns need a client change). Rollbacks are in each file.
-15. **Tests** — 57 unit tests pass (new: order grouping, checkout draft, theme tokens/contrast, request language, plus existing); 1 pre-existing suite fails to load (`@testing-library/dom` missing in the sandbox install). Playwright checks with mocked backend (home, product, cart, category, custom-design, photo-printing, search, offers, sets, order-confirmed; en + ar; 320/390/1440 px): no horizontal overflow, no new console errors. Local PostgreSQL 16 tests for all SQL.
+15. **Tests** — 60 unit tests pass (new: order grouping, checkout draft, theme tokens/contrast, request language, locale integrity, plus existing); 1 pre-existing suite fails to load (`@testing-library/dom` missing in the sandbox install). Playwright sweep with mocked backend: 19 public routes × 7 viewports (320/390/412/430/1366/1440/1920) × en/ar = 266 combinations, 0 horizontal overflow, 0 JS errors. axe-core WCAG 2.0/2.1 A+AA on 11 pages × en/ar × mobile/desktop: 0 violations (was 1 critical + 4 serious). Local PostgreSQL 16 tests for all SQL.
 16. **Performance BEFORE/AFTER** — in `V2_REPORT.md` slice 12 (indicative; mock backend, 4× CPU throttle; not Lighthouse).
-17. **Credit usage** — per the session records: this coordinator session $16.73; the separate old-site session ($33.85 at last check, still running) → ≈ $50.6 combined.
-18. **Remaining credit** — ≈ $49 of $100 if both sessions draw on the same $100; verify in the account panel.
+17. **Credit usage** — per the session records (latest check): this coordinator session $19.06; the separate old-site session $42.31 (now idle) → ≈ $61.4 combined.
+18. **Remaining credit** — ≈ $38.6 of $100 if both sessions draw on the same $100; verify in the account panel.
 19. **Known limitations** — see below.
 20. **Recommended next phase** — below.
 
@@ -29,11 +29,12 @@ Scope note: the 12-agent plan was executed by one coordinator working inline (no
 - Never run against real data, a real Supabase, Vercel, or a CDN. Visuals checked with mocked responses (Unsplash/room images blocked in the sandbox).
 - Server-rendered language is chosen per request from cookie/Accept-Language; if you cache HTML at a CDN it must vary on `Cookie` and `Accept-Language` (the repo's `_headers` marks `/` as no-store; other routes' deployed headers were not verified).
 - Order guard is a floor + consistency check, not full server-side pricing.
-- Not built: separate `/checkout`, `/shop`/vibes pages, admin in the light theme, bulk-edit/ops-workflow redesign, full component library, 1920/412/430 px checks, real Lighthouse, keyboard/screen-reader audit on real devices.
+- Not built (deliberate): separate `/checkout`, `/shop`/vibes pages, admin in the light theme, bulk-edit/ops-workflow redesign, full component library. Not done: real Lighthouse, screen-reader audit on real devices.
+- Fixed on the way (also present on `main`): 71 missing storefront translation keys, 35 Arabic strings with un-interpolated `{placeholders}`, Arabic hydration mismatch, RTL frame artwork offset, dead `/order-confirmed` route, bundle orders not saving posters, all axe violations.
 - One residual hydration warning can appear for a first visit by a returning visitor whose language lives only in old localStorage.
 
 ## Recommended next phase
 1. Apply SQL `01` → `03` and `02` (log mode) on a Supabase branch; review warnings on real orders; then enforce.
 2. Deploy the branch as a Vercel *preview* (not production), run Lighthouse mobile/desktop on `/`, `/category/*`, `/poster/*`, `/cart`, in ar and en, and compare with `main`.
 3. Review admin in the Poster Wall theme or keep it dark; decide whether to keep the 5 legacy themes.
-4. Real-device accessibility pass; then decide on `/checkout` split and full pricing authority (`place_order` RPC).
+4. Real-device screen-reader pass; then decide on `/checkout` split and full pricing authority (`place_order` RPC).
