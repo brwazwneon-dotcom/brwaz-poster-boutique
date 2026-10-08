@@ -32,11 +32,15 @@ export const toCents = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 
 export const fromCents = (c: number) => c / 100;
 
 /** Customer-uploaded design lines carry the extra custom design fee. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Mirrors the server (place_order): no catalogue/set id (custom ids are "custom-…") ⇒ custom. */
 export function isCustomLine(
-  i: Pick<CartItem, "customImagePath" | "categoryName" | "bundle">,
+  i: Pick<CartItem, "customImagePath" | "categoryName" | "bundle"> & { posterId?: string | null },
 ): boolean {
   if (i.bundle) return false;
   if (i.customImagePath) return true;
+  if (!UUID_RE.test(i.posterId ?? "")) return true;
   return /custom|مخصص/i.test(i.categoryName ?? "");
 }
 
@@ -46,7 +50,10 @@ export function isCustomLine(
  * resort when the admin has no price for that frame/size combination.
  */
 export function unitPriceFor(
-  i: Pick<CartItem, "frameType" | "size" | "price" | "bundle" | "customImagePath" | "categoryName">,
+  i: Pick<
+    CartItem,
+    "frameType" | "size" | "price" | "bundle" | "customImagePath" | "categoryName" | "posterId"
+  >,
   pricing: Pricing,
 ): number {
   if (i.bundle) return i.price; // offer bundles are priced by the offer itself
@@ -285,6 +292,11 @@ export function validateCheckoutLines(totals: CheckoutTotals): CheckoutIssue[] {
     if (!i.frameType || !i.size || !i.color) add("missing_frame", "Missing frame type/size/color");
     if (i.frameType && i.size && i.color && !isValidFrameCombo(i.frameType, i.size, i.color))
       add("bad_combo", "Frame type, size and colour do not form an orderable combination");
+    if (i.bundle) {
+      const need = i.size === "20x30" ? 6 : i.size === "30x40" ? 4 : 0;
+      if (!need || i.bundle.posters.length !== need)
+        add("bad_bundle_count", "A bundle must contain exactly 6 (20x30) or 4 (30x40) posters");
+    }
     if (!i.title) add("missing_title", "Missing item title");
     if (!i.image && !i.customImagePath && !i.bundle) add("missing_image", "Missing image");
     if (i.customImagePath && i.customImagePath.startsWith("blob:"))

@@ -7,8 +7,9 @@ END $$;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 
-DROP TABLE IF EXISTS public.order_posters, public.orders, public.site_settings, public.posters CASCADE;
-CREATE TABLE public.posters (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), title text);
+DROP TABLE IF EXISTS public.order_posters, public.orders, public.site_settings, public.posters, public.categories CASCADE;
+CREATE TABLE public.categories (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, slug text NOT NULL UNIQUE);
+CREATE TABLE public.posters (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), title text, category_id uuid REFERENCES public.categories(id));
 CREATE TABLE public.site_settings (key text PRIMARY KEY, value jsonb);
 CREATE TABLE public.orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

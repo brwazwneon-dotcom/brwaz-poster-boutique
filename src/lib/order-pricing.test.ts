@@ -21,7 +21,7 @@ const pricing: Pricing = PRICING_DEFAULTS;
 let seq = 0;
 const item = (o: Partial<CartItem> = {}): CartItem => ({
   id: `line-${++seq}`,
-  posterId: `poster-${seq}`,
+  posterId: `00000000-0000-4000-8000-${String(seq).padStart(12, "0")}`,
   title: `Poster ${seq}`,
   image: "https://example.test/p.jpg",
   categoryId: null,
@@ -214,6 +214,32 @@ describe("computeCheckout", () => {
     expect(t.packaging).toBe(2 * pricing.packagingFee);
     expect(t.grand).toBe(1580 + 40 + 0 /* ≥ threshold? 1580 < 1600 */ + 89);
     expect(rowsTotal(t)).toBe(cents(t.grand));
+  });
+
+  it("bundle poster count is validated (6 × 20x30, 4 × 30x40)", () => {
+    const mk = (size: "20x30" | "30x40", n: number) =>
+      item({
+        size,
+        price: 790,
+        bundle: {
+          key: "b",
+          label: "B",
+          posters: Array.from({ length: n }, (_, j) => ({ posterId: `p${j}`, title: "t", image: "i" })),
+        },
+      });
+    const codes = (b: CartItem) =>
+      validateCheckoutLines(computeCheckout([b], pricing, settings, false)).map((x) => x.code);
+    expect(codes(mk("20x30", 6))).not.toContain("bad_bundle_count");
+    expect(codes(mk("30x40", 4))).not.toContain("bad_bundle_count");
+    expect(codes(mk("20x30", 40))).toContain("bad_bundle_count");
+    expect(codes(mk("30x40", 6))).toContain("bad_bundle_count");
+  });
+
+  it("a line without a catalogue id is a custom design even without an image path", () => {
+    const base = computeCheckout([item()], pricing, settings, false).lines[0].unit;
+    const custom = computeCheckout([item({ posterId: "custom-abc-0" })], pricing, settings, false)
+      .lines[0].unit;
+    expect(custom - base).toBe(pricing.customDesignFee);
   });
 
   it("shipping is split across lines so the rows always add up (no 0.01 drift)", () => {

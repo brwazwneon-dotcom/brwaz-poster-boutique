@@ -191,12 +191,80 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
     expect(() => call([{ ...ok, bundle: { posters: [] } }])).toThrow();
   });
 
-  it("ignores a price sent by the browser (the request has no price field that is read)", () => {
+  it("P4: a bundle must contain exactly 6 (20x30) or 4 (30x40) posters", () => {
     setSettings(PRICING_DEFAULTS);
     psql("TRUNCATE orders, order_posters");
+    const posters = (n: number) =>
+      Array.from({ length: n }, (_, j) => ({ title: `Q${j}`, image: "i" }));
+    const bundle = (size: string, n: number) => ({
+      title: "B",
+      image: "i",
+      frame_type: "pvc",
+      color: "black",
+      size,
+      qty: 1,
+      bundle: { posters: posters(n) },
+    });
+    const call = (items: unknown) =>
+      psql(
+        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify(items))}::jsonb, '{"method":"cod"}'::jsonb)`,
+      );
+    // the attack: 40 posters at the 6-poster price (and 1, 5, 7 …)
+    for (const n of [1, 5, 7, 40]) expect(() => call([bundle("20x30", n)])).toThrow(/exactly 6/);
+    for (const n of [1, 3, 5, 40]) expect(() => call([bundle("30x40", n)])).toThrow(/exactly 4/);
+    expect(() => call([bundle("40x50", 6)])).toThrow(); // no bundle offer for this size
+    expect(() => call([{ ...bundle("20x30", 6), bundle: { posters: "x" } }])).toThrow();
+    expect(() => call([{ ...bundle("20x30", 6), bundle: {} }])).toThrow();
+    expect(psql("SELECT count(*) FROM orders")).toBe("0"); // nothing written by any rejected attempt
+    // exact counts are accepted at the server's authoritative price
+    const a = JSON.parse(call([bundle("20x30", 6)])) as { total: number };
+    expect(Number(a.total)).toBe(790 + 20 + 89);
+    const b = JSON.parse(call([bundle("30x40", 4)])) as { total: number };
+    expect(Number(b.total)).toBe(890 + 20 + 89);
+  });
+
+  it("P5: custom design fee is decided on the server, not by custom_image_path alone", () => {
+    setSettings(PRICING_DEFAULTS);
+    psql("TRUNCATE orders, order_posters; TRUNCATE posters CASCADE; TRUNCATE categories CASCADE");
+    const cat = psql("INSERT INTO categories (name, slug) VALUES ('Custom Designs','custom') RETURNING id").split("\n")[0];
+    const plain = psql("INSERT INTO categories (name, slug) VALUES ('Movies','movies') RETURNING id").split("\n")[0];
+    const inCustom = psql(`INSERT INTO posters (title, category_id) VALUES ('C', '${cat}') RETURNING id`).split("\n")[0];
+    const inMovies = psql(`INSERT INTO posters (title, category_id) VALUES ('M', '${plain}') RETURNING id`).split("\n")[0];
+    const base = { title: "t", image: "i", frame_type: "pvc", color: "black", size: "30x40", qty: 1 };
+    const total = (item: Record<string, unknown>) =>
+      Number(
+        (
+          JSON.parse(
+            psql(
+              `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify([item]))}::jsonb, '{"method":"cod"}'::jsonb)`,
+            ),
+          ) as { total: number }
+        ).total,
+      );
+    expect(total({ ...base, poster_id: inMovies })).toBe(250 + 89); // catalogue: no fee
+    expect(total({ ...base, poster_id: inMovies, custom_image_path: "" })).toBe(250 + 89);
+    expect(total({ ...base, poster_id: inMovies, custom_image_path: "u/a.jpg" })).toBe(250 + 20 + 89);
+    // custom design WITHOUT a path: no poster id at all (missing / null / "custom-…") ⇒ fee
+    expect(total({ ...base })).toBe(250 + 20 + 89);
+    expect(total({ ...base, poster_id: null, custom_image_path: "" })).toBe(250 + 20 + 89);
+    expect(total({ ...base, poster_id: "custom-abc-0" })).toBe(250 + 20 + 89);
+    // poster that lives in the custom category ⇒ fee, whatever the browser says
+    expect(total({ ...base, poster_id: inCustom, custom_image_path: "" })).toBe(250 + 20 + 89);
+    // a stale expected_total (without the fee) is rejected, server stays authoritative
+    expect(() =>
+      psql(
+        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify([base]))}::jsonb, '{"method":"cod","expected_total":339}'::jsonb)`,
+      ),
+    ).toThrow(/price_changed/);
+  });
+
+  it("ignores a price sent by the browser (the request has no price field that is read)", () => {
+    setSettings(PRICING_DEFAULTS);
+    psql("TRUNCATE orders, order_posters; TRUNCATE posters CASCADE");
+    const cat = psql("INSERT INTO posters (title) VALUES ('Cat') RETURNING id").split("\n")[0];
     const res = JSON.parse(
       psql(
-        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify([{ title: "t", image: "i", frame_type: "pvc", color: "black", size: "30x40", qty: 1, price: 1, total_price: 0, unit_price: 0, shipping_cost: 0 }]))}::jsonb, '{"method":"cod","total":0}'::jsonb)`,
+        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify([{ poster_id: cat, title: "t", image: "i", frame_type: "pvc", color: "black", size: "30x40", qty: 1, price: 1, total_price: 0, unit_price: 0, shipping_cost: 0 }]))}::jsonb, '{"method":"cod","total":0}'::jsonb)`,
       ),
     );
     expect(Number(res.total)).toBe(250 + 89);
@@ -204,8 +272,10 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
 
   it("rejects when the customer's expected total no longer matches (price changed) and writes nothing", () => {
     setSettings(PRICING_DEFAULTS);
-    psql("TRUNCATE orders, order_posters");
+    psql("TRUNCATE orders, order_posters; TRUNCATE posters CASCADE");
+    const cat = psql("INSERT INTO posters (title) VALUES ('Cat') RETURNING id").split("\n")[0];
     const item = {
+      poster_id: cat,
       title: "t",
       image: "i",
       frame_type: "pvc",

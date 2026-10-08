@@ -85,7 +85,7 @@ DECLARE
   rule record; idxs int[]; qty_sum int; sets int; avg_unit numeric; per_set bigint; rule_c bigint; parts bigint[];
   v_net bigint; v_total_row bigint; v_ids uuid[] := ARRAY[]::uuid[]; v_row uuid; v_title text; v_image text;
   v_frame_label text; v_color_label text; v_size_label text; v_notes jsonb; v_grand bigint;
-  v_cents_total bigint;
+  v_cents_total bigint; v_need int;
 BEGIN
   -- ---- customer ----
   v_phone := btrim(COALESCE(p_customer->>'phone',''));
@@ -128,7 +128,19 @@ BEGIN
     END IF;
     l_qty    := l_qty || (it->>'qty')::int;
     l_bundle := l_bundle || (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object');
-    l_custom := l_custom || (COALESCE(it->>'custom_image_path','') <> '');
+    -- Custom design = decided from server truth, never from the browser alone: an uploaded image
+    -- path, OR no catalogue/set id at all (custom designs carry "custom-…" ids, which the client
+    -- sends as a missing poster_id), OR a catalogue poster that lives in a custom category.
+    -- Bundles are never custom.
+    l_custom := l_custom || (
+      NOT (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object')
+      AND (
+        COALESCE(it->>'custom_image_path','') <> ''
+        OR public._uuid_or_null(it->>'poster_id') IS NULL
+        OR EXISTS (SELECT 1 FROM public.posters x JOIN public.categories c ON c.id = x.category_id
+                    WHERE x.id = public._uuid_or_null(it->>'poster_id')
+                      AND (c.slug ~* 'custom' OR c.name ~* 'custom' OR c.name ~ 'مخصص'))
+      ));
     -- PVC: black/white only. Wooden Portrait: no colour ("wood" is the internal no-colour marker).
     IF NOT ((l_frame[i] = 'wood' AND it->>'color' = 'wood')
          OR (l_frame[i] = 'pvc' AND it->>'color' IN ('black','white'))) THEN
@@ -140,8 +152,15 @@ BEGIN
     END IF;
 
     IF l_bundle[i] THEN
-      l_posters := l_posters || jsonb_array_length(COALESCE(it->'bundle'->'posters','[]'::jsonb));
-      IF l_posters[i] < 1 THEN RAISE EXCEPTION 'empty bundle on line %', i USING ERRCODE = '22023'; END IF;
+      IF jsonb_typeof(it->'bundle'->'posters') IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION 'invalid bundle on line %', i USING ERRCODE = '22023';
+      END IF;
+      l_posters := l_posters || jsonb_array_length(it->'bundle'->'posters');
+      -- A bundle offer price covers an exact number of posters: 6 × 20x30 or 4 × 30x40.
+      v_need := CASE l_size[i] WHEN '20x30' THEN 6 WHEN '30x40' THEN 4 ELSE 0 END;
+      IF l_posters[i] <> v_need THEN
+        RAISE EXCEPTION 'bundle must contain exactly % posters (line %, got %)', v_need, i, l_posters[i] USING ERRCODE = '22023';
+      END IF;
       v_unit := CASE l_size[i]
         WHEN '20x30' THEN public._setting_num('offer_6_20x30', 790)
         WHEN '30x40' THEN public._setting_num('offer_4_30x40', 890) END;
