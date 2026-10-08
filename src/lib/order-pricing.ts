@@ -34,14 +34,16 @@ export const fromCents = (c: number) => c / 100;
 /** Customer-uploaded design lines carry the extra custom design fee. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Mirrors the server (place_order): no catalogue/set id (custom ids are "custom-…") ⇒ custom. */
+/**
+ * Mirrors place_order: a line is a custom design when it has an uploaded image and no catalogue
+ * UUID. (Catalogue = UUID without image; every other shape is rejected by the server and flagged
+ * by validateCheckoutLines.) Category names never change the price.
+ */
 export function isCustomLine(
-  i: Pick<CartItem, "customImagePath" | "categoryName" | "bundle"> & { posterId?: string | null },
+  i: Pick<CartItem, "customImagePath" | "bundle"> & { posterId?: string | null },
 ): boolean {
   if (i.bundle) return false;
-  if (i.customImagePath) return true;
-  if (!UUID_RE.test(i.posterId ?? "")) return true;
-  return /custom|مخصص/i.test(i.categoryName ?? "");
+  return !!i.customImagePath && !UUID_RE.test(i.posterId ?? "");
 }
 
 /**
@@ -52,7 +54,7 @@ export function isCustomLine(
 export function unitPriceFor(
   i: Pick<
     CartItem,
-    "frameType" | "size" | "price" | "bundle" | "customImagePath" | "categoryName" | "posterId"
+    "frameType" | "size" | "price" | "bundle" | "customImagePath" | "posterId"
   >,
   pricing: Pricing,
 ): number {
@@ -296,6 +298,11 @@ export function validateCheckoutLines(totals: CheckoutTotals): CheckoutIssue[] {
       const need = i.size === "20x30" ? 6 : i.size === "30x40" ? 4 : 0;
       if (!need || i.bundle.posters.length !== need)
         add("bad_bundle_count", "A bundle must contain exactly 6 (20x30) or 4 (30x40) posters");
+    }
+    if (!i.bundle) {
+      const catalogue = UUID_RE.test(i.posterId ?? "");
+      if (catalogue === !!i.customImagePath)
+        add("invalid_item", "Item is neither a catalogue poster nor a custom design");
     }
     if (!i.title) add("missing_title", "Missing item title");
     if (!i.image && !i.customImagePath && !i.bundle) add("missing_image", "Missing image");

@@ -87,7 +87,7 @@ describe("computeCheckout", () => {
 
   it("7. customer-selected image adds the custom design fee", () => {
     const t = computeCheckout(
-      [item({ customImagePath: "uuid/photo.jpg", price: 1 })],
+      [item({ posterId: "custom-1-0", customImagePath: "uuid/photo.jpg", price: 1 })],
       pricing,
       settings,
       false,
@@ -185,7 +185,7 @@ describe("computeCheckout", () => {
   it("16b. offer discount is split across several lines without losing a cent", () => {
     const lines = [
       item({ size: "20x30", qty: 2 }),
-      item({ size: "20x30", qty: 3, customImagePath: "u/a.jpg" }),
+      item({ size: "20x30", qty: 3, posterId: "custom-2-0", customImagePath: "u/a.jpg" }),
       item({ size: "20x30", qty: 1 }),
       item({ size: "30x40", qty: 4 }),
     ];
@@ -235,11 +235,19 @@ describe("computeCheckout", () => {
     expect(codes(mk("30x40", 6))).toContain("bad_bundle_count");
   });
 
-  it("a line without a catalogue id is a custom design even without an image path", () => {
+  it("custom design = uploaded image without a catalogue UUID (+fee); anything ambiguous is flagged", () => {
     const base = computeCheckout([item()], pricing, settings, false).lines[0].unit;
-    const custom = computeCheckout([item({ posterId: "custom-abc-0" })], pricing, settings, false)
-      .lines[0].unit;
-    expect(custom - base).toBe(pricing.customDesignFee);
+    const custom = item({ posterId: "custom-abc-0", customImagePath: "u/a.jpg" });
+    const t = computeCheckout([custom], pricing, settings, false);
+    expect(t.lines[0].unit - base).toBe(pricing.customDesignFee);
+    expect(validateCheckoutLines(t).map((x) => x.code)).not.toContain("invalid_item");
+    // category name never changes the price
+    const cat = computeCheckout([item({ categoryName: "Custom Designs" })], pricing, settings, false);
+    expect(cat.lines[0].unit).toBe(base);
+    const codes = (i: CartItem) =>
+      validateCheckoutLines(computeCheckout([i], pricing, settings, false)).map((x) => x.code);
+    expect(codes(item({ posterId: "custom-abc-0" }))).toContain("invalid_item"); // no image
+    expect(codes(item({ customImagePath: "u/a.jpg" }))).toContain("invalid_item"); // catalogue + image
   });
 
   it("shipping is split across lines so the rows always add up (no 0.01 drift)", () => {
@@ -324,7 +332,7 @@ describe("validateCheckoutLines", () => {
 
 describe("item notes snapshot", () => {
   it("round-trips custom-image metadata together with the price snapshot", () => {
-    const t = computeCheckout([item({ customImagePath: "u/a.jpg" })], pricing, settings, false);
+    const t = computeCheckout([item({ posterId: "custom-3-0", customImagePath: "u/a.jpg" })], pricing, settings, false);
     const notes = buildItemNotes(
       {
         originalFilename: "a.jpg",

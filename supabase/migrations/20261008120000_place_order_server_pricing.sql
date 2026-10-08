@@ -85,7 +85,7 @@ DECLARE
   rule record; idxs int[]; qty_sum int; sets int; avg_unit numeric; per_set bigint; rule_c bigint; parts bigint[];
   v_net bigint; v_total_row bigint; v_ids uuid[] := ARRAY[]::uuid[]; v_row uuid; v_title text; v_image text;
   v_frame_label text; v_color_label text; v_size_label text; v_notes jsonb; v_grand bigint;
-  v_cents_total bigint; v_need int;
+  v_cents_total bigint; v_need int; v_pid uuid; v_has_path bool; v_known bool;
 BEGIN
   -- ---- customer ----
   v_phone := btrim(COALESCE(p_customer->>'phone',''));
@@ -128,19 +128,30 @@ BEGIN
     END IF;
     l_qty    := l_qty || (it->>'qty')::int;
     l_bundle := l_bundle || (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object');
-    -- Custom design = decided from server truth, never from the browser alone: an uploaded image
-    -- path, OR no catalogue/set id at all (custom designs carry "custom-…" ids, which the client
-    -- sends as a missing poster_id), OR a catalogue poster that lives in a custom category.
-    -- Bundles are never custom.
-    l_custom := l_custom || (
-      NOT (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object')
-      AND (
-        COALESCE(it->>'custom_image_path','') <> ''
-        OR public._uuid_or_null(it->>'poster_id') IS NULL
-        OR EXISTS (SELECT 1 FROM public.posters x JOIN public.categories c ON c.id = x.category_id
-                    WHERE x.id = public._uuid_or_null(it->>'poster_id')
-                      AND (c.slug ~* 'custom' OR c.name ~* 'custom' OR c.name ~ 'مخصص'))
-      ));
+    -- Custom design is decided from server truth, never from the browser alone (non-bundle lines):
+    --   catalogue item  = poster_id is a UUID that exists in posters (or sets) and NO custom image
+    --                     -> normal price, no custom fee
+    --   custom design   = no catalogue UUID (missing / "custom-…") AND a custom image path
+    --                     -> frame price + custom_design_fee
+    --   anything else is an invalid item and is rejected (nothing is written):
+    --     no UUID and no image; unknown UUID (with or without an image — real custom designs never
+    --     carry a UUID); a catalogue poster that also carries a custom image.
+    -- Category names play no part in pricing.
+    IF NOT (it ? 'bundle' AND jsonb_typeof(it->'bundle') = 'object') THEN
+      v_pid := public._uuid_or_null(it->>'poster_id');
+      v_has_path := COALESCE(it->>'custom_image_path','') <> '';
+      v_known := v_pid IS NOT NULL AND (EXISTS (SELECT 1 FROM public.posters x WHERE x.id = v_pid)
+                                        OR EXISTS (SELECT 1 FROM public.sets s WHERE s.id = v_pid));
+      IF v_known AND NOT v_has_path THEN
+        l_custom := l_custom || false;
+      ELSIF v_pid IS NULL AND v_has_path THEN
+        l_custom := l_custom || true;
+      ELSE
+        RAISE EXCEPTION 'invalid item on line %: not a catalogue poster and not a custom design', i USING ERRCODE = '22023';
+      END IF;
+    ELSE
+      l_custom := l_custom || false;
+    END IF;
     -- PVC: black/white only. Wooden Portrait: no colour ("wood" is the internal no-colour marker).
     IF NOT ((l_frame[i] = 'wood' AND it->>'color' = 'wood')
          OR (l_frame[i] = 'pvc' AND it->>'color' IN ('black','white'))) THEN

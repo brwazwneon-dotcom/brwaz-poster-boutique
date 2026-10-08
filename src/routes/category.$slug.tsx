@@ -547,7 +547,7 @@ function Customizer({
   };
   const { add } = useCart();
   const pricing = usePricing();
-  const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
+  const isCustom = false; // category names never add a custom-design fee (server prices by actual custom state)
   const unitFor = (id: string) => {
     const s = perPoster[id] ?? { frameType, size, color };
     return priceForFrame(pricing, s.frameType, s.size) + (isCustom ? pricing.customDesignFee : 0);
@@ -855,7 +855,7 @@ function MobileCustomizerBar({
   const [open, setOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const pricing = usePricing();
-  const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);
+  const isCustom = false; // category names never add a custom-design fee (server prices by actual custom state)
   const isRtl = i18n.language?.startsWith("ar");
   // Quick estimate at default 30x40 PVC for the bar
   const estUnit = priceForFrame(pricing, "pvc", "30x40") + (isCustom ? pricing.customDesignFee : 0);
