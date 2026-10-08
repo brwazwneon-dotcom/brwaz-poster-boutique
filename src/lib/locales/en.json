@@ -4,6 +4,8 @@
   "egp": "EGP",
   "whatsapp": "WhatsApp",
   "common": {
+    "categoryFilter": "Filter by category",
+    "sortBy": "Sort by",
     "clearAll": "Clear all",
     "brand": "BRWAZWNEON",
     "loading": "Loading...",

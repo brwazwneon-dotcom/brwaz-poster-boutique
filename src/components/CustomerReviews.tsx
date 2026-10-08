@@ -156,6 +156,7 @@ function MobileCarousel({ reviews }: { reviews: Review[] }) {
     <div className="mt-10 sm:hidden">
       <div
         ref={trackRef}
+        tabIndex={0}
         className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {reviews.map((r, i) => (

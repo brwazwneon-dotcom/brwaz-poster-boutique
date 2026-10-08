@@ -60,13 +60,14 @@ export function Highlights() {
       <div className="container-page py-8 sm:py-10">
         <div className="mb-5 flex items-end justify-between">
           <div>
-            <p className="v2-eyebrow">
-              {t("home.highlights")}
-            </p>
+            <p className="v2-eyebrow">{t("home.highlights")}</p>
             <h2 className="text-display mt-2 text-2xl sm:text-3xl">{t("home.highlights")}</h2>
           </div>
         </div>
-        <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          tabIndex={0}
+          className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           <ul className="flex gap-3 sm:gap-4">
             {data.map((h) => {
               const Icon = FALLBACK_ICONS[h.key] ?? Sparkles;

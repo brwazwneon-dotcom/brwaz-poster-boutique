@@ -210,7 +210,9 @@ function CategoryPage() {
         return q.order("id", { ascending: false });
       }
       if (sort === "ai") {
-        return q.order("sales_count", { ascending: false }).order("views_count", { ascending: false });
+        return q
+          .order("sales_count", { ascending: false })
+          .order("views_count", { ascending: false });
       }
       const sortDef = SORTS.find((s) => s.id === sort) ?? SORTS[0];
       return q.order("pinned", { ascending: false }).order(sortDef.col, { ascending: sortDef.asc });
@@ -224,7 +226,11 @@ function CategoryPage() {
     error: paginationError,
     loadMore,
     retry,
-  } = useInfiniteProducts(includedCategoryIds, { query: sortQuery }, `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`);
+  } = useInfiniteProducts(
+    includedCategoryIds,
+    { query: sortQuery },
+    `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`,
+  );
 
   const selectedPosters: Poster[] = useMemo(
     () =>
@@ -284,9 +290,7 @@ function CategoryPage() {
         /* noop */
       }
     }
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   return (
@@ -305,7 +309,10 @@ function CategoryPage() {
         </div>
 
         {subcategories.length > 0 && (
-          <div className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0 sm:overflow-visible sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            tabIndex={0}
+            className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0 sm:overflow-visible sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          >
             <button
               type="button"
               onClick={() => setActiveSubId("")}

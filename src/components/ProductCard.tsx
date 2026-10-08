@@ -34,31 +34,28 @@ export const ProductCard = memo(function ProductCard({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onToggle(product.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle(product.id);
-        }
-      }}
-      aria-pressed={selected}
       className={cn(
-        "v2-card group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-sm border-2 bg-muted/20 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "v2-card group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-muted/20 transition",
         selected
           ? "border-primary ring-4 ring-primary/30"
           : "border-transparent hover:border-border",
       )}
     >
+      {/* Selection control is a real <button> overlay; the heart and "view" link are siblings, not
+          children, so there are no nested interactive elements. */}
+      <button
+        type="button"
+        onClick={() => onToggle(product.id)}
+        aria-pressed={selected}
+        aria-label={product.title}
+        className="absolute inset-0 z-[5] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+      />
       <WishlistHeart posterId={product.id} />
       <Link
         to="/poster/$id"
         params={{ id: product.id }}
         aria-label={viewLabel}
         title={viewLabel}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
         className="absolute bottom-2 left-2 z-20 flex h-8 w-8 items-center justify-center rounded-sm bg-background/90 text-foreground opacity-90 transition hover:opacity-100 focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
       >
         <Maximize2 className="h-4 w-4" aria-hidden />

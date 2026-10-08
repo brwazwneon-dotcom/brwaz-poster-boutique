@@ -4,6 +4,8 @@
   "egp": "جنيه",
   "whatsapp": "واتساب",
   "common": {
+    "categoryFilter": "تصفية حسب القسم",
+    "sortBy": "ترتيب حسب",
     "brand": "بروا زينون",
     "loading": "جارٍ التحميل...",
     "save": "حفظ",

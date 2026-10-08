@@ -320,6 +320,7 @@ export function SiteHeader() {
           mobileMenuOpen ? "pointer-events-auto" : "pointer-events-none",
         )}
         aria-hidden={!mobileMenuOpen}
+        inert={!mobileMenuOpen}
       >
         <button
           type="button"
@@ -405,7 +406,9 @@ export function SiteHeader() {
                           <span
                             className={cn(
                               "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold",
-                              active ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground",
+                              active
+                                ? "bg-primary-foreground text-primary"
+                                : "bg-primary text-primary-foreground",
                             )}
                           >
                             {item.badge}
@@ -646,10 +649,10 @@ function MobileCartLink({ count, label }: { count: number; label: string }) {
   return (
     <Link
       to="/cart"
-      aria-label={label}
       className="relative flex h-11 w-11 items-center justify-center rounded-sm border border-border bg-background text-foreground"
     >
-      <ShoppingBag className="h-5 w-5" />
+      <span className="sr-only">{label}</span>
+      <ShoppingBag className="h-5 w-5" aria-hidden="true" />
       {count > 0 && (
         <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground rtl:-left-1 rtl:right-auto">
           {count}

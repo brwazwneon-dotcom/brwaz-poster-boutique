@@ -144,6 +144,7 @@ function BestSellersPage() {
             />
           </div>
           <select
+            aria-label={t("common.categoryFilter")}
             value={cat}
             onChange={(e) => setCat(e.target.value)}
             className="rounded-sm border border-border bg-background px-3 py-2 text-sm"
@@ -156,6 +157,7 @@ function BestSellersPage() {
             ))}
           </select>
           <select
+            aria-label={t("common.sortBy")}
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             className="rounded-sm border border-border bg-background px-3 py-2 text-sm"

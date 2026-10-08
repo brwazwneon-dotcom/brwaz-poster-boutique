@@ -94,6 +94,15 @@ Not measured: real Lighthouse, real network/CDN, real data. Re-run on a Vercel p
 - **35 Arabic strings used single-brace placeholders** (`{fee}`, `{count}`) which i18next never interpolates, so Arabic customers saw the literal text (shipping banner, subtotal, offer discounts, photo-printing, …). Converted to `{{ }}` (2 in en). Verified all call sites pass the variables; `cart.doubleFaceTape` (code appends the numbers itself) now holds only the label.
 - New `src/lib/locales.test.ts` guards: every storefront `t('a.b')` without inline default exists in ar+en; no single-brace placeholders; ar/en placeholder names match. Admin uses its own dictionary (`admin-i18n`) and is excluded.
 
+## Slice 14: accessibility (axe-core WCAG 2.0/2.1 A+AA, 11 pages × en/ar × 390/1440 px, mocked data)
+Before: 1 critical + 4 serious rule violations; no colour-contrast violations (the Poster Wall theme passes). After: **0 violations**.
+- `select-name` (critical): category/sort selects on Trending and Best Sellers had no accessible name → `aria-label` (new locale keys `common.categoryFilter`, `common.sortBy`).
+- `nested-interactive`: product cards were `role="button"` containing the wishlist button and the new "view" link → card selection is now a real `<button>` overlay with the heart/link as siblings. Verified: mouse click, Space and Enter toggle selection (`aria-pressed`).
+- `aria-hidden-focus`: closed mobile menu was `aria-hidden` but focusable → `inert` while closed.
+- `label-content-name-mismatch`: mobile cart link now uses visible-text naming (sr-only "Cart" + the count).
+- `scrollable-region-focusable`: horizontal scrollers without focusable content (Highlights, Customer Reviews, category chips) are keyboard-focusable.
+Not covered: screen-reader testing on real devices, admin console, reduced-motion visual review beyond CSS (`prefers-reduced-motion` disables all V2 motion).
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.
