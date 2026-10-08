@@ -3,9 +3,11 @@ import { SafeImage } from "@/components/SafeImage";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
+import { buildPlaceOrderPayload, placeOrderViaRpc } from "@/lib/place-order-client";
 import {
   buildItemNotes,
   computeCheckout,
@@ -38,6 +40,13 @@ const CHECKOUT_DEBUG = true;
 
 function asUuid(value: string | null | undefined): string | null {
   return value && UUID_RE.test(value) ? value : null;
+}
+
+/** Thrown when the server's total differs from the one the customer saw. */
+class PriceChangedError extends Error {
+  constructor(public serverTotal: number | null) {
+    super("price_changed");
+  }
 }
 
 type CheckoutDebugInfo = {
@@ -225,6 +234,7 @@ function CartPage() {
   const pricing = usePricing();
   const photo4x6 = usePhoto4x6Config();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tapeChoice, setTapeChoice] = useState<null | boolean>(null);
   // Prices stored in the browser's cart can be stale (admin changed prices
   // after the item was added), so every line is re-priced from the current
@@ -241,9 +251,10 @@ function CartPage() {
     [storedItems, pricing],
   );
   // One calculation feeds the cart UI, the Meta events and the order rows.
+  // (computed from the repaired items, so validation sees the colour the order will really carry)
   const checkout = useMemo(
-    () => computeCheckout(storedItems, pricing, settings, tapeChoice === true),
-    [storedItems, pricing, settings, tapeChoice],
+    () => computeCheckout(items, pricing, settings, tapeChoice === true),
+    [items, pricing, settings, tapeChoice],
   );
   const subtotal = checkout.subtotal;
   const total = subtotal;
@@ -694,82 +705,124 @@ function CartPage() {
         }
       }
 
+      // Server-priced checkout: place_order() recomputes every price from site_settings and
+      // refuses the order if the total the customer saw no longer matches. If the function is
+      // not deployed yet, fall back to the legacy direct insert below.
       logCheckoutStep({
-        step: "orders_insert_start",
+        step: "place_order_start",
         table: "orders",
-        operation: "insert",
+        operation: "rpc place_order",
         payload: orderPayloadDebug,
       });
-      const { error } = await supabase
-        .from("orders")
-        // is_test flag isn't in generated types yet — safe cast.
-        .insert(rows as unknown as never);
-      if (error) {
+      const placed = await placeOrderViaRpc(
+        supabase as unknown as Parameters<typeof placeOrderViaRpc>[0],
+        buildPlaceOrderPayload({
+          items,
+          customer: { name, phone, governorate, address, guestSessionId },
+          paymentMethod,
+          screenshotPath,
+          isTest: testFlag,
+          tape: !!checkout.tape,
+          expectedTotal: grand,
+          asUuid,
+        }),
+      );
+      if (placed.status === "price_changed") throw new PriceChangedError(placed.serverTotal);
+      if (placed.status === "error") {
         throwCheckoutError({
-          step: "orders_insert",
+          step: "place_order",
+          table: "orders",
+          operation: "rpc place_order",
+          payload: orderPayloadDebug,
+          error: placed.error,
+        });
+      }
+      const placedViaServer = placed.status === "ok";
+      if (placed.status === "unavailable") {
+        console.warn("[Checkout] place_order() not available — using the legacy direct insert");
+      }
+
+      if (!placedViaServer) {
+        logCheckoutStep({
+          step: "orders_insert_start",
           table: "orders",
           operation: "insert",
           payload: orderPayloadDebug,
-          error,
         });
-      }
-      // Insert order_posters records directly using known row IDs
-      // - For bundles: one record per poster in item.bundle.posters
-      // - For single posters: one record referencing the order row
-      try {
-        const orderPostersToInsert: Array<{
-          order_id: string;
-          poster_id: string;
-          poster_title: string;
-          poster_image: string;
-          position: number;
-        }> = [];
+        const { error } = await supabase
+          .from("orders")
+          // is_test flag isn't in generated types yet — safe cast.
+          .insert(rows as unknown as never);
+        if (error) {
+          throwCheckoutError({
+            step: "orders_insert",
+            table: "orders",
+            operation: "insert",
+            payload: orderPayloadDebug,
+            error,
+          });
+        }
+        // Insert order_posters records directly using known row IDs
+        // - For bundles: one record per poster in item.bundle.posters
+        // - For single posters: one record referencing the order row
+        try {
+          const orderPostersToInsert: Array<{
+            order_id: string;
+            poster_id: string;
+            poster_title: string;
+            poster_image: string;
+            position: number;
+          }> = [];
 
-        for (const { rowId, item } of itemRowMap) {
-          if (item.bundle && Array.isArray(item.bundle.posters) && item.bundle.posters.length > 0) {
-            for (let idx = 0; idx < item.bundle.posters.length; idx++) {
-              const poster = item.bundle.posters[idx];
-              const pId = asUuid(poster.posterId);
+          for (const { rowId, item } of itemRowMap) {
+            if (item.bundle && Array.isArray(item.bundle.posters) && item.bundle.posters.length > 0) {
+              for (let idx = 0; idx < item.bundle.posters.length; idx++) {
+                const poster = item.bundle.posters[idx];
+                const pId = asUuid(poster.posterId);
+                if (pId) {
+                  orderPostersToInsert.push({
+                    order_id: rowId,
+                    poster_id: pId,
+                    poster_title: poster.title || "Poster",
+                    poster_image: poster.image || item.image || "",
+                    position: idx,
+                  });
+                }
+              }
+            } else if (item.posterId) {
+              const pId = asUuid(item.posterId);
               if (pId) {
                 orderPostersToInsert.push({
                   order_id: rowId,
                   poster_id: pId,
-                  poster_title: poster.title || "Poster",
-                  poster_image: poster.image || item.image || "",
-                  position: idx,
+                  poster_title: item.title || "",
+                  poster_image: item.customImagePath ?? item.image ?? "",
+                  position: 0,
                 });
               }
             }
-          } else if (item.posterId) {
-            const pId = asUuid(item.posterId);
-            if (pId) {
-              orderPostersToInsert.push({
-                order_id: rowId,
-                poster_id: pId,
-                poster_title: item.title || "",
-                poster_image: item.customImagePath ?? item.image ?? "",
-                position: 0,
-              });
+          }
+
+          if (orderPostersToInsert.length > 0) {
+            const { error: opErr } = await supabase
+              .from("order_posters")
+              .insert(orderPostersToInsert as unknown as never);
+            if (opErr) {
+              console.warn("[Checkout] Non-critical order_posters insert warning:", opErr);
             }
           }
+        } catch (opEx) {
+          console.warn("[Checkout] Non-critical order_posters exception:", opEx);
         }
-
-        if (orderPostersToInsert.length > 0) {
-          const { error: opErr } = await supabase
-            .from("order_posters")
-            .insert(orderPostersToInsert as unknown as never);
-          if (opErr) {
-            console.warn("[Checkout] Non-critical order_posters insert warning:", opErr);
-          }
-        }
-      } catch (opEx) {
-        console.warn("[Checkout] Non-critical order_posters exception:", opEx);
       }
       logCheckoutStep({
         step: "orders_insert_complete",
         table: "orders",
         operation: "insert",
-        result: { insertedRows: rows.length },
+        result: {
+          insertedRows: placed.status === "ok" ? placed.rowIds.length : rows.length,
+          via: placedViaServer ? "place_order" : "legacy insert",
+        },
       });
 
       // Fire admin push notifications (non-blocking — checkout must never fail on this).
@@ -901,6 +954,16 @@ navigate({ to: "/order-confirmed", replace: true });
       setTapeChoice(null);
       setTapeOpen(false);
     } catch (err) {
+      if (err instanceof PriceChangedError) {
+        // prices changed while the cart was open: reload them and let the customer re-confirm
+        logCheckoutStep({ step: "price_changed", result: { serverTotal: err.serverTotal } });
+        await queryClient.invalidateQueries({ queryKey: ["pricing"] });
+        await queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+        const msg = `الأسعار اتحدّثت${err.serverTotal != null ? ` (الإجمالي الجديد ${err.serverTotal} جنيه)` : ""}. راجع الإجمالي وأكّد الطلب تاني.`;
+        setCheckoutError(msg);
+        toast.error(msg);
+        return;
+      }
       logCheckoutStep({ step: "checkout_failed", error: err });
       const genericMessage = t("cart.checkoutFailed") ?? "فشل إنشاء الطلب، يرجى المحاولة مرة أخرى";
       setCheckoutError(genericMessage);

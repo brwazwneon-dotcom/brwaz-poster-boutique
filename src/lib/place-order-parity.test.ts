@@ -1,6 +1,6 @@
 /**
- * Parity between the browser calculation (order-pricing.ts) and the PROPOSED
- * server function (docs/proposed-migrations/place_order.sql).
+ * Parity between the browser calculation (order-pricing.ts) and the server function
+ * (supabase/migrations/*_place_order_server_pricing.sql).
  *
  * Skipped by default. Run against a scratch local Postgres only:
  *   PG_PARITY=1 PGHOST=127.0.0.1 PGPORT=54329 PGUSER=postgres PGDATABASE=brw_test npx vitest run place-order-parity
@@ -91,7 +91,8 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
           categoryName: "Movies",
           frameType,
           size,
-          color: frameType === "wood" ? "wood" : (["black", "white"] as const)[Math.floor(rnd() * 2)],
+          color:
+            frameType === "wood" ? "wood" : (["black", "white"] as const)[Math.floor(rnd() * 2)],
           price: 1,
           qty: 1 + Math.floor(rnd() * (isBundle ? 2 : 8)),
           customImagePath: !isBundle && rnd() > 0.8 ? `u/${i}.jpg` : undefined,
@@ -139,7 +140,7 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
       psql("TRUNCATE orders, order_posters");
       const placed = JSON.parse(
         psql(
-          `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify(payload))}::jsonb, ${lit(JSON.stringify({ method: "cod", tape }))}::jsonb)`,
+          `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify(payload))}::jsonb, ${lit(JSON.stringify({ method: "cod", tape, expected_total: expected.grand }))}::jsonb)`,
         ),
       ) as { total: number; row_ids: string[] };
       // second statement: rows written by the function are not visible inside the same statement
@@ -199,5 +200,111 @@ describe.skipIf(!run)("place_order SQL ↔ order-pricing.ts parity", () => {
       ),
     );
     expect(Number(res.total)).toBe(250 + 89);
+  });
+
+  it("rejects when the customer's expected total no longer matches (price changed) and writes nothing", () => {
+    setSettings(PRICING_DEFAULTS);
+    psql("TRUNCATE orders, order_posters");
+    const item = {
+      title: "t",
+      image: "i",
+      frame_type: "pvc",
+      color: "black",
+      size: "30x40",
+      qty: 1,
+    };
+    const place = (expected: number) =>
+      psql(
+        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify([item]))}::jsonb, ${lit(JSON.stringify({ method: "cod", expected_total: expected }))}::jsonb)`,
+      );
+    let err = "";
+    try {
+      place(300);
+    } catch (e) {
+      err = String((e as { stderr?: Buffer }).stderr ?? e);
+    }
+    expect(err).toMatch(/price_changed/);
+    expect(err).toMatch(/server_total=339/);
+    expect(psql("SELECT count(*) FROM orders")).toBe("0");
+    expect(Number(JSON.parse(place(339)).total)).toBe(339);
+    expect(psql("SELECT count(*) FROM orders")).toBe("1");
+  });
+
+  it("handles real posters, custom designs, deleted posters and notes exactly like the old client", () => {
+    setSettings(PRICING_DEFAULTS);
+    psql("TRUNCATE orders, order_posters; TRUNCATE posters CASCADE");
+    const real = psql("INSERT INTO posters (title) VALUES ('Real') RETURNING id").split("\n")[0];
+    const real2 = psql("INSERT INTO posters (title) VALUES ('Real 2') RETURNING id").split("\n")[0];
+    const ghost = "11111111-2222-3333-4444-555555555555"; // valid uuid, no such poster
+    const items = [
+      {
+        poster_id: real,
+        title: "Catalogue",
+        image: "https://x/a.jpg",
+        frame_type: "pvc",
+        color: "black",
+        size: "30x40",
+        qty: 1,
+      },
+      {
+        poster_id: null,
+        title: "Custom",
+        image: "https://x/signed",
+        frame_type: "wood",
+        color: "wood",
+        size: "50x70",
+        qty: 2,
+        custom_image_path: "uuid-1/photo.jpg",
+        custom_meta: { originalFilename: "photo.jpg", originalWidth: 4000 },
+      },
+      {
+        poster_id: ghost,
+        title: "Deleted",
+        image: "https://x/d.jpg",
+        frame_type: "pvc",
+        color: "white",
+        size: "20x30",
+        qty: 1,
+      },
+      {
+        title: "Bundle",
+        image: "https://x/b.jpg",
+        frame_type: "pvc",
+        color: "black",
+        size: "30x40",
+        qty: 1,
+        bundle: {
+          posters: [
+            { poster_id: real, title: "P1", image: "i1" },
+            { poster_id: real2, title: "P2", image: "i2" },
+            { poster_id: null, title: "P3", image: "i3" },
+            { poster_id: ghost, title: "P4", image: "i4" },
+          ],
+        },
+      },
+    ];
+    const res = JSON.parse(
+      psql(
+        `SELECT public.place_order(${lit(JSON.stringify(CUSTOMER))}::jsonb, ${lit(JSON.stringify(items))}::jsonb, '{"method":"cod"}'::jsonb)`,
+      ),
+    ) as { row_ids: string[]; order_group_id: string };
+    expect(res.row_ids).toHaveLength(4);
+    const rows = JSON.parse(
+      psql(
+        `SELECT json_agg(json_build_object('title', poster_title, 'sel', selected_poster, 'img', poster_image, 'notes', notes, 'group', order_group_id) ORDER BY t.ord) FROM jsonb_array_elements_text(${lit(JSON.stringify(res.row_ids))}::jsonb) WITH ORDINALITY t(id, ord) JOIN orders o ON o.id = t.id::uuid`,
+      ),
+    ) as { title: string; sel: string | null; img: string; notes: string; group: string }[];
+    expect(rows[0].sel).toBe(real); // existing poster is linked
+    expect(rows[1].sel).toBeNull(); // custom design: no poster
+    expect(rows[1].img).toBe("uuid-1/photo.jpg"); // permanent storage path, like the old client
+    expect(rows[2].sel).toBeNull(); // deleted poster: order still placed
+    expect(rows[3].title).toBe("Bundle — P1, P2, P3, P4");
+    expect(new Set(rows.map((r) => r.group)).size).toBe(1); // one group id for the whole checkout
+    const n1 = JSON.parse(rows[1].notes);
+    expect(n1.originalFilename).toBe("photo.jpg"); // custom metadata kept, merged with the snapshot
+    expect(n1.pricing.v).toBe(1);
+    expect(JSON.parse(rows[0].notes).pricing.unit_price).toBe(250); // plain object, not [null, {...}]
+    // order_posters only for posters that exist: 1 (catalogue) + 2 (bundle real ones)
+    expect(psql("SELECT count(*) FROM order_posters")).toBe("3");
   });
 });

@@ -1,10 +1,18 @@
--- PROPOSAL — NOT APPLIED to any Supabase project. See README.md.
--- Tested only against a scratch local Postgres 16 (tests/db/), including a
--- parity run against src/lib/order-pricing.ts.
+-- Server-side order placement: place_order()
 --
--- Server-side order placement: the browser sends WHAT was ordered; every price,
--- discount, packaging, tape and shipping amount is computed here from
--- site_settings and never read from the request.
+-- The browser sends WHAT was ordered; every price, discount, packaging, tape and shipping
+-- amount is computed here from site_settings and never read from the request. The order is
+-- refused (SQLSTATE PC001 "price_changed", DETAIL server_total=NNN) if the total the customer
+-- saw differs from the one computed here.
+--
+-- ADDITIVE ONLY: new nullable/default columns, helper functions and one RPC. The existing
+-- direct INSERT on public.orders keeps working, and checkout falls back to it when this
+-- function is not deployed. The step that closes the direct INSERT is deliberately NOT
+-- here — see docs/proposed-migrations/revoke_direct_order_insert.sql.
+--
+-- Verified on a scratch Postgres 16 (tests/db/schema.sql mirrors the production
+-- constraints) with a 150-cart parity test against src/lib/order-pricing.ts.
+-- NOT verified against the real Supabase project (RLS, triggers, PostgREST permissions).
 
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS order_group_id uuid,
@@ -45,6 +53,12 @@ BEGIN
   IF p_total < 0 THEN FOR i IN 1..n LOOP base[i] := -base[i]; END LOOP; END IF;
   RETURN base;
 END $$;
+
+-- text -> uuid, NULL for anything that is not a uuid (custom-design items have none)
+CREATE OR REPLACE FUNCTION public._uuid_or_null(p text)
+RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN p ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN p::uuid END
+$$;
 
 -- ---------- order placement ----------
 -- p_customer: {name, phone, governorate, address, guest_session_id}
@@ -177,6 +191,14 @@ BEGIN
   parts := public._alloc_cents(v_ship, ARRAY(SELECT 1::bigint FROM generate_series(1, n)));
   FOR i IN 1..n LOOP l_ship := l_ship || parts[i]; END LOOP;
 
+  -- ---- the customer must have seen the same total the server just computed ----
+  v_grand := v_tape;
+  FOR i IN 1..n LOOP v_grand := v_grand + (l_gross[i] - l_disc[i]) + l_pack[i] + l_ship[i]; END LOOP;
+  IF p_payment ? 'expected_total' AND jsonb_typeof(p_payment->'expected_total') = 'number'
+     AND round((p_payment->>'expected_total')::numeric * 100) <> v_grand THEN
+    RAISE EXCEPTION 'price_changed' USING ERRCODE = 'PC001', DETAIL = 'server_total=' || round(v_grand / 100.0, 2);
+  END IF;
+
   -- ---- insert rows ----
   v_grand := 0;
   FOR i IN 1..n LOOP
@@ -187,7 +209,7 @@ BEGIN
     v_frame_label := CASE l_frame[i] WHEN 'wood' THEN 'Wooden Portrait' ELSE 'High Quality PVC' END;
     v_color_label := initcap(it->>'color');
     v_size_label  := replace(l_size[i], 'x', ' x ') || ' cm';
-    v_notes := COALESCE(it->'custom_meta', '{}'::jsonb) || jsonb_build_object('pricing', jsonb_build_object(
+    v_notes := (CASE WHEN jsonb_typeof(it->'custom_meta') = 'object' THEN it->'custom_meta' ELSE '{}'::jsonb END) || jsonb_build_object('pricing', jsonb_build_object(
       'v',1,'unit_price',l_unit[i]/100.0,'gross',l_gross[i]/100.0,'discount',l_disc[i]/100.0,'net',v_net/100.0,
       'packaging',l_pack[i]/100.0,'shipping',l_ship[i]/100.0,'total',v_total_row/100.0));
     IF l_bundle[i] THEN
@@ -202,17 +224,23 @@ BEGIN
     VALUES (v_row, v_group, NULLIF(v_guest,''), auth.uid(), btrim(p_customer->>'name'), v_phone,
         btrim(p_customer->>'governorate'), btrim(p_customer->>'address'),
         v_frame_label, v_color_label, v_size_label, l_qty[i],
-        CASE WHEN l_bundle[i] THEN NULL ELSE NULLIF(it->>'poster_id','')::uuid END, v_title, v_image, v_notes::text,
+        CASE WHEN l_bundle[i] THEN NULL ELSE (SELECT x.id FROM public.posters x WHERE x.id = public._uuid_or_null(it->>'poster_id')) END,
+        v_title, v_image, v_notes::text,
         v_net/100.0, l_pack[i]/100.0, l_ship[i]/100.0, v_total_row/100.0, l_unit[i]/100.0, l_disc[i]/100.0, 'new',
         v_method, CASE WHEN v_method='instapay' THEN 'pending' ELSE 'not_required' END,
         NULLIF(p_payment->>'screenshot_path',''), COALESCE((p_payment->>'is_test')::bool, false));
+    -- order_posters.poster_id is NOT NULL and references posters: record only posters that
+    -- exist (custom designs and deleted posters have none), same as the old client did.
     IF l_bundle[i] THEN
       INSERT INTO public.order_posters (order_id, poster_id, poster_title, poster_image, position)
-      SELECT v_row, NULLIF(p->>'poster_id','')::uuid, COALESCE(p->>'title','Poster'), COALESCE(p->>'image',''), ord - 1
-        FROM jsonb_array_elements(it->'bundle'->'posters') WITH ORDINALITY AS t(p, ord);
+      SELECT v_row, public._uuid_or_null(p->>'poster_id'), COALESCE(NULLIF(p->>'title',''), 'Poster'),
+             COALESCE(p->>'image', ''), (ord - 1)::int
+        FROM jsonb_array_elements(it->'bundle'->'posters') WITH ORDINALITY AS t(p, ord)
+       WHERE EXISTS (SELECT 1 FROM public.posters x WHERE x.id = public._uuid_or_null(p->>'poster_id'));
     ELSE
       INSERT INTO public.order_posters (order_id, poster_id, poster_title, poster_image, position)
-      VALUES (v_row, NULLIF(it->>'poster_id','')::uuid, it->>'title', v_image, 0);
+      SELECT v_row, x.id, COALESCE(it->>'title', ''), v_image, 0
+        FROM public.posters x WHERE x.id = public._uuid_or_null(it->>'poster_id');
     END IF;
   END LOOP;
 
@@ -235,6 +263,3 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.place_order(jsonb, jsonb, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.place_order(jsonb, jsonb, jsonb) TO anon, authenticated;
-
--- Do this ONLY in the same release that switches checkout to place_order():
--- REVOKE INSERT ON public.orders FROM anon, authenticated;
