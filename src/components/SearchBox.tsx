@@ -106,7 +106,10 @@ export function SearchBox({
     staleTime: 60_000,
     queryFn: async () => {
       // V2 (Arabic-aware, token matching) when deployed; falls back to v1 if the function is absent.
-      const v2 = await supabase.rpc("search_posters_v2" as never, { q: debounced, lim: 8 } as never);
+      const v2 = await supabase.rpc(
+        "search_posters_v2" as never,
+        { q: debounced, lim: 8 } as never,
+      );
       if (!v2.error) return (v2.data ?? []) as SearchHit[];
       const { data, error } = await supabase.rpc("search_posters", { q: debounced, lim: 8 });
       if (error) throw error;

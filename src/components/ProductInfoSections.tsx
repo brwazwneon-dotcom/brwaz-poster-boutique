@@ -12,9 +12,7 @@ export function ProductInfoSections({ variant = "all" }: { variant?: Variant }) 
     <section className="border-t border-border bg-background">
       <div className="container-page py-14 sm:py-20">
         <div className="mb-10">
-          <p className="v2-eyebrow">
-            {t("productInfo.eyebrow")}
-          </p>
+          <p className="v2-eyebrow">{t("productInfo.eyebrow")}</p>
           <h2 className="text-display mt-3 text-4xl sm:text-5xl">{t("productInfo.title")}</h2>
         </div>
 

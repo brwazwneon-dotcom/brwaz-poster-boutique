@@ -240,9 +240,7 @@ function PhotoPrintingPage() {
       {/* HERO */}
       <section className="border-b border-border bg-card">
         <div className="container-page py-16 sm:py-20">
-          <p className="v2-eyebrow">
-            Premium FUJIFILM Quality
-          </p>
+          <p className="v2-eyebrow">Premium FUJIFILM Quality</p>
           <h1 className="text-display mt-3 text-5xl sm:text-7xl">Photo Printing</h1>
           <p className="mt-4 max-w-xl text-muted-foreground">
             Upload your photos, pick a size, and we deliver high-resolution FUJIFILM prints to your

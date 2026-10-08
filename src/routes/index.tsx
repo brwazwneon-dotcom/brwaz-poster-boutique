@@ -316,9 +316,7 @@ function CustomDesignSection() {
   return (
     <section className="border-t border-border bg-background">
       <div className="container-page py-20">
-        <p className="v2-eyebrow">
-          {t("customDesign.title")}
-        </p>
+        <p className="v2-eyebrow">{t("customDesign.title")}</p>
         <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("customDesign.heading")}</h2>
         <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{t("customDesign.subtitle")}</p>
         <div className="mt-10 grid gap-6 sm:grid-cols-3">
@@ -360,9 +358,7 @@ function HowItWorksSection() {
   return (
     <section className="border-t border-border bg-background">
       <div className="container-page py-20 text-center">
-        <p className="v2-eyebrow">
-          {t("howItWorks.label")}
-        </p>
+        <p className="v2-eyebrow">{t("howItWorks.label")}</p>
         <h2 className="text-display mt-3 text-4xl sm:text-6xl">{t("howItWorks.title")}</h2>
         <div className="mt-14 grid gap-8 sm:grid-cols-4">
           {steps.map((step, i) => (
@@ -397,9 +393,7 @@ function QualitySection() {
   return (
     <section className="border-t border-border bg-card">
       <div className="container-page py-20">
-        <p className="text-center v2-eyebrow">
-          {t("quality.label")}
-        </p>
+        <p className="text-center v2-eyebrow">{t("quality.label")}</p>
         <h2 className="text-display mt-3 text-center text-4xl sm:text-6xl">{t("quality.title")}</h2>
         <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {items.map((item) => (

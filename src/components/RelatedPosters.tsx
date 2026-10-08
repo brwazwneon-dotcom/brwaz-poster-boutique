@@ -134,9 +134,7 @@ export function RelatedPosters({
     <section className="border-t border-border bg-background">
       <div className="container-page py-16">
         <div className="mb-8">
-          <p className="v2-eyebrow">
-            You may also like
-          </p>
+          <p className="v2-eyebrow">You may also like</p>
           <h2 className="text-display mt-3 text-3xl sm:text-5xl">Related Posters</h2>
         </div>
 

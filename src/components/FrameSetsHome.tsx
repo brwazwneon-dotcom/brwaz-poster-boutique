@@ -48,9 +48,7 @@ export function FrameSetsHome({ title, subtitle }: { title?: string; subtitle?: 
       <div className="container-page py-16">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
-            <p className="v2-eyebrow">
-              Curated bundles
-            </p>
+            <p className="v2-eyebrow">Curated bundles</p>
             <h2 className="text-display mt-3 text-4xl sm:text-6xl">{title || "Frame Sets"}</h2>
             {subtitle ? (
               <p className="mt-3 max-w-xl text-sm text-muted-foreground">{subtitle}</p>
