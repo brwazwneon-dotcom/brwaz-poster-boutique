@@ -88,6 +88,12 @@ Found from the repo's own migrations: anonymous visitors can currently insert an
 | JS requested on home (raw) | ~343–357 KB / 62 files | ~350–362 KB / 66–67 files (+~2–5%: V2 section chunks; entry chunk +0.6% gz) |
 Not measured: real Lighthouse, real network/CDN, real data. Re-run on a Vercel preview before any release.
 
+## Slice 13: full-site sweep + translation integrity (pre-existing bugs, also on `main`)
+- Sweep: 19 public routes (incl. 404, auth, landing, offline) × 7 viewports (320, 390, 412, 430, 1366, 1440, 1920) × en/ar = 266 combinations with mocked backend: **0 horizontal overflow, 0 JS errors**.
+- **71 translation keys** used by the storefront were missing from `en.json` (17 also missing from `ar.json`), so English visitors saw Arabic text (e.g. checkout "Confirm order", "Placing your order…", payment/screenshot hints) and some pages showed raw keys (`bestSellers.noResults`). All added (en + ar).
+- **35 Arabic strings used single-brace placeholders** (`{fee}`, `{count}`) which i18next never interpolates, so Arabic customers saw the literal text (shipping banner, subtotal, offer discounts, photo-printing, …). Converted to `{{ }}` (2 in en). Verified all call sites pass the variables; `cart.doubleFaceTape` (code appends the numbers itself) now holds only the label.
+- New `src/lib/locales.test.ts` guards: every storefront `t('a.b')` without inline default exists in ar+en; no single-brace placeholders; ar/en placeholder names match. Admin uses its own dictionary (`admin-i18n`) and is excluded.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

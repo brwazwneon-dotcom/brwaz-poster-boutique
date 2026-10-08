@@ -4,6 +4,7 @@
   "egp": "EGP",
   "whatsapp": "WhatsApp",
   "common": {
+    "clearAll": "Clear all",
     "brand": "BRWAZWNEON",
     "loading": "Loading...",
     "save": "Save",
@@ -51,6 +52,9 @@
     "off": "off"
   },
   "nav": {
+    "orGrabBundle": "Or grab a bundle →",
+    "whatsapp": "WhatsApp",
+    "whatsappOrder": "Order via WhatsApp",
     "home": "Home",
     "shop": "Shop",
     "cart": "Cart",
@@ -87,6 +91,7 @@
     "switchToEnglish": "Switch to English"
   },
   "header": {
+    "search": "Search",
     "searchPlaceholder": "Search posters, categories...",
     "searchResults": "Search results",
     "trendingSearches": "Trending searches",
@@ -145,6 +150,8 @@
     "allRightsReserved": "All rights reserved."
   },
   "home": {
+    "collection": "Collection",
+    "previewBeforePrinting": "Preview before printing",
     "heroTitle": "Turn Your Room Into A Piece Of Art",
     "heroSubtitle": "Premium framed posters delivered across Egypt",
     "heroCta": "Shop Now",
@@ -180,6 +187,8 @@
     "fastDeliveryDesc": "2-5 business days across Egypt"
   },
   "product": {
+    "decreaseQty": "Decrease quantity",
+    "increaseQty": "Increase quantity",
     "addToCart": "Add to Cart",
     "removeFromCart": "Remove from Cart",
     "addToWishlist": "Add to Wishlist",
@@ -226,6 +235,31 @@
     "size_100x60": "100 × 60 cm"
   },
   "cart": {
+    "addMoreForFreeShipping": "Add {{amount}} EGP more for free shipping",
+    "checkoutFailed": "We couldn't place your order. Please try again.",
+    "confirmOrder": "Confirm order",
+    "continueWithoutIt": "Continue without it",
+    "copy": "Copy",
+    "doubleFaceTape": "Double-sided tape",
+    "doubleFaceTapeDesc": "Double-sided tape makes hanging your frames easy, with no nails and no damage to the wall.",
+    "fillDeliveryFields": "Please fill in all delivery fields",
+    "frames": "frames",
+    "maxFileSize": "Maximum file size is 10 MB",
+    "needDoubleFaceTape": "Need double-sided tape?",
+    "noContinueWithoutIt": "No, continue without it",
+    "numberCopied": "Number copied",
+    "onlyJpgPngWebpPdf": "Only JPG, PNG, WEBP or PDF files are allowed",
+    "optionalAddOn": "Optional add-on",
+    "packagingFee": "Packaging fee",
+    "phonePlaceholder": "01xxxxxxxxx",
+    "placingOrder": "Placing your order...",
+    "remove": "Remove",
+    "screenshotHint": "Drag & drop or tap · JPG, PNG, WEBP, PDF · max 10 MB",
+    "screenshotUpload": "Upload payment screenshot",
+    "selectGovernorate": "Select governorate...",
+    "unitPrice": "{{price}} EGP each",
+    "uploadPaymentScreenshot": "Please upload your payment screenshot",
+    "yesAddDoubleFaceTape": "Yes, add double-sided tape",
     "title": "Shopping Cart",
     "empty": "Your cart is empty",
     "emptySubtitle": "Add items to your cart to get started",
@@ -263,6 +297,7 @@
     "returnPolicy": "Free Returns & Exchanges"
   },
   "checkout": {
+    "instapayVodafoneCash": "Instapay / Vodafone Cash",
     "title": "Checkout",
     "contactInfo": "Contact Information",
     "fullName": "Full Name",
@@ -397,6 +432,18 @@
     "refunded": "Refunded"
   },
   "category": {
+    "all": "All",
+    "bestSeller": "Best seller",
+    "couldNotLoad": "Couldn't load posters. Please try again.",
+    "editing": "Editing",
+    "moreIn": "More in",
+    "nextPoster": "Next poster",
+    "previousPoster": "Previous poster",
+    "retry": "Retry",
+    "sameOptionsForAll": "Same options for all",
+    "selectPosters": "Select one or more posters",
+    "step": "Step",
+    "tapToSelect": "Tap posters to select them, then choose frame, size and color.",
     "title": "Category",
     "allCategories": "All Categories",
     "filter": "Filter",
@@ -420,8 +467,8 @@
     "maxPrice": "Max Price",
     "selected": "Selected",
     "customize": "Customize",
-    "fromPrice": "From {price} EGP",
-    "addToCart": "Add {count} to Cart"
+    "fromPrice": "From {{price}} EGP",
+    "addToCart": "Add {{count}} to Cart"
   },
   "offers": {
     "title": "Special Offers",
@@ -659,6 +706,9 @@
     "a5": "Of course! Upload your image and we'll enhance it professionally before printing and turn it into a premium framed poster."
   },
   "photo4x6": {
+    "addPhotos": "Add 4×6 photos",
+    "photos": "photos",
+    "printing": "4×6 photo printing",
     "title": "4×6 Photo Printing",
     "subtitle": "Classic 4×6 prints — perfect for memories",
     "uploadImages": "Upload Photos",
@@ -746,5 +796,14 @@
     "install": "Install",
     "later": "Later",
     "offlineReady": "You can now browse offline"
+  },
+  "bestSellers": {
+    "heading": "Best Sellers",
+    "noResults": "No posters match your search.",
+    "badge": "Best seller",
+    "featuredOrder": "Featured order",
+    "mostPopular": "Most popular",
+    "newest": "Newest",
+    "searchPlaceholder": "Search best sellers..."
   }
 }
