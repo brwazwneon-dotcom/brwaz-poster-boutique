@@ -196,21 +196,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "BRWAZWNEON — Premium Framed Posters" },
       {
         name: "twitter:description",
         content:
           "Movie, football, anime, car & TV series posters — framed and delivered across Egypt. Cash on delivery.",
       },
+      // Link previews (WhatsApp, Facebook, Messenger, X, Telegram) show the real brand logo on the
+      // site's dark background (1200x630, ~57 KB) instead of the square "B" app icon.
       {
         property: "og:image",
-        content: `${SITE_URL}/icon-512.png`,
+        content: `${SITE_URL}/og-image.jpg`,
       },
+      { property: "og:image:type", content: "image/jpeg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "BRWAZWNEON logo" },
       {
         name: "twitter:image",
-        content: `${SITE_URL}/icon-512.png`,
+        content: `${SITE_URL}/og-image.jpg`,
       },
+      { name: "twitter:image:alt", content: "BRWAZWNEON logo" },
       // "system" defaults to the dark browser-chrome tint, matching :root's
       // default-dark palette — the OS-resolved color a moment later (see
       // ThemeBoot) isn't worth a second SSR round-trip just for this.
@@ -268,7 +275,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               "@id": `${SITE_URL}/#org`,
               name: "BRWAZWNEON",
               url: SITE_URL,
-              logo: `${SITE_URL}/icon-512.png`,
+              logo: `${SITE_URL}/assets/brwazwneon-logo.png`,
               areaServed: "EG",
               address: {
                 "@type": "PostalAddress",
