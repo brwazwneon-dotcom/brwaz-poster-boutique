@@ -5,7 +5,7 @@ import hero from "@/assets/hero.jpg";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
-import { LazyOnView, type LazyReserve } from "@/components/LazyOnView";
+import { LazyOnView } from "@/components/LazyOnView";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { Printer } from "lucide-react";
 
@@ -56,28 +56,6 @@ const BeforeAfter = lazy(() =>
 const CategoryGrids = lazy(() =>
   import("@/components/CategoryGrids").then((module) => ({ default: module.CategoryGrids })),
 );
-
-/**
- * Space reserved per lazily mounted section, a little below the measured settled
- * height so a section only ever grows into its reservation (never leaves a gap).
- * Data-driven rows use a more conservative value because item counts vary.
- */
-const LAZY_RESERVE: Record<string, LazyReserve> = {
-  "trending-now": { sm: 440, md: 480, lg: 500 },
-  collections: { sm: 560, md: 1000, lg: 900 },
-  "best-sellers": { sm: 640, md: 650, lg: 650 },
-  "custom-design": { sm: 820, md: 540, lg: 520 },
-  "photo-enhancement": { sm: 700, md: 840, lg: 530 },
-  reviews: { sm: 640, md: 900, lg: 800 },
-  "how-it-works": { sm: 840, md: 440, lg: 410 },
-  "trusted-quality": { sm: 2300, md: 2200, lg: 1850 },
-  "quality-section": { sm: 640, md: 550, lg: 400 },
-  faq: { sm: 940, md: 950, lg: 890 },
-  "room-transformation": { sm: 910, md: 1400, lg: 1230 },
-  highlights: { sm: 255, md: 285, lg: 285 },
-  "frame-sets": { sm: 470, md: 640, lg: 900 },
-  categories: { sm: 2200, md: 2400, lg: 2450 },
-};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -180,17 +158,12 @@ function Index() {
         .map((s, idx) => {
           const node = renderSection(s);
           if (!node) return null;
-          const lazy = !(idx < 2 || s.key === "hero_banners");
           const guarded = (
             <HomepageSectionBoundary key={`section-${s.id ?? s.key}`} sectionKey={s.key}>
-              <Suspense
-                fallback={<div className={lazy ? "bg-background" : "min-h-80 bg-background"} />}
-              >
-                {node}
-              </Suspense>
+              <Suspense fallback={<div className="min-h-80 bg-background" />}>{node}</Suspense>
             </HomepageSectionBoundary>
           );
-          if (!lazy) {
+          if (idx < 2 || s.key === "hero_banners") {
             return (
               <div key={`home-${s.id ?? s.key}`} id={`home-${s.key}`}>
                 {guarded}
@@ -199,9 +172,7 @@ function Index() {
           }
           return (
             <div key={`lazy-${s.id ?? s.key}-${idx}`} id={`home-${s.key}`}>
-              <LazyOnView minHeight={520} reserve={LAZY_RESERVE[s.key]}>
-                {guarded}
-              </LazyOnView>
+              <LazyOnView minHeight={520}>{guarded}</LazyOnView>
             </div>
           );
         })}

@@ -956,20 +956,3 @@ a[aria-label*="Made with Lovable" i],
     transition: none;
   }
 }
-
-/* Space held for lazily mounted homepage sections (see LazyOnView). */
-.lazy-reserve {
-  min-height: var(--lazy-sm);
-}
-
-@media (min-width: 768px) {
-  .lazy-reserve {
-    min-height: var(--lazy-md);
-  }
-}
-
-@media (min-width: 1280px) {
-  .lazy-reserve {
-    min-height: var(--lazy-lg);
-  }
-}
