@@ -378,3 +378,11 @@
   .v2-wall[data-armed="true"][data-shown="true"] .v2-wall-cell { animation: none; opacity: 1; transform: none; }
   [data-site-theme="poster-wall"] .v2-reveal[data-armed="true"][data-shown="true"] h2.text-display { animation: none; }
 }
+
+/* — Motion governor (see components/v2/MotionGovernor.tsx) — */
+html.v2-scrolling .v2-fall-item,
+html.v2-scrolling .v2-fall-body,
+html.v2-scrolling .v2-marquee-track { animation-play-state: paused !important; }
+html.v2-lite .v2-fall { display: none; }
+html.v2-lite .v2-marquee-track { animation: none; }
+html.v2-lite .v2-marquee { transform: none; }

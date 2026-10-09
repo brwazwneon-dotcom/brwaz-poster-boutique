@@ -109,6 +109,17 @@ Not covered: screen-reader testing on real devices, admin console, reduced-motio
 - Re-measured after adding it: LCP ~670–740 ms (not slower), CLS 0.004, axe 0 violations, 266-combination sweep 0 overflow / 0 errors.
 - Screen recording of the motion (mock data): `brwaz-v2-motion.mp4` (not committed; sent in chat).
 
+## Slice 16: runtime cost of the motion layer (measured) + governor
+Load metrics are unaffected (see slice 15), but the continuous animations cost something while running. Measured in a deliberately pessimistic setup (headless Chromium, **no GPU**, CPU throttled 6× ≈ low-end phone, rAF frame logger running):
+| 390px, CPU ×6 | idle FPS | scroll FPS | scroll frames dropped |
+|---|---|---|---|
+| motion OFF (reduced) | 53–57 | ~58 | 1% |
+| motion ON | ~44–48 | ~47 | ~6–7% |
+| ON, low-end mode (≤4 cores) | ~51 | ~49.5 | ~4% |
+Micro-optimisations (no rotation, no inner sway, no shadow, half the items, will-change) did not change this: the cost is roughly constant once any continuous animation runs in that environment, so it was not worth shaving details.
+Mitigations shipped (`components/v2/MotionGovernor.tsx`): auto-off of the continuous layers (falling frames, marquee) on low-end devices (≤4 cores, ≤4 GB RAM) and Save-Data; **admin kill switch** — Emergency Fast Mode / Safe Mode (Stability tab) also turns them off; running loops pause while scrolling; `prefers-reduced-motion` disables all. One-shot effects (wall drop, marker draw-in, confetti) remain.
+Honest caveat: pausing during scroll did NOT measurably improve scroll FPS in this environment; real-device behaviour (GPU compositing) is expected to be better but is unverified — test on a real mid-range Android over a Vercel preview before release.
+
 ## Not changed on purpose
 Checkout logic (`cart.tsx`), image pipeline, SafeImage, perf flags, backups, auth, existing migrations.
 Reason: the checkout has no server-side price authority; fixing it requires DB changes needing your approval (see `02_…sql`). UI-only changes there add risk without fixing it.

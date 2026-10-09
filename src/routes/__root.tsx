@@ -34,6 +34,7 @@ import { FloatingActions } from "@/components/FloatingActions";
 import { MobileBottomNav } from "@/components/v2/MobileBottomNav";
 import { ThemeBoot } from "@/components/ThemeBoot";
 import { LanguageBoot } from "@/components/LanguageBoot";
+import { MotionGovernor } from "@/components/v2/MotionGovernor";
 import { ThemePreviewBanner } from "@/components/ThemePreviewBanner";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 
@@ -322,6 +323,7 @@ function RootComponent() {
               <TikTokPixelBoot currentPage={locationHref} />
               <PreviewBadge />
               <LanguageBoot />
+              <MotionGovernor />
               <ThemeBoot />
               <ThemePreviewBanner />
               <SocialProofGated isAdmin={isAdmin} />
