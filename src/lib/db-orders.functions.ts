@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "@/lib/neon.server";
 import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
 import { photoUnitPrice } from "@/lib/photo-volume-pricing";
+import { chooseOrderImage, posterIdsNeedingImage } from "@/lib/order-image-snapshot";
 import type { PurchasePayload } from "@/lib/meta-events";
 import {
   buildOrderPurchase,
@@ -92,6 +93,22 @@ export const createOrderRows = createServerFn({ method: "POST" })
       returning id
     `;
 
+    // The order keeps a permanent copy of each poster's image. If the browser
+    // didn't send a usable one, use the poster's own catalog image. Lookup
+    // failure never blocks the order: the row just keeps what was sent.
+    const catalogImages = new Map<string, string>();
+    const needImage = posterIdsNeedingImage(rows);
+    if (needImage.length > 0) {
+      try {
+        const found = (await client`
+          select id, image_url from posters where id = any(${needImage}::uuid[])
+        `) as Array<{ id: string; image_url: string | null }>;
+        for (const f of found) if (f.image_url) catalogImages.set(f.id, f.image_url);
+      } catch (err) {
+        console.error("[createOrderRows] poster image lookup failed", err);
+      }
+    }
+
     const results = (await client.transaction(
       rows.map(
         (r) => client`
@@ -105,7 +122,7 @@ export const createOrderRows = createServerFn({ method: "POST" })
           ) values (
             ${r.guest_session_id}, ${customerId}, ${r.customer_name}, ${r.phone}, ${r.governorate}, ${r.address},
             ${r.frame_type}, ${r.frame_color}, ${r.size}, ${r.quantity}, ${r.selected_poster},
-            ${r.poster_title}, ${r.poster_image}, ${r.notes}, ${r.subtotal}, ${r.packaging_fee},
+            ${r.poster_title}, ${chooseOrderImage(r.poster_image, r.selected_poster ? catalogImages.get(r.selected_poster) : null)}, ${r.notes}, ${r.subtotal}, ${r.packaging_fee},
             ${r.shipping_cost}, ${r.total_price}, ${r.status}, ${r.payment_method},
             ${r.payment_status}, ${safeProofUrl(r.payment_screenshot)}, ${r.is_test},
             ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}

@@ -32,6 +32,8 @@ import {
   type ConfirmationStatus,
   type BundleTitleParts,
 } from "@/lib/order-whatsapp";
+import { downloadImage } from "@/lib/image-download";
+import { OrderInvoiceDialog } from "./OrderInvoiceDialog";
 import { customerWhatsappLink } from "./shared";
 import {
   checkoutNumberLabel,
@@ -143,17 +145,23 @@ function catalogLookupNames(items: AdminOrder[]): string[] {
   return [...names];
 }
 
-function useCatalogPosterImages(items: AdminOrder[] | null): Record<string, string> {
-  const [images, setImages] = useState<Record<string, string>>({});
+// `images`: catalog display image by poster name (fills gaps only — a stored
+// image always wins). `originals`: the archival full-size file by name, used
+// by the Download buttons.
+type CatalogMap = { images: Record<string, string>; originals: Record<string, string> };
+const EMPTY_CATALOG: CatalogMap = { images: {}, originals: {} };
+
+function useCatalogPosterImages(items: AdminOrder[] | null): CatalogMap {
+  const [catalog, setCatalog] = useState<CatalogMap>(EMPTY_CATALOG);
   useEffect(() => {
-    setImages({});
+    setCatalog(EMPTY_CATALOG);
     if (!items || items.length === 0) return;
     const names = catalogLookupNames(items);
     if (names.length === 0) return;
     let cancelled = false;
     resolveOrderPosterImagesAdmin({ data: { names, orderedAt: String(items[0].created_at) } })
       .then((r) => {
-        if (!cancelled) setImages(r.images);
+        if (!cancelled) setCatalog({ images: r.images, originals: r.originals ?? {} });
       })
       .catch(() => {
         /* best-effort — the tiles keep their "Image unavailable" placeholder */
@@ -162,7 +170,7 @@ function useCatalogPosterImages(items: AdminOrder[] | null): Record<string, stri
       cancelled = true;
     };
   }, [items]);
-  return images;
+  return catalog;
 }
 
 const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
@@ -260,8 +268,26 @@ function cloudinaryThumb(url: string): string {
   return `${url.slice(0, at + marker.length)}f_auto,q_auto,w_144,h_216,c_fill/${url.slice(at + marker.length)}`;
 }
 
+// A custom-design line's image is the customer's own upload — already the
+// original, nothing to look up in the catalog.
+function isCustomRow(item: AdminOrder): boolean {
+  return parseCustomImageMeta(item.notes) !== null;
+}
+
 const CATALOG_IMAGE_NOTE =
   "Image from the poster catalog, matched by name — this order didn't store it";
+
+// The archival full-size file for a poster, looked up only when the admin
+// presses Download (never while rendering the order). Null when the catalog
+// has no unambiguous original — the caller then saves the image on screen.
+async function lookupOriginal(name: string, orderedAt: string): Promise<string | null> {
+  try {
+    const r = await resolveOrderPosterImagesAdmin({ data: { names: [name], orderedAt } });
+    return r.originals?.[name] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const THUMB_SIZE = "h-[84px] w-14 sm:h-[108px] sm:w-[72px]";
 
@@ -277,15 +303,31 @@ function ItemThumb({
   alt,
   priority,
   note,
+  downloadSrc,
+  downloadName,
+  resolveOriginal,
 }: {
   src: string | null;
   alt: string;
   priority?: boolean;
+  /** Best file to save (the original when known); falls back to `src`. */
+  downloadSrc?: string | null;
+  downloadName?: string;
+  /** Asked once, on Download, for a better file than `downloadSrc`. */
+  resolveOriginal?: () => Promise<string | null>;
   /** Hover hint, e.g. that this is the catalog's image and not one the order stored. */
   note?: string;
 }) {
   const [trulyFailed, setTrulyFailed] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const saveName = downloadName || alt;
+  const save = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!src) return;
+    const better = downloadSrc ? null : ((await resolveOriginal?.()) ?? null);
+    const result = await downloadImage(downloadSrc || better || src, saveName);
+    if (result === "opened") toast.message("Opened the image in a new tab — save it from there");
+  };
 
   useEffect(() => {
     if (!zoomOpen) return;
@@ -321,40 +363,51 @@ function ItemThumb({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setZoomOpen(true)}
-        aria-label="View poster image"
-        title={note}
-        className={cn(
-          "relative block shrink-0 overflow-hidden rounded-md border border-border bg-muted/20",
-          THUMB_SIZE,
-        )}
-      >
-        <SafeImage
-          src={cloudinaryThumb(src)}
-          fallbackSrc={src}
-          alt={alt}
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : "auto"}
-          // SafeImage swaps its own <img src> to IMAGE_FALLBACK once it has
-          // exhausted its internal retry (src, then fallbackSrc) — it never
-          // lets a real network error reach this element, so onError never
-          // fires here. onLoad does fire for that fallback SVG too (it's a
-          // real, instantly-decoding image), which is the one reliable place
-          // to learn "this thumbnail truly has no photo" and switch to our
-          // own richer placeholder instead of SafeImage's plain icon.
-          onLoad={(e) => {
-            if (
-              e.currentTarget.currentSrc === IMAGE_FALLBACK ||
-              e.currentTarget.src === IMAGE_FALLBACK
-            ) {
-              setTrulyFailed(true);
-            }
-          }}
-          className="h-full w-full object-cover"
-        />
-      </button>
+      <div className={cn("relative shrink-0", THUMB_SIZE)}>
+        <button
+          type="button"
+          onClick={() => setZoomOpen(true)}
+          aria-label="View poster image"
+          title={note}
+          className={cn(
+            "relative block shrink-0 overflow-hidden rounded-md border border-border bg-muted/20",
+            THUMB_SIZE,
+          )}
+        >
+          <SafeImage
+            src={cloudinaryThumb(src)}
+            fallbackSrc={src}
+            alt={alt}
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            // SafeImage swaps its own <img src> to IMAGE_FALLBACK once it has
+            // exhausted its internal retry (src, then fallbackSrc) — it never
+            // lets a real network error reach this element, so onError never
+            // fires here. onLoad does fire for that fallback SVG too (it's a
+            // real, instantly-decoding image), which is the one reliable place
+            // to learn "this thumbnail truly has no photo" and switch to our
+            // own richer placeholder instead of SafeImage's plain icon.
+            onLoad={(e) => {
+              if (
+                e.currentTarget.currentSrc === IMAGE_FALLBACK ||
+                e.currentTarget.src === IMAGE_FALLBACK
+              ) {
+                setTrulyFailed(true);
+              }
+            }}
+            className="h-full w-full object-cover"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          aria-label="Download poster image"
+          title="Download"
+          className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/90 text-xs shadow hover:bg-accent"
+        >
+          ⬇
+        </button>
+      </div>
 
       {zoomOpen && (
         <div
@@ -368,6 +421,13 @@ function ItemThumb({
             className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-lg"
           >
             ✕
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            className="absolute right-20 top-4 flex h-11 items-center gap-2 rounded-full border border-primary/50 bg-primary/15 px-4 text-xs font-semibold uppercase tracking-widest text-foreground hover:bg-primary/25"
+          >
+            ⬇ Download
           </button>
           {/* Full-size original, never the small cropped thumbnail — the
               whole point of the lightbox is seeing it uncropped. */}
@@ -446,11 +506,11 @@ function SingleItemCard({
 }: {
   item: AdminOrder;
   priority?: boolean;
-  catalog: Record<string, string>;
+  catalog: CatalogMap;
 }) {
   const title = item.poster_title || "Untitled item";
   const ownSrc = useResolvedItemImage(item);
-  const catalogSrc = ownSrc ? null : (catalog[title] ?? null);
+  const catalogSrc = ownSrc ? null : (catalog.images[title] ?? null);
   return (
     <div className="flex gap-3 rounded-sm border border-border bg-card p-3">
       <ItemThumb
@@ -458,6 +518,11 @@ function SingleItemCard({
         alt={`${title} poster`}
         priority={priority}
         note={catalogSrc ? CATALOG_IMAGE_NOTE : undefined}
+        downloadSrc={catalog.originals[title] ?? (isCustomRow(item) ? ownSrc : null)}
+        downloadName={title}
+        resolveOriginal={
+          isCustomRow(item) ? undefined : () => lookupOriginal(title, String(item.created_at))
+        }
       />
       <div className="min-w-0 flex-1">
         <div dir="auto" className="text-sm font-semibold text-foreground">
@@ -496,7 +561,7 @@ function BundleItemCard({
   item: AdminOrder;
   bundle: BundleTitleParts;
   priority?: boolean;
-  catalog: Record<string, string>;
+  catalog: CatalogMap;
 }) {
   // Same defensive resolution as a single item's thumbnail (bundle rows
   // don't carry customImageMeta today, so this is a no-op guard for them —
@@ -516,7 +581,7 @@ function BundleItemCard({
         <div className="mt-3 flex flex-wrap gap-3">
           {bundle.posterNames.map((name, idx) => {
             const ownSrc = idx === 0 ? firstSrc : null;
-            const catalogSrc = ownSrc ? null : (catalog[name] ?? null);
+            const catalogSrc = ownSrc ? null : (catalog.images[name] ?? null);
             return (
               <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
                 <ItemThumb
@@ -524,6 +589,9 @@ function BundleItemCard({
                   alt={`${name} poster`}
                   priority={priority && idx === 0}
                   note={catalogSrc ? CATALOG_IMAGE_NOTE : undefined}
+                  downloadSrc={catalog.originals[name]}
+                  downloadName={name}
+                  resolveOriginal={() => lookupOriginal(name, String(item.created_at))}
                 />
                 <div
                   dir="auto"
@@ -552,7 +620,7 @@ function OrderItemCard({
 }: {
   item: AdminOrder;
   priority?: boolean;
-  catalog: Record<string, string>;
+  catalog: CatalogMap;
 }) {
   const bundle = parseBundleTitle(item.poster_title);
   if (bundle.isBundle) {
@@ -587,6 +655,7 @@ export function OrderDetailsDrawer({
   const [newNote, setNewNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [justCopied, setJustCopied] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   const clickedId = order?.id ?? null;
   const primary = group?.[0] ?? order;
@@ -607,6 +676,7 @@ export function OrderDetailsDrawer({
     setTimeline(null);
     setNotes(null);
     setTemplateKey("confirmation");
+    setInvoiceOpen(false);
     (async () => {
       // If the group can't be loaded, fall back to the clicked row so the
       // drawer is never empty.
@@ -844,6 +914,14 @@ export function OrderDetailsDrawer({
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setInvoiceOpen(true)}
+              disabled={!group}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-sm border border-primary/50 bg-primary/15 px-3 text-[11px] font-semibold uppercase tracking-widest text-foreground hover:bg-primary/25 disabled:opacity-50"
+            >
+              🧾 Invoice image
+            </button>
           </div>
         </div>
 
@@ -1223,6 +1301,18 @@ export function OrderDetailsDrawer({
             </button>
           </div>
         </div>
+        {invoiceOpen && group && (
+          <OrderInvoiceDialog
+            rows={group}
+            orderLabel={checkoutNumberLabel(items)}
+            photoOrders={photoOrders.map((p) => ({
+              label: photoOrderLabel(p),
+              totalPrice: p.total_price,
+            }))}
+            catalog={catalogImages.images}
+            onClose={() => setInvoiceOpen(false)}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );

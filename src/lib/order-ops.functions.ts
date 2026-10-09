@@ -188,25 +188,40 @@ export const resolveOrderPosterImagesAdmin = createServerFn({ method: "GET" })
       .filter((n) => n.length <= 200)
       .slice(0, MAX_LOOKUP_NAMES);
     const orderedAt = new Date(data.orderedAt);
+    // images: the catalog's display image; originals: the archival full-size
+    // file (posters.original_url) when there is one — what "Download" hands
+    // the admin. Both only when the title matches exactly one poster image.
     const images: Record<string, string> = {};
-    if (names.length === 0 || Number.isNaN(orderedAt.getTime())) return { images };
+    const originals: Record<string, string> = {};
+    if (names.length === 0 || Number.isNaN(orderedAt.getTime())) return { images, originals };
     const rows = (await sql()`
-      select title, image_url
+      select title, image_url, original_url
       from posters
       where title = any(${names})
         and created_at <= ${orderedAt.toISOString()}::timestamptz
         and image_url ~ '^https?://'
-    `) as Array<{ title: string; image_url: string }>;
+    `) as Array<{ title: string; image_url: string; original_url: string | null }>;
     const byTitle = new Map<string, Set<string>>();
+    const origByTitle = new Map<string, Set<string>>();
     for (const r of rows) {
       const urls = byTitle.get(r.title) ?? new Set<string>();
       urls.add(r.image_url);
       byTitle.set(r.title, urls);
+      if (r.original_url && /^https?:\/\//.test(r.original_url)) {
+        const o = origByTitle.get(r.title) ?? new Set<string>();
+        o.add(r.original_url);
+        origByTitle.set(r.title, o);
+      }
     }
     for (const [title, urls] of byTitle) {
       if (urls.size === 1) images[title] = [...urls][0];
     }
-    return { images };
+    for (const [title, urls] of origByTitle) {
+      // Only when the display image is unambiguous too, so the original
+      // always belongs to the same poster as the image shown.
+      if (urls.size === 1 && images[title]) originals[title] = [...urls][0];
+    }
+    return { images, originals };
   });
 
 export const markOrderNotificationsSeenAdmin = createServerFn({ method: "POST" }).handler(
