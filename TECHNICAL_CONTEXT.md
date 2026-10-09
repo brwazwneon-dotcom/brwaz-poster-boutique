@@ -643,6 +643,7 @@ Validation في صفحة السلة (Checkout):
   - BeforeAfter (مقارنة قبل/بعد)
   - PhotoEnhancementBeforeAfter (تحسين الصور)
   - RoomTransformation (غرفة ثلاثية الأبعاد)
+  - WallOfInspiration (جدار الإلهام)
   - TrustedQuality (ثقة الجودة)
   - StorefrontFAQ (أسئلة شائعة)
   - ProductInfoSections (معلومات المنتج)
