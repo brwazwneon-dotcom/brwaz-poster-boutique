@@ -6,10 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const fns = vi.hoisted(() => ({ list: vi.fn(), render: vi.fn(), load: vi.fn(), blob: vi.fn() }));
+const fns = vi.hoisted(() => ({
+  list: vi.fn(),
+  render: vi.fn(),
+  load: vi.fn(),
+  blob: vi.fn(),
+  confirm: vi.fn(),
+}));
 vi.mock("@/lib/db-admin.functions", () => ({
   listPhotoOrdersAdmin: fns.list,
   updatePhotoOrderStatus: vi.fn(),
+  setPhotoOrderConfirmationAdmin: fns.confirm,
 }));
 vi.mock("@/lib/order-invoice-render", () => ({
   loadPhotoSheetImages: fns.load,
@@ -52,6 +59,7 @@ beforeEach(async () => {
   fns.load.mockReset().mockResolvedValue({ logo: null, photos: [null, null] });
   fns.render.mockReset().mockResolvedValue(new Blob(["x"], { type: "image/png" }));
   fns.blob.mockReset();
+  fns.confirm.mockReset().mockResolvedValue({ ok: true });
   (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => "blob:p";
   (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => {};
   container = document.createElement("div");
@@ -102,5 +110,52 @@ describe("Photo orders extras", () => {
     await act(async () => dl.click());
     expect(fns.blob).toHaveBeenCalledTimes(1);
     expect(fns.blob.mock.calls[0][1]).toBe("photos-BRW-1150.png");
+  });
+});
+
+describe("Photo order confirmation state", () => {
+  const badge = () => container.textContent ?? "";
+  const click = async (el: Element) => {
+    await act(async () => {
+      (el as HTMLElement).click();
+    });
+  };
+
+  it("starts as NOT SENT", () => {
+    expect(badge()).toContain("NOT SENT");
+  });
+
+  it("opening the WhatsApp confirmation marks the order SENT", async () => {
+    const a = [...container.querySelectorAll("a")].find((x) =>
+      /Confirm on WhatsApp/.test(x.textContent ?? ""),
+    ) as HTMLAnchorElement;
+    a.addEventListener("click", (e) => e.preventDefault());
+    await click(a);
+    expect(fns.confirm).toHaveBeenCalledWith({
+      data: { id: order.id, kind: "photo_4x6", confirmation_status: "sent" },
+    });
+    expect(badge()).toContain("SENT");
+  });
+
+  it("the customer-reply buttons save and show the state", async () => {
+    const btn = [...container.querySelectorAll("button")].find((b) =>
+      /Confirmed/.test(b.textContent ?? ""),
+    )!;
+    await click(btn);
+    expect(fns.confirm).toHaveBeenCalledWith({
+      data: { id: order.id, kind: "photo_4x6", confirmation_status: "customer_confirmed" },
+    });
+    expect(badge()).toContain("CUSTOMER CONFIRMED");
+  });
+
+  it("reloads the real state when saving fails", async () => {
+    fns.confirm.mockRejectedValueOnce(new Error("boom"));
+    const btn = [...container.querySelectorAll("button")].find((b) =>
+      /Rejected/.test(b.textContent ?? ""),
+    )!;
+    await click(btn);
+    await flush();
+    expect(fns.list).toHaveBeenCalledTimes(2);
+    expect(badge()).toContain("NOT SENT");
   });
 });

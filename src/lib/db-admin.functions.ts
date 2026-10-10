@@ -1659,14 +1659,15 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
         select id, order_number, 'photo_4x6' as kind, customer_name, phone, governorate, address,
                package_key as detail, photo_count as quantity, total_price, status, created_at,
                original_paths, enhanced_paths, suit_paths, selected_versions,
-               selected_albums, albums_total, payment_method
+               selected_albums, albums_total, payment_method,
+               confirmation_status, confirmed_at
         from photo_4x6_orders
         order by created_at desc limit 200
       `,
       sql()`
         select id, order_number, 'photo_printing' as kind, customer_name, phone, governorate, address,
                size as detail, quantity, total_price, status, created_at, photo_urls,
-               unit_price, shipping_cost
+               unit_price, shipping_cost, confirmation_status, confirmed_at
         from photo_orders
         order by created_at desc limit 200
       `,
@@ -1690,6 +1691,8 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
       total_price: number;
       status: string;
       created_at: string;
+      confirmation_status: string;
+      confirmed_at: string | null;
     };
 
     const photoPriceSettings: PhotoPriceSettings = {
@@ -1787,6 +1790,50 @@ export const updatePhotoOrderStatus = createServerFn({ method: "POST" })
       await sql()`update photo_orders set status = ${data.status} where id = ${data.id}`;
     }
     return { ok: true };
+  });
+
+// WhatsApp confirmation state of a photo-printing order — the same values
+// framed-poster orders use (VALID_CONFIRMATION_STATUSES in order-ops.functions).
+const PHOTO_CONFIRMATION_STATUSES = new Set([
+  "not_sent",
+  "prepared",
+  "sent",
+  "customer_confirmed",
+  "customer_rejected",
+  "waiting_for_response",
+]);
+
+export const setPhotoOrderConfirmationAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator(
+    (data: unknown) =>
+      data as {
+        id: string;
+        kind: "photo_4x6" | "photo_printing";
+        confirmation_status: string;
+      },
+  )
+  .handler(async ({ data }) => {
+    if (!PHOTO_CONFIRMATION_STATUSES.has(data.confirmation_status)) {
+      throw new Error("Invalid confirmation status");
+    }
+    const confirmed = data.confirmation_status === "customer_confirmed";
+    if (data.kind === "photo_4x6") {
+      await sql()`
+        update photo_4x6_orders
+        set confirmation_status = ${data.confirmation_status},
+            confirmed_at = case when ${confirmed} then now() else confirmed_at end
+        where id = ${data.id}
+      `;
+    } else {
+      await sql()`
+        update photo_orders
+        set confirmation_status = ${data.confirmation_status},
+            confirmed_at = case when ${confirmed} then now() else confirmed_at end
+        where id = ${data.id}
+      `;
+    }
+    return { ok: true as const };
   });
 
 // ---------------------------------------------------------------

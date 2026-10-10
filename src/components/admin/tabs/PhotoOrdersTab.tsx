@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { listPhotoOrdersAdmin, updatePhotoOrderStatus } from "@/lib/db-admin.functions";
+import {
+  listPhotoOrdersAdmin,
+  setPhotoOrderConfirmationAdmin,
+  updatePhotoOrderStatus,
+} from "@/lib/db-admin.functions";
 import { customerWhatsappLink } from "./shared";
 import { ORDER_STATUSES } from "./OrdersTab";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
 import { Download, X } from "lucide-react";
-import { waLink } from "@/lib/order-whatsapp";
+import { CONFIRMATION_STATUS_LABEL, waLink, type ConfirmationStatus } from "@/lib/order-whatsapp";
 import {
   buildPhotoConfirmationMessage,
   formatOrderDateTime,
@@ -33,6 +37,18 @@ type AdminPhotoOrder = {
   payment_method: "cod" | "instapay" | "vodafone_cash";
   subtotal?: number | null;
   shipping?: number | null;
+  confirmation_status?: ConfirmationStatus;
+  confirmed_at?: string | null;
+};
+
+const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
+  not_sent: "border-border bg-muted/40 text-muted-foreground",
+  prepared: "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+  sent: "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+  customer_confirmed:
+    "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+  customer_rejected: "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-300",
+  waiting_for_response: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300",
 };
 
 const PHOTO_ORDER_KIND_LABEL: Record<AdminPhotoOrder["kind"], string> = {
@@ -67,10 +83,31 @@ export function PhotoOrdersTab() {
     }
   };
 
+  // Sets the confirmation state: the row updates at once and is reloaded if the save fails.
+  const setConfirmation = async (o: AdminPhotoOrder, status: ConfirmationStatus) => {
+    if ((o.confirmation_status ?? "not_sent") === status) return;
+    setOrders((prev) =>
+      prev
+        ? prev.map((r) =>
+            r.id === o.id && r.kind === o.kind ? { ...r, confirmation_status: status } : r,
+          )
+        : prev,
+    );
+    try {
+      await setPhotoOrderConfirmationAdmin({
+        data: { id: o.id, kind: o.kind, confirmation_status: status },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save");
+      load();
+    }
+  };
+
   const copyConfirmation = async (o: AdminPhotoOrder) => {
     try {
       await navigator.clipboard.writeText(buildPhotoConfirmationMessage(o));
       toast.success("Confirmation message copied");
+      if ((o.confirmation_status ?? "not_sent") === "not_sent") void setConfirmation(o, "prepared");
     } catch {
       toast.error("Could not copy — open WhatsApp instead");
     }
@@ -223,11 +260,52 @@ export function PhotoOrdersTab() {
                         </option>
                       ))}
                     </select>
+                    <div
+                      className={`mt-2 inline-flex rounded-sm border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                        CONFIRMATION_TONE[o.confirmation_status ?? "not_sent"] ??
+                        CONFIRMATION_TONE.not_sent
+                      }`}
+                    >
+                      {CONFIRMATION_STATUS_LABEL[o.confirmation_status ?? "not_sent"] ??
+                        CONFIRMATION_STATUS_LABEL.not_sent}
+                    </div>
+                    <div
+                      className="mt-1.5 flex flex-wrap gap-1"
+                      role="group"
+                      aria-label="Customer reply"
+                    >
+                      {(
+                        [
+                          ["customer_confirmed", "✅ Confirmed"],
+                          ["waiting_for_response", "⚠️ Waiting"],
+                          ["customer_rejected", "❌ Rejected"],
+                        ] as const
+                      ).map(([status, label]) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => void setConfirmation(o, status)}
+                          aria-pressed={o.confirmation_status === status}
+                          className={`rounded-sm border px-2 py-1 text-[10px] font-semibold ${
+                            o.confirmation_status === status
+                              ? CONFIRMATION_TONE[status]
+                              : "border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="mt-2 flex flex-col items-start gap-1.5">
                       <a
                         href={waLink(o.phone, buildPhotoConfirmationMessage(o)) ?? "#"}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={() => {
+                          const cur = o.confirmation_status ?? "not_sent";
+                          if (cur === "not_sent" || cur === "prepared")
+                            void setConfirmation(o, "sent");
+                        }}
                         className="inline-flex min-h-[30px] items-center rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-300"
                         title="Open WhatsApp with the confirmation message"
                       >
