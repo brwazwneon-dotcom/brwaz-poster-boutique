@@ -224,3 +224,31 @@ describe("Order Details — invoice image", () => {
     expect(document.body.querySelector("img[alt='Invoice preview']")).not.toBeNull();
   });
 });
+
+describe("Order Details — bundle posters stored with the order", () => {
+  it("shows every poster's own image without any name lookup, and hides the JSON notes", async () => {
+    const IMG = (n: string) => `${CLOUD}/v1/posters/${n}.jpg`;
+    const notes = JSON.stringify({
+      bundle_posters: [
+        { id: "123e4567-e89b-12d3-a456-426614174000", title: "RANDOM (9)", image: IMG("one") },
+        { id: "223e4567-e89b-12d3-a456-426614174000", title: "RANDOM (10)", image: IMG("two") },
+      ],
+    });
+    const order = row({
+      poster_title: "2 Frames Bundle · 30 × 40 cm — RANDOM (9), RANDOM (10)",
+      poster_image: IMG("one"),
+      notes,
+    });
+    fns.group.mockResolvedValue([order]);
+    await mount(open(order));
+    await flush();
+    const srcs = [
+      ...document.body.querySelectorAll("button[aria-label='View poster image'] img"),
+    ].map((i) => i.getAttribute("src"));
+    expect(srcs).toHaveLength(2);
+    expect(srcs[0]).toContain("one.jpg");
+    expect(srcs[1]).toContain("two.jpg");
+    expect(fns.resolve).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("bundle_posters");
+  });
+});

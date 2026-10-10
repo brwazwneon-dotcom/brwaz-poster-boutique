@@ -188,3 +188,24 @@ describe("text + download helpers", () => {
     ).toContain("fl_attachment:poster/");
   });
 });
+
+describe("bundle posters stored with the order", () => {
+  it("uses each stored poster image, ahead of name matches", () => {
+    const ID1 = "123e4567-e89b-12d3-a456-426614174000";
+    const ID2 = "223e4567-e89b-12d3-a456-426614174000";
+    const notes = JSON.stringify({
+      bundle_posters: [
+        { id: ID1, title: "Joker", image: "https://img/j.jpg" },
+        { id: ID2, title: "Batman", image: "https://img/b-exact.jpg" },
+      ],
+    });
+    const m = buildInvoiceModel(
+      [{ ...base, notes, poster_title: "2 Frames Bundle · 30 × 40 cm — Joker, Batman" }],
+      { orderLabel: "#11", images: { own: {}, catalog: { Batman: "https://img/b-guess.jpg" } } },
+    );
+    expect(m.items[0].posters.map((p) => p.imageUrl)).toEqual([
+      "https://img/j.jpg",
+      "https://img/b-exact.jpg",
+    ]);
+  });
+});

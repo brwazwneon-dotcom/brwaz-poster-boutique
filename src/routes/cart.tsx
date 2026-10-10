@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { buildBundleNotes } from "@/lib/bundle-meta";
 import { SafeImage } from "@/components/SafeImage";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
@@ -676,7 +677,13 @@ function CartPage() {
             ? `${i.title} — ${i.bundle.posters.map((p) => p.title).join(", ")}`
             : i.title,
           poster_image: i.image,
-          notes: i.customImageMeta ? JSON.stringify(i.customImageMeta) : null,
+          // Custom designs keep their upload metadata here; a bundle keeps which
+          // posters (id/title/image) it holds — the row has one image column only.
+          notes: i.customImageMeta
+            ? JSON.stringify(i.customImageMeta)
+            : i.bundle
+              ? buildBundleNotes(i.bundle.posters)
+              : null,
           subtotal: lineNet,
           packaging_fee: linePackaging,
           shipping_cost: shippingPerItem,

@@ -4,6 +4,7 @@
 // the figures on the invoice are exactly the ones stored on the order
 // (orders.subtotal / packaging_fee / shipping_cost / total_price) and are
 // never recomputed from catalog prices.
+import { bundleImageAt, parseBundleMeta } from "./bundle-meta";
 import { parseBundleTitle } from "./order-whatsapp";
 
 export type InvoiceOrderRow = {
@@ -19,6 +20,8 @@ export type InvoiceOrderRow = {
   quantity: number;
   poster_title: string | null;
   poster_image: string | null;
+  /** Bundle rows keep their posters (id/title/image) here — see bundle-meta.ts. */
+  notes?: string | null;
   subtotal?: number | string | null;
   packaging_fee?: number | string | null;
   shipping_cost?: number | string | null;
@@ -145,10 +148,16 @@ export function buildInvoiceModel(
     const bundle = parseBundleTitle(r.poster_title);
     const own = usableUrl(images.own[r.id]) ?? usableUrl(r.poster_image);
     const isTape = (r.poster_title ?? "").trim() === TAPE_TITLE;
+    const meta = bundle.isBundle ? parseBundleMeta(r.notes) : null;
     const posters = bundle.isBundle
       ? bundle.posterNames.map((name, idx) => ({
           name,
-          imageUrl: (idx === 0 ? own : null) ?? usableUrl(images.catalog[name]),
+          // The poster the customer actually picked (stored with the order) wins;
+          // then the row's own image (first poster); then a name match.
+          imageUrl:
+            usableUrl(bundleImageAt(meta, bundle.posterNames, idx)) ??
+            (idx === 0 ? own : null) ??
+            usableUrl(images.catalog[name]),
         }))
       : [];
     const title = bundle.isBundle ? bundle.label : r.poster_title?.trim() || "Item";

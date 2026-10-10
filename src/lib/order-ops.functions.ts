@@ -179,10 +179,11 @@ export const getOrderGroupAdmin = createServerFn({ method: "GET" })
 // placeholder is better than another poster's photo on an order.
 // ---------------------------------------------------------------
 const MAX_LOOKUP_NAMES = 40;
+const UUID_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const resolveOrderPosterImagesAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
-  .validator((data: unknown) => data as { names: string[]; orderedAt: string })
+  .validator((data: unknown) => data as { names: string[]; orderedAt: string; orderId?: string })
   .handler(async ({ data }) => {
     const names = [...new Set((data.names ?? []).map((n) => String(n).trim()).filter(Boolean))]
       .filter((n) => n.length <= 200)
@@ -220,6 +221,38 @@ export const resolveOrderPosterImagesAdmin = createServerFn({ method: "GET" })
       // Only when the display image is unambiguous too, so the original
       // always belongs to the same poster as the image shown.
       if (urls.size === 1 && images[title]) originals[title] = [...urls][0];
+    }
+
+    // Names still unresolved: a title can belong to several posters, so look at
+    // what THIS customer actually added to their cart before the order (the
+    // per-poster cart_add events share the order's guest_session_id). A title
+    // resolves only if that visitor added exactly one poster with it.
+    const missing = names.filter((n) => !images[n]);
+    if (missing.length > 0 && typeof data.orderId === "string" && UUID_ID_RE.test(data.orderId)) {
+      const evRows = (await sql()`
+        select distinct p.id, p.title, p.image_url, p.original_url
+        from orders o
+        join analytics_poster_events e
+          on e.visitor_id = o.guest_session_id
+         and e.event_type = 'cart_add'
+         and e.poster_id is not null
+         and e.created_at <= o.created_at
+         and e.created_at >= o.created_at - interval '14 days'
+        join posters p on p.id = e.poster_id
+        where o.id = ${data.orderId}::uuid
+          and o.guest_session_id is not null
+          and p.title = any(${missing})
+          and p.image_url ~ '^https?://'
+      `) as Array<{ id: string; title: string; image_url: string; original_url: string | null }>;
+      const byEvent = new Map<string, Array<(typeof evRows)[number]>>();
+      for (const r of evRows) byEvent.set(r.title, [...(byEvent.get(r.title) ?? []), r]);
+      for (const [title, list] of byEvent) {
+        if (new Set(list.map((r) => r.id)).size !== 1) continue;
+        images[title] = list[0].image_url;
+        if (list[0].original_url && /^https?:\/\//.test(list[0].original_url)) {
+          originals[title] = list[0].original_url;
+        }
+      }
     }
     return { images, originals };
   });

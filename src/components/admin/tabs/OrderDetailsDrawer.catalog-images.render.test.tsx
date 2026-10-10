@@ -144,6 +144,8 @@ describe("Order Details — bundle poster images", () => {
       data: {
         names: ["Beta (2)", "Gamma (3)", "Delta (4)", "Double Face Tape"],
         orderedAt: bundle.created_at,
+        // Lets the server narrow ambiguous names to what this visitor added to their cart.
+        orderId: bundle.id,
       },
     });
 

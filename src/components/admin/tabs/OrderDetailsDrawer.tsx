@@ -33,6 +33,7 @@ import {
   type BundleTitleParts,
 } from "@/lib/order-whatsapp";
 import { downloadImage } from "@/lib/image-download";
+import { bundleImageAt, parseBundleMeta } from "@/lib/bundle-meta";
 import { OrderInvoiceDialog } from "./OrderInvoiceDialog";
 import { customerWhatsappLink } from "./shared";
 import {
@@ -135,7 +136,9 @@ function catalogLookupNames(items: AdminOrder[]): string[] {
     const hasStored = looksLikeUrl(item.poster_image);
     const bundle = parseBundleTitle(item.poster_title);
     if (bundle.isBundle) {
+      const meta = parseBundleMeta(item.notes);
       bundle.posterNames.forEach((name, idx) => {
+        if (bundleImageAt(meta, bundle.posterNames, idx)) return; // stored with the order
         if (idx > 0 || !hasStored) names.add(name);
       });
     } else if (!hasStored && !parseCustomImageMeta(item.notes) && item.poster_title) {
@@ -159,7 +162,9 @@ function useCatalogPosterImages(items: AdminOrder[] | null): CatalogMap {
     const names = catalogLookupNames(items);
     if (names.length === 0) return;
     let cancelled = false;
-    resolveOrderPosterImagesAdmin({ data: { names, orderedAt: String(items[0].created_at) } })
+    resolveOrderPosterImagesAdmin({
+      data: { names, orderedAt: String(items[0].created_at), orderId: items[0].id },
+    })
       .then((r) => {
         if (!cancelled) setCatalog({ images: r.images, originals: r.originals ?? {} });
       })
@@ -568,6 +573,7 @@ function BundleItemCard({
   // it only changes anything if a bundle row's poster_image ever isn't a
   // usable URL).
   const firstSrc = useResolvedItemImage(item);
+  const bundleMeta = parseBundleMeta(item.notes);
   return (
     <div className="rounded-sm border border-border bg-card p-3">
       <div className="flex items-start justify-between gap-3">
@@ -580,7 +586,10 @@ function BundleItemCard({
       {bundle.posterNames.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3">
           {bundle.posterNames.map((name, idx) => {
-            const ownSrc = idx === 0 ? firstSrc : null;
+            // The poster actually picked (stored with the order) beats the row's
+            // single image and any name-based guess.
+            const ownSrc =
+              bundleImageAt(bundleMeta, bundle.posterNames, idx) ?? (idx === 0 ? firstSrc : null);
             const catalogSrc = ownSrc ? null : (catalog.images[name] ?? null);
             return (
               <div key={idx} className="w-14 shrink-0 text-center sm:w-[72px]">
@@ -949,11 +958,13 @@ export function OrderDetailsDrawer({
                 <div dir="auto" className="whitespace-pre-wrap">
                   🏠 {primary.address}
                 </div>
-                {primary.notes && (
-                  <div dir="auto" className="italic text-muted-foreground/90">
-                    "{primary.notes}"
-                  </div>
-                )}
+                {primary.notes &&
+                  !parseBundleMeta(primary.notes) &&
+                  !parseCustomImageMeta(primary.notes) && (
+                    <div dir="auto" className="italic text-muted-foreground/90">
+                      "{primary.notes}"
+                    </div>
+                  )}
               </div>
               <a
                 href={customerWhatsappLink(primary.phone)}

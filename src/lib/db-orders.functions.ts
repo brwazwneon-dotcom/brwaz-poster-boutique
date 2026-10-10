@@ -3,6 +3,7 @@ import { sql } from "@/lib/neon.server";
 import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
 import { photoUnitPrice } from "@/lib/photo-volume-pricing";
 import { chooseOrderImage, posterIdsNeedingImage } from "@/lib/order-image-snapshot";
+import { bundlePosterIds, canonicalBundleNotes } from "@/lib/bundle-meta";
 import type { PurchasePayload } from "@/lib/meta-events";
 import {
   buildOrderPurchase,
@@ -109,6 +110,22 @@ export const createOrderRows = createServerFn({ method: "POST" })
       }
     }
 
+    // Bundle rows: rebuild the poster list stored in `notes` from the posters
+    // table by id, so every poster of the bundle keeps its own real image.
+    const bundleCatalog = new Map<string, { title: string; image_url: string | null }>();
+    const bundleIds = [...new Set(rows.flatMap((r) => bundlePosterIds(r.notes)))].slice(0, 200);
+    if (bundleIds.length > 0) {
+      try {
+        const found = (await client`
+          select id, title, image_url from posters where id = any(${bundleIds}::uuid[])
+        `) as Array<{ id: string; title: string; image_url: string | null }>;
+        for (const f of found) bundleCatalog.set(f.id, { title: f.title, image_url: f.image_url });
+      } catch (err) {
+        console.error("[createOrderRows] bundle poster lookup failed", err);
+      }
+    }
+    const noteFor = (r: OrderRowInput) => canonicalBundleNotes(r.notes, bundleCatalog) ?? r.notes;
+
     const results = (await client.transaction(
       rows.map(
         (r) => client`
@@ -122,7 +139,7 @@ export const createOrderRows = createServerFn({ method: "POST" })
           ) values (
             ${r.guest_session_id}, ${customerId}, ${r.customer_name}, ${r.phone}, ${r.governorate}, ${r.address},
             ${r.frame_type}, ${r.frame_color}, ${r.size}, ${r.quantity}, ${r.selected_poster},
-            ${r.poster_title}, ${chooseOrderImage(r.poster_image, r.selected_poster ? catalogImages.get(r.selected_poster) : null)}, ${r.notes}, ${r.subtotal}, ${r.packaging_fee},
+            ${r.poster_title}, ${chooseOrderImage(r.poster_image, r.selected_poster ? catalogImages.get(r.selected_poster) : null)}, ${noteFor(r)}, ${r.subtotal}, ${r.packaging_fee},
             ${r.shipping_cost}, ${r.total_price}, ${r.status}, ${r.payment_method},
             ${r.payment_status}, ${safeProofUrl(r.payment_screenshot)}, ${r.is_test},
             ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}
