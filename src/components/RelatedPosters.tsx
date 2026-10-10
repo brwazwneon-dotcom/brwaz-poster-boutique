@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -167,7 +168,8 @@ export function RelatedPosters({
                         color: "black",
                         price: unit,
                       });
-                      toast.success(t("cart.itemAddedToCart", { title: p.title }));
+                      if (!cartFeedbackActive())
+                        toast.success(t("cart.itemAddedToCart", { title: p.title }));
                     }}
                     className="flex-1 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
                   >

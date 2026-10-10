@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { HeroStickers } from "@/components/HeroStickers";
 import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import hero from "@/assets/hero.jpg";
@@ -182,7 +183,8 @@ function Index() {
   };
 
   return (
-    <div className="bg-background text-foreground">
+    <div className="relative bg-background text-foreground">
+      <HeroStickers />
       {sections
         .filter((s) => s.enabled && s.visible !== false)
         .slice(0, perf.max_home_sections)

@@ -41,6 +41,7 @@ export const ProductCard = memo(function ProductCard({
 
   return (
     <div
+      data-reveal
       className={cn(
         "group relative aspect-[2/3] overflow-hidden rounded-sm border-2 bg-muted/20 transition-[border-color,box-shadow,transform] duration-200",
         selected

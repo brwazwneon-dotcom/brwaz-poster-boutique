@@ -412,6 +412,7 @@ function RootComponent() {
                 {!isAdmin && <FloatingActionsGated />}
                 {!isAdmin && <FloatingOfferGated />}
                 <AssistantButtonGated isAdmin={isAdmin} />
+                {!isAdmin && <MotionEffectsGated />}
               </MaintenanceGate>
               <Toaster richColors position="top-center" />
               <IdleBoots />
@@ -498,6 +499,32 @@ function PreloaderGated() {
   const perf = usePerformanceFlags();
   if (perf.disable_preloader) return null;
   return <AppPreloader />;
+}
+
+const MotionEffects = lazy(() => import("@/components/MotionEffects"));
+
+// The motion layer (fly-to-cart, pop-in cards) loads only after the page is idle,
+// so it can never delay first paint or interactivity.
+function MotionEffectsGated() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setReady(true), { timeout: 3000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => setReady(true), 1500);
+    return () => window.clearTimeout(id);
+  }, []);
+  if (!ready) return null;
+  return (
+    <Suspense fallback={null}>
+      <MotionEffects />
+    </Suspense>
+  );
 }
 
 function SocialProofGated({ isAdmin }: { isAdmin: boolean }) {

@@ -637,6 +637,7 @@ export function SiteHeader({
         </Link>
         <Link
           to="/cart"
+          data-cart-target="true"
           className="relative inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
         >
           <ShoppingBag className="h-4 w-4" />
@@ -686,6 +687,7 @@ function MobileCartLink({ count, label }: { count: number; label: string }) {
   return (
     <Link
       to="/cart"
+      data-cart-target="true"
       aria-label={label}
       className="relative flex h-11 w-11 items-center justify-center rounded-sm border border-border bg-background text-foreground"
     >

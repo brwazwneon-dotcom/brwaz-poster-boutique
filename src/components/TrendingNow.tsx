@@ -248,6 +248,7 @@ export function TrendingNow({
                 key={p.id}
                 to="/category/$slug"
                 params={{ slug: p.categories?.slug ?? "movies" }}
+                data-reveal
                 className="group relative block w-[44%] shrink-0 snap-start sm:w-[24%] lg:w-[16%]"
               >
                 <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-primary-foreground">

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Navigate, notFound, useNavigate } from "@tanstack/react-router";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Ltr } from "@/components/Ltr";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useEffect, useMemo, useState } from "react";
@@ -597,9 +598,11 @@ export function Customizer({
         editSettings: normalizeEditSettings(poster.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
       });
     }
-    toast.success(t("product.addedToCart"), {
-      action: { label: t("product.viewCart"), onClick: () => navigate({ to: "/cart" }) },
-    });
+    if (!cartFeedbackActive()) {
+      toast.success(t("product.addedToCart"), {
+        action: { label: t("product.viewCart"), onClick: () => navigate({ to: "/cart" }) },
+      });
+    }
     setQuantity(1);
     onAdded?.();
   };

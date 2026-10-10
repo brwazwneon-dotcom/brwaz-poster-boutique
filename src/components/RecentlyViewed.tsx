@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -155,7 +156,8 @@ export function RecentlyViewed({ excludeId, title }: { excludeId?: string; title
                         color: "black",
                         price: priceForFrame(pricing, "pvc", "20x30"),
                       });
-                      toast.success(t("cart.itemAddedToCart", { title: p.title }));
+                      if (!cartFeedbackActive())
+                        toast.success(t("cart.itemAddedToCart", { title: p.title }));
                     }}
                     className="flex-1 rounded-sm bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground hover:opacity-90"
                   >

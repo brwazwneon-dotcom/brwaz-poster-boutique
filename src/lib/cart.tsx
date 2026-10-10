@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { CART_ADDED_EVENT, type CartAddedDetail } from "./motion";
 import type { FrameColorId, FrameTypeId, SizeId } from "./poster-options";
 import type { EditSettings } from "./poster-edit";
 import { trackEvent, trackCustom } from "./meta-pixel";
@@ -216,6 +217,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
           customImagePath: item.customImagePath ? "[path/url]" : null,
         });
         setItems(next);
+        try {
+          const detail: CartAddedDetail = {
+            title: item.title,
+            image: item.image,
+            price: item.price,
+          };
+          window.dispatchEvent(new CustomEvent(CART_ADDED_EVENT, { detail }));
+        } catch {
+          /* feedback only */
+        }
       },
       remove: (id) =>
         setItems((prev) => {

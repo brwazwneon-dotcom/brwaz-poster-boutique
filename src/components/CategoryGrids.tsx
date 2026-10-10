@@ -725,6 +725,7 @@ function CollectionRailSection({
             data-category-grid-source-field={image.sourceField}
             data-category-grid-source-url={image.url}
             onClick={() => trackCategoryClick(rail.category.slug)}
+            data-reveal
             className="group block min-w-0 basis-[42%] shrink-0 snap-start sm:basis-[30%] md:basis-[22%] lg:basis-[16%] xl:basis-[13%]"
             aria-label={`${rail.title} - ${image.title}`}
           >

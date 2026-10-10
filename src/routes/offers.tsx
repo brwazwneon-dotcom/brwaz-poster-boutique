@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Ltr } from "@/components/Ltr";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
@@ -324,7 +325,7 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
         })),
       },
     });
-    toast.success("Bundle added to cart");
+    if (!cartFeedbackActive()) toast.success("Bundle added to cart");
     setSelectedIds([]);
   };
 

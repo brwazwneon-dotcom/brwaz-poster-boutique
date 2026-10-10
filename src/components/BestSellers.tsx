@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -103,7 +104,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
       color,
       price: priceForFrame(pricing, frameType, size),
     });
-    toast.success(t("cart.addedToCart"));
+    if (!cartFeedbackActive()) toast.success(t("cart.addedToCart"));
   };
 
   return (
@@ -152,6 +153,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
             return (
               <article
                 key={r.id}
+                data-reveal
                 className="group relative w-[70%] shrink-0 snap-start sm:w-[45%] md:w-[32%] lg:w-[19%]"
               >
                 <div className="relative overflow-hidden rounded-sm border border-border bg-muted">

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SafeImage } from "@/components/SafeImage";
@@ -120,7 +121,7 @@ function SetCard({ set }: { set: FrameSet }) {
       color: "black",
       price: Number(set.price) || 0,
     });
-    toast.success("Set added to cart");
+    if (!cartFeedbackActive()) toast.success("Set added to cart");
   };
 
   const wa = whatsappLink(

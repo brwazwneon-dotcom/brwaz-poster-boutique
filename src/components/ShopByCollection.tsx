@@ -876,6 +876,7 @@ export function ShopByCollection() {
             <a
               key={c.id}
               href={c.link}
+              data-reveal
               className="group relative block aspect-[4/5] min-w-[78%] shrink-0 snap-start overflow-hidden rounded-sm border border-border bg-muted sm:min-w-0"
             >
               <CollectionCover

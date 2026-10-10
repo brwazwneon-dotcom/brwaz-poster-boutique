@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Heart, Trash2, ShoppingBag } from "lucide-react";
@@ -86,7 +87,7 @@ function WishlistPage() {
       price: previewPrice,
       editSettings: normalizeEditSettings(p.edit_settings) ?? DEFAULT_EDIT_SETTINGS,
     });
-    toast.success(`${p.title} ${t("cart.addedToCart")}`);
+    if (!cartFeedbackActive()) toast.success(`${p.title} ${t("cart.addedToCart")}`);
   };
 
   return (
