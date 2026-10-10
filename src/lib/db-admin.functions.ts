@@ -118,7 +118,7 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
 
     const [orderStats, newCustomers, returningCustomers, visitors] = await Promise.all([
       // An "order" is a whole checkout (all its cart-item rows), so counts are
-      // distinct checkout keys; revenue is the sum of every row NET of cancelled/returned
+      // distinct checkout keys (photo-printing orders included); revenue is the sum of every row NET of cancelled/returned
       // orders (money that was never kept is not revenue).
       client`
         with o as (
@@ -126,6 +126,26 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
                  coalesce(customer_id::text, phone) || '|' || created_at::text as k
           from orders
           where is_test = false
+          union all
+          -- Photo-printing orders live in their own tables. They count toward
+          -- revenue always; they count as an order of their own unless they were
+          -- placed together with a framed-poster checkout (same phone, within
+          -- minutes), in which case they share that checkout's key.
+          select p.total_price, p.status, p.created_at,
+                 coalesce(
+                   (select coalesce(f.customer_id::text, f.phone) || '|' || f.created_at::text
+                    from orders f
+                    where f.is_test = false and f.phone = p.phone
+                      and f.created_at <= p.created_at + interval '2 seconds'
+                      and f.created_at >= p.created_at - interval '3 minutes'
+                    order by f.created_at desc limit 1),
+                   'photo|' || p.id::text
+                 ) as k
+          from (
+            select id, phone, total_price, status, created_at from photo_4x6_orders
+            union all
+            select id, phone, total_price, status, created_at from photo_orders
+          ) p
         )
         select
           count(distinct k) filter (where created_at >= ${curStart} and created_at < ${curEnd})::int as cur_orders,
@@ -378,8 +398,16 @@ export const getProfitReportAdmin = createServerFn({ method: "GET" })
       client`
         select coalesce(sum(total_price) filter (where status not in ('cancelled', 'returned')), 0)::numeric as revenue,
                count(*)::int as orders
-        from orders
-        where is_test = false and created_at >= ${curStart} and created_at < ${curEnd}
+        from (
+          select total_price, status from orders
+          where is_test = false and created_at >= ${curStart} and created_at < ${curEnd}
+          union all
+          select total_price, status from photo_4x6_orders
+          where created_at >= ${curStart} and created_at < ${curEnd}
+          union all
+          select total_price, status from photo_orders
+          where created_at >= ${curStart} and created_at < ${curEnd}
+        ) all_orders
       `,
       client`
         select category, coalesce(sum(amount), 0)::numeric as total
