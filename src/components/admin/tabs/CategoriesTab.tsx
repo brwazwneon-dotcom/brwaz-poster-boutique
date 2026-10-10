@@ -5,6 +5,7 @@ import {
   listCategoriesAdmin,
   upsertCategory,
   deleteCategory,
+  reorderCategoriesAdmin,
   getCategoryImageCountsAdmin,
   type CategoryStats,
 } from "@/lib/db-admin.functions";
@@ -22,6 +23,48 @@ const EMPTY_STATS: CategoryStats = {
   trending: 0,
   best_seller: 0,
 };
+
+// Up / down arrows that change a category's place among its siblings.
+function OrderButtons({
+  name,
+  canUp,
+  canDown,
+  onUp,
+  onDown,
+}: {
+  name: string;
+  canUp: boolean;
+  canDown: boolean;
+  onUp: () => void;
+  onDown: () => void;
+}) {
+  const cls =
+    "flex h-8 w-8 items-center justify-center rounded-sm border border-border text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30";
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label={`Change order of ${name}`}>
+      <button
+        type="button"
+        onClick={onUp}
+        disabled={!canUp}
+        aria-label={`Move ${name} up`}
+        title="Move up"
+        className={cls}
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        onClick={onDown}
+        disabled={!canDown}
+        aria-label={`Move ${name} down`}
+        title="Move down"
+        className={cls}
+      >
+        ↓
+      </button>
+    </div>
+  );
+}
 
 export function CategoriesTab({
   onManageImages,
@@ -113,6 +156,27 @@ export function CategoriesTab({
     }
   };
 
+  // Moves one category up/down among its siblings. The list updates at once
+  // and the new order is saved in one call; if saving fails the list is
+  // reloaded so the screen never shows an order that wasn't stored.
+  const moveCategory = async (siblings: AdminCategory[], id: string, dir: -1 | 1) => {
+    const from = siblings.findIndex((c) => c.id === id);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= siblings.length) return;
+    const next = [...siblings];
+    [next[from], next[to]] = [next[to], next[from]];
+    const order = new Map(next.map((c, i) => [c.id, (i + 1) * 10]));
+    setCategories((prev) =>
+      prev ? prev.map((c) => (order.has(c.id) ? { ...c, sort_order: order.get(c.id)! } : c)) : prev,
+    );
+    try {
+      await reorderCategoriesAdmin({ data: { orderedIds: next.map((c) => c.id) } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the order");
+      load();
+    }
+  };
+
   const remove = async (id: string) => {
     if (!(await confirm("Delete this category?"))) return;
     await deleteCategory({ data: id });
@@ -144,7 +208,11 @@ export function CategoriesTab({
   }
 
   const q = categorySearch.trim().toLowerCase();
-  const mainCategories = categories.filter((c) => !c.parent_id);
+  const byOrder = (a: AdminCategory, b: AdminCategory) =>
+    (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name);
+  const mainCategories = categories.filter((c) => !c.parent_id).sort(byOrder);
+  // Arrows only make sense on the full list, not on a filtered one.
+  const canReorder = !q;
   const visibleMains = q
     ? mainCategories.filter((main) => {
         const subs = categories.filter((c) => c.parent_id === main.id);
@@ -328,7 +396,7 @@ export function CategoriesTab({
 
       <div className="mt-4 space-y-3">
         {visibleMains.map((main) => {
-          const subs = categories.filter((c) => c.parent_id === main.id);
+          const subs = categories.filter((c) => c.parent_id === main.id).sort(byOrder);
           const treeIds = [main.id, ...subs.map((s) => s.id)];
           const ownStats = stats[main.id] ?? EMPTY_STATS;
           const treeStats = subs.reduce(
@@ -350,6 +418,15 @@ export function CategoriesTab({
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {canReorder && (
+                    <OrderButtons
+                      name={main.name}
+                      canUp={mainCategories[0]?.id !== main.id}
+                      canDown={mainCategories[mainCategories.length - 1]?.id !== main.id}
+                      onUp={() => moveCategory(mainCategories, main.id, -1)}
+                      onDown={() => moveCategory(mainCategories, main.id, 1)}
+                    />
+                  )}
                   <button
                     onClick={() =>
                       setPosterManagerFor({
@@ -402,6 +479,15 @@ export function CategoriesTab({
                         <StatChips stats={subStats} compact />
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        {canReorder && (
+                          <OrderButtons
+                            name={s.name}
+                            canUp={subs[0]?.id !== s.id}
+                            canDown={subs[subs.length - 1]?.id !== s.id}
+                            onUp={() => moveCategory(subs, s.id, -1)}
+                            onDown={() => moveCategory(subs, s.id, 1)}
+                          />
+                        )}
                         <button
                           onClick={() =>
                             setPosterManagerFor({

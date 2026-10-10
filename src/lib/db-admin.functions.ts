@@ -542,6 +542,34 @@ export const upsertCategory = createServerFn({ method: "POST" })
     return { id: (rows[0] as { id: string }).id };
   });
 
+// Saves a new display order for a group of sibling categories (all main
+// categories, or the subcategories of one parent): the n-th id gets
+// sort_order n*10. One statement, so the order is never half-applied. Only
+// sort_order changes — the storefront already sorts by it.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const reorderCategoriesAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => {
+    const ids = (data as { orderedIds?: unknown })?.orderedIds;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500) {
+      throw new Error("orderedIds must be a non-empty list");
+    }
+    const clean = ids.map(String);
+    if (clean.some((id) => !UUID_RE.test(id)) || new Set(clean).size !== clean.length) {
+      throw new Error("orderedIds must be unique category ids");
+    }
+    return { orderedIds: clean };
+  })
+  .handler(async ({ data }) => {
+    await sql()`
+      update categories c
+      set sort_order = t.n * 10, updated_at = now()
+      from unnest(${data.orderedIds}::uuid[]) with ordinality as t(id, n)
+      where c.id = t.id
+    `;
+    return { ok: true as const };
+  });
+
 // Look up a category by exact name (case-insensitive), optionally scoped to
 // a parent — used by the upload flow to resolve/auto-create AI-suggested
 // categories and subcategories without duplicating existing ones.
