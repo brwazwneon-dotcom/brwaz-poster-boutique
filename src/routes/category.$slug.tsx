@@ -23,7 +23,7 @@ import { useCart } from "@/lib/cart";
 import { whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
-import { formatCount } from "@/lib/poster-badges";
+import { formatCompactCount, formatCount, shouldShowViews } from "@/lib/poster-badges";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { RelatedPosters } from "@/components/RelatedPosters";
 import { CustomerReviews } from "@/components/CustomerReviews";
@@ -611,7 +611,7 @@ export function Customizer({
     `\nTotal: ${total} EGP`;
 
   const hasBadges =
-    (poster.sales_count ?? 0) > 0 || (poster.views_count ?? 0) > 0 || !!poster.is_best_seller;
+    (poster.sales_count ?? 0) > 0 || shouldShowViews(poster.views_count) || !!poster.is_best_seller;
   const badges = hasBadges ? (
     <div
       className={cn(
@@ -619,8 +619,16 @@ export function Customizer({
         fitHeight ? "mt-1 shrink-0" : "mt-3",
       )}
     >
-      {(poster.sales_count ?? 0) > 0 && <span>✔ {formatCount(poster.sales_count)} sold</span>}
-      {(poster.views_count ?? 0) > 0 && <span>👁 {formatCount(poster.views_count)} views</span>}
+      {(poster.sales_count ?? 0) > 0 && (
+        <span>
+          ✔ {formatCount(poster.sales_count)} {t("product.sold")}
+        </span>
+      )}
+      {shouldShowViews(poster.views_count) && (
+        <span>
+          👁 {formatCompactCount(poster.views_count)} {t("product.views")}
+        </span>
+      )}
       {poster.is_best_seller ? (
         <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary">
           ⭐ {t("category.bestSeller")}
