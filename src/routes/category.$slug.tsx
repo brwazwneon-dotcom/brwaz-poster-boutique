@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Navigate, notFound, useNavigate } from "@tanstack/react-router";
+import { Ltr } from "@/components/Ltr";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -1083,7 +1084,9 @@ function SizeCard({
       )}
     >
       <span className="text-sm font-semibold tabular-nums">
-        {label} <span className="text-[10px] font-normal">cm</span>
+        <Ltr>
+          {label} <span className="text-[10px] font-normal">cm</span>
+        </Ltr>
       </span>
       <span className="text-[11px] tabular-nums text-muted-foreground">{price} EGP</span>
       {popular && (

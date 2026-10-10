@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ltrIsolate } from "@/components/Ltr";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -288,7 +289,8 @@ function CustomDesignPage() {
     [size, pics],
   );
   const total = Math.max(0, subtotal - discountAmount) + shipping + packaging;
-  const formatSize = (id: SizeId) => t(`product.size_${id}`);
+  // Isolated as an LTR run so Arabic pages do not reorder "30 x 40 cm".
+  const formatSize = (id: SizeId) => ltrIsolate(t(`product.size_${id}`));
   const formatFrame = (id: FrameTypeId) => t(`product.frame_${id}`);
   const formatColor = (id: FrameColorId) => t(`product.color_${id}`);
 
@@ -323,9 +325,7 @@ function CustomDesignPage() {
       });
     }
     if (incoming.length > MAX_FILES_PER_BATCH) {
-      toast.message(
-        t("customDesign.maxFilesPerBatch", { max: MAX_FILES_PER_BATCH }),
-      );
+      toast.message(t("customDesign.maxFilesPerBatch", { max: MAX_FILES_PER_BATCH }));
     }
     if (rejectedType) toast.error(t("customDesign.skippedFormat", { count: rejectedType }));
     if (rejectedSize) toast.error(t("customDesign.skippedSize", { count: rejectedSize }));
@@ -512,9 +512,7 @@ function CustomDesignPage() {
           <h2 className="mt-3 text-2xl font-semibold text-foreground sm:text-3xl">
             {t("customDesign.subtitle")}
           </h2>
-          <p className="mt-4 max-w-xl text-muted-foreground">
-            {t("customDesign.description")}
-          </p>
+          <p className="mt-4 max-w-xl text-muted-foreground">{t("customDesign.description")}</p>
 
           {/* Primary ADD IMAGES button */}
           <div className="mt-8 max-w-xl">
@@ -534,9 +532,7 @@ function CustomDesignPage() {
                 {t("customDesign.browsePosters")}
               </Link>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {t("customDesign.qualityNote")}
-            </p>
+            <p className="mt-3 text-sm text-muted-foreground">{t("customDesign.qualityNote")}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {t("customDesign.wantReadyDesigns")}
             </p>
@@ -658,20 +654,22 @@ function CustomDesignPage() {
                                 : "border-background/70 opacity-80 hover:opacity-100",
                             )}
                             style={{ background: c.swatch }}
-                            aria-label={t("customDesign.setFrameColor", { label: formatColor(c.id) })}
+                            aria-label={t("customDesign.setFrameColor", {
+                              label: formatColor(c.id),
+                            })}
                             title={formatColor(c.id)}
                           />
                         ))}
                       </div>
                     )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-background/85 px-1 py-1 opacity-0 transition group-hover:opacity-100">
-                      <IconAction onClick={() => setLightbox(p)} label={t("common.preview") }>
+                      <IconAction onClick={() => setLightbox(p)} label={t("common.preview")}>
                         <Eye className="h-3.5 w-3.5" />
                       </IconAction>
-                      <IconAction onClick={() => startReplace(p.id)} label={t("common.replace") }>
+                      <IconAction onClick={() => startReplace(p.id)} label={t("common.replace")}>
                         <RefreshCw className="h-3.5 w-3.5" />
                       </IconAction>
-                      <IconAction onClick={() => setEditing(p)} label={t("common.edit") }>
+                      <IconAction onClick={() => setEditing(p)} label={t("common.edit")}>
                         <Pencil className="h-3.5 w-3.5" />
                       </IconAction>
                     </div>
@@ -704,7 +702,9 @@ function CustomDesignPage() {
         <div className="container-page py-12">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
             <div>
-              <h2 className="text-display text-3xl sm:text-4xl">{t("customDesign.frameOptions")}</h2>
+              <h2 className="text-display text-3xl sm:text-4xl">
+                {t("customDesign.frameOptions")}
+              </h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("customDesign.defaultsDescription")}
               </p>
@@ -779,10 +779,10 @@ function CustomDesignPage() {
                   </div>
                   <div className="mt-4 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between text-muted-foreground">
-                      <span>
-                        {t("customDesign.subtotalImages", { count: pics.length })}
+                      <span>{t("customDesign.subtotalImages", { count: pics.length })}</span>
+                      <span className="text-foreground">
+                        {subtotal} {t("egp")}
                       </span>
-                      <span className="text-foreground">{subtotal} {t("egp")}</span>
                     </div>
                     {appliedOffers.map((o) => (
                       <div
@@ -795,7 +795,9 @@ function CustomDesignPage() {
                             percent: o.percent,
                           })}
                         </span>
-                        <span>-{o.amount} {t("egp")}</span>
+                        <span>
+                          -{o.amount} {t("egp")}
+                        </span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-muted-foreground">
@@ -811,12 +813,16 @@ function CustomDesignPage() {
                     {packaging > 0 && (
                       <div className="flex items-center justify-between text-muted-foreground">
                         <span>{t("cart.packaging")}</span>
-                        <span className="text-foreground">{packaging} {t("egp")}</span>
+                        <span className="text-foreground">
+                          {packaging} {t("egp")}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-foreground">
                       <span>{t("cart.total")}</span>
-                      <span>{total} {t("egp")}</span>
+                      <span>
+                        {total} {t("egp")}
+                      </span>
                     </div>
                   </div>
                   {appliedOffers.length === 0 && nextOffer && pics.length > 0 && (
@@ -845,7 +851,8 @@ function CustomDesignPage() {
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> {t("customDesign.uploading", { progress })}
+                    <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                    {t("customDesign.uploading", { progress })}
                   </>
                 ) : (
                   <>
@@ -928,7 +935,7 @@ function CustomDesignPage() {
             </div>
             <div className="mt-4">
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  {t("customDesign.frameTypeForImage")}
+                {t("customDesign.frameTypeForImage")}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {FRAME_TYPES.map((f) => (

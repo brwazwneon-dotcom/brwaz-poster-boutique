@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Ltr, ltrIsolate } from "@/components/Ltr";
 import { ChevronDown, Ruler, Sofa, GitCompare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -133,12 +134,14 @@ function CompareAll({ sizes }: { sizes: SizeGuideItem[] }) {
                 title={s.label}
               >
                 <span className="text-[10px] uppercase tracking-widest text-foreground/80">
-                  {s.width}×{s.height}
+                  <Ltr>
+                    {s.width}×{s.height}
+                  </Ltr>
                 </span>
               </div>
             </div>
             <div className="mt-1 text-center text-[11px] uppercase tracking-widest text-muted-foreground">
-              {s.label}
+              <Ltr>{s.label}</Ltr>
             </div>
           </div>
         );
@@ -204,7 +207,9 @@ function RectPreview({
         style={{ width: w, height: h }}
       >
         <span className="text-[11px] uppercase tracking-widest">
-          {item.width}×{item.height}
+          <Ltr>
+            {item.width}×{item.height}
+          </Ltr>
         </span>
       </div>
       <div className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -237,7 +242,7 @@ function SizeSelect({
       >
         {sizes.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.label}
+            {ltrIsolate(s.label)}
           </option>
         ))}
       </select>
@@ -307,7 +312,7 @@ function RoomPreview({
                 : "border-border text-muted-foreground hover:bg-accent",
             )}
           >
-            {s.label}
+            <Ltr>{s.label}</Ltr>
           </button>
         ))}
       </div>

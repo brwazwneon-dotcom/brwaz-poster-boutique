@@ -1,4 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { saveLastOrder } from "@/lib/last-order";
+import { distributeOfferDiscounts } from "@/lib/offer-discount";
+import { Ltr, ltrIsolate } from "@/components/Ltr";
 import { buildBundleNotes } from "@/lib/bundle-meta";
 import { splitAmount } from "@/lib/money-split";
 import { SafeImage } from "@/components/SafeImage";
@@ -644,15 +647,20 @@ function CartPage() {
         ...getTikTokIdentifiers(),
         attribution,
       };
-      // Apply bundle discount pro-rata to each item so DB totals line up
-      // exactly with what the customer sees at checkout.
-      const discountRatio = subtotal > 0 ? bundle.amount / subtotal : 0;
-      const lineDiscounts = items.map((i) => Math.round(i.price * i.qty * discountRatio));
-      // Rounding every share can leave the rows 1–2 EGP away from the discount
-      // the customer was shown; the difference goes on the last item.
+      // The set-offer discount belongs to the frames of the offer's size (6 x
+      // 20x30, 4 x 30x40): share it out among those lines only, so every other
+      // line keeps its list price and the DB totals still line up exactly with
+      // what the customer sees at checkout.
+      const lineDiscounts = distributeOfferDiscounts(items, {
+        "20x30": autoOffer20Discount,
+        "30x40": autoOffer30Discount,
+      });
+      // Anything left over (the discount shown vs. the shares given) goes on the
+      // last discounted line — never onto a full-price frame of another size.
       if (lineDiscounts.length > 0) {
-        lineDiscounts[lineDiscounts.length - 1] +=
-          bundle.amount - lineDiscounts.reduce((sum, d) => sum + d, 0);
+        const lastDiscounted = lineDiscounts.reduce((acc, d, i) => (d > 0 ? i : acc), -1);
+        const target = lastDiscounted >= 0 ? lastDiscounted : lineDiscounts.length - 1;
+        lineDiscounts[target] += bundle.amount - lineDiscounts.reduce((sum, d) => sum + d, 0);
       }
       // Packaging for the bundle offers that are applied automatically (a full
       // set of 6 or 4 frames) is charged in the total but belongs to no single
@@ -752,6 +760,8 @@ function CartPage() {
       // deterministic event id, persisted totals). null for test orders and for
       // failed orders — so those can never produce a Purchase.
       let orderPurchase: PurchasePayload | null = null;
+      // Real order numbers, for the thank-you page.
+      let placedOrderNumbers: string[] = [];
       try {
         // A photo-printing-only cart has no framed-poster rows to insert.
         const created =
@@ -765,6 +775,7 @@ function CartPage() {
               })
             : null;
         orderPurchase = created?.purchase ?? null;
+        placedOrderNumbers = (created?.orders ?? []).map((o) => o.order_number).filter(Boolean);
       } catch (e) {
         error = e instanceof Error ? e : new Error(String(e));
       }
@@ -927,6 +938,17 @@ function CartPage() {
           error: err,
         });
       }
+      // Remember what the thank-you page shows (no address / phone), then go there.
+      const placedRows = rows as Array<{ total_price: number; quantity: number }>;
+      saveLastOrder({
+        numbers: placedOrderNumbers,
+        name,
+        total: placedRows.length > 0 ? placedRows.reduce((sum, r) => sum + r.total_price, 0) : null,
+        itemCount: items.reduce((n, i) => n + (i.bundle ? i.bundle.posters.length : 1) * i.qty, 0),
+        paymentMethod,
+        governorate,
+        placedAt: new Date().toISOString(),
+      });
       clear();
       setName("");
       setPhone("");
@@ -937,6 +959,7 @@ function CartPage() {
       setPaymentMethod("cod");
       setTapeChoice(null);
       setTapeOpen(false);
+      void navigate({ to: "/thank-you" });
     } catch (err) {
       logCheckoutStep({ step: "checkout_failed", error: err });
       const message = err instanceof Error ? err.message : String(err);
@@ -990,11 +1013,11 @@ function CartPage() {
                     </div>
                     <div className="flex-1">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
-                        Bundle offer · {n.size} cm
+                        Bundle offer · <Ltr>{n.size} cm</Ltr>
                       </div>
                       <div className="mt-1 text-sm font-semibold text-foreground">
-                        أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس {n.size}{" "}
-                        واحصل على الـ{n.need} بسعر {n.price} {t("egp")} فقط
+                        أضف {missing} برواز {missing === 1 ? "إضافي" : "كمان"} من مقاس{" "}
+                        <Ltr>{n.size}</Ltr> واحصل على الـ{n.need} بسعر {n.price} {t("egp")} فقط
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         عندك {n.have} من أصل {n.need}
@@ -1109,7 +1132,7 @@ function CartPage() {
                       <div className="font-semibold">{i.title}</div>
                       {i.bundle ? (
                         <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                          {labelForFrame(i.frameType)} · {labelForSize(i.size)} ·{" "}
+                          {labelForFrame(i.frameType)} · <Ltr>{labelForSize(i.size)}</Ltr> ·{" "}
                           {labelForColor(i.color)}
                         </div>
                       ) : (
@@ -1163,7 +1186,7 @@ function CartPage() {
                             >
                               {sizesForFrame(i.frameType).map((sid) => (
                                 <option key={sid} value={sid}>
-                                  {labelForSize(sid)}
+                                  {ltrIsolate(labelForSize(sid))}
                                 </option>
                               ))}
                             </select>
@@ -1298,7 +1321,7 @@ function CartPage() {
                               {labelForFrame(i.frameType)}
                             </span>
                             <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
-                              {labelForSize(i.size)}
+                              <Ltr>{labelForSize(i.size)}</Ltr>
                             </span>
                             <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
                               <span

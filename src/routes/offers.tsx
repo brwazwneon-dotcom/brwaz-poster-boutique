@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Ltr } from "@/components/Ltr";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -196,7 +197,9 @@ function OffersPage() {
                 {t("offers.bundle")} · {b.count} {t("cart.frames", { count: b.count })}
               </div>
               <div className="text-display text-5xl">{b.title}</div>
-              <div className="text-sm text-muted-foreground">{b.sizeLabel}</div>
+              <div className="text-sm text-muted-foreground">
+                <Ltr>{b.sizeLabel}</Ltr>
+              </div>
               {b.subtitle && <div className="text-xs text-muted-foreground">{b.subtitle}</div>}
               <div className="mt-4 flex items-baseline gap-2">
                 {b.originalPrice && b.originalPrice > b.price && (
@@ -367,7 +370,9 @@ function BundleBuilder({ bundle }: { bundle: Bundle }) {
               {bundle.price} {t("egp")}
             </div>
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">{bundle.sizeLabel}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            <Ltr>{bundle.sizeLabel}</Ltr>
+          </div>
 
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs uppercase tracking-widest">

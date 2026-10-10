@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Ltr } from "@/components/Ltr";
 import { useTranslation } from "react-i18next";
 import { setStickyBarHeight, setBottomSheetOpen, Z } from "@/lib/floating-tools";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ export function StickyProductBar({
                   </span>
                   {"size" in content && content.size && (
                     <span className="text-xs text-[#666] truncate">
-                      {content.size}
+                      <Ltr>{content.size}</Ltr>
                       {content.color ? ` · ${content.color}` : ""}
                     </span>
                   )}
