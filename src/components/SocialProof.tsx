@@ -118,13 +118,18 @@ export function SalesNotifications() {
       aria-live="polite"
       className={
         "fixed z-40 max-w-[calc(100vw-2rem)] w-[260px] sm:w-[280px] " +
-        "left-4 bottom-24 sm:left-6 sm:bottom-8 " +
-        "md:left-6 md:bottom-8 " +
+        // Desktop: bottom-left, ABOVE the "Today's offers" bubble (which owns the
+        // bottom-left corner) instead of on top of it.
+        "left-6 bottom-24 " +
         "animate-enter"
       }
       style={{
-        // Mobile: bottom center above sticky/WhatsApp
-        ...(isMobile ? { left: "50%", transform: "translateX(-50%)", bottom: "5.5rem" } : {}),
+        // Mobile: top centre, just under the header. The bottom of the screen is
+        // taken by the sticky add-to-cart / checkout bar and the WhatsApp button,
+        // which the notification used to cover.
+        ...(isMobile
+          ? { left: "50%", transform: "translateX(-50%)", top: "6.25rem", bottom: "auto" }
+          : {}),
       }}
     >
       <div className="relative rounded-xl border border-white/10 bg-black/80 px-3.5 py-2.5 pr-8 text-white shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
