@@ -67,7 +67,11 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               activeTab={tab}
               onOpenCommandPalette={() => setCommandOpen(true)}
               onSignOut={logout}
-              onOpenOrder={(orderId) => {
+              onOpenOrder={(orderId, kind) => {
+                if (kind === "photo") {
+                  switchTab("photo-orders");
+                  return;
+                }
                 setFocusOrderId(orderId);
                 switchTab("orders");
               }}

@@ -76,13 +76,15 @@ export type OrderNotification = {
   posterTitles: string[];
   status: string;
   createdAt: string;
+  /** "frames" = poster order, "photo" = photo-printing order (own tables). */
+  kind: "frames" | "photo";
 };
 
 export const getOrderNotificationsAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
     const client = sql();
-    const [rows, lastSeenRows] = await Promise.all([
+    const [rows, photoRows, lastSeenRows] = await Promise.all([
       client`
         select
           (array_agg(id))[1] as id,
@@ -99,9 +101,24 @@ export const getOrderNotificationsAdmin = createServerFn({ method: "GET" })
         order by created_at desc
         limit 20
       `,
+      // Photo-printing orders live in their own two tables.
+      client`
+        select id, order_number, customer_name, total_price, status, created_at,
+               photo_count as qty, package_key as detail
+        from photo_4x6_orders
+        order by created_at desc limit 20
+      `.then(async (a4x6) => {
+        const loose = await client`
+          select id, order_number, customer_name, total_price, status, created_at,
+                 quantity as qty, size as detail
+          from photo_orders
+          order by created_at desc limit 20
+        `;
+        return [...(a4x6 as unknown[]), ...(loose as unknown[])];
+      }),
       client`select value from site_settings where key = ${NOTIF_LAST_SEEN_KEY}`,
     ]);
-    const notifications: OrderNotification[] = (
+    const frameNotifications: OrderNotification[] = (
       rows as Array<{
         id: string;
         order_numbers: (string | null)[];
@@ -121,7 +138,33 @@ export const getOrderNotificationsAdmin = createServerFn({ method: "GET" })
       posterTitles: r.poster_titles.filter((t): t is string => !!t),
       status: r.status,
       createdAt: r.created_at,
+      kind: "frames" as const,
     }));
+    const photoNotifications: OrderNotification[] = (
+      photoRows as Array<{
+        id: string;
+        order_number: string | null;
+        customer_name: string;
+        total_price: string;
+        status: string;
+        created_at: string;
+        qty: number;
+        detail: string;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      orderNumbers: r.order_number ? [r.order_number] : [],
+      customerName: r.customer_name,
+      totalPrice: Number(r.total_price),
+      itemCount: Number(r.qty) || 0,
+      posterTitles: [r.detail.startsWith("size_") ? r.detail.slice(5) : r.detail],
+      status: r.status,
+      createdAt: r.created_at,
+      kind: "photo" as const,
+    }));
+    const notifications = [...frameNotifications, ...photoNotifications]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20);
     const lastSeenAt = (lastSeenRows[0] as { value?: string } | undefined)?.value ?? null;
     const unreadCount = lastSeenAt
       ? notifications.filter((r) => new Date(r.createdAt) > new Date(lastSeenAt)).length

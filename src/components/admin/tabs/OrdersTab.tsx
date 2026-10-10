@@ -9,6 +9,7 @@ import {
 import { customerWhatsappLink } from "./shared";
 import { OrderDetailsDrawer } from "./OrderDetailsDrawer";
 import { CONFIRMATION_STATUS_LABEL, type ConfirmationStatus } from "@/lib/order-whatsapp";
+import { formatOrderDateTime } from "@/lib/photo-order-sheet";
 
 export type AdminOrder = {
   id: string;
@@ -413,6 +414,9 @@ export function OrdersTab({
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {checkoutNumberLabel(g.rows)}
+                      <div className="font-sans text-[10px] text-muted-foreground">
+                        {formatOrderDateTime(o.created_at)}
+                      </div>
                       {g.rows.length > 1 && (
                         <div className="font-sans text-[10px] text-muted-foreground">
                           {g.rows.length} items

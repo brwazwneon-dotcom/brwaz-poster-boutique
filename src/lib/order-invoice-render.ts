@@ -3,6 +3,7 @@
 // admin actually uses, shapes Arabic correctly, and never taints the canvas
 // because every image is fetched as a CORS blob first (a failed image just
 // becomes a labelled placeholder instead of breaking the whole invoice).
+import { photoGridColumns, type PhotoSheetModel } from "./photo-order-sheet";
 import { formatEgp, type InvoiceItem, type InvoiceModel } from "./order-invoice";
 
 const W = 1080;
@@ -555,6 +556,234 @@ export async function renderInvoiceBlob(model: InvoiceModel, images: InvoiceImag
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, W, height);
   paint(ctx, model, images, false);
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Could not create the image"))),
+      "image/png",
+    ),
+  );
+}
+
+// ---- Photo-printing order sheet ------------------------------------------
+// One image with the order details and EVERY photo the customer sent, laid out
+// in a grid — the photo-order counterpart of the poster invoice.
+export type PhotoSheetImages = { logo: Img; photos: Img[] };
+
+function photoThumbUrl(url: string): string {
+  const marker = "/image/upload/";
+  const at = url.indexOf(marker);
+  if (at === -1 || !/^https:\/\/res\.cloudinary\.com\//.test(url)) return url;
+  return `${url.slice(0, at + marker.length)}c_limit,w_480,h_480,f_jpg,q_85/${url.slice(at + marker.length)}`;
+}
+
+export async function loadPhotoSheetImages(
+  model: PhotoSheetModel,
+  logoUrl: string,
+): Promise<PhotoSheetImages> {
+  const logo = await loadImage(logoUrl);
+  const photos: Img[] = new Array(model.photos.length).fill(null);
+  // A few at a time: an order can hold dozens of photos.
+  let next = 0;
+  const worker = async () => {
+    while (next < model.photos.length) {
+      const i = next++;
+      photos[i] = await loadImage(photoThumbUrl(model.photos[i]));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, model.photos.length) }, worker));
+  return { logo, photos };
+}
+
+function drawContain(pen: Pen, img: Img, x: number, y: number, w: number, h: number) {
+  pen.rect(x, y, w, h, "#f1f1f4");
+  if (pen.dry) return;
+  const { ctx } = pen;
+  if (!img) {
+    ctx.fillStyle = MUTED;
+    ctx.font = font(Math.max(12, Math.round(w / 12)), 600);
+    ctx.direction = "ltr";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("No image", x + w / 2, y + h / 2);
+    return;
+  }
+  const iw = "width" in img ? img.width : 1;
+  const ih = "height" in img ? img.height : 1;
+  const scale = Math.min(w / iw, h / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
+function paintPhotoSheet(
+  ctx: CanvasRenderingContext2D,
+  model: PhotoSheetModel,
+  images: PhotoSheetImages,
+  dry: boolean,
+): number {
+  const pen = new Pen(ctx, dry);
+  const HEAD_H = 200;
+  pen.rect(0, 0, W, HEAD_H, DARK);
+  pen.rect(0, HEAD_H, W / 2, 8, YELLOW);
+  pen.rect(W / 2, HEAD_H, W / 2, 8, BLUE);
+  if (!dry && images.logo) {
+    const lh = 150;
+    ctx.drawImage(images.logo, M, (HEAD_H - lh) / 2, Math.round(lh * (611 / 512)), lh);
+  } else {
+    pen.block("BRWAZWNEON", M, 78, 420, 40, { weight: 700, color: "#ffffff" });
+  }
+  const rx = W - M - 520;
+  pen.block("PHOTO PRINTING ORDER", rx, 46, 520, 34, {
+    weight: 700,
+    color: "#ffffff",
+    align: "right",
+  });
+  pen.block("طلب طباعة صور", rx, 86, 520, 30, { weight: 600, color: YELLOW, align: "right" });
+  pen.block(model.orderLabel, rx, 126, 520, 24, { color: "#d6d6dc", align: "right" });
+  const dateStr = Number.isNaN(model.createdAt.getTime())
+    ? ""
+    : model.createdAt.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+  pen.block(dateStr, rx, 154, 520, 22, { color: "#a8a8b2", align: "right" });
+
+  let y = HEAD_H + 8 + 40;
+  pen.block("CUSTOMER · العميل", M, y, 600, 20, { weight: 700, color: MUTED });
+  y += 34;
+  y += pen.block(model.customer.name, M, y, W - M * 2, 32, { weight: 700 });
+  y += 6;
+  y += pen.block(
+    [model.customer.phone, model.customer.governorate].filter(Boolean).join("   ·   "),
+    M,
+    y,
+    W - M * 2,
+    24,
+    { color: MUTED },
+  );
+  y += 4;
+  y += pen.block(model.customer.address, M, y, W - M * 2, 24, { color: MUTED, maxLines: 4 });
+  y += 28;
+  pen.hline(y);
+  y += 30;
+
+  // Order summary: label/value pairs in two columns.
+  pen.block("ORDER · الطلب", M, y, 600, 20, { weight: 700, color: MUTED });
+  y += 36;
+  const facts: Array<[string, string]> = [
+    ["Type · النوع", model.kindLabel],
+    ["Package / size · الباقة", model.detail],
+    ["Photos · عدد الصور", String(model.count)],
+    ["Payment · الدفع", model.paymentLabel],
+  ];
+  if (model.albums.length > 0) facts.push(["Albums · ألبومات", model.albums.join(", ")]);
+  const colW = (W - M * 2 - COL_GAP) / 2;
+  for (let i = 0; i < facts.length; i += 2) {
+    let rowH = 0;
+    for (let j = 0; j < 2 && i + j < facts.length; j++) {
+      const [label, value] = facts[i + j];
+      const x = M + j * (colW + COL_GAP);
+      const h1 = pen.block(label, x, y, colW, 16, { color: MUTED });
+      const h2 = pen.block(value, x, y + h1 + 2, colW, 22, { weight: 600, maxLines: 2 });
+      rowH = Math.max(rowH, h1 + h2 + 2);
+    }
+    y += rowH + 14;
+  }
+  y += 6;
+  pen.hline(y);
+  y += 30;
+
+  // Photos
+  pen.block(`PHOTOS · الصور (${model.photos.length})`, M, y, 600, 20, {
+    weight: 700,
+    color: MUTED,
+  });
+  y += 36;
+  const photosTop = y;
+  if (model.photos.length === 0) {
+    y += pen.block("No photos were stored with this order.", M, y, W - M * 2, 22, {
+      color: MUTED,
+    });
+    y += 10;
+  } else {
+    const cols = photoGridColumns(model.photos.length);
+    const gap = 14;
+    const tile = Math.floor((W - M * 2 - gap * (cols - 1)) / cols);
+    model.photos.forEach((_, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const x = M + c * (tile + gap);
+      const ty = y + r * (tile + gap);
+      drawContain(pen, images.photos[i] ?? null, x, ty, tile, tile);
+      // Small index badge so the customer can refer to "photo 7".
+      pen.rect(x, ty, 34, 24, "rgba(11,11,13,0.78)");
+      pen.block(String(i + 1), x, ty + 2, 34, 17, {
+        weight: 700,
+        color: "#ffffff",
+        align: "center",
+      });
+    });
+    const rows = Math.ceil(model.photos.length / cols);
+    y += rows * (tile + gap);
+  }
+  y += 16;
+  pen.hline(y);
+  y += 26;
+
+  const total = formatEgp(model.totalCents);
+  pen.block("Total · الإجمالي", W - M - 470, y, 280, 32, { weight: 700 });
+  pen.block(`${total} EGP`, W - M - 190, y, 190, 32, { weight: 700, align: "right" });
+  y += 60;
+
+  pen.rect(0, y, W, 8, YELLOW);
+  pen.rect(W / 2, y, W / 2, 8, BLUE);
+  y += 8 + 34;
+  y += pen.block("Please reply to confirm your order and the details above.", M, y, W - M * 2, 26, {
+    weight: 600,
+    align: "center",
+  });
+  y += pen.block("برجاء الرد لتأكيد الطلب والتفاصيل الموضحة أعلاه.", M, y + 4, W - M * 2, 26, {
+    weight: 600,
+    align: "center",
+  });
+  y += pen.block("brwazwneon.com", M, y + 12, W - M * 2, 22, { color: MUTED, align: "center" });
+  y += 44;
+
+  if (!dry && model.voided) {
+    ctx.save();
+    ctx.translate(W / 2, (photosTop + y) / 2);
+    ctx.rotate(-0.35);
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = RED;
+    ctx.font = font(150, 700);
+    ctx.direction = "ltr";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(/return|refund/i.test(model.status) ? "RETURNED" : "CANCELLED", 0, 0);
+    ctx.restore();
+  }
+  return y;
+}
+
+export async function renderPhotoSheetBlob(
+  model: PhotoSheetModel,
+  images: PhotoSheetImages,
+): Promise<Blob> {
+  const probe = document.createElement("canvas");
+  probe.width = W;
+  probe.height = 10;
+  const pctx = probe.getContext("2d");
+  if (!pctx) throw new Error("Canvas is not available in this browser");
+  const height = Math.ceil(paintPhotoSheet(pctx, model, images, true));
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is not available in this browser");
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, height);
+  paintPhotoSheet(ctx, model, images, false);
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Could not create the image"))),

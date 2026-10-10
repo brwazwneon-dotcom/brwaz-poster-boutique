@@ -43,7 +43,7 @@ export function AdminTopbar({
   activeTab: Tab;
   onOpenCommandPalette: () => void;
   onSignOut: () => void;
-  onOpenOrder?: (orderId: string) => void;
+  onOpenOrder?: (orderId: string, kind?: "frames" | "photo") => void;
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const found = findNavItem(activeTab);
@@ -150,13 +150,20 @@ export function AdminTopbar({
                   key={n.id}
                   onClick={() => {
                     setNotifOpen(false);
-                    onOpenOrder?.(n.id);
+                    onOpenOrder?.(n.id, n.kind);
                   }}
                   className="flex w-full flex-col gap-0.5 border-b border-border px-2 py-2 text-left last:border-0 hover:bg-accent"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold">
-                      {n.status === "new" ? "🔔 طلب جديد" : "طلب"} #{n.orderNumbers.join(", #")}
+                      {n.kind === "photo"
+                        ? n.status === "new"
+                          ? "📷 طلب طباعة صور جديد"
+                          : "📷 طلب طباعة صور"
+                        : n.status === "new"
+                          ? "🔔 طلب جديد"
+                          : "طلب"}{" "}
+                      #{n.orderNumbers.join(", #")}
                     </span>
                     <span className="shrink-0 text-[10px] text-muted-foreground">
                       {timeAgoAr(n.createdAt)}
@@ -164,9 +171,11 @@ export function AdminTopbar({
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
                     {n.customerName} ·{" "}
-                    {n.itemCount > 1
-                      ? `${n.itemCount} براويز: ${n.posterTitles.slice(0, 2).join(", ")}${n.itemCount > 2 ? "…" : ""}`
-                      : (n.posterTitles[0] ?? "")}
+                    {n.kind === "photo"
+                      ? `${n.itemCount} صورة · ${n.posterTitles[0] ?? ""}`
+                      : n.itemCount > 1
+                        ? `${n.itemCount} براويز: ${n.posterTitles.slice(0, 2).join(", ")}${n.itemCount > 2 ? "…" : ""}`
+                        : (n.posterTitles[0] ?? "")}
                   </div>
                   <div className="text-xs font-medium">{n.totalPrice} EGP</div>
                 </button>

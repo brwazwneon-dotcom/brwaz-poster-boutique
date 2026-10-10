@@ -5,6 +5,9 @@ import { customerWhatsappLink } from "./shared";
 import { ORDER_STATUSES } from "./OrdersTab";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
 import { Download, X } from "lucide-react";
+import { waLink } from "@/lib/order-whatsapp";
+import { buildPhotoConfirmationMessage, formatOrderDateTime } from "@/lib/photo-order-sheet";
+import { PhotoOrderSheetDialog } from "./PhotoOrderSheetDialog";
 
 type AdminPhotoOrder = {
   id: string;
@@ -40,6 +43,7 @@ export function PhotoOrdersTab() {
   const [orders, setOrders] = useState<AdminPhotoOrder[] | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [sheetFor, setSheetFor] = useState<AdminPhotoOrder | null>(null);
 
   const load = async () => setOrders((await listPhotoOrdersAdmin()) as AdminPhotoOrder[]);
   useEffect(() => {
@@ -53,6 +57,15 @@ export function PhotoOrdersTab() {
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
+  const copyConfirmation = async (o: AdminPhotoOrder) => {
+    try {
+      await navigator.clipboard.writeText(buildPhotoConfirmationMessage(o));
+      toast.success("Confirmation message copied");
+    } catch {
+      toast.error("Could not copy — open WhatsApp instead");
     }
   };
 
@@ -111,7 +124,12 @@ export function PhotoOrdersTab() {
             <tbody>
               {orders.map((o) => (
                 <tr key={`${o.kind}-${o.id}`} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {o.order_number}
+                    <div className="mt-0.5 font-sans text-[10px] text-muted-foreground">
+                      {formatOrderDateTime(o.created_at)}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-xs">{PHOTO_ORDER_KIND_LABEL[o.kind]}</td>
                   <td className="px-3 py-2">
                     <div>{o.customer_name}</div>
@@ -198,6 +216,31 @@ export function PhotoOrdersTab() {
                         </option>
                       ))}
                     </select>
+                    <div className="mt-2 flex flex-col items-start gap-1.5">
+                      <a
+                        href={waLink(o.phone, buildPhotoConfirmationMessage(o)) ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-[30px] items-center rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-300"
+                        title="Open WhatsApp with the confirmation message"
+                      >
+                        💬 Confirm on WhatsApp
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void copyConfirmation(o)}
+                        className="text-[11px] text-cyan-500 hover:underline"
+                      >
+                        Copy message
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSheetFor(o)}
+                        className="inline-flex min-h-[30px] items-center rounded-sm border border-primary/50 bg-primary/15 px-2 text-[11px] font-semibold hover:bg-primary/25"
+                      >
+                        🧾 Photos + details image
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -205,6 +248,8 @@ export function PhotoOrdersTab() {
           </table>
         </div>
       )}
+
+      {sheetFor && <PhotoOrderSheetDialog order={sheetFor} onClose={() => setSheetFor(null)} />}
 
       {lightbox && (
         <div
