@@ -6,7 +6,12 @@ import { ORDER_STATUSES } from "./OrdersTab";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
 import { Download, X } from "lucide-react";
 import { waLink } from "@/lib/order-whatsapp";
-import { buildPhotoConfirmationMessage, formatOrderDateTime } from "@/lib/photo-order-sheet";
+import {
+  buildPhotoConfirmationMessage,
+  formatOrderDateTime,
+  photoDetailLabel,
+  photoKindLabel,
+} from "@/lib/photo-order-sheet";
 import { PhotoOrderSheetDialog } from "./PhotoOrderSheetDialog";
 
 type AdminPhotoOrder = {
@@ -26,6 +31,8 @@ type AdminPhotoOrder = {
   selected_albums: Array<{ id: string; name: string; price: number; qty: number }>;
   albums_total: number;
   payment_method: "cod" | "instapay" | "vodafone_cash";
+  subtotal?: number | null;
+  shipping?: number | null;
 };
 
 const PHOTO_ORDER_KIND_LABEL: Record<AdminPhotoOrder["kind"], string> = {
@@ -130,7 +137,7 @@ export function PhotoOrdersTab() {
                       {formatOrderDateTime(o.created_at)}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-xs">{PHOTO_ORDER_KIND_LABEL[o.kind]}</td>
+                  <td className="px-3 py-2 text-xs">{photoKindLabel(o.detail).en}</td>
                   <td className="px-3 py-2">
                     <div>{o.customer_name}</div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -149,7 +156,7 @@ export function PhotoOrdersTab() {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {o.detail} · qty {o.quantity}
+                    {photoDetailLabel(o.detail)} · qty {o.quantity}
                   </td>
                   <td className="px-3 py-2">
                     {o.photos.length === 0 ? (

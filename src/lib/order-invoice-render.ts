@@ -673,7 +673,7 @@ function paintPhotoSheet(
   y += 36;
   const facts: Array<[string, string]> = [
     ["Type · النوع", model.kindLabel],
-    ["Package / size · الباقة", model.detail],
+    [model.detailTitle, model.detail],
     ["Photos · عدد الصور", String(model.count)],
     ["Payment · الدفع", model.paymentLabel],
   ];
@@ -731,6 +731,25 @@ function paintPhotoSheet(
   pen.hline(y);
   y += 26;
 
+  // Price breakdown (only the parts the order really knows), then the total.
+  const sumRow = (label: string, value: string) => {
+    pen.block(label, W - M - 470, y, 280, 24, { color: MUTED });
+    pen.block(value, W - M - 190, y, 190, 24, { weight: 600, align: "right" });
+    y += 38;
+  };
+  if (model.subtotalCents !== null)
+    sumRow("Subtotal · المجموع الفرعي", `${formatEgp(model.subtotalCents)} EGP`);
+  if (model.albumsCents > 0) sumRow("Albums · الألبومات", `${formatEgp(model.albumsCents)} EGP`);
+  if (model.shippingCents !== null) {
+    sumRow(
+      "Shipping · الشحن",
+      model.shippingCents > 0 ? `${formatEgp(model.shippingCents)} EGP` : "Free · مجاني",
+    );
+  }
+  if (model.subtotalCents !== null || model.albumsCents > 0 || model.shippingCents !== null) {
+    pen.hline(y - 6, W - M - 470, W - M, INK);
+    y += 8;
+  }
   const total = formatEgp(model.totalCents);
   pen.block("Total · الإجمالي", W - M - 470, y, 280, 32, { weight: 700 });
   pen.block(`${total} EGP`, W - M - 190, y, 190, 32, { weight: 700, align: "right" });

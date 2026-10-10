@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { derivePhotoBreakdown, type PhotoPriceSettings } from "@/lib/photo-order-sheet";
 import { NeonDbError } from "@neondatabase/serverless";
 import { sql } from "@/lib/neon.server";
 import { requireAdminSessionNeon } from "@/lib/admin-auth-neon.functions";
@@ -1644,7 +1645,16 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
 export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
   .middleware([requireAdminSessionNeon])
   .handler(async () => {
-    const [p4x6, photo] = await Promise.all([
+    const { fetchSiteSettingsFromDb } = await import("@/lib/db-catalog.server");
+    const [priceSettings, p4x6, photo] = await Promise.all([
+      fetchSiteSettingsFromDb([
+        "photo_10x15",
+        "photo_13x18",
+        "photo_15x20",
+        "shipping_fee",
+        "free_shipping_threshold",
+        "photo_4x6_config",
+      ]).catch(() => ({}) as Record<string, unknown>),
       sql()`
         select id, order_number, 'photo_4x6' as kind, customer_name, phone, governorate, address,
                package_key as detail, photo_count as quantity, total_price, status, created_at,
@@ -1655,7 +1665,8 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
       `,
       sql()`
         select id, order_number, 'photo_printing' as kind, customer_name, phone, governorate, address,
-               size as detail, quantity, total_price, status, created_at, photo_urls
+               size as detail, quantity, total_price, status, created_at, photo_urls,
+               unit_price, shipping_cost
         from photo_orders
         order by created_at desc limit 200
       `,
@@ -1681,6 +1692,19 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
       created_at: string;
     };
 
+    const photoPriceSettings: PhotoPriceSettings = {
+      prices: {
+        "10x15": Number(priceSettings.photo_10x15) || undefined,
+        "13x18": Number(priceSettings.photo_13x18) || undefined,
+        "15x20": Number(priceSettings.photo_15x20) || undefined,
+      },
+      shippingFee: Number(priceSettings.shipping_fee) || 89,
+      freeThreshold: Number(priceSettings.free_shipping_threshold) || 1600,
+      packages:
+        (priceSettings.photo_4x6_config as { packages?: PhotoPriceSettings["packages"] } | null)
+          ?.packages ?? [],
+    };
+
     const p4x6Rows = (
       p4x6 as Array<
         BaseRow & {
@@ -1702,23 +1726,46 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
         return original;
       });
       const base: BaseRow = row;
+      const albumsTotal = Number(row.albums_total) || 0;
+      const breakdown = derivePhotoBreakdown(
+        {
+          detail: row.detail,
+          quantity: row.quantity,
+          total_price: row.total_price,
+          albums_total: albumsTotal,
+        },
+        photoPriceSettings,
+      );
       return {
         ...base,
         photos,
         selected_albums: row.selected_albums ?? [],
-        albums_total: Number(row.albums_total) || 0,
+        albums_total: albumsTotal,
         payment_method: row.payment_method ?? "cod",
+        subtotal: breakdown?.subtotal ?? null,
+        shipping: breakdown?.shipping ?? null,
       };
     });
 
-    const photoRows = (photo as Array<BaseRow & { photo_urls: string[] }>).map((row) => {
-      const { photo_urls, ...base } = row;
+    const photoRows = (
+      photo as Array<
+        BaseRow & {
+          photo_urls: string[];
+          unit_price: string | number;
+          shipping_cost: string | number;
+        }
+      >
+    ).map((row) => {
+      const { photo_urls, unit_price, shipping_cost, ...base } = row;
       return {
         ...base,
         photos: photo_urls,
         selected_albums: [] as Array<{ id: string; name: string; price: number; qty: number }>,
         albums_total: 0,
         payment_method: "cod",
+        // Stored exactly on this table, no guessing needed.
+        subtotal: Math.round(Number(unit_price) * Number(row.quantity) * 100) / 100,
+        shipping: Number(shipping_cost) || 0,
       };
     });
 

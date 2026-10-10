@@ -199,6 +199,10 @@ const MAX_NOTE_CHARS = 300;
 // checkout already reads via usePricing() — nothing invented, just wired
 // into a size selector that previously only offered 4x6.
 type SizeMode = "4x6" | "10x15" | "13x18" | "15x20";
+// The fixed 4x6 photo packages are retired: customers only see the per-photo
+// sizes (10x15 / 13x18 / 15x20). The package code below stays dormant — set
+// this back to true to bring the packages back.
+const PACKAGES_ENABLED = false;
 const LOOSE_SIZES: { key: Exclude<SizeMode, "4x6">; labelEn: string; labelAr: string }[] = [
   { key: "10x15", labelEn: "10×15 cm", labelAr: "10×15 سم" },
   { key: "13x18", labelEn: "13×18 cm", labelAr: "13×18 سم" },
@@ -337,7 +341,7 @@ function PhotoPrintingPage() {
   const navigate = useNavigate();
   const { setPhotoPrint } = useCart();
   const [cartAdding, setCartAdding] = useState(false);
-  const [sizeMode, setSizeMode] = useState<SizeMode>("4x6");
+  const [sizeMode, setSizeMode] = useState<SizeMode>(PACKAGES_ENABLED ? "4x6" : "10x15");
   const [pkg, setPkg] = useState<Photo4x6Package>(config.packages[0]);
   const [looseQty, setLooseQty] = useState(LOOSE_SIZE_MIN_QTY);
   const [albumQty, setAlbumQty] = useState<Record<string, number>>({});
@@ -860,8 +864,8 @@ function PhotoPrintingPage() {
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {lang.startsWith("ar")
-              ? "اختار المقاس والعدد اللي تحتاجه، أو باقات صور 4×6."
-              : "Pick any size in the quantity you need, or a 4×6 bundle."}
+              ? "اختار المقاس والعدد اللي تحتاجه."
+              : "Pick any size in the quantity you need."}
           </p>
 
           <PhotoVolumeOffers
@@ -896,13 +900,15 @@ function PhotoPrintingPage() {
                 {lang.startsWith("ar") ? s.labelAr : s.labelEn}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setSizeMode("4x6")}
-              className={`rounded-sm border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${sizeMode === "4x6" ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-            >
-              4×6 {lang.startsWith("ar") ? "(باقات)" : "(bundles)"}
-            </button>
+            {PACKAGES_ENABLED && (
+              <button
+                type="button"
+                onClick={() => setSizeMode("4x6")}
+                className={`rounded-sm border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${sizeMode === "4x6" ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
+              >
+                4×6 {lang.startsWith("ar") ? "(باقات)" : "(bundles)"}
+              </button>
+            )}
           </div>
 
           {sizeMode === "4x6" ? (
