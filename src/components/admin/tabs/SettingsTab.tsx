@@ -74,7 +74,8 @@ export function SettingsTab() {
   // (src/routes/cart.tsx) — it had no admin input even though the price
   // field right above it does, so the tape couldn't be turned off without
   // a DB console. Persists immediately, like the feature-flag toggles below.
-  const tapeEnabled = values["double_face_tape_enabled"] !== "false" && values["double_face_tape_enabled"] !== "0";
+  const tapeEnabled =
+    values["double_face_tape_enabled"] !== "false" && values["double_face_tape_enabled"] !== "0";
   const toggleTapeEnabled = async (checked: boolean) => {
     setValues({ ...values, double_face_tape_enabled: String(checked) });
     try {
@@ -96,13 +97,20 @@ export function SettingsTab() {
               onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
               className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-sm"
             />
-            <button onClick={() => save(f.key)} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+            <button
+              onClick={() => save(f.key)}
+              className="rounded-sm border border-border px-3 py-1.5 text-xs"
+            >
               Save
             </button>
           </div>
         ))}
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={tapeEnabled} onChange={(e) => toggleTapeEnabled(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={tapeEnabled}
+            onChange={(e) => toggleTapeEnabled(e.target.checked)}
+          />
           Offer double-face tape at checkout
         </label>
       </div>
@@ -184,7 +192,10 @@ function StorefrontConfigSection() {
   const addPackage = () => {
     savePhoto4x6({
       ...photo4x6,
-      packages: [...photo4x6.packages, { key: `p${Date.now()}`, photos: 8, price: 80, label: "8 Photos 4×6" }],
+      packages: [
+        ...photo4x6.packages,
+        { key: `p${Date.now()}`, photos: 8, price: 80, label: "8 Photos 4×6" },
+      ],
     });
   };
 
@@ -215,7 +226,11 @@ function StorefrontConfigSection() {
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={postOrderMsg} onChange={(e) => savePostOrderMsg(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={postOrderMsg}
+          onChange={(e) => savePostOrderMsg(e.target.checked)}
+        />
         Show the "order received" success message after checkout
       </label>
 
@@ -291,12 +306,18 @@ function StorefrontConfigSection() {
                 title="Original price before discount — leave blank if there's no active offer"
                 className="w-28 rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
               />
-              <button onClick={() => removePackage(i)} className="text-xs text-red-500 hover:underline">
+              <button
+                onClick={() => removePackage(i)}
+                className="text-xs text-red-500 hover:underline"
+              >
                 Remove
               </button>
             </div>
           ))}
-          <button onClick={addPackage} className="rounded-sm border border-border px-3 py-1.5 text-xs">
+          <button
+            onClick={addPackage}
+            className="rounded-sm border border-border px-3 py-1.5 text-xs"
+          >
             + Add package
           </button>
         </div>
@@ -306,12 +327,29 @@ function StorefrontConfigSection() {
 }
 
 const FLAG_TOGGLES: { key: keyof PerformanceFlags; label: string; hint?: string }[] = [
-  { key: "safe_mode", label: "Safe mode", hint: "Forces conservative defaults across the whole site" },
-  { key: "emergency_fast_mode", label: "Emergency fast mode", hint: "Smallest public payload, no slow personal rails" },
-  { key: "pause_heavy_jobs", label: "Pause heavy jobs", hint: "Blocks bulk AI SEO / image-variant jobs" },
+  {
+    key: "safe_mode",
+    label: "Safe mode",
+    hint: "Forces conservative defaults across the whole site",
+  },
+  {
+    key: "emergency_fast_mode",
+    label: "Emergency fast mode",
+    hint: "Smallest public payload, no slow personal rails",
+  },
+  {
+    key: "pause_heavy_jobs",
+    label: "Pause heavy jobs",
+    hint: "Blocks bulk AI SEO / image-variant jobs",
+  },
   { key: "disable_preloader", label: "Disable preloader" },
   { key: "disable_social_proof", label: "Disable social proof popups" },
   { key: "disable_floating_offer", label: "Disable floating offer bubble" },
+  {
+    key: "disable_motion",
+    label: "Disable motion & animations",
+    hint: "Pop-in cards, hero stickers and the fly-to-cart animation",
+  },
   { key: "whatsapp_enabled", label: "WhatsApp button" },
   { key: "assistant_enabled", label: "AI assistant button" },
   { key: "offers_enabled", label: "Today's Offers bubble" },
@@ -367,7 +405,10 @@ function FeatureFlagsSection() {
       </p>
       <div className="mt-4 space-y-2">
         {FLAG_TOGGLES.map((f) => (
-          <label key={f.key} className="flex items-center justify-between gap-3 rounded-sm border border-border p-2.5">
+          <label
+            key={f.key}
+            className="flex items-center justify-between gap-3 rounded-sm border border-border p-2.5"
+          >
             <span>
               <span className="block text-sm">{f.label}</span>
               {f.hint && <span className="block text-xs text-muted-foreground">{f.hint}</span>}
@@ -401,7 +442,11 @@ function AppearanceSection() {
         <div>
           <span className="block text-sm">Admin theme</span>
           <span className="block text-xs text-muted-foreground">
-            {mode === "system" ? "Follows your OS setting" : mode === "light" ? "Always light" : "Always dark"}
+            {mode === "system"
+              ? "Follows your OS setting"
+              : mode === "light"
+                ? "Always light"
+                : "Always dark"}
           </span>
         </div>
         <AdminThemeToggle />

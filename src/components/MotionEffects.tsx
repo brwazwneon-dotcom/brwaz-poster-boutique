@@ -59,13 +59,14 @@ export default function MotionEffects() {
         prefersReducedMotion: !!mq?.matches,
         emergencyFastMode: !!flags.emergency_fast_mode,
         safeMode: !!flags.safe_mode,
+        disabledByOwner: !!flags.disable_motion,
         search: window.location.search,
       });
     setAllowed(compute());
     const onChange = () => setAllowed(compute());
     mq?.addEventListener?.("change", onChange);
     return () => mq?.removeEventListener?.("change", onChange);
-  }, [flags.emergency_fast_mode, flags.safe_mode]);
+  }, [flags.emergency_fast_mode, flags.safe_mode, flags.disable_motion]);
 
   // ---- cards pop in as they scroll into view ----
   useEffect(() => {

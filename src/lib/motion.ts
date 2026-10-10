@@ -1,17 +1,20 @@
 // Switches for the storefront motion layer (pop-in cards, hero stickers, fly-to-cart).
 // Motion is decoration, so it is OFF whenever speed or comfort could suffer:
 //  - the visitor asks for reduced motion (OS setting)
-//  - the owner turns on Emergency fast mode or Safe mode (performance_flags)
+//  - the owner turns on Emergency fast mode or Safe mode, or switches motion off (performance_flags)
 //  - the URL has ?motion=off (QA / measuring the site without the layer)
 export type MotionInputs = {
   prefersReducedMotion: boolean;
   emergencyFastMode: boolean;
   safeMode: boolean;
+  /** The owner switched motion off in Admin → Stability. */
+  disabledByOwner: boolean;
   search: string;
 };
 
 export function motionAllowed(i: MotionInputs): boolean {
-  if (i.prefersReducedMotion || i.emergencyFastMode || i.safeMode) return false;
+  if (i.prefersReducedMotion || i.emergencyFastMode || i.safeMode || i.disabledByOwner)
+    return false;
   try {
     return new URLSearchParams(i.search).get("motion") !== "off";
   } catch {

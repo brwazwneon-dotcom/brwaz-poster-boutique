@@ -23,10 +23,11 @@ export function HeroStickers() {
         prefersReducedMotion: !!mq?.matches,
         emergencyFastMode: !!flags.emergency_fast_mode,
         safeMode: !!flags.safe_mode,
+        disabledByOwner: !!flags.disable_motion,
         search: window.location.search,
       }),
     );
-  }, [flags.emergency_fast_mode, flags.safe_mode]);
+  }, [flags.emergency_fast_mode, flags.safe_mode, flags.disable_motion]);
 
   if (!on) return null;
   const isAr = (i18n.language ?? "ar").startsWith("ar");

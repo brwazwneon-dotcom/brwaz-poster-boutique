@@ -39,6 +39,8 @@ export type PerformanceFlags = {
   offers_enabled: boolean;
   /** On screens <768px, collapse secondary tools into a compact More Tools button. Default true. */
   collapse_tools_mobile: boolean;
+  /** Owner switch: turn OFF the pop-in cards, hero stickers and fly-to-cart animation. Default false (motion on). */
+  disable_motion: boolean;
 };
 
 export const PERFORMANCE_DEFAULTS: PerformanceFlags = {
@@ -54,6 +56,7 @@ export const PERFORMANCE_DEFAULTS: PerformanceFlags = {
   assistant_enabled: true,
   offers_enabled: true,
   collapse_tools_mobile: true,
+  disable_motion: false,
 };
 
 /** Values applied when `safe_mode` is ON, regardless of other stored values. */
@@ -63,6 +66,7 @@ const SAFE_MODE_OVERRIDES: Partial<PerformanceFlags> = {
   max_home_sections: 4,
   disable_social_proof: true,
   disable_floating_offer: true,
+  disable_motion: true,
   analytics_defer_ms: 6000,
 };
 
@@ -71,6 +75,7 @@ const EMERGENCY_FAST_OVERRIDES: Partial<PerformanceFlags> = {
   max_home_sections: 6,
   disable_social_proof: true,
   disable_floating_offer: true,
+  disable_motion: true,
   analytics_defer_ms: 9000,
 };
 
@@ -98,6 +103,7 @@ function parseFlags(raw: unknown): PerformanceFlags {
     if (typeof v.offers_enabled === "boolean") base.offers_enabled = v.offers_enabled;
     if (typeof v.collapse_tools_mobile === "boolean")
       base.collapse_tools_mobile = v.collapse_tools_mobile;
+    if (typeof v.disable_motion === "boolean") base.disable_motion = v.disable_motion;
   }
   if (base.emergency_fast_mode) Object.assign(base, EMERGENCY_FAST_OVERRIDES);
   if (base.safe_mode) Object.assign(base, SAFE_MODE_OVERRIDES);

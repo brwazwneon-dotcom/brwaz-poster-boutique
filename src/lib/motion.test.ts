@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { motionAllowed, shippingProgress } from "./motion";
 
-const base = { prefersReducedMotion: false, emergencyFastMode: false, safeMode: false, search: "" };
+const base = {
+  prefersReducedMotion: false,
+  emergencyFastMode: false,
+  safeMode: false,
+  disabledByOwner: false,
+  search: "",
+};
 
 describe("motionAllowed", () => {
   it("is on by default", () => {
@@ -11,6 +17,7 @@ describe("motionAllowed", () => {
     expect(motionAllowed({ ...base, prefersReducedMotion: true })).toBe(false);
     expect(motionAllowed({ ...base, emergencyFastMode: true })).toBe(false);
     expect(motionAllowed({ ...base, safeMode: true })).toBe(false);
+    expect(motionAllowed({ ...base, disabledByOwner: true })).toBe(false);
     expect(motionAllowed({ ...base, search: "?motion=off" })).toBe(false);
     expect(motionAllowed({ ...base, search: "?a=1&motion=off" })).toBe(false);
   });

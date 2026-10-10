@@ -195,6 +195,13 @@ export function StabilityTab() {
             onChange={(v) => setLocal({ ...local, disable_social_proof: !v })}
           />
           <Toggle
+            label="Motion & Animations (الحركة والأنيميشن)"
+            hint="كروت بتنط، ستيكرات الصفحة الرئيسية، وطيران البوستر للسلة. اقفلها لو عايز موقع ثابت بدون حركة."
+            checked={!local.disable_motion}
+            forced={server.safe_mode}
+            onChange={(v) => setLocal({ ...local, disable_motion: !v })}
+          />
+          <Toggle
             label="Floating Offer Bubble"
             hint="الفقاعة العائمة أسفل الصفحة."
             checked={!local.disable_floating_offer}

@@ -94,6 +94,14 @@ describe("MotionEffects", () => {
     expect(cartFeedbackActive()).toBe(false);
   });
 
+  it("is off when the owner switches motion off in the admin", async () => {
+    state.flags = { emergency_fast_mode: false, safe_mode: false, disable_motion: true };
+    await mount();
+    await added();
+    expect(container.querySelector(".brw-sheet")).toBeNull();
+    expect(cartFeedbackActive()).toBe(false);
+  });
+
   it("is off with ?motion=off, so the site can be measured without it", async () => {
     window.history.replaceState({}, "", "/?motion=off");
     await mount();
