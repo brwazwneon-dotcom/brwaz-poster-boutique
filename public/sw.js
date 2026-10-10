@@ -78,22 +78,43 @@ self.addEventListener("fetch", (event) => {
   return;
 });
 
-/** NetworkFirst with a timeout fallback to cache */
+/**
+ * NetworkFirst with a timeout fallback to cache.
+ * The timeout only decides when a CACHED copy may be shown instead; it never
+ * abandons the request. With nothing cached the visitor waits for the real
+ * response (a slow cold start is slow, not an outage) — the "Offline" page is
+ * only for a request that genuinely failed.
+ */
 async function networkFirstWithTimeout(request, timeoutMs) {
-  try {
-    const response = await Promise.race([
-      fetch(request),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs)),
-    ]);
+  const network = fetch(request).then((response) => {
     if (response && response.ok) {
       const cloned = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned));
     }
     return response;
+  });
+  // Observed below, so a failure after we already answered from cache is not "unhandled".
+  const settled = network.then(
+    () => null,
+    () => null,
+  );
+  let timer;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+  });
+  try {
+    const first = await Promise.race([network, timedOut]);
+    if (first !== "timeout") return first;
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return await network;
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
     return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
+  } finally {
+    clearTimeout(timer);
+    void settled;
   }
 }
 

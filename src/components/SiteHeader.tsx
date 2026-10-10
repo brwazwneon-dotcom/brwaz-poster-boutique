@@ -285,10 +285,13 @@ export function SiteHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-header-background backdrop-blur">
-      <div className="container-page grid h-16 grid-cols-[48px_1fr_48px] items-center gap-2 lg:hidden">
+      <div className="container-page grid h-16 grid-cols-[100px_1fr_100px] items-center gap-2 lg:hidden">
         <div className={cn("flex", isAr ? "justify-start" : "justify-start")}>
           {isAr ? (
-            <MobileCartLink count={count} label={t("nav.cart")} />
+            <div className="flex items-center gap-1.5">
+              <MobileCartLink count={count} label={t("nav.cart")} />
+              <MobileSearchLink label={t("header.search")} />
+            </div>
           ) : (
             <MobileMenuButton
               ref={mobileMenuButtonRef}
@@ -330,7 +333,10 @@ export function SiteHeader({
               onClick={() => setMobileMenuOpen(true)}
             />
           ) : (
-            <MobileCartLink count={count} label={t("nav.cart")} />
+            <div className="flex items-center gap-1.5">
+              <MobileSearchLink label={t("header.search")} />
+              <MobileCartLink count={count} label={t("nav.cart")} />
+            </div>
           )}
         </div>
       </div>
@@ -617,14 +623,6 @@ export function SiteHeader({
           </div>
         </nav>
         <Link
-          to="/search"
-          search={{ q: "" }}
-          aria-label={t("header.search")}
-          className="hidden items-center justify-center rounded-sm border border-border p-2 md:hidden"
-        >
-          <Search className="h-4 w-4" />
-        </Link>
-        <Link
           to="/wishlist"
           aria-label={t("header.wishlist")}
           className="relative inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs uppercase tracking-widest hover:bg-accent"
@@ -668,6 +666,21 @@ const MobileMenuButton = forwardRef<HTMLButtonElement, { label: string; onClick:
   ),
 );
 MobileMenuButton.displayName = "MobileMenuButton";
+
+// Always-visible search entry on phones: opens the search page with the
+// field focused (the in-menu search box is two taps away).
+function MobileSearchLink({ label }: { label: string }) {
+  return (
+    <Link
+      to="/search"
+      search={{ q: "" }}
+      aria-label={label}
+      className="flex h-11 w-11 items-center justify-center rounded-sm border border-border bg-background text-foreground"
+    >
+      <Search className="h-5 w-5" />
+    </Link>
+  );
+}
 
 function MobileCartLink({ count, label }: { count: number; label: string }) {
   return (
