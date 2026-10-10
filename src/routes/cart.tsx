@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { saveLastOrder } from "@/lib/last-order";
 import { distributeOfferDiscounts } from "@/lib/offer-discount";
 import { Ltr, ltrIsolate } from "@/components/Ltr";
+import { WoodPanelCartChip } from "@/components/WoodPanelInfo";
 import { buildBundleNotes } from "@/lib/bundle-meta";
 import { splitAmount } from "@/lib/money-split";
 import { SafeImage } from "@/components/SafeImage";
@@ -1320,6 +1321,7 @@ function CartPage() {
                             <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
                               {labelForFrame(i.frameType)}
                             </span>
+                            {i.frameType === "wood" && <WoodPanelCartChip />}
                             <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 uppercase tracking-widest text-muted-foreground">
                               <Ltr>{labelForSize(i.size)}</Ltr>
                             </span>

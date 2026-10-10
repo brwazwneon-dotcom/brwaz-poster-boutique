@@ -48,6 +48,7 @@ import {
 import { usePosterConfig, MOST_POPULAR_SIZE, type PosterConfigurator } from "@/lib/poster-config";
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { WoodPanelBadge, WoodPanelNote } from "@/components/WoodPanelInfo";
 import { Minus, Plus, Truck, Clock } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { useTranslation } from "react-i18next";
@@ -827,11 +828,13 @@ export function Customizer({
                   key={f.id}
                   active={frameType === f.id}
                   label={t(`product.frame_${f.id}` as const)}
+                  note={f.id === "wood" ? <WoodPanelBadge /> : undefined}
                   thumb={mockups[f.id === "wood" ? "wood" : "black"]?.image}
                   onClick={() => setFrameType(f.id)}
                 />
               ))}
             </div>
+            {frameType === "wood" && <WoodPanelNote />}
           </OptionGroup>
 
           {frameType !== "wood" && enabledVariants.some((v) => v !== "wood") && (
@@ -1045,11 +1048,13 @@ function OptionGroup({ label, children }: { label: string; children: React.React
 function FrameTypeCard({
   active,
   label,
+  note,
   thumb,
   onClick,
 }: {
   active: boolean;
   label: string;
+  note?: React.ReactNode;
   thumb?: string;
   onClick: () => void;
 }) {
@@ -1078,7 +1083,10 @@ function FrameTypeCard({
           <span className="h-7 w-5 border-4 border-foreground/70" />
         )}
       </span>
-      <span className="text-[13px] font-medium leading-tight">{label}</span>
+      <span className="min-w-0 text-[13px] font-medium leading-tight">
+        {label}
+        {note}
+      </span>
       {active && (
         <Check
           aria-hidden="true"

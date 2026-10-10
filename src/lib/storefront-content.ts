@@ -111,6 +111,18 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
         ar: "ما الذي يميّز جودة الطباعة لديكم؟",
       },
       {
+        id: "wood-vs-pvc",
+        enabled: true,
+        en: "What is the difference between the wooden panel and the PVC frame?",
+        ar: "ما الفرق بين التابلوه الخشبي وبرواز PVC؟",
+      },
+      {
+        id: "wood-water",
+        enabled: true,
+        en: "Is the wooden panel affected by water and dust?",
+        ar: "هل التابلوه الخشبي يتأثر بالمياه والأتربة؟",
+      },
+      {
         id: "design-preview",
         enabled: true,
         en: "Can I review my design before printing?",
@@ -203,6 +215,14 @@ const FAQ_ANSWERS: Record<string, LocalizedCopy> = {
   "print-quality": {
     en: "We use professional printing equipment and carefully prepare colors and image details before printing to achieve a clear, balanced result.",
     ar: "نعتمد على معدات وتقنيات طباعة احترافية متقدمة، مع ضبط دقيق للألوان والتفاصيل قبل الطباعة، لضمان نتيجة واضحة ومتوازنة قدر الإمكان.",
+  },
+  "wood-vs-pvc": {
+    en: "The premium wooden panel is a board of imported Spanish wood, 10 mm thick, with no frame; the picture is printed on the wood itself. The PVC frame is a framed picture with a glass-like finish, available in black and white.",
+    ar: "التابلوه الخشبي الفاخر لوح من الخشب الإسباني المستورد بسمك 10 مم، بدون فريم، والصورة مطبوعة على الخشب مباشرة. أما برواز PVC فهو صورة داخل إطار بلمسة نهائية شبيهة بالزجاج، ويتوفر باللونين الأسود والأبيض.",
+  },
+  "wood-water": {
+    en: "The picture on the wooden panel has two protective layers that guard it from water and dust. Clean it gently with a soft cloth and avoid harsh chemicals.",
+    ar: "الصورة على التابلوه الخشبي عليها طبقتان حماية تحفظانها من المياه والأتربة. يُفضّل تنظيفه بقطعة ناعمة دون استخدام مواد قوية.",
   },
   "design-preview": {
     en: "Yes. For custom orders, you can review the design or preview before printing to confirm the size, orientation, and image placement.",

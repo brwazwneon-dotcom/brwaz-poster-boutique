@@ -1666,3 +1666,33 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .brw-sheet { transition: none; }
 }
+
+/* Wood panel note: water on the panel is wiped off once, when it scrolls into view.
+   Transform / opacity only. State comes from data-state: wet (waiting), play, dry (no motion). */
+.wp-anim:not(:disabled) { cursor: pointer; }
+.wp-anim .wp-cloth { opacity: 0; }
+.wp-anim .wp-shield { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.wp-anim .wp-drop { transform-box: fill-box; transform-origin: center; }
+.wp-anim[data-state="dry"] .wp-drop, .wp-anim[data-state="dry"] .wp-cloth { display: none; }
+.wp-anim[data-state="dry"] .wp-shield { opacity: 1; }
+.wp-anim[data-state="play"] .wp-cloth { animation: wp-wipe 1.7s ease-in-out forwards; }
+.wp-anim[data-state="play"] .wp-drop { animation: wp-dry 0.35s ease-out forwards; }
+.wp-anim[data-state="play"] .wp-shield { animation: wp-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) 1.55s both; }
+@keyframes wp-wipe {
+  0% { opacity: 0; transform: translateX(0); }
+  8% { opacity: 0.95; }
+  92% { opacity: 0.95; }
+  100% { opacity: 0; transform: translateX(215px); }
+}
+@keyframes wp-dry {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.35); }
+}
+@keyframes wp-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-anim .wp-drop, .wp-anim .wp-cloth { display: none; }
+  .wp-anim .wp-shield { opacity: 1; animation: none; }
+}
