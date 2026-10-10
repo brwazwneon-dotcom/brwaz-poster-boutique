@@ -212,6 +212,7 @@ function TrendingPage() {
                     <Link
                       to="/category/$slug"
                       params={{ slug: p.categories?.slug ?? "movies" }}
+                      search={{ poster: p.id }}
                       aria-label={p.title}
                       className="block"
                     >

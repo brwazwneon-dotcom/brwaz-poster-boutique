@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPosterImagesByIdsPublic } from "@/lib/db-public.functions";
+import { getPosterImagesByIdsPublic as fetchPosterImagesByIds } from "@/lib/db-public.functions";
+import { createKeyBatcher } from "@/lib/rpc-batch";
 import { clearResponsivePending, markResponsivePending } from "@/lib/image-loader-queue";
+
+// Every rail asks for its own posters' image data at about the same moment;
+// one request answers all of them.
+const getPosterImagesByIdsBatched = createKeyBatcher((ids) =>
+  fetchPosterImagesByIds({ data: { ids } }),
+);
+const getPosterImagesByIdsPublic = ({ data }: { data: { ids: string[] } }) =>
+  getPosterImagesByIdsBatched(data.ids);
 
 type Variant = "thumb" | "small" | "medium" | "large";
 type Format = "avif" | "webp";

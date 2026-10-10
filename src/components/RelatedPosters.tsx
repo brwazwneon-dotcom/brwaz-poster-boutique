@@ -121,6 +121,7 @@ export function RelatedPosters({
                 <Link
                   to={categorySlug ? "/category/$slug" : "/"}
                   params={categorySlug ? { slug: categorySlug } : undefined}
+                  search={categorySlug ? { poster: p.id } : undefined}
                   className="block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
                 >
                   <PosterBadge badge={p.badge} />
@@ -150,6 +151,7 @@ export function RelatedPosters({
                   <Link
                     to={categorySlug ? "/category/$slug" : "/"}
                     params={categorySlug ? { slug: categorySlug } : undefined}
+                    search={categorySlug ? { poster: p.id } : undefined}
                     className="flex-1 rounded-sm border border-border px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
                   >
                     {t("common.view")}

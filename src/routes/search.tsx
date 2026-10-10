@@ -203,6 +203,7 @@ function SearchPage() {
                   key={p.id}
                   to="/category/$slug"
                   params={{ slug: p.category_slug ?? "" }}
+                  search={{ poster: p.id }}
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary"
                 >
                   <div className="relative aspect-[3/4] overflow-hidden">

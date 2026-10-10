@@ -184,6 +184,7 @@ export function BestSellers({ title, subtitle }: { title?: string; subtitle?: st
                       <Link
                         to="/category/$slug"
                         params={{ slug: p.categories.slug }}
+                        search={{ poster: p.id }}
                         className="inline-flex items-center justify-center gap-2 rounded-sm border border-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
                       >
                         <Eye className="h-3.5 w-3.5" /> {t("product.quickView")}

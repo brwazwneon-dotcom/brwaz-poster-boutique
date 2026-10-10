@@ -64,6 +64,7 @@ function Rail({
                 key={p.id}
                 to="/category/$slug"
                 params={{ slug: slug(p.category_id) }}
+                search={{ poster: p.id }}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted snap-start"
               >
                 <WishlistHeart posterId={p.id} />

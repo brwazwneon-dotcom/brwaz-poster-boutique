@@ -219,6 +219,7 @@ function LandingPage() {
                     key={p.id}
                     to="/category/$slug"
                     params={{ slug: audience }}
+                    search={{ poster: p.id }}
                     className="group relative overflow-hidden rounded-sm border border-border bg-card transition hover:border-primary/40"
                     onClick={() => {
                       try {

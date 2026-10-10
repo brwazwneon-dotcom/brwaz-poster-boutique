@@ -172,8 +172,13 @@ export function TrendingNow({
       let bestIdx = 0;
       let bestDist = Infinity;
       for (let i = 0; i < cards.length; i++) {
-        const dist = Math.abs(cards[i].getBoundingClientRect().left - el.getBoundingClientRect().left);
-        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+        const dist = Math.abs(
+          cards[i].getBoundingClientRect().left - el.getBoundingClientRect().left,
+        );
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
       }
       setAutoIdx(bestIdx);
     };
@@ -248,6 +253,7 @@ export function TrendingNow({
                 key={p.id}
                 to="/category/$slug"
                 params={{ slug: p.categories?.slug ?? "movies" }}
+                search={{ poster: p.id }}
                 data-reveal
                 className="group relative block w-[44%] shrink-0 snap-start sm:w-[24%] lg:w-[16%]"
               >

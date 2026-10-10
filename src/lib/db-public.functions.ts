@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createKeyBatcher } from "@/lib/rpc-batch";
 import {
   fetchApprovedReviewsFromDb,
   fetchCategoriesFromDb,
@@ -101,11 +102,19 @@ export const getPosterImagesByIdsPublic = createServerFn({ method: "GET" })
     return fetchPosterImagesByIdsFromDb(ids);
   });
 
-export const getSiteSettingsPublic = createServerFn({ method: "GET" })
+const getSiteSettingsPublicRpc = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { keys: string[] }).keys)
   .handler(async ({ data: keys }) => {
     return fetchSiteSettingsFromDb(keys);
   });
+
+// Same call shape as before. In the browser, lookups made in the same few
+// milliseconds by different components share ONE request (see rpc-batch.ts).
+const batchedSiteSettings = createKeyBatcher((keys) =>
+  getSiteSettingsPublicRpc({ data: { keys } }),
+);
+export const getSiteSettingsPublic = (args: { data: { keys: string[] } }) =>
+  batchedSiteSettings(args.data.keys);
 
 export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(async () => {
   return fetchEnabledHeroBannersFromDb();

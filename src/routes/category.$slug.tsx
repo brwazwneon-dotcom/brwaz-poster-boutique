@@ -2,7 +2,9 @@ import { createFileRoute, Link, Navigate, notFound, useNavigate } from "@tanstac
 import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Ltr } from "@/components/Ltr";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getPostersByIdsPublic } from "@/lib/db-public.functions";
 import { toast } from "sonner";
 import {
   useCategories,
@@ -80,6 +82,12 @@ const SORTS: SortDef[] = [
 ];
 
 export const Route = createFileRoute("/category/$slug")({
+  // `?poster=<id>` opens the category with that poster already chosen: a click on a
+  // poster anywhere on the site lands here with the poster shown straight away.
+  validateSearch: (search: Record<string, unknown>): { poster?: string } => {
+    const p = typeof search.poster === "string" ? search.poster.trim() : "";
+    return /^[A-Za-z0-9-]{8,64}$/.test(p) ? { poster: p } : {};
+  },
   loader: async ({ context }) => {
     // Prefetches the categories list server-side so the category this slug
     // resolves to (and its subcategories, for the product filter below) are
@@ -186,7 +194,28 @@ function CategoryPage() {
 
   // ONE active poster drives the preview, the option panel and the cart. The
   // grid highlights it, the panel shows it — nothing else holds a selection.
-  const [activePosterId, setActivePosterId] = useState<string | null>(null);
+  const { poster: posterParam } = Route.useSearch();
+  const navigate = useNavigate();
+  const [activePosterId, setActivePosterIdState] = useState<string | null>(posterParam ?? null);
+  // True when the visitor arrived by clicking a poster elsewhere: on a phone the
+  // option sheet then opens by itself so the chosen poster is the first thing shown.
+  const [arrivedWithPoster] = useState(!!posterParam);
+  // Keeps the address bar in step with the chosen poster (shareable, survives refresh).
+  const setActivePosterId = (id: string | null) => {
+    setActivePosterIdState(id);
+    if ((id ?? undefined) === posterParam) return;
+    navigate({
+      to: ".",
+      search: (prev: { poster?: string }) => ({ ...prev, poster: id ?? undefined }),
+      replace: true,
+      resetScroll: false,
+    });
+  };
+  // A link to another poster of the same category (related / recently viewed) changes
+  // only the address: follow it.
+  useEffect(() => {
+    if (posterParam) setActivePosterIdState(posterParam);
+  }, [posterParam]);
   // Frame / size / colour / quantity, shared by the panel and the phone bar.
   const configurator = usePosterConfig();
   const isDesktop = useIsDesktop();
@@ -271,6 +300,18 @@ function CategoryPage() {
     return m;
   }, [products]);
   const activeFromGrid = activePosterId ? productsById.get(activePosterId) : undefined;
+  // A poster chosen elsewhere may not be on the first page of this list yet: load
+  // just that one so it shows at once instead of waiting for the grid to reach it.
+  const fetchedPoster = useQuery({
+    queryKey: ["poster-by-id", activePosterId],
+    enabled: !!activePosterId && !activeFromGrid,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const rows = await getPostersByIdsPublic({ data: { ids: [activePosterId as string] } });
+      return rows[0] ?? null;
+    },
+  });
+  const fetchedRow = !activeFromGrid ? fetchedPoster.data : undefined;
   const activePoster: Poster | null = useMemo(
     () =>
       activeFromGrid
@@ -286,14 +327,31 @@ function CategoryPage() {
             views_count: activeFromGrid.viewsCount,
             is_best_seller: activeFromGrid.isBestSeller,
           }
-        : null,
-    [activeFromGrid],
+        : fetchedRow
+          ? {
+              id: fetchedRow.id,
+              title: fetchedRow.title,
+              image_url: fetchedRow.image_url ?? "",
+              webp_srcset: fetchedRow.webp_srcset,
+              avif_srcset: fetchedRow.avif_srcset,
+              category_id: fetchedRow.category_id,
+              edit_settings: fetchedRow.edit_settings,
+              badge: fetchedRow.badge,
+              sales_count: fetchedRow.sales_count,
+              views_count: fetchedRow.views_count,
+              is_best_seller: fetchedRow.is_best_seller,
+            }
+          : null,
+    [activeFromGrid, fetchedRow],
   );
 
   // A different category, sub-category or sort is a different list: drop the
   // selection right away so no preview of the old context is left behind.
   const listKey = `${category?.id ?? slug}|${sort}|${activeSubId}`;
+  const lastListKey = useRef(listKey);
   useEffect(() => {
+    if (lastListKey.current === listKey) return;
+    lastListKey.current = listKey;
     setActivePosterId(null);
   }, [listKey]);
   // Safety net: once the list has finished loading, an active poster that is
@@ -301,10 +359,12 @@ function CategoryPage() {
   const listSettled =
     paginationState === "end" || (paginationState === "idle" && products.length > 0);
   useEffect(() => {
-    if (activePosterId && listSettled && !productsById.has(activePosterId)) {
+    // A poster opened by link is kept until its own lookup finished and found nothing.
+    const lookupDone = fetchedPoster.isFetched && !fetchedPoster.data;
+    if (activePosterId && listSettled && !productsById.has(activePosterId) && lookupDone) {
       setActivePosterId(null);
     }
-  }, [activePosterId, listSettled, productsById]);
+  }, [activePosterId, listSettled, productsById, fetchedPoster.isFetched, fetchedPoster.data]);
 
   if (isCustomSlug) {
     return <Navigate to="/custom-design" replace />;
@@ -491,6 +551,7 @@ function CategoryPage() {
               poster={activePoster}
               category={category}
               configurator={configurator}
+              autoOpen={arrivedWithPoster}
             />
           )}
         </div>
@@ -918,12 +979,18 @@ function MobileCustomizerBar({
   poster,
   category,
   configurator,
+  autoOpen = false,
 }: {
   poster: Poster;
   category: Category;
   configurator: PosterConfigurator;
+  autoOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Arrived by tapping a poster on another page: show it straight away (phones only).
+  useEffect(() => {
+    if (autoOpen && !window.matchMedia("(min-width: 1024px)").matches) setOpen(true);
+  }, []);
   const { t, i18n } = useTranslation();
   const pricing = usePricing();
   const isCustom = /custom/i.test(category.slug) || /custom/i.test(category.name);

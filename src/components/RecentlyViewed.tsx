@@ -110,6 +110,7 @@ export function RecentlyViewed({ excludeId, title }: { excludeId?: string; title
                 <Link
                   to={p.category_slug ? "/category/$slug" : "/"}
                   params={p.category_slug ? { slug: p.category_slug } : undefined}
+                  search={p.category_slug ? { poster: p.id } : undefined}
                   className="block aspect-[3/4] overflow-hidden rounded-sm border border-border bg-muted"
                 >
                   <FramedArtwork
@@ -138,6 +139,7 @@ export function RecentlyViewed({ excludeId, title }: { excludeId?: string; title
                   <Link
                     to={p.category_slug ? "/category/$slug" : "/"}
                     params={p.category_slug ? { slug: p.category_slug } : undefined}
+                    search={p.category_slug ? { poster: p.id } : undefined}
                     className="flex-1 rounded-sm border border-border px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-widest hover:bg-accent"
                   >
                     {t("product.quickView")}

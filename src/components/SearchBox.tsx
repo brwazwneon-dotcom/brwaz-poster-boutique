@@ -310,6 +310,7 @@ export function SearchBox({
                       <Link
                         to="/category/$slug"
                         params={{ slug: h.category_slug ?? "" }}
+                        search={{ poster: h.id }}
                         onClick={() => {
                           pushRecentSearch(debounced);
                           setOpen(false);

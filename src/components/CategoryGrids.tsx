@@ -721,6 +721,7 @@ function CollectionRailSection({
             key={`${image.id}-${index}`}
             to="/category/$slug"
             params={{ slug: rail.category.slug }}
+            search={{ poster: image.posterId ?? undefined }}
             data-collection-rail-image="true"
             data-category-grid-source-field={image.sourceField}
             data-category-grid-source-url={image.url}
