@@ -67,7 +67,7 @@ export async function loadInvoiceImages(
     if (it.isBundle) {
       for (const p of it.posters)
         if (p.imageUrl) wanted.set(thumbKey(p.imageUrl, true), p.imageUrl);
-    } else if (it.imageUrl) wanted.set(thumbKey(it.imageUrl, false), it.imageUrl);
+    } else if (it.imageUrl) wanted.set(thumbKey(it.imageUrl, true), it.imageUrl);
   }
   const byUrl = new Map<string, Img>();
   const logo = await loadImage(logoUrl);
@@ -254,78 +254,144 @@ class Pen {
   }
 }
 
-function drawItem(pen: Pen, it: InvoiceItem, y: number, images: InvoiceImages): number {
-  const PRICE_W = 200;
-  const thumbW = 150;
-  const thumbH = 200;
-  const border = 6;
-  const textX = it.isBundle ? M : M + thumbW + border * 2 + 28;
-  const textW = W - M - PRICE_W - 24 - textX;
-  const priceX = W - M - PRICE_W;
-  const frameHex = frameColorHex(it.frameColor);
+// ---- Compact item layout -------------------------------------------------
+// Single posters sit two per row (thumbnail + details + price in one card);
+// every bundle is ONE grouped card with its posters side by side; the tape is
+// a slim line. This keeps a 7-frame order about a third as tall as one row per
+// item.
+const COL_GAP = 32;
+const COL_W = (W - M * 2 - COL_GAP) / 2;
 
-  let bottom = y;
-  if (it.isTape) {
-    // No poster: a compact line.
-    let ty = y;
-    ty += pen.block(it.title, M, ty, W - M * 2 - PRICE_W - 24, 28, { weight: 600 });
-    ty += pen.block(`× ${it.quantity}`, M, ty + 4, 400, 22, { color: MUTED });
-    bottom = ty + 8;
-  } else {
-    if (!it.isBundle) {
-      const main = it.imageUrl ? (images.byUrl.get(thumbKey(it.imageUrl, false)) ?? null) : null;
-      pen.framedImage(main, M + border, y + border, thumbW, thumbH, frameHex, border);
-    }
-    let ty = y;
-    ty += pen.block(it.title, textX, ty, textW, 28, { weight: 700, maxLines: 3 });
-    const meta = [it.size, it.frameType, it.frameColor].filter(Boolean).join("  ·  ");
-    if (meta) ty += pen.block(meta, textX, ty + 6, textW, 22, { color: MUTED, maxLines: 2 });
-    ty += pen.block(`Qty ${it.quantity}  ·  الكمية ${it.quantity}`, textX, ty + 8, textW, 22, {
-      color: MUTED,
-    });
-    bottom = it.isBundle ? ty : Math.max(ty, y + thumbH + border * 2);
-
-    if (it.isBundle && it.posters.length > 0) {
-      const tw = 120;
-      const th = 160;
-      const gap = 18;
-      const perRow = Math.max(1, Math.floor((textW + gap) / (tw + gap)));
-      let py = ty + 14;
-      for (let i = 0; i < it.posters.length; i += perRow) {
-        const row = it.posters.slice(i, i + perRow);
-        row.forEach((p, j) => {
-          const px = textX + j * (tw + gap);
-          const img = p.imageUrl ? (images.byUrl.get(thumbKey(p.imageUrl, true)) ?? null) : null;
-          pen.framedImage(img, px + 4, py + 4, tw - 8, th - 8, frameHex, 4);
-          pen.block(`${i + j + 1}. ${p.name}`, px - 2, py + th + 4, tw + 4, 16, {
-            color: MUTED,
-            maxLines: 2,
-            lineHeight: 1.2,
-          });
-        });
-        py += th + 4 + 40 + 10;
-      }
-      bottom = Math.max(bottom, py);
-    }
+function priceLine(pen: Pen, it: InvoiceItem, x: number, y: number, w: number): number {
+  if (it.lineCents === null) {
+    return pen.block("Price unavailable", x, y, w, 20, { color: RED });
   }
+  let h = pen.block(`${formatEgp(it.lineCents)} EGP`, x, y, w, 26, { weight: 700 });
+  if (it.quantity > 1 && it.unitCents !== null) {
+    h += pen.block(`${formatEgp(it.unitCents)} EGP each`, x, y + h, w, 17, { color: MUTED });
+  }
+  return h;
+}
 
-  // Price column (right edge, always LTR numerals).
-  let py = y;
+/** One single poster as a card in a column. Returns its height. */
+function drawSingleCard(
+  pen: Pen,
+  it: InvoiceItem,
+  x: number,
+  y: number,
+  images: InvoiceImages,
+): number {
+  const tw = 84;
+  const th = 112;
+  const border = 5;
+  const frameHex = frameColorHex(it.frameColor);
+  const main = it.imageUrl ? (images.byUrl.get(thumbKey(it.imageUrl, true)) ?? null) : null;
+  pen.framedImage(main, x + border, y + border, tw, th, frameHex, border);
+  const tx = x + tw + border * 2 + 18;
+  const w = x + COL_W - tx;
+  let ty = y;
+  ty += pen.block(it.title, tx, ty, w, 21, { weight: 700, maxLines: 2, lineHeight: 1.25 });
+  const meta = [it.size, it.frameType, it.frameColor].filter(Boolean).join(" · ");
+  if (meta)
+    ty += pen.block(meta, tx, ty + 3, w, 16, { color: MUTED, maxLines: 2, lineHeight: 1.25 });
+  ty += pen.block(`Qty ${it.quantity} · الكمية ${it.quantity}`, tx, ty + 4, w, 16, {
+    color: MUTED,
+  });
+  ty += priceLine(pen, it, tx, ty + 6, w) + 6;
+  return Math.max(ty - y, th + border * 2);
+}
+
+/** A bundle as one card: title/price on a line, then all its posters together. */
+function drawBundleCard(pen: Pen, it: InvoiceItem, y: number, images: InvoiceImages): number {
+  const frameHex = frameColorHex(it.frameColor);
+  const PRICE_W = 230;
+  let ty = y;
+  const titleW = W - M * 2 - PRICE_W - 20;
+  const h1 = pen.block(it.title, M, ty, titleW, 24, { weight: 700 });
+  const meta = [it.size, it.frameType, it.frameColor].filter(Boolean).join(" · ");
+  const h2 = meta ? pen.block(meta, M, ty + h1 + 2, titleW, 16, { color: MUTED, maxLines: 2 }) : 0;
+  const h3 = pen.block(
+    `Qty ${it.quantity} · الكمية ${it.quantity}`,
+    M,
+    ty + h1 + h2 + 4,
+    titleW,
+    16,
+    {
+      color: MUTED,
+    },
+  );
+  // price block, right edge
   if (it.lineCents !== null) {
-    py += pen.block(`${formatEgp(it.lineCents)} EGP`, priceX, py, PRICE_W, 30, {
+    pen.block(`${formatEgp(it.lineCents)} EGP`, W - M - PRICE_W, ty, PRICE_W, 26, {
       weight: 700,
       align: "right",
     });
-    if (it.quantity > 1 && it.unitCents !== null) {
-      pen.block(`${formatEgp(it.unitCents)} EGP each`, priceX, py + 4, PRICE_W, 20, {
-        color: MUTED,
-        align: "right",
-      });
-    }
   } else {
-    pen.block("Price unavailable", priceX, py, PRICE_W, 22, { color: RED, align: "right" });
+    pen.block("Price unavailable", W - M - PRICE_W, ty, PRICE_W, 20, {
+      color: RED,
+      align: "right",
+    });
   }
-  return bottom;
+  ty += h1 + h2 + h3 + 14;
+
+  const tw = 108;
+  const th = 144;
+  const gap = 16;
+  const perRow = Math.max(1, Math.floor((W - M * 2 + gap) / (tw + gap)));
+  for (let i = 0; i < it.posters.length; i += perRow) {
+    const row = it.posters.slice(i, i + perRow);
+    row.forEach((p, j) => {
+      const px = M + j * (tw + gap);
+      const img = p.imageUrl ? (images.byUrl.get(thumbKey(p.imageUrl, true)) ?? null) : null;
+      pen.framedImage(img, px + 4, ty + 4, tw - 8, th - 8, frameHex, 4);
+      pen.block(`${i + j + 1}. ${p.name}`, px, ty + th + 2, tw, 14, {
+        color: MUTED,
+        maxLines: 2,
+        lineHeight: 1.15,
+      });
+    });
+    ty += th + 2 + 32 + 8;
+  }
+  return ty - y;
+}
+
+function drawTapeLine(pen: Pen, it: InvoiceItem, y: number): number {
+  const h = pen.block(`${it.title} × ${it.quantity}`, M, y, W - M * 2 - 240, 21, { weight: 600 });
+  if (it.lineCents !== null) {
+    pen.block(`${formatEgp(it.lineCents)} EGP`, W - M - 220, y, 220, 22, {
+      weight: 700,
+      align: "right",
+    });
+  }
+  return Math.max(h, 28);
+}
+
+/** Lays out every item; returns the y below the last one. */
+function drawItems(pen: Pen, model: InvoiceModel, y: number, images: InvoiceImages): number {
+  const singles = model.items.filter((i) => !i.isBundle && !i.isTape);
+  const bundles = model.items.filter((i) => i.isBundle);
+  const tapes = model.items.filter((i) => i.isTape);
+
+  for (let i = 0; i < singles.length; i += 2) {
+    const left = drawSingleCard(pen, singles[i], M, y, images);
+    const right = singles[i + 1]
+      ? drawSingleCard(pen, singles[i + 1], M + COL_W + COL_GAP, y, images)
+      : 0;
+    y += Math.max(left, right) + 14;
+    pen.hline(y - 7);
+    y += 7;
+  }
+  for (const b of bundles) {
+    y += drawBundleCard(pen, b, y, images) + 6;
+    pen.hline(y);
+    y += 14;
+  }
+  for (const t of tapes) {
+    y += drawTapeLine(pen, t, y) + 10;
+    pen.hline(y - 4);
+    y += 8;
+  }
+  return y;
 }
 
 function paint(
@@ -386,12 +452,7 @@ function paint(
   pen.block("ITEMS · المنتجات", M, y, 600, 20, { weight: 700, color: MUTED });
   y += 40;
   const itemsTop = y;
-  for (const it of model.items) {
-    const bottom = drawItem(pen, it, y, images);
-    y = bottom + 24;
-    pen.hline(y - 12);
-    y += 12;
-  }
+  y = drawItems(pen, model, y, images);
   for (const p of model.photoLines) {
     pen.block(p.label, M, y, W - M * 2 - 224, 26, { weight: 600 });
     pen.block(`${formatEgp(p.cents)} EGP`, W - M - 200, y, 200, 28, {

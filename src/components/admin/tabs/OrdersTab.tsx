@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   listCheckoutPhotoOrdersAdmin,
   listOrdersAdmin,
+  setOrdersDoneAdmin,
   updateOrderStatus,
 } from "@/lib/db-admin.functions";
 import { customerWhatsappLink } from "./shared";
@@ -33,6 +34,8 @@ export type AdminOrder = {
   payment_reference: string | null;
   notes: string | null;
   confirmation_status: ConfirmationStatus;
+  /** Marked DONE by the admin (latest admin_done / admin_undone timeline event). */
+  admin_done?: boolean;
   whatsapp_message: string | null;
   confirmed_at: string | null;
   confirmed_by: string | null;
@@ -132,6 +135,8 @@ export function OrdersTab({
   const [printTarget, setPrintTarget] = useState<OrderGroup[] | null>(null);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
   const [photoOrders, setPhotoOrders] = useState<PhotoOrderLite[]>([]);
+  const [view, setView] = useState<"all" | "todo" | "done">("all");
+  const [query, setQuery] = useState("");
 
   const load = async () => {
     const [rows, photos] = await Promise.all([
@@ -173,7 +178,41 @@ export function OrdersTab({
       else next.add(id);
       return next;
     });
-  const groups = orders ? groupOrders(orders) : [];
+  const allGroups = orders ? groupOrders(orders) : [];
+  const isDone = (g: OrderGroup) => g.rows.every((r) => r.admin_done === true);
+  const doneCount = allGroups.filter(isDone).length;
+  const q = query.trim().toLowerCase();
+  const groups = allGroups.filter((g) => {
+    if (view === "todo" && isDone(g)) return false;
+    if (view === "done" && !isDone(g)) return false;
+    if (!q) return true;
+    const hay = [
+      g.primary.customer_name,
+      g.primary.phone,
+      g.primary.governorate,
+      ...g.rows.map((r) => r.order_number ?? ""),
+      ...g.rows.map((r) => r.poster_title ?? ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  });
+
+  // Marks a whole order DONE / not done. The row turns green at once; if the
+  // save fails the list is reloaded so it never shows a mark that was not stored.
+  const toggleDone = async (g: OrderGroup) => {
+    const next = !isDone(g);
+    const ids = g.rows.map((r) => r.id);
+    setOrders((prev) =>
+      prev ? prev.map((r) => (ids.includes(r.id) ? { ...r, admin_done: next } : r)) : prev,
+    );
+    try {
+      await setOrdersDoneAdmin({ data: { ids, done: next } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save");
+      load();
+    }
+  };
   const toggleSelectAll = () => {
     setSelected((prev) =>
       prev.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)),
@@ -267,8 +306,48 @@ export function OrdersTab({
           {exporting ? "Exporting…" : "Export .xlsx"}
         </button>
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div
+          className="inline-flex overflow-hidden rounded-sm border border-border text-xs"
+          role="tablist"
+        >
+          {(
+            [
+              ["all", `All (${allGroups.length})`],
+              ["todo", `To do (${allGroups.length - doneCount})`],
+              ["done", `Done (${doneCount})`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => setView(key)}
+              className={`px-3 py-1.5 font-medium ${
+                view === key
+                  ? key === "done"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search name, phone, order #, poster…"
+          aria-label="Search orders"
+          className="w-full max-w-xs rounded-sm border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+        />
+      </div>
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">No orders yet.</p>
+      ) : groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No orders match this view.</p>
       ) : (
         <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-left text-sm">
@@ -281,6 +360,7 @@ export function OrdersTab({
                     onChange={toggleSelectAll}
                   />
                 </th>
+                <th className="px-3 py-2">Done</th>
                 <th className="px-3 py-2">Order</th>
                 <th className="px-3 py-2">Items</th>
                 <th className="px-3 py-2">Customer</th>
@@ -294,6 +374,7 @@ export function OrdersTab({
             <tbody>
               {groups.map((g) => {
                 const o = g.primary;
+                const done = isDone(g);
                 const proof = g.rows.find((r) => r.payment_screenshot)?.payment_screenshot ?? null;
                 const photosOf = photoOrdersForGroup(g, photoOrders);
                 const photoTotal = photosOf.reduce((n, ph) => n + (Number(ph.total_price) || 0), 0);
@@ -301,13 +382,34 @@ export function OrdersTab({
                 const frameCount = g.frames.reduce((n, r) => n + (Number(r.quantity) || 0), 0);
                 const extraTitles = g.frames.length > 1 ? ` +${g.frames.length - 1} more` : "";
                 return (
-                  <tr key={g.key} className="border-b border-border last:border-0">
+                  <tr
+                    key={g.key}
+                    className={`border-b border-border last:border-0 ${
+                      done ? "bg-emerald-500/10 shadow-[inset_4px_0_0_0_#10b981]" : ""
+                    }`}
+                  >
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
                         checked={selected.has(g.key)}
                         onChange={() => toggleSelected(g.key)}
                       />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => void toggleDone(g)}
+                        aria-pressed={done}
+                        aria-label={`${done ? "Unmark" : "Mark"} order ${checkoutNumberLabel(g.rows)} as done`}
+                        title={done ? "Done - click to undo" : "Mark as done"}
+                        className={`inline-flex min-h-[32px] items-center gap-1 rounded-sm border px-2.5 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                          done
+                            ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                            : "border-border bg-background text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
+                        }`}
+                      >
+                        {done ? "✓ Done" : "Done"}
+                      </button>
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {checkoutNumberLabel(g.rows)}

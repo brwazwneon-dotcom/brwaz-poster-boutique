@@ -38,6 +38,8 @@ const EXTRA_LABELS: Record<string, string> = {
   whatsapp_copied: "WhatsApp Message Copied",
   whatsapp_opened: "WhatsApp Opened",
   admin_viewed: "Admin Opened Order",
+  admin_done: "Marked Done",
+  admin_undone: "Marked Not Done",
   payment_paid: "Payment Verified",
   payment_rejected: "Payment Proof Rejected",
   payment_pending: "Payment Set To Pending",

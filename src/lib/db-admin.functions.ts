@@ -1541,7 +1541,10 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
                shipping_cost, total_price, status,
                payment_method, payment_status, payment_screenshot, payment_reference, notes,
                confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at,
-               coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key
+               coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key,
+               coalesce((select t.stage = 'admin_done' from order_timeline t
+                         where t.order_id = orders.id and t.stage in ('admin_done', 'admin_undone')
+                         order by t.created_at desc limit 1), false) as admin_done
         from orders where status = ${data.status} and is_test = false
         order by created_at desc, order_number limit 300
       `;
@@ -1552,10 +1555,37 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
              shipping_cost, total_price, status,
              payment_method, payment_status, payment_screenshot, payment_reference, notes,
              confirmation_status, whatsapp_message, confirmed_at, confirmed_by, created_at,
-             coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key
+             coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key,
+               coalesce((select t.stage = 'admin_done' from order_timeline t
+                         where t.order_id = orders.id and t.stage in ('admin_done', 'admin_undone')
+                         order by t.created_at desc limit 1), false) as admin_done
       from orders where is_test = false
       order by created_at desc, order_number limit 300
     `;
+  });
+
+// "DONE" mark on an order (one checkout = all its rows). Stored as an event in
+// the order's own timeline; the newest one wins, so it can be undone and the
+// history of who/when stays. Nothing about the order itself changes.
+const DONE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const setOrdersDoneAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => {
+    const d = data as { ids?: unknown; done?: unknown };
+    const ids = Array.isArray(d?.ids) ? d.ids.map(String) : [];
+    if (ids.length === 0 || ids.length > 100 || ids.some((id) => !DONE_UUID_RE.test(id))) {
+      throw new Error("ids must be 1-100 order ids");
+    }
+    return { ids, done: d.done === true };
+  })
+  .handler(async ({ data }) => {
+    const stage = data.done ? "admin_done" : "admin_undone";
+    await sql()`
+      insert into order_timeline (order_id, stage, status, actor)
+      select id, ${stage}, 'completed', 'admin'
+      from unnest(${data.ids}::uuid[]) as id
+    `;
+    return { ok: true as const };
   });
 
 const VALID_ORDER_STATUSES = new Set([

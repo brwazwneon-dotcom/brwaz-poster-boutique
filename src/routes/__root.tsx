@@ -394,16 +394,20 @@ function RootComponent() {
             <RecentlyViewedProvider>
               <MaintenanceGate>
                 <div className="flex min-h-screen flex-col">
-                  <AnnouncementBar />
-                  <SiteHeader
-                    themeMode={themeMode}
-                    logoLight={themeLogoLight}
-                    logoDark={themeLogoDark}
-                  />
+                  {/* The admin has its own top bar and sidebar: the storefront's
+                      banner, header and footer must not stack on top of it. */}
+                  {!isAdmin && <AnnouncementBar />}
+                  {!isAdmin && (
+                    <SiteHeader
+                      themeMode={themeMode}
+                      logoLight={themeLogoLight}
+                      logoDark={themeLogoDark}
+                    />
+                  )}
                   <main className="flex-1">
                     <Outlet />
                   </main>
-                  <SiteFooter />
+                  {!isAdmin && <SiteFooter />}
                 </div>
                 {!isAdmin && <FloatingActionsGated />}
                 {!isAdmin && <FloatingOfferGated />}
