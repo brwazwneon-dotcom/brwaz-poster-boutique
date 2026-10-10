@@ -1,7 +1,19 @@
-import { memo, type ReactNode, useEffect, useRef, useState } from "react";
+import { memo, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SafeImage } from "@/components/SafeImage";
 import { cn } from "@/lib/utils";
-import { useFrameMockups, type FrameMockup, type FrameMockups } from "@/lib/use-settings";
+import {
+  MOCKUP_DEFAULTS,
+  useFrameMockups,
+  type FrameMockup,
+  type FrameMockups,
+} from "@/lib/use-settings";
+import {
+  WOOD_MOCKUP_QUAD_PCT,
+  growQuad,
+  quadMatrix3d,
+  quadSize,
+  type Quad,
+} from "@/lib/quad-transform";
 import type { FrameColorId, FrameTypeId } from "@/lib/poster-options";
 import { registerGridNode, unregisterGridNode } from "@/hooks/use-grid-observer";
 
@@ -65,6 +77,43 @@ export const FramePreview = memo(function FramePreview({
   const useMockup = !bare && !!m.image;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // The built-in leaning wood frame is photographed in perspective: its opening
+  // is a skewed four-corner shape, which a plain rectangle (even rotated or
+  // skewed) can't fill — it leaves gaps. For that image the artwork is warped
+  // onto the opening's four measured corners, so it leans at exactly the
+  // frame's angle and fills it edge to edge. Other mockups (the straight black
+  // and white frames, or a custom uploaded image) keep the rectangle placement.
+  const quadPct: Quad | null =
+    useMockup && key === "wood" && m.image === MOCKUP_DEFAULTS.wood.image
+      ? WOOD_MOCKUP_QUAD_PCT
+      : null;
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!quadPct || !el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) setBox((b) => (b && b.w === w && b.h === h ? b : { w, h }));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [quadPct]);
+  // Corners in px of this card, grown ~1.5% so the artwork tucks under the
+  // frame's edge (the mockup image is drawn on top) instead of leaving a hairline.
+  const quadPx: Quad | null =
+    quadPct && box
+      ? (growQuad(
+          quadPct.map(([x, y]) => [(x / 100) * box.w, (y / 100) * box.h]) as Quad,
+          1.015,
+        ) as Quad)
+      : null;
+  const quadBox = quadPx ? quadSize(quadPx) : null;
+
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -140,17 +189,33 @@ export const FramePreview = memo(function FramePreview({
     >
       <div
         className="frame-opening absolute z-0 overflow-hidden"
-        style={{
-          top: `${m.top}%`,
-          left: `${m.left}%`,
-          width: `${m.width}%`,
-          height: `${m.height}%`,
-          borderRadius,
-          perspective: `${perspective}px`,
-          transformStyle: "preserve-3d",
-          background: "transparent",
-          lineHeight: 0,
-        }}
+        style={
+          quadPx && quadBox
+            ? {
+                top: 0,
+                left: 0,
+                width: quadBox.w,
+                height: quadBox.h,
+                transformOrigin: "0 0",
+                transform: quadMatrix3d(quadBox.w, quadBox.h, quadPx),
+                background: "transparent",
+                lineHeight: 0,
+              }
+            : {
+                top: `${m.top}%`,
+                left: `${m.left}%`,
+                width: `${m.width}%`,
+                height: `${m.height}%`,
+                borderRadius,
+                perspective: `${perspective}px`,
+                transformStyle: "preserve-3d",
+                background: "transparent",
+                lineHeight: 0,
+                // Wood mockup: wait for the first measurement so the artwork
+                // never flashes in the rectangle placement.
+                ...(quadPct && !quadPx ? { visibility: "hidden" as const } : {}),
+              }
+        }
       >
         {artwork ? (
           <div className="absolute inset-0 overflow-hidden leading-none [&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
@@ -174,7 +239,7 @@ export const FramePreview = memo(function FramePreview({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center",
-              transform: artworkTransform,
+              transform: quadPx ? undefined : artworkTransform,
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
             }}
