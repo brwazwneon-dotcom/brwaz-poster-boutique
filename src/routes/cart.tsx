@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { buildBundleNotes } from "@/lib/bundle-meta";
+import { splitAmount } from "@/lib/money-split";
 import { SafeImage } from "@/components/SafeImage";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { BestSellers } from "@/components/BestSellers";
@@ -615,7 +616,8 @@ function CartPage() {
         }
       }
 
-      const shippingPerItem = items.length > 0 ? shipping / items.length : 0;
+      // Whole-cent split: the rows add back to exactly the shipping charged.
+      const shippingParts = splitAmount(shipping, items.length);
       const testFlag = isTestMode();
       const guestSessionId = visitorId();
       // The order's utm_* come from the canonical attribution (src/lib/attribution.ts):
@@ -686,8 +688,8 @@ function CartPage() {
               : null,
           subtotal: lineNet,
           packaging_fee: linePackaging,
-          shipping_cost: shippingPerItem,
-          total_price: lineNet + linePackaging + shippingPerItem,
+          shipping_cost: shippingParts[index] ?? 0,
+          total_price: lineNet + linePackaging + (shippingParts[index] ?? 0),
           status: "new",
           payment_method: paymentMethod,
           payment_status: paymentMethod === "instapay" ? "pending" : "not_required",

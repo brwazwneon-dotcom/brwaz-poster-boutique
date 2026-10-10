@@ -4,6 +4,12 @@ import { fetchSiteSettingsFromDb } from "@/lib/db-catalog.server";
 import { photoUnitPrice } from "@/lib/photo-volume-pricing";
 import { chooseOrderImage, posterIdsNeedingImage } from "@/lib/order-image-snapshot";
 import { bundlePosterIds, canonicalBundleNotes } from "@/lib/bundle-meta";
+import {
+  PRICE_CHECK_SETTING_KEYS,
+  checkOrderRows,
+  hasHardFinding,
+  parsePriceCheckMode,
+} from "@/lib/order-price-check";
 import type { PurchasePayload } from "@/lib/meta-events";
 import {
   buildOrderPurchase,
@@ -76,6 +82,31 @@ export const createOrderRows = createServerFn({ method: "POST" })
     }
     if (rows.length > 20) {
       throw new Error("Too many items in one checkout");
+    }
+
+    // Price sanity check against the live price list (see order-price-check.ts).
+    // Default mode "log": findings are written to the server log and the order
+    // goes through. Setting site_settings.order_price_enforcement = "enforce"
+    // makes hard findings reject the order; "off" disables the check. A failure
+    // of the check itself never blocks an order.
+    let rejectForPrice = false;
+    try {
+      const priceSettings = await fetchSiteSettingsFromDb(PRICE_CHECK_SETTING_KEYS);
+      const mode = parsePriceCheckMode(priceSettings.order_price_enforcement);
+      if (mode !== "off") {
+        const findings = checkOrderRows(rows, priceSettings);
+        if (findings.length > 0) {
+          console.warn("[order-price-check]", JSON.stringify({ mode, findings }));
+        }
+        rejectForPrice = mode === "enforce" && hasHardFinding(findings);
+      }
+    } catch (err) {
+      console.error("[order-price-check] check failed", err);
+    }
+    if (rejectForPrice) {
+      throw new Error(
+        "We couldn't verify the order total. Please refresh your cart and try again.",
+      );
     }
 
     const client = sql();

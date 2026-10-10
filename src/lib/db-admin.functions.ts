@@ -118,7 +118,8 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
 
     const [orderStats, newCustomers, returningCustomers, visitors] = await Promise.all([
       // An "order" is a whole checkout (all its cart-item rows), so counts are
-      // distinct checkout keys; revenue is still the sum of every row.
+      // distinct checkout keys; revenue is the sum of every row NET of cancelled/returned
+      // orders (money that was never kept is not revenue).
       client`
         with o as (
           select total_price, status, created_at,
@@ -128,11 +129,11 @@ export const getExecutiveDashboardAdmin = createServerFn({ method: "GET" })
         )
         select
           count(distinct k) filter (where created_at >= ${curStart} and created_at < ${curEnd})::int as cur_orders,
-          coalesce(sum(total_price) filter (where created_at >= ${curStart} and created_at < ${curEnd}), 0)::numeric as cur_revenue,
+          coalesce(sum(total_price) filter (where status not in ('cancelled', 'returned') and created_at >= ${curStart} and created_at < ${curEnd}), 0)::numeric as cur_revenue,
           count(distinct k) filter (where status = 'cancelled' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_cancelled,
           count(distinct k) filter (where status = 'returned' and created_at >= ${curStart} and created_at < ${curEnd})::int as cur_returned,
           count(distinct k) filter (where created_at >= ${prevStart} and created_at < ${prevEnd})::int as prev_orders,
-          coalesce(sum(total_price) filter (where created_at >= ${prevStart} and created_at < ${prevEnd}), 0)::numeric as prev_revenue
+          coalesce(sum(total_price) filter (where status not in ('cancelled', 'returned') and created_at >= ${prevStart} and created_at < ${prevEnd}), 0)::numeric as prev_revenue
         from o
       `,
       client`
@@ -375,7 +376,8 @@ export const getProfitReportAdmin = createServerFn({ method: "GET" })
     const client = sql();
     const [revenueRow, expensesByCategory] = await Promise.all([
       client`
-        select coalesce(sum(total_price), 0)::numeric as revenue, count(*)::int as orders
+        select coalesce(sum(total_price) filter (where status not in ('cancelled', 'returned')), 0)::numeric as revenue,
+               count(*)::int as orders
         from orders
         where is_test = false and created_at >= ${curStart} and created_at < ${curEnd}
       `,
@@ -712,7 +714,7 @@ export const listCustomersAdmin = createServerFn({ method: "GET" })
       left join (
         select phone,
                count(*)::int as order_count,
-               sum(total_price) as total_spent,
+               sum(total_price) filter (where status not in ('cancelled', 'returned')) as total_spent,
                min(created_at) as first_order_at,
                max(created_at) as last_order_at,
                count(*) filter (where status = 'cancelled')::int as cancelled_count

@@ -294,7 +294,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: Tab) => void }
               sub={<DeltaBadge current={data.orders} previous={data.ordersPrev} />}
             />
             <Tile
-              label="Revenue"
+              label="Revenue (net)"
               value={formatEGP(data.revenue)}
               sub={<DeltaBadge current={data.revenue} previous={data.revenuePrev} />}
             />

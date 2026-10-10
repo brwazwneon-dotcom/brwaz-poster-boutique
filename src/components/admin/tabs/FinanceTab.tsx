@@ -118,7 +118,7 @@ export function FinanceTab() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="rounded-sm border border-border p-4">
               <div className="text-lg font-semibold">{report.revenue.toLocaleString()} EGP</div>
-              <div className="text-xs text-muted-foreground">Revenue ({report.orders} orders)</div>
+              <div className="text-xs text-muted-foreground">Revenue, net of cancelled/returned ({report.orders} orders)</div>
             </div>
             <div className="rounded-sm border border-border p-4">
               <div className="text-lg font-semibold">

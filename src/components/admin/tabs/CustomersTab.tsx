@@ -242,7 +242,11 @@ function CustomerDetailPanel({
     setEditing({ ...editing, tags: editing.tags.filter((t) => t !== tag) });
   };
 
-  const totalSpent = orders?.reduce((sum, o) => sum + Number(o.total_price), 0) ?? 0;
+  // Money actually kept: cancelled and returned orders are not spend.
+  const totalSpent =
+    orders
+      ?.filter((o) => o.status !== "cancelled" && o.status !== "returned")
+      .reduce((sum, o) => sum + Number(o.total_price), 0) ?? 0;
   const cancelledCount = orders?.filter((o) => o.status === "cancelled").length ?? 0;
   const returnedCount = orders?.filter((o) => o.status === "returned").length ?? 0;
 
