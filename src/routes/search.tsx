@@ -6,9 +6,12 @@ import { PosterBadge } from "@/components/PosterBadge";
 import { useQuery } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTrendingSearchesPublic, searchPostersPublic } from "@/lib/db-public.functions";
 import { MIN_QUERY_LENGTH, normalizeText } from "@/lib/search-core";
+import { expandSearchText, matchCategories } from "@/lib/search-aliases";
+import { useCategories } from "@/lib/use-categories";
+import { CategoryShortcuts } from "@/components/CategoryShortcuts";
 import { trackEvent } from "@/lib/meta-pixel";
 import { logSearchQuery } from "@/lib/analytics";
 import { SEARCH_DEBOUNCE_MS, SearchBox, pushRecentSearch } from "@/components/SearchBox";
@@ -65,7 +68,7 @@ function SearchPage() {
   // The request key is the normalised text (case, accents, Arabic letter variants, punctuation and
   // spaces folded): "Spider ", "spider" and "SPIDER!" are one cached request, and anything shorter
   // than MIN_QUERY_LENGTH never reaches the server.
-  const searchKey = normalizeText(term);
+  const searchKey = normalizeText(expandSearchText(term));
   const canSearch = searchKey.length >= MIN_QUERY_LENGTH;
   useEffect(() => {
     if (!canSearch) return;
@@ -105,6 +108,13 @@ function SearchPage() {
   });
 
   const results = canSearch ? (data ?? []) : [];
+  // Collections / sub-collections the text names (e.g. "spiderman" or "سبايدر مان"): each gets a
+  // button that opens its own page. Uses the already-loaded category list: no extra request.
+  const { data: allCategories } = useCategories(canSearch);
+  const shortcuts = useMemo(
+    () => (canSearch && allCategories ? matchCategories(term, allCategories, 4) : []),
+    [canSearch, allCategories, term],
+  );
   const visibleResults = results.slice(0, visibleCount);
   const images = usePosterResponsiveImages(
     results.map((p) => p.id),
@@ -156,6 +166,8 @@ function SearchPage() {
               : `${results.length} ${results.length === 1 ? t("search.result") : t("search.results")}`
           : t("search.searchHint")}
       </div>
+
+      <CategoryShortcuts categories={shortcuts} className="mt-4" />
 
       {canSearch && results.length === 0 && !isFetching ? (
         <div className="mt-10 rounded-sm border border-dashed border-border p-12 text-center text-sm text-muted-foreground">

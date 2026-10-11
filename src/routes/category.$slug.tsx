@@ -49,6 +49,7 @@ import { usePosterConfig, MOST_POPULAR_SIZE, type PosterConfigurator } from "@/l
 import { SizeGuide } from "@/components/SizeGuide";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { WoodPanelBadge, WoodPanelNote } from "@/components/WoodPanelInfo";
+import { CategoryLinkBar } from "@/components/CategoryLinkBar";
 import { Minus, Plus, Truck, Clock } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { useTranslation } from "react-i18next";
@@ -431,6 +432,14 @@ function CategoryPage() {
           <h1 className="text-display text-4xl sm:text-6xl">{category?.name ?? "…"}</h1>
           <p className="text-sm text-muted-foreground">{t("category.tapToSelect")}</p>
         </div>
+        {category && (
+          <CategoryLinkBar
+            category={category}
+            parent={
+              category.parent_id ? categories.find((c) => c.id === category.parent_id) : undefined
+            }
+          />
+        )}
         {/* The badges appear after load; reserving their height keeps the
             rest of the page from jumping down when they do. */}
         <div className="mt-4 flex min-h-[60px] flex-wrap content-start items-center gap-3 sm:min-h-[30px]">

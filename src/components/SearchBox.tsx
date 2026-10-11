@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Search as SearchIcon, Clock, TrendingUp, X } from "lucide-react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { searchPostersPublic, getTrendingSearchesPublic } from "@/lib/db-public.functions";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { MIN_QUERY_LENGTH, normalizeText } from "@/lib/search-core";
+import { expandSearchText, matchCategories } from "@/lib/search-aliases";
+import { useCategories } from "@/lib/use-categories";
+import { CategoryShortcuts } from "@/components/CategoryShortcuts";
 
 // One request per typing pause, never per keystroke: a query is sent only after the visitor
 // stops typing for SEARCH_DEBOUNCE_MS and has typed at least MIN_QUERY_LENGTH characters.
@@ -105,15 +108,24 @@ export function SearchBox({
   // The dropdown is for the header box only: the /search page already shows full results for the
   // same text, so its own box must not fire a second request per keystroke.
   const suggestEnabled = variant === "header" && debounced.length >= MIN_QUERY_LENGTH;
+  // A known Arabic spelling ("سبايدر مان") is searched by its English text ("spider").
+  const searchText = useMemo(() => normalize(expandSearchText(debounced)), [debounced]);
+  // Collections / sub-collections the text names: each gets a button to its own page.
+  // Uses the category list the header already loaded: no extra request.
+  const { data: allCategories } = useCategories(suggestEnabled);
+  const shortcuts = useMemo(
+    () => (suggestEnabled && allCategories ? matchCategories(debounced, allCategories, 3) : []),
+    [suggestEnabled, allCategories, debounced],
+  );
   const { data: hits = [], isFetching } = useQuery<SearchHit[]>({
-    queryKey: ["search-suggest", debounced],
+    queryKey: ["search-suggest", searchText],
     enabled: suggestEnabled,
     staleTime: 60_000,
     placeholderData: (prev) => prev,
     // react-query aborts the previous request when the text changes (signal), so a stale
     // suggestion request never keeps running on the server for text the visitor already left.
     queryFn: async ({ signal }) => {
-      return searchPostersPublic({ data: { q: debounced, limit: 8 }, signal }) as Promise<
+      return searchPostersPublic({ data: { q: searchText, limit: 8 }, signal }) as Promise<
         SearchHit[]
       >;
     },
@@ -286,6 +298,15 @@ export function SearchBox({
 
           {showResults && (
             <div>
+              <CategoryShortcuts
+                categories={shortcuts}
+                onNavigate={() => {
+                  pushRecentSearch(debounced);
+                  setOpen(false);
+                  onNavigate?.();
+                }}
+                compact
+              />
               {isFetching && hits.length === 0 && (
                 <div className="px-3 py-4 text-xs text-muted-foreground">
                   {text("header.searching", "Searching...", "جارٍ البحث...")}

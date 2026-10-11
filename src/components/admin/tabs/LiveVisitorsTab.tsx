@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Globe2, MapPin, Monitor, RefreshCw, Smartphone, Tablet, Users } from "lucide-react";
-import { getLiveVisitorsAdmin, type LiveVisitorsResult } from "@/lib/live-visitors.functions";
+import {
+  Globe2,
+  MapPin,
+  Monitor,
+  RefreshCw,
+  Repeat,
+  Smartphone,
+  Tablet,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import {
+  getLiveVisitorsAdmin,
+  getVisitorInsightsAdmin,
+  type LiveVisitorsResult,
+  type VisitorInsightsResult,
+} from "@/lib/live-visitors.functions";
+import { INSIGHT_RANGES, type InsightDays } from "@/lib/visitor-insights-core";
 import { pageLabel, type Tally } from "@/lib/live-visitors-core";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +101,127 @@ function Breakdown({ title, rows, empty }: { title: string; rows: Tally[]; empty
 }
 
 const DEVICE_ICON = { mobile: Smartphone, tablet: Tablet, desktop: Monitor } as const;
+
+/** Who the visitors are over the last 7 / 30 / 90 days, from the real visit log. */
+function VisitorInsightsPanel({ active }: { active: boolean }) {
+  const [days, setDays] = useState<InsightDays>(30);
+  const [result, setResult] = useState<VisitorInsightsResult | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setResult(null);
+    getVisitorInsightsAdmin({ data: { days } })
+      .then((r) => {
+        if (!cancelled) setResult(r);
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ ok: false, message: "Could not load visitor insights." });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, days]);
+
+  const ins = result?.ok ? result.insights : null;
+  const since = result?.ok && result.trackingSince ? result.trackingSince.slice(0, 10) : null;
+
+  return (
+    <section className="space-y-3" aria-labelledby="visitor-insights-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 id="visitor-insights-title" className="text-display text-xl font-semibold">
+            Visitor insights
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Where visitors come from and how many have been here before
+            {since ? ` (visits recorded since ${since})` : ""}.
+          </p>
+        </div>
+        <div className="flex gap-1" role="group" aria-label="Period">
+          {INSIGHT_RANGES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              aria-pressed={days === d}
+              className={cn(
+                "h-9 rounded-sm border px-3 text-sm",
+                days === d
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              {d} days
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {result && !result.ok && (
+        <div
+          role="alert"
+          className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-300"
+        >
+          {result.message}
+        </div>
+      )}
+      {!result && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      {ins && (
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="Visitors" value={ins.visitors} icon={Users} accent />
+            <Stat label="New" value={ins.newVisitors} icon={UserPlus} />
+            <Stat label="Came back" value={ins.returningVisitors} icon={Repeat} />
+            <div className="rounded-sm border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Repeat className="h-4 w-4" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest">
+                  Returning share
+                </span>
+              </div>
+              <div className="mt-2 text-3xl font-semibold tabular-nums">
+                {ins.visitors ? `${ins.returningPercent}%` : "—"}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            “Came back” = visited before this period, or on more than one day inside it. A visitor
+            is one browser; someone who clears their browser data or switches phone counts again as
+            new.
+          </p>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Breakdown title="Countries" rows={ins.countries} empty="No visits in this period." />
+            <Breakdown title="Cities" rows={ins.cities} empty="No visits in this period." />
+            <Breakdown
+              title="Where returning visitors come from"
+              rows={ins.returningCities}
+              empty="No returning visitors in this period."
+            />
+          </div>
+        </>
+      )}
+
+      <div className="rounded-sm border border-dashed border-border bg-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Age &amp; gender
+          </h4>
+          <span className="rounded-sm bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Not connected
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          A website cannot see a visitor’s age or gender, so no figure is shown here rather than a
+          guess. The real source is Meta Ads: it reports age and gender for the people your ads
+          reach and click. That needs a small addition to the Meta sync.
+        </p>
+      </div>
+    </section>
+  );
+}
 
 export function LiveVisitorsTab({ active = true }: { active?: boolean }) {
   const [windowSeconds, setWindowSeconds] = useState(90);
@@ -271,6 +408,8 @@ export function LiveVisitorsTab({ active = true }: { active?: boolean }) {
       )}
 
       {!snap && !result && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      <VisitorInsightsPanel active={active} />
 
       <p className="text-xs text-muted-foreground">
         Visitor location is approximate and derived from network geolocation. It is not precise GPS

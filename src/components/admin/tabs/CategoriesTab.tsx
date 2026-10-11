@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, ImageOff, MoreHorizontal } from "lucide-react";
+import { Search, ImageOff, MoreHorizontal, Link2 } from "lucide-react";
+import { categoryUrl, copyText } from "@/lib/category-link";
 import {
   listCategoriesAdmin,
   upsertCategory,
@@ -446,6 +447,7 @@ export function CategoriesTab({
                   >
                     Edit
                   </button>
+                  <CopyLinkButton slug={main.slug} name={main.name} />
                   <MoreMenu onDelete={() => remove(main.id)} />
                 </div>
               </div>
@@ -508,6 +510,7 @@ export function CategoriesTab({
                         >
                           Edit
                         </button>
+                        <CopyLinkButton slug={s.slug} name={s.name} />
                         <MoreMenu onDelete={() => remove(s.id)} />
                       </div>
                     </div>
@@ -589,6 +592,25 @@ function StatChips({ stats, compact }: { stats: CategoryStats; compact?: boolean
         <span className="text-warning">★ {stats.best_seller} Best Seller</span>
       )}
     </div>
+  );
+}
+
+/** Copies the collection's own page address (https://brwazwneon.com/category/<slug>) to send to someone. */
+function CopyLinkButton({ slug, name }: { slug: string; name: string }) {
+  return (
+    <button
+      type="button"
+      title="Copy the link to this collection"
+      aria-label={`Copy link to ${name}`}
+      onClick={async () => {
+        const url = categoryUrl(slug);
+        if (await copyText(url)) toast.success(`Link copied: ${url}`);
+        else toast.error("Could not copy. Link: " + url);
+      }}
+      className="rounded-sm border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+    >
+      <Link2 className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

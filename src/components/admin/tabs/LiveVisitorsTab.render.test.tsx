@@ -7,7 +7,10 @@ import { buildLiveSnapshot, type LiveRow } from "@/lib/live-visitors-core";
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fns = vi.hoisted(() => ({ live: vi.fn() }));
-vi.mock("@/lib/live-visitors.functions", () => ({ getLiveVisitorsAdmin: fns.live }));
+vi.mock("@/lib/live-visitors.functions", () => ({
+  getLiveVisitorsAdmin: fns.live,
+  getVisitorInsightsAdmin: async () => ({ ok: false, message: "n/a" }),
+}));
 
 import { LiveVisitorsTab } from "./LiveVisitorsTab";
 
