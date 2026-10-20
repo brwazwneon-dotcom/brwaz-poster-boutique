@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isAdminIdle } from "@/lib/idle-pause";
 import { toast } from "sonner";
 import {
   getSystemHealthAdmin,
@@ -423,7 +424,9 @@ function GeminiKeysStatusSection() {
   const load = async () => setKeys((await getGeminiKeysStatusAdmin()) as GeminiKeyStatusRow[]);
   useEffect(() => {
     load();
-    const id = window.setInterval(load, 15_000);
+    const id = window.setInterval(() => {
+      if (!isAdminIdle()) void load();
+    }, 60_000);
     return () => window.clearInterval(id);
   }, []);
 

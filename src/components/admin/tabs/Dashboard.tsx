@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { installAdminIdlePause } from "@/lib/idle-pause";
 import { adminLogout } from "@/lib/admin-auth-neon.functions";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/layout/AdminSidebar";
@@ -33,6 +34,9 @@ import { BackupCenterTab } from "./BackupCenterTab";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
+  // Leave the admin open overnight without keeping the database awake: after 5 idle minutes every
+  // timed refresh pauses, and the first touch resumes it (see lib/idle-pause.ts).
+  useEffect(() => installAdminIdlePause(), []);
   // Tabs mount lazily on first visit but never unmount again — switching
   // away and back (e.g. to double-check a category while reviewing the
   // upload queue) used to wipe all in-progress local state, most painfully

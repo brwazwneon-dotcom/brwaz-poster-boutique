@@ -17,10 +17,11 @@ import {
   type VisitorInsightsResult,
 } from "@/lib/live-visitors.functions";
 import { INSIGHT_RANGES, type InsightDays } from "@/lib/visitor-insights-core";
+import { ADMIN_IDLE_EVENT, isAdminIdle } from "@/lib/idle-pause";
 import { pageLabel, type Tally } from "@/lib/live-visitors-core";
 import { cn } from "@/lib/utils";
 
-const POLL_MS = 10_000;
+const POLL_MS = 15_000;
 const WINDOWS = [
   { seconds: 60, label: "1 min" },
   { seconds: 90, label: "90 sec" },
@@ -252,12 +253,18 @@ export function LiveVisitorsTab({ active = true }: { active?: boolean }) {
     if (!active) return;
     void load();
     const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === "visible" && !isAdminIdle()) void load();
     }, POLL_MS);
+    // Back from idle: refresh at once.
+    const onIdleChange = (e: Event) => {
+      if (!(e as CustomEvent<{ idle: boolean }>).detail.idle) void load();
+    };
+    window.addEventListener(ADMIN_IDLE_EVENT, onIdleChange);
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     return () => {
       window.clearInterval(poll);
       window.clearInterval(tick);
+      window.removeEventListener(ADMIN_IDLE_EVENT, onIdleChange);
     };
   }, [active, load]);
 
@@ -349,7 +356,7 @@ export function LiveVisitorsTab({ active = true }: { active?: boolean }) {
                 Live visitors
               </h3>
               <span className="text-[11px] text-muted-foreground">
-                updated {ago(elapsed)} · refreshes every 10 sec
+                updated {ago(elapsed)} · refreshes every 15 sec · pauses after 5 idle minutes
               </span>
             </div>
             {snap.visitors.length === 0 ? (

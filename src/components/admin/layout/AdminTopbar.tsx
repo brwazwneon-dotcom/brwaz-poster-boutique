@@ -52,7 +52,7 @@ export function AdminTopbar({
   const { data } = useQuery({
     queryKey: ["admin-order-notifications"],
     queryFn: () => getOrderNotificationsAdmin(),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;

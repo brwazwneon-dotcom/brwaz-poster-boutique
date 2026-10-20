@@ -21,6 +21,23 @@ function shouldSkip(key: string) {
 const sessionCount = new Map<string, number>();
 const MAX_PER_METRIC_PATH = 3;
 
+// The performance beacons are one database write each, from every visitor. A sample tells the
+// same story as all of them, so only about 1 visit in 7 reports (decided once per tab session).
+const SAMPLE_RATE = 0.15;
+function sampledIn(): boolean {
+  try {
+    const k = "brw-perf-sample";
+    let v = sessionStorage.getItem(k);
+    if (v === null) {
+      v = Math.random() < SAMPLE_RATE ? "1" : "0";
+      sessionStorage.setItem(k, v);
+    }
+    return v === "1";
+  } catch {
+    return Math.random() < SAMPLE_RATE;
+  }
+}
+
 function sessionId() {
   try {
     const k = "brw-perf-sid";
@@ -43,6 +60,7 @@ export function recordPerfMetric(
   try {
     if (typeof window === "undefined") return;
     if (!Number.isFinite(valueMs) || valueMs < 0) return;
+    if (!sampledIn()) return;
     // Drop obviously bogus outliers (>2 min) — they distort averages and are
     // usually caused by backgrounded tabs, not real user waits.
     if (valueMs > 120_000) return;

@@ -67,7 +67,7 @@ export function useMaintenanceConfig() {
   return useQuery({
     queryKey: ["maintenance-mode"],
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
     queryFn: async (): Promise<MaintenanceConfig> => {
       const settings = await getSiteSettingsPublic({ data: { keys: [MAINTENANCE_KEY] } });
       return normalizeMaintenance(settings[MAINTENANCE_KEY]);
