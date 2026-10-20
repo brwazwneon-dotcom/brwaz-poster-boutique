@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import { deleteStoredImage, isBlobUrl } from "@/lib/blob.server";
 
 // Public object storage for poster/customer-photo images — replaces Vercel
 // Blob (see image-upload.functions.ts), which suspends the whole storefront's
@@ -25,7 +26,13 @@ export function extractCloudinaryPublicId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+// Called when a poster or image is deleted in the admin. New uploads live in the Blob store (blob.server.ts); the
+// Cloudinary account is disabled, so deleting there is best-effort and silently ignored.
 export async function deleteCloudinaryAsset(url: string): Promise<void> {
+  if (isBlobUrl(url)) {
+    await deleteStoredImage(url);
+    return;
+  }
   const publicId = extractCloudinaryPublicId(url);
   if (!publicId) return;
   await cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {});
