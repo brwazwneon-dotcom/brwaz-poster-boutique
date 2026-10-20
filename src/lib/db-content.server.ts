@@ -222,6 +222,7 @@ export async function fetchEnabledSliderImagesFromDb(): Promise<DbSliderImage[]>
     select id, image_url, title, link_url, sort_order, enabled, webp_srcset, avif_srcset
     from slider_images
     where enabled = true
+      and image_url not like '%res.cloudinary.com%'
     order by sort_order asc
   `;
   return rows as unknown as DbSliderImage[];

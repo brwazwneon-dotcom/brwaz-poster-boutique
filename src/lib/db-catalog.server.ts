@@ -26,7 +26,10 @@ export type Json = string | number | boolean | null | Json[] | { [key: string]: 
 // 'failed'/'broken_source' mean a real upload was attempted and confirmed
 // unrecoverable. None of those three should ever reach a customer. This is
 // a static literal (not user input), safe to splice directly into SQL.
-const VALID_IMAGE_SQL = "migration_status in ('not_applicable', 'migrated')";
+// Posters whose picture still points at the disabled Cloudinary account are kept out of customer lists until their
+// image is restored (they would show an empty frame). Nothing is deleted: the rows stay in the admin.
+const VALID_IMAGE_SQL =
+  "migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'";
 
 export async function fetchCategoriesFromDb(): Promise<Category[]> {
   const rows = await sql()`
@@ -73,7 +76,7 @@ export async function fetchPosterBySlugFromDb(slug: string): Promise<DbPoster | 
            trending_order, pinned, sort_order, created_at, edit_settings,
            seo_title, seo_description, alt_text, webp_srcset, avif_srcset
     from posters
-    where slug = ${slug} and hidden = false and migration_status in ('not_applicable', 'migrated')
+    where slug = ${slug} and hidden = false and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     limit 1
   `;
   return (rows[0] as unknown as DbPoster) ?? null;
@@ -187,7 +190,7 @@ export async function fetchBestSellersFromDb(): Promise<DbBestSellerRow[]> {
     from posters p
     left join categories c on c.id = p.category_id
     where p.is_best_seller = true and p.hidden = false
-      and p.migration_status in ('not_applicable', 'migrated')`;
+      and p.migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'`;
   let rows: unknown[];
   try {
     rows = await sql()(
@@ -249,7 +252,7 @@ export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
              seo_title, seo_description, alt_text
       from posters
       where trending = true and hidden = false
-        and migration_status in ('not_applicable', 'migrated')
+        and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
         and (trending_starts_at is null or trending_starts_at <= now())
         and (trending_ends_at is null or trending_ends_at >= now())
       order by trending_order asc nulls last, created_at desc
@@ -265,7 +268,7 @@ export async function fetchTrendingPostersFromDb(): Promise<DbPoster[]> {
              seo_title, seo_description, alt_text
       from posters
       where trending = true and hidden = false
-        and migration_status in ('not_applicable', 'migrated')
+        and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
       order by trending_order asc nulls last, created_at desc
       limit 100
     `;
@@ -302,7 +305,7 @@ export async function fetchPostersByIdsFromDb(ids: string[]): Promise<PosterById
            webp_srcset, avif_srcset, badge, sales_count, views_count, is_best_seller
     from posters
     where id = any(${ids}) and hidden = false
-      and migration_status in ('not_applicable', 'migrated')
+      and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
   `;
   return rows as unknown as PosterByIdRow[];
 }
@@ -381,7 +384,7 @@ export async function fetchRoomWallPostersFromDb(
       await sql()`
       select id, title, image_url from posters
       where id = ${posterId} and hidden = false and image_url is not null
-        and migration_status in ('not_applicable', 'migrated')
+        and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
       limit 1
     `,
     );
@@ -390,7 +393,7 @@ export async function fetchRoomWallPostersFromDb(
     await sql()`
     select id, title, image_url from posters
     where hidden = false and (is_best_seller = true or trending = true) and image_url is not null
-      and migration_status in ('not_applicable', 'migrated')
+      and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     order by sales_count desc nulls last limit ${limit}
   `,
   );
@@ -399,7 +402,7 @@ export async function fetchRoomWallPostersFromDb(
       await sql()`
       select id, title, image_url from posters
       where hidden = false and image_url is not null
-        and migration_status in ('not_applicable', 'migrated')
+        and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
       order by created_at desc limit ${limit * 2}
     `,
     );
@@ -419,7 +422,7 @@ export async function fetchRoomTransformationArtworkFromDb(
     const rows = await sql()`
       select id, title, image_url from posters
       where id = ${posterId} and hidden = false
-        and migration_status in ('not_applicable', 'migrated')
+        and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
       limit 1
     `;
     const row = rows[0] as RoomArtworkRow | undefined;
@@ -428,14 +431,14 @@ export async function fetchRoomTransformationArtworkFromDb(
   const preferred = await sql()`
     select id, title, image_url from posters
     where hidden = false and (is_best_seller = true or trending = true) and image_url is not null
-      and migration_status in ('not_applicable', 'migrated')
+      and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     order by sales_count desc nulls last limit 1
   `;
   if (preferred[0]) return preferred[0] as RoomArtworkRow;
   const fallback = await sql()`
     select id, title, image_url from posters
     where hidden = false and image_url is not null
-      and migration_status in ('not_applicable', 'migrated')
+      and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     order by created_at desc limit 1
   `;
   return (fallback[0] as RoomArtworkRow) ?? null;
@@ -500,7 +503,7 @@ export async function fetchHomeTrendingCandidatesFromDb(
      from posters p
      left join categories c on c.id = p.category_id
      where p.hidden = false and p.image_url is not null and p.image_url <> ''
-       and p.migration_status in ('not_applicable', 'migrated')
+       and p.migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
        and (p.trending = true or p.is_best_seller = true or p.featured = true or p.id = any($1))
      order by p.trending desc, p.trending_order asc nulls last, p.views_count desc nulls last, p.created_at desc
      limit $2`,
@@ -571,7 +574,7 @@ export async function fetchShowcaseProductsForCategoriesFromDb(
            sales_count, created_at
     from posters
     where category_id = any(${categoryIds}) and hidden = false
-      and migration_status in ('not_applicable', 'migrated')
+      and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     limit 2500
   `;
   return rows as unknown as ShowcaseProductRow[];
@@ -597,7 +600,7 @@ export async function fetchWallOfInspirationPostersFromDb(): Promise<WallOfInspi
     from posters p
     join categories c on c.id = p.category_id
     where p.hidden = false and p.category_id is not null
-      and p.migration_status in ('not_applicable', 'migrated')
+      and p.migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     order by p.featured desc, p.trending desc, p.sales_count desc nulls last,
              p.views_count desc nulls last, p.created_at desc
     limit 72
@@ -804,7 +807,7 @@ export async function fetchRandomVisiblePostersFromDb(
 ): Promise<Array<{ id: string; title: string; image_url: string }>> {
   const rows = await sql()`
     select id, title, image_url from posters
-    where hidden = false and migration_status in ('not_applicable', 'migrated')
+    where hidden = false and migration_status in ('not_applicable', 'migrated') and image_url not like '%res.cloudinary.com%'
     limit ${limit}
   `;
   return rows as unknown as Array<{ id: string; title: string; image_url: string }>;

@@ -243,7 +243,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "192x192", href: `${SITE_URL}/icon-192.png?v=2` },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "preconnect", href: import.meta.env.VITE_SUPABASE_URL || "" },
+      // Poster pictures come from the shop's own image host: open that connection early.
+      { rel: "preconnect", href: "https://brwazwneon-images.vercel.app" },
       { rel: "dns-prefetch", href: "https://analytics.tiktok.com" },
       { rel: "dns-prefetch", href: "https://connect.facebook.net" },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
