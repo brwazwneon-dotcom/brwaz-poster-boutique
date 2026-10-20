@@ -1,10 +1,13 @@
 import { useTranslation } from "react-i18next";
+import { smallPosterUrl } from "@/lib/image-host";
 
 type Variant = "pvc" | "wood" | "photo" | "all";
 
 // Serve Cloudinary uploads at the width they are actually shown, in a modern
 // format, instead of the full-size upload.
 function resizedImageUrl(url: string, width: number): string {
+  const small = smallPosterUrl(url, width);
+  if (small) return small;
   const marker = "/image/upload/";
   const at = url.indexOf(marker);
   if (at === -1 || !url.includes("res.cloudinary.com")) return url;

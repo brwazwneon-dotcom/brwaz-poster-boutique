@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { trackCustom } from "@/lib/meta-pixel";
+import { smallPosterUrl } from "@/lib/image-host";
 
 /** A tap on a homepage collection (its title, "View All" or an image). */
 function trackCategoryClick(slug: string) {
@@ -429,6 +430,8 @@ async function resolveCategoryGridArtwork(
 // stored original stays the fallback if the rendition fails to load.
 const RAIL_IMAGE_WIDTH = 400;
 function railImageUrl(url: string): string {
+  const small = smallPosterUrl(url, RAIL_IMAGE_WIDTH);
+  if (small) return small;
   const marker = "/image/upload/";
   const at = url.indexOf(marker);
   if (at === -1 || !url.includes("res.cloudinary.com")) return url;

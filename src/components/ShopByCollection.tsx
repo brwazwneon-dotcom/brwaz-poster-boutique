@@ -13,6 +13,7 @@ import {
 } from "@/lib/use-categories";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { FramePreview } from "@/components/FramePreview";
+import { smallPosterUrl } from "@/lib/image-host";
 
 export type CoverSource = { key: string; categoryId: string };
 // Admin-curated manual cover selection (collection_showcase_settings /
@@ -472,6 +473,8 @@ export function seedShuffle<T>(arr: T[], seed: number): T[] {
 // that already carry a transform, are left untouched.
 const SHOWCASE_IMAGE_WIDTH = 480;
 function showcaseImageUrl(url: string): string {
+  const small = smallPosterUrl(url, SHOWCASE_IMAGE_WIDTH);
+  if (small) return small;
   const marker = "/image/upload/";
   const at = url.indexOf(marker);
   if (at === -1 || !url.includes("res.cloudinary.com")) return url;

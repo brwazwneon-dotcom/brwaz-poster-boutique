@@ -11,6 +11,7 @@ import {
 } from "@/lib/room-transformation";
 import { WALL_LAYOUTS } from "@/lib/room-wall-layouts";
 import { priceForFrame, usePricing } from "@/lib/use-settings";
+import { smallPosterUrl } from "@/lib/image-host";
 import "./room-wall.css";
 
 const BUNDLE_KEY = "bundle-6-20x30";
@@ -18,6 +19,8 @@ const BUNDLE_KEY_4 = "bundle-4-30x40";
 
 // Serve Cloudinary uploads at the size they are shown, in a modern format.
 function thumb(url: string, width: number): string {
+  const small = smallPosterUrl(url, width);
+  if (small) return small;
   const marker = "/image/upload/";
   const at = url.indexOf(marker);
   if (at === -1 || !url.includes("res.cloudinary.com")) return url;
