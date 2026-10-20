@@ -15,6 +15,7 @@ import { getRouterI18n } from "@/lib/request-i18n";
 
 import appCss from "../styles.css?url";
 import { logSystemEvent } from "../lib/error-logger";
+import { isChunkLoadError, reloadOnceForChunkError } from "@/lib/chunk-recovery";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CartProvider } from "@/lib/cart";
@@ -118,6 +119,10 @@ function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () 
   console.error(error);
   const router = useRouter();
   const { t } = useTranslation();
+  // A script file that vanished after an update (or never arrived): load the page again, once.
+  useEffect(() => {
+    if (isChunkLoadError(error)) reloadOnceForChunkError();
+  }, [error]);
   useEffect(() => {
     logSystemEvent({
       level: "error",
