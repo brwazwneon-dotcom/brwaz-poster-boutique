@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import hero from "@/assets/hero.jpg";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { heroBannersQueryOptions } from "@/lib/hero-banners";
+import { homeSliderQueryOptions } from "@/lib/home-slider";
 import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
 import { LazyOnView } from "@/components/LazyOnView";
@@ -80,9 +81,17 @@ export const Route = createFileRoute("/")({
     const banners = context.queryClient
       .ensureQueryData(heroBannersQueryOptions)
       .catch(() => undefined);
-    if (typeof window === "undefined") await banners;
+    // Same for the main slider: its first slide is in the HTML and its picture is preloaded (see head()).
+    const slider = context.queryClient
+      .ensureQueryData(homeSliderQueryOptions)
+      .catch(() => undefined);
+    if (typeof window === "undefined") {
+      const [, slides] = await Promise.all([banners, slider]);
+      return { firstSlide: slides?.[0] ?? null };
+    }
+    return { firstSlide: null };
   },
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { title: "BRWAZWNEON — Premium Framed Posters & Custom Design | مصر" },
       {
@@ -101,7 +110,24 @@ export const Route = createFileRoute("/")({
     // <img fetchPriority="high"> in HeroBannerSection is preloaded by React
     // itself whenever it is actually server-rendered, so it stays fast when
     // it really is the hero.
-    links: [{ rel: "canonical", href: "https://brwazwneon.com/" }],
+    links: [
+      { rel: "canonical", href: "https://brwazwneon.com/" },
+      // The first slide's picture starts downloading with the page. Only when the slider will pick the WebP
+      // candidates (no AVIF source in front of them), with the same `sizes` the slider gives its picture.
+      ...(loaderData?.firstSlide?.webp_srcset && !loaderData.firstSlide.avif_srcset
+        ? [
+            {
+              rel: "preload",
+              as: "image",
+              type: "image/webp",
+              href: loaderData.firstSlide.image_url,
+              imageSrcSet: loaderData.firstSlide.webp_srcset,
+              imageSizes: "100vw",
+              fetchPriority: "high" as const,
+            },
+          ]
+        : []),
+    ],
   }),
   component: Index,
 });

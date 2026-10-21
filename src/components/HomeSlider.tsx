@@ -2,27 +2,12 @@ import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/SafeImage";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getSliderImagesPublic } from "@/lib/db-public.functions";
+import { homeSliderQueryOptions } from "@/lib/home-slider";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
-type Slide = {
-  id: string;
-  image_url: string;
-  title: string | null;
-  link_url: string | null;
-  webp_srcset: string | null;
-  avif_srcset: string | null;
-};
 
 export function HomepageSlider() {
   const { t } = useTranslation();
-  const { data: slides = [], isPending } = useQuery({
-    queryKey: ["homepage-slider"],
-    staleTime: 60_000,
-    queryFn: async () => {
-      return getSliderImagesPublic() as Promise<Slide[]>;
-    },
-  });
+  const { data: slides = [], isPending } = useQuery(homeSliderQueryOptions);
 
   const [idx, setIdx] = useState(0);
   // Slides whose image is mounted (SafeImage starts downloading on mount).
