@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { edgeCache } from "@/lib/edge-cache";
 import { createKeyBatcher } from "@/lib/rpc-batch";
 import {
   fetchApprovedReviewsFromDb,
@@ -64,6 +65,7 @@ import type { Category } from "@/lib/use-categories";
 
 export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(
   async (): Promise<Category[]> => {
+    edgeCache(60, 600);
     return fetchCategoriesFromDb();
   },
 );
@@ -71,6 +73,7 @@ export const getCategoriesPublic = createServerFn({ method: "GET" }).handler(
 export const getPosterBySlugPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { slug: string }).slug)
   .handler(async ({ data: slug }) => {
+    edgeCache(60, 600);
     return fetchPosterBySlugFromDb(slug);
   });
 
@@ -85,6 +88,7 @@ export const getPostersByCategoryPublic = createServerFn({ method: "GET" })
       },
   )
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchPostersByCategoryFromDb(data.categoryIds, {
       offset: data.offset,
       limit: data.limit,
@@ -93,18 +97,21 @@ export const getPostersByCategoryPublic = createServerFn({ method: "GET" })
   });
 
 export const getTrendingPostersPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchTrendingPostersFromDb();
 });
 
 export const getPosterImagesByIdsPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { ids: string[] }).ids)
   .handler(async ({ data: ids }) => {
+    edgeCache(60, 600);
     return fetchPosterImagesByIdsFromDb(ids);
   });
 
 const getSiteSettingsPublicRpc = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { keys: string[] }).keys)
   .handler(async ({ data: keys }) => {
+    edgeCache(15, 120);
     return fetchSiteSettingsFromDb(keys);
   });
 
@@ -117,52 +124,63 @@ export const getSiteSettingsPublic = (args: { data: { keys: string[] } }) =>
   batchedSiteSettings(args.data.keys);
 
 export const getHeroBannersPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledHeroBannersFromDb();
 });
 
 export const getPhotoAlbumsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledPhotoAlbumsFromDb();
 });
 
 export const getHighlightsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledHighlightsFromDb();
 });
 
 export const getSliderImagesPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledSliderImagesFromDb();
 });
 
 export const getSetsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledSetsFromDb();
 });
 
 export const getDualCategorySectionsPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledDualCategorySectionsFromDb();
 });
 
 export const getCustomOffersPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchEnabledCustomOffersFromDb();
 });
 
 export const getBeforeAfterPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { location: string }).location)
   .handler(async ({ data: location }) => {
+    edgeCache(60, 600);
     return fetchActiveBeforeAfterFromDb(location);
   });
 
 export const getPosterImagesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { posterId: string }).posterId)
   .handler(async ({ data: posterId }) => {
+    edgeCache(60, 600);
     return fetchPosterImagesFromDb(posterId);
   });
 
 export const getLandingBundlePublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { audience: string }).audience)
   .handler(async ({ data: audience }) => {
+    edgeCache(60, 600);
     return fetchLandingBundleFromDb(audience);
   });
 
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
   return fetchBestSellersFromDb();
 });
 
@@ -171,12 +189,14 @@ export const getApprovedReviewsPublic = createServerFn({ method: "GET" })
     (data: unknown) => (data as { posterId?: string | null; limit?: number } | undefined) ?? {},
   )
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchApprovedReviewsFromDb(data.posterId ?? null, data.limit ?? 20);
   });
 
 export const getPostersByIdsPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { ids: string[] }).ids)
   .handler(async ({ data: ids }) => {
+    edgeCache(60, 600);
     return fetchPostersByIdsFromDb(ids);
   });
 
@@ -407,12 +427,14 @@ export const logPerfMetricPublic = createServerFn({ method: "POST" })
 export const getHomeTrendingCandidatesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => data as { manualIds: string[]; limit: number })
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchHomeTrendingCandidatesFromDb(data.manualIds, data.limit);
   });
 
 export const getShowcaseProductsForCategoriesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { categoryIds: string[] }).categoryIds)
   .handler(async ({ data: categoryIds }) => {
+    edgeCache(60, 600);
     return fetchShowcaseProductsForCategoriesFromDb(categoryIds);
   });
 
@@ -422,6 +444,7 @@ export const getRelatedPostersPublic = createServerFn({ method: "GET" })
       data as { posterId: string; categoryIds: string[]; tags: string[]; words: string[] },
   )
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchRelatedPostersFromDb(data.posterId, data.categoryIds, data.tags, data.words);
   });
 
@@ -436,12 +459,14 @@ export const searchPostersPublic = createServerFn({ method: "GET" })
     return { q, limit };
   })
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchSearchPostersFromDb(data.q, data.limit);
   });
 
 export const getTrendingSearchesPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
   .handler(async ({ data }) => {
+    edgeCache(120, 600);
     return fetchTrendingSearchesFromDb(Math.min(20, Math.max(1, Math.floor(data.limit ?? 8) || 8)));
   });
 
@@ -460,6 +485,7 @@ export const getRoomTransformationArtworkPublic = createServerFn({ method: "GET"
     (data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null },
   )
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchRoomTransformationArtworkFromDb(data.posterId);
   });
 
@@ -469,6 +495,7 @@ export const getRoomWallPostersPublic = createServerFn({ method: "GET" })
     (data: unknown) => (data as { posterId: string | null } | undefined) ?? { posterId: null },
   )
   .handler(async ({ data }) => {
+    edgeCache(60, 600);
     return fetchRoomWallPostersFromDb(data.posterId, 6);
   });
 
