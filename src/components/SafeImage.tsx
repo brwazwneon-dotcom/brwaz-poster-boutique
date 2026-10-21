@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
 import { enqueueImageLoad, waitForResponsiveHold } from "@/lib/image-loader-queue";
 
+// A dropped connection (flaky mobile data, a reset TLS stream) fails an image once and the browser never tries
+// again, which used to leave the empty-frame placeholder on the page for good. Failures are retried on a
+// back-off before the placeholder is accepted.
+const RETRY_DELAYS_MS = [1500, 4000, 9000];
+
 type Props = React.ImgHTMLAttributes<HTMLImageElement> & {
   avifSrcSet?: string;
   webpSrcSet?: string;
@@ -26,7 +31,13 @@ export function SafeImage({
   // `src` automatically starts over from the primary URL.
   const [retry, setRetry] = useState<{ for: string | undefined; url: string } | null>(null);
   const displaySrc = retry && retry.for === src ? retry.url : src;
-  const key = displaySrc ?? "";
+  // Which whole-cycle retry (primary, then fallback) we are on; a new `src` starts at 0.
+  const [tries, setTries] = useState<{ for: string | undefined; n: number }>({
+    for: undefined,
+    n: 0,
+  });
+  const attempt = tries.for === src ? tries.n : 0;
+  const key = `${displaySrc ?? ""}#${attempt}`;
   // Load state is recorded per URL, so a new src is "not loaded" in the very
   // render it arrives in — a plain boolean still said "loaded" for one commit
   // and briefly rendered the new image eagerly, bypassing lazy loading.
@@ -46,13 +57,31 @@ export function SafeImage({
   const nativeReady = readyFor === key;
   const mountedRef = useRef(true);
   const signalRef = useRef<AbortController | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, []);
+
+  // Every URL of this image failed: wait, then start over from the primary URL; give up (placeholder) only
+  // after the last delay.
+  const failOrRetry = useCallback(() => {
+    if (attempt >= RETRY_DELAYS_MS.length) {
+      setErroredFor(key);
+      return;
+    }
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      if (!mountedRef.current) return;
+      setRetry(null);
+      setTries({ for: src, n: attempt + 1 });
+    }, RETRY_DELAYS_MS[attempt]);
+  }, [attempt, key, src]);
 
   useEffect(() => {
     if (!displaySrc || displaySrc === IMAGE_FALLBACK) return;
@@ -70,10 +99,10 @@ export function SafeImage({
 
     if (nativeLazy) {
       if (responsive) {
-        setReadyFor(displaySrc);
+        setReadyFor(key);
       } else {
         void waitForResponsiveHold(ac.signal).then(() => {
-          if (mountedRef.current && !ac.signal.aborted) setReadyFor(displaySrc);
+          if (mountedRef.current && !ac.signal.aborted) setReadyFor(key);
         });
       }
       return () => {
@@ -86,19 +115,28 @@ export function SafeImage({
     })
       .then(() => {
         if (mountedRef.current && !ac.signal.aborted) {
-          setLoadedFor(displaySrc);
+          setLoadedFor(key);
         }
       })
       .catch(() => {
-        if (mountedRef.current && !ac.signal.aborted) {
-          setErroredFor(displaySrc);
-        }
+        if (mountedRef.current && !ac.signal.aborted) failOrRetry();
       });
 
     return () => {
       ac.abort();
     };
-  }, [displaySrc, src, fallbackSrc, avifSrcSet, webpSrcSet, sizes, fetchPriority, nativeLazy]);
+  }, [
+    displaySrc,
+    key,
+    src,
+    fallbackSrc,
+    avifSrcSet,
+    webpSrcSet,
+    sizes,
+    fetchPriority,
+    nativeLazy,
+    failOrRetry,
+  ]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -107,11 +145,11 @@ export function SafeImage({
       if (displaySrc === src && fallbackSrc && fallbackSrc !== src) {
         setRetry({ for: src, url: fallbackSrc });
       } else {
-        setErroredFor(key);
+        failOrRetry();
       }
       onError?.(e);
     },
-    [displaySrc, key, fallbackSrc, src, onError],
+    [displaySrc, fallbackSrc, src, onError, failOrRetry],
   );
 
   const pending = !loaded && !errored && !!displaySrc && displaySrc !== IMAGE_FALLBACK;
@@ -134,6 +172,7 @@ export function SafeImage({
 
   const img = (
     <img
+      key={attempt}
       {...rest}
       style={pending ? { ...style, opacity: 0 } : style}
       src={errored || !displaySrc ? IMAGE_FALLBACK : displaySrc}
@@ -156,7 +195,7 @@ export function SafeImage({
     (!avifSrcSet && !webpSrcSet) || displaySrc !== src || errored ? (
       img
     ) : (
-      <picture className="contents">
+      <picture key={attempt} className="contents">
         {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
         {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
         {img}
