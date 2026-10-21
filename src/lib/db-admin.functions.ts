@@ -1573,7 +1573,10 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
                coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key,
                coalesce((select t.stage = 'admin_done' from order_timeline t
                          where t.order_id = orders.id and t.stage in ('admin_done', 'admin_undone')
-                         order by t.created_at desc limit 1), false) as admin_done
+                         order by t.created_at desc limit 1), false) as admin_done,
+               coalesce((select t.stage = 'admin_archived' from order_timeline t
+                         where t.order_id = orders.id and t.stage in ('admin_archived', 'admin_unarchived')
+                         order by t.created_at desc limit 1), false) as admin_archived
         from orders where status = ${data.status} and is_test = false
         order by created_at desc, order_number limit 300
       `;
@@ -1587,7 +1590,10 @@ export const listOrdersAdmin = createServerFn({ method: "GET" })
              coalesce(customer_id::text, phone) || '|' || created_at::text as checkout_key,
                coalesce((select t.stage = 'admin_done' from order_timeline t
                          where t.order_id = orders.id and t.stage in ('admin_done', 'admin_undone')
-                         order by t.created_at desc limit 1), false) as admin_done
+                         order by t.created_at desc limit 1), false) as admin_done,
+               coalesce((select t.stage = 'admin_archived' from order_timeline t
+                         where t.order_id = orders.id and t.stage in ('admin_archived', 'admin_unarchived')
+                         order by t.created_at desc limit 1), false) as admin_archived
       from orders where is_test = false
       order by created_at desc, order_number limit 300
     `;
@@ -1615,6 +1621,74 @@ export const setOrdersDoneAdmin = createServerFn({ method: "POST" })
       from unnest(${data.ids}::uuid[]) as id
     `;
     return { ok: true as const };
+  });
+
+// "Archive" an order (one checkout = all its rows): the same kind of timeline event as DONE, newest wins, so it can be
+// restored. The order stays exactly as it is (it still counts in revenue and reports); it only leaves the working list.
+export const setOrdersArchivedAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => {
+    const d = data as { ids?: unknown; archived?: unknown };
+    const ids = Array.isArray(d?.ids) ? d.ids.map(String) : [];
+    if (ids.length === 0 || ids.length > 100 || ids.some((id) => !DONE_UUID_RE.test(id))) {
+      throw new Error("ids must be 1-100 order ids");
+    }
+    return { ids, archived: d.archived === true };
+  })
+  .handler(async ({ data }) => {
+    const stage = data.archived ? "admin_archived" : "admin_unarchived";
+    await sql()`
+      insert into order_timeline (order_id, stage, status, actor)
+      select id, ${stage}, 'completed', 'admin'
+      from unnest(${data.ids}::uuid[]) as id
+    `;
+    return { ok: true as const };
+  });
+
+// Permanently deletes an order (all rows of one checkout) and the photo-print order placed with it. Before anything is
+// deleted, a full copy of every row (order, notes, timeline, photo order) is written to the system log, and the delete
+// is refused if that copy cannot be saved, so a mistaken delete can be restored by hand.
+export const deleteOrdersAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => {
+    const d = data as { ids?: unknown; photoOrderIds?: unknown };
+    const ids = Array.isArray(d?.ids) ? d.ids.map(String) : [];
+    const photoOrderIds = Array.isArray(d?.photoOrderIds) ? d.photoOrderIds.map(String) : [];
+    if (ids.length === 0 || ids.length > 100 || ids.some((id) => !DONE_UUID_RE.test(id))) {
+      throw new Error("ids must be 1-100 order ids");
+    }
+    if (photoOrderIds.length > 100 || photoOrderIds.some((id) => !DONE_UUID_RE.test(id))) {
+      throw new Error("invalid photo order ids");
+    }
+    return { ids, photoOrderIds };
+  })
+  .handler(async ({ data }) => {
+    const client = sql();
+    const [orders, notes, timeline, photos] = await Promise.all([
+      client`select * from orders where id = any(${data.ids}::uuid[])`,
+      client`select * from order_notes where order_id = any(${data.ids}::uuid[])`,
+      client`select * from order_timeline where order_id = any(${data.ids}::uuid[])`,
+      data.photoOrderIds.length
+        ? client`select * from photo_4x6_orders where id = any(${data.photoOrderIds}::uuid[])`
+        : Promise.resolve([]),
+    ]);
+    if (orders.length === 0) throw new Error("Order not found");
+    const { logSystemEventToDb } = await import("@/lib/db-content.server");
+    const numbers = [...orders, ...photos]
+      .map((r) => (r as { order_number?: string }).order_number)
+      .filter(Boolean);
+    await logSystemEventToDb({
+      level: "info",
+      source: "admin",
+      category: "order_deleted",
+      message: `Deleted order ${numbers.join(", ")}`,
+      metadata: { orders, order_notes: notes, order_timeline: timeline, photo_4x6_orders: photos },
+    });
+    await client`delete from orders where id = any(${data.ids}::uuid[])`;
+    if (data.photoOrderIds.length) {
+      await client`delete from photo_4x6_orders where id = any(${data.photoOrderIds}::uuid[])`;
+    }
+    return { ok: true as const, deleted: orders.length, deletedPhotoOrders: photos.length };
   });
 
 const VALID_ORDER_STATUSES = new Set([

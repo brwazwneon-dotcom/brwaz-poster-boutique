@@ -6,12 +6,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const fns = vi.hoisted(() => ({ list: vi.fn(), done: vi.fn() }));
+const fns = vi.hoisted(() => ({
+  list: vi.fn(),
+  done: vi.fn(),
+  archive: vi.fn(),
+  remove: vi.fn(),
+  confirm: vi.fn(),
+}));
 vi.mock("@/lib/db-admin.functions", () => ({
   listOrdersAdmin: fns.list,
   listCheckoutPhotoOrdersAdmin: vi.fn().mockResolvedValue([]),
   updateOrderStatus: vi.fn(),
   setOrdersDoneAdmin: fns.done,
+  setOrdersArchivedAdmin: fns.archive,
+  deleteOrdersAdmin: fns.remove,
+}));
+vi.mock("@/components/admin/layout/ConfirmDialogProvider", () => ({
+  useConfirm: () => fns.confirm,
 }));
 vi.mock("./OrderDetailsDrawer", () => ({ OrderDetailsDrawer: () => null }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -73,6 +84,9 @@ beforeEach(async () => {
       order(C, "BRW-0003", "Sara"),
     ]);
   fns.done.mockReset().mockResolvedValue({ ok: true });
+  fns.archive.mockReset().mockResolvedValue({ ok: true });
+  fns.remove.mockReset().mockResolvedValue({ ok: true });
+  fns.confirm.mockReset().mockResolvedValue(true);
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -155,5 +169,54 @@ describe("Orders tab DONE", () => {
     await flush();
     expect(fns.list).toHaveBeenCalledTimes(2);
     expect(rows()[0].className).not.toContain("bg-emerald-500/10");
+  });
+
+  const rowButton = (rowIndex: number, label: RegExp) =>
+    [...rows()[rowIndex].querySelectorAll("button")].find((b) =>
+      label.test(text(b)),
+    ) as HTMLButtonElement;
+
+  it("Archive moves the order into the Archive tab and Restore brings it back", async () => {
+    await act(async () => rowButton(0, /^Archive$/).click());
+    expect(fns.archive.mock.calls[0][0]).toEqual({ data: { ids: [A], archived: true } });
+    expect(rows()).toHaveLength(2);
+    expect(text(tab(/All/))).toContain("(2)");
+    expect(text(tab(/Archive/))).toContain("(1)");
+    await act(async () => tab(/Archive/).click());
+    expect(rows()).toHaveLength(1);
+    expect(text(rows()[0])).toContain("Ahmed");
+    await act(async () => rowButton(0, /^Restore$/).click());
+    expect(fns.archive.mock.calls[1][0]).toEqual({ data: { ids: [A], archived: false } });
+    expect(text(tab(/Archive/))).toContain("(0)");
+  });
+
+  it("Delete asks first, then deletes the whole order and reloads", async () => {
+    await act(async () => rowButton(2, /^Delete$/).click());
+    await flush();
+    expect(fns.confirm).toHaveBeenCalledTimes(1);
+    expect(String(fns.confirm.mock.calls[0][0].description)).toContain("BRW-0003");
+    expect(fns.remove.mock.calls[0][0]).toEqual({ data: { ids: [C], photoOrderIds: [] } });
+    expect(fns.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("Delete does nothing when the confirmation is cancelled", async () => {
+    fns.confirm.mockResolvedValueOnce(false);
+    await act(async () => rowButton(0, /^Delete$/).click());
+    await flush();
+    expect(fns.remove).not.toHaveBeenCalled();
+    expect(rows()).toHaveLength(3);
+  });
+
+  it("bulk Archive and Delete work on the ticked orders", async () => {
+    const boxes = [
+      ...container.querySelectorAll("tbody input[type='checkbox']"),
+    ] as HTMLInputElement[];
+    await act(async () => boxes[0].click());
+    await act(async () => boxes[2].click());
+    const bulk = (re: RegExp) =>
+      [...container.querySelectorAll("button")].find((b) => re.test(text(b))) as HTMLButtonElement;
+    await act(async () => bulk(/^Delete selected \(2\)/).click());
+    await flush();
+    expect(fns.remove.mock.calls[0][0]).toEqual({ data: { ids: [A, C], photoOrderIds: [] } });
   });
 });

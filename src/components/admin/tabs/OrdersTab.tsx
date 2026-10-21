@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  deleteOrdersAdmin,
   listCheckoutPhotoOrdersAdmin,
   listOrdersAdmin,
+  setOrdersArchivedAdmin,
   setOrdersDoneAdmin,
   updateOrderStatus,
 } from "@/lib/db-admin.functions";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { customerWhatsappLink } from "./shared";
 import { OrderDetailsDrawer } from "./OrderDetailsDrawer";
 import { CONFIRMATION_STATUS_LABEL, type ConfirmationStatus } from "@/lib/order-whatsapp";
@@ -37,6 +40,8 @@ export type AdminOrder = {
   confirmation_status: ConfirmationStatus;
   /** Marked DONE by the admin (latest admin_done / admin_undone timeline event). */
   admin_done?: boolean;
+  /** Moved to the archive by the admin (latest admin_archived / admin_unarchived timeline event). */
+  admin_archived?: boolean;
   whatsapp_message: string | null;
   confirmed_at: string | null;
   confirmed_by: string | null;
@@ -136,7 +141,8 @@ export function OrdersTab({
   const [printTarget, setPrintTarget] = useState<OrderGroup[] | null>(null);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
   const [photoOrders, setPhotoOrders] = useState<PhotoOrderLite[]>([]);
-  const [view, setView] = useState<"all" | "todo" | "done">("all");
+  const [view, setView] = useState<"all" | "todo" | "done" | "archive">("all");
+  const confirm = useConfirm();
   const [query, setQuery] = useState("");
 
   const load = async () => {
@@ -181,9 +187,18 @@ export function OrdersTab({
     });
   const allGroups = orders ? groupOrders(orders) : [];
   const isDone = (g: OrderGroup) => g.rows.every((r) => r.admin_done === true);
-  const doneCount = allGroups.filter(isDone).length;
+  const isArchived = (g: OrderGroup) => g.rows.every((r) => r.admin_archived === true);
+  // Archived orders leave the working tabs; they are only listed under "Archive".
+  const archivedCount = allGroups.filter(isArchived).length;
+  const workingGroups = allGroups.filter((g) => !isArchived(g));
+  const doneCount = workingGroups.filter(isDone).length;
   const q = query.trim().toLowerCase();
   const groups = allGroups.filter((g) => {
+    if (view === "archive") {
+      if (!isArchived(g)) return false;
+    } else if (isArchived(g)) {
+      return false;
+    }
     if (view === "todo" && isDone(g)) return false;
     if (view === "done" && !isDone(g)) return false;
     if (!q) return true;
@@ -214,6 +229,55 @@ export function OrdersTab({
       load();
     }
   };
+  // Moves orders into the archive (or back). They leave this list at once; if the save fails the list is reloaded.
+  const setArchived = async (chosen: OrderGroup[], archived: boolean) => {
+    if (chosen.length === 0) return;
+    const ids = chosen.flatMap((g) => g.rows.map((r) => r.id));
+    if (ids.length > 100) {
+      toast.error("Select fewer orders (up to 100 items at a time)");
+      return;
+    }
+    setOrders((prev) =>
+      prev ? prev.map((r) => (ids.includes(r.id) ? { ...r, admin_archived: archived } : r)) : prev,
+    );
+    setSelected(new Set());
+    try {
+      await setOrdersArchivedAdmin({ data: { ids, archived } });
+      toast.success(archived ? "Moved to the archive" : "Restored from the archive");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save");
+      load();
+    }
+  };
+
+  // Permanent delete, after an explicit confirmation. The server keeps a backup copy of every deleted row in the system log.
+  const deleteGroups = async (chosen: OrderGroup[]) => {
+    if (chosen.length === 0) return;
+    const ids = chosen.flatMap((g) => g.rows.map((r) => r.id));
+    const photoIds = chosen.flatMap((g) => photoOrdersForGroup(g, photoOrders).map((p) => p.id));
+    if (ids.length > 100) {
+      toast.error("Select fewer orders (up to 100 items at a time)");
+      return;
+    }
+    const label = chosen.map((g) => checkoutNumberLabel(g.rows)).join(", ");
+    const ok = await confirm({
+      title: chosen.length === 1 ? "Delete this order?" : `Delete ${chosen.length} orders?`,
+      description: `${label} will be deleted permanently, with its notes and history${
+        photoIds.length ? " and the photo-print order placed with it" : ""
+      }. A backup copy of the data is kept in the system log. To keep the order but hide it, use Archive instead.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await deleteOrdersAdmin({ data: { ids, photoOrderIds: photoIds } });
+      toast.success(chosen.length === 1 ? "Order deleted" : `${chosen.length} orders deleted`);
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
+    }
+  };
+  const chosenGroups = () => groups.filter((g) => selected.has(g.key));
   const toggleSelectAll = () => {
     setSelected((prev) =>
       prev.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)),
@@ -293,9 +357,23 @@ export function OrdersTab({
           {groups.length !== orders.length ? ` · ${orders.length} items` : ""}
         </span>
         <button
-          onClick={printSelected}
+          onClick={() => void setArchived(chosenGroups(), view !== "archive")}
           disabled={selected.size === 0}
           className="ml-auto rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {view === "archive" ? "Restore" : "Archive"} selected ({selected.size})
+        </button>
+        <button
+          onClick={() => void deleteGroups(chosenGroups())}
+          disabled={selected.size === 0}
+          className="rounded-sm border border-red-500/60 px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+        >
+          Delete selected ({selected.size})
+        </button>
+        <button
+          onClick={printSelected}
+          disabled={selected.size === 0}
+          className="rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
         >
           Print selected ({selected.size})
         </button>
@@ -314,9 +392,10 @@ export function OrdersTab({
         >
           {(
             [
-              ["all", `All (${allGroups.length})`],
-              ["todo", `To do (${allGroups.length - doneCount})`],
+              ["all", `All (${workingGroups.length})`],
+              ["todo", `To do (${workingGroups.length - doneCount})`],
               ["done", `Done (${doneCount})`],
+              ["archive", `Archive (${archivedCount})`],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -348,7 +427,9 @@ export function OrdersTab({
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">No orders yet.</p>
       ) : groups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No orders match this view.</p>
+        <p className="text-sm text-muted-foreground">
+          {view === "archive" ? "The archive is empty." : "No orders match this view."}
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-left text-sm">
@@ -534,6 +615,22 @@ export function OrdersTab({
                           className="text-xs text-cyan-500 hover:underline"
                         >
                           Print
+                        </button>
+                        <button
+                          onClick={() => void setArchived([g], !isArchived(g))}
+                          className="text-xs text-amber-500 hover:underline"
+                          title={
+                            isArchived(g) ? "Move back to the working list" : "Move to the archive"
+                          }
+                        >
+                          {isArchived(g) ? "Restore" : "Archive"}
+                        </button>
+                        <button
+                          onClick={() => void deleteGroups([g])}
+                          className="text-xs text-red-500 hover:underline"
+                          title="Delete this order permanently"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
