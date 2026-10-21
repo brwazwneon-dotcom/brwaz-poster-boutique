@@ -471,12 +471,17 @@ export const getTrendingSearchesPublic = createServerFn({ method: "GET" })
   });
 
 export const getWallOfInspirationPostersPublic = createServerFn({ method: "GET" }).handler(
-  async () => fetchWallOfInspirationPostersFromDb(),
+  async () => {
+    edgeCache(60, 600);
+    return fetchWallOfInspirationPostersFromDb();
+  },
 );
 
 export const getRandomVisiblePostersPublic = createServerFn({ method: "GET" })
   .validator((data: unknown) => (data as { limit?: number } | undefined) ?? {})
   .handler(async ({ data }) => {
+    // A random pick, shared for a minute: still varies, but is not recomputed for every visitor.
+    edgeCache(60, 600);
     return fetchRandomVisiblePostersFromDb(data.limit ?? 40);
   });
 
