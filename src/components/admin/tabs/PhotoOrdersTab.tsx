@@ -237,7 +237,7 @@ export function PhotoOrdersTab() {
         </button>
       </div>
       <div
-        className="mb-4 inline-flex overflow-hidden rounded-sm border border-border text-xs"
+        className="mb-4 inline-flex max-w-full overflow-x-auto rounded-sm border border-border text-xs"
         role="tablist"
       >
         {(
@@ -273,7 +273,7 @@ export function PhotoOrdersTab() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">

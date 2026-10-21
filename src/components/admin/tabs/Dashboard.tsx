@@ -80,7 +80,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                 switchTab("orders");
               }}
             />
-            <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
+            <div className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8">
               {visitedTabs.has("dashboard") && (
                 <div hidden={tab !== "dashboard"}>
                   <DashboardTab onNavigate={switchTab} />

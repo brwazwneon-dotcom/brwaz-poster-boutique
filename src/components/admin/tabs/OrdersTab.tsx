@@ -9,6 +9,7 @@ import {
   updateOrderStatus,
 } from "@/lib/db-admin.functions";
 import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
+import { useMinWidth } from "@/hooks/use-min-width";
 import { customerWhatsappLink } from "./shared";
 import { OrderDetailsDrawer } from "./OrderDetailsDrawer";
 import { CONFIRMATION_STATUS_LABEL, type ConfirmationStatus } from "@/lib/order-whatsapp";
@@ -143,6 +144,8 @@ export function OrdersTab({
   const [photoOrders, setPhotoOrders] = useState<PhotoOrderLite[]>([]);
   const [view, setView] = useState<"all" | "todo" | "done" | "archive">("all");
   const confirm = useConfirm();
+  // Table on wide screens, one card per order on phones and small windows (no sideways scrolling or zooming out).
+  const wide = useMinWidth(1280);
   const [query, setQuery] = useState("");
 
   const load = async () => {
@@ -337,9 +340,188 @@ export function OrdersTab({
 
   if (orders === null) return <p className="text-sm text-muted-foreground">Loading orders…</p>;
 
+  // The pieces of one order, shared by the table row and the phone card so both always show the same things.
+  const rowParts = (g: OrderGroup) => {
+    const o = g.primary;
+    const done = isDone(g);
+    const proof = g.rows.find((r) => r.payment_screenshot)?.payment_screenshot ?? null;
+    const photosOf = photoOrdersForGroup(g, photoOrders);
+    const photoTotal = photosOf.reduce((n, ph) => n + (Number(ph.total_price) || 0), 0);
+    const shown = g.frames.slice(0, 4);
+    const frameCount = g.frames.reduce((n, r) => n + (Number(r.quantity) || 0), 0);
+    const extraTitles = g.frames.length > 1 ? ` +${g.frames.length - 1} more` : "";
+    const firstTitle = `${g.frames[0]?.poster_title ?? ""}${extraTitles}`;
+    const actionBtn = "text-cyan-500 hover:underline";
+    return {
+      done,
+      checkbox: (
+        <input
+          type="checkbox"
+          checked={selected.has(g.key)}
+          onChange={() => toggleSelected(g.key)}
+        />
+      ),
+      doneButton: (
+        <button
+          type="button"
+          onClick={() => void toggleDone(g)}
+          aria-pressed={done}
+          aria-label={`${done ? "Unmark" : "Mark"} order ${checkoutNumberLabel(g.rows)} as done`}
+          title={done ? "Done - click to undo" : "Mark as done"}
+          className={`inline-flex min-h-[32px] shrink-0 items-center gap-1 rounded-sm border px-2.5 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+            done
+              ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+              : "border-border bg-background text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
+          }`}
+        >
+          {done ? "✓ Done" : "Done"}
+        </button>
+      ),
+      numberBlock: (
+        <>
+          {checkoutNumberLabel(g.rows)}
+          <div className="font-sans text-[10px] text-muted-foreground">
+            {formatOrderDateTime(o.created_at)}
+          </div>
+          {g.rows.length > 1 && (
+            <div className="font-sans text-[10px] text-muted-foreground">{g.rows.length} items</div>
+          )}
+        </>
+      ),
+      thumbs: (
+        <div className="flex shrink-0 -space-x-2">
+          {shown.map((r) =>
+            r.poster_image ? (
+              <a key={r.id} href={r.poster_image} target="_blank" rel="noreferrer">
+                <img
+                  src={r.poster_image}
+                  alt=""
+                  className="h-10 w-10 rounded-sm border border-border object-cover"
+                />
+              </a>
+            ) : (
+              <div
+                key={r.id}
+                className="h-10 w-10 rounded-sm border border-dashed border-border bg-background"
+              />
+            ),
+          )}
+        </div>
+      ),
+      itemsText: (
+        <div className="min-w-0 flex-1">
+          <div className="line-clamp-2 break-words" title={firstTitle}>
+            {firstTitle}
+          </div>
+          <div className="text-muted-foreground">
+            {frameCount} {frameCount === 1 ? "frame" : "frames"}
+            {g.frames[0]
+              ? ` · ${[...new Set(g.frames.map((r) => r.size))].join(" / ")} · ${g.frames[0].frame_type}`
+              : ""}
+            {g.tapeQty > 0 ? ` · + ${g.tapeQty} double-face tape` : ""}
+          </div>
+          {photosOf.map((ph) => (
+            <div key={ph.id} className="text-primary">
+              📷 Photo print: {photoOrderLabel(ph)} · {ph.total_price} EGP
+              {ph.order_number ? ` (${ph.order_number})` : ""}
+            </div>
+          ))}
+        </div>
+      ),
+      customer: (
+        <>
+          <div className="break-words">{o.customer_name}</div>
+          <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+            <span>
+              {o.phone} · {o.governorate}
+            </span>
+            <a
+              href={customerWhatsappLink(o.phone)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-cyan-500 hover:underline"
+              title="Message on WhatsApp"
+            >
+              WA
+            </a>
+          </div>
+        </>
+      ),
+      total: (
+        <>
+          {g.total + photoTotal} EGP
+          {photoTotal > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">
+              incl. {photoTotal} photo print
+            </div>
+          )}
+        </>
+      ),
+      payment: (
+        <>
+          <div>
+            {o.payment_method} / {o.payment_status}
+          </div>
+          {proof?.startsWith("https://") && (
+            <a
+              href={proof}
+              target="_blank"
+              rel="noreferrer"
+              className="text-cyan-500 hover:underline"
+            >
+              View payment proof
+            </a>
+          )}
+        </>
+      ),
+      statusSelect: (
+        <select
+          value={o.status}
+          onChange={(e) => changeStatus(g, e.target.value)}
+          className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
+        >
+          {ORDER_STATUSES.map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+      ),
+      confirmation: (
+        <>
+          {CONFIRMATION_STATUS_LABEL[o.confirmation_status] ?? CONFIRMATION_STATUS_LABEL.not_sent}
+        </>
+      ),
+      actions: (
+        <>
+          <button onClick={() => setDetailsOrderId(o.id)} className={`text-xs ${actionBtn}`}>
+            Details
+          </button>
+          <button onClick={() => setPrintTarget([g])} className={`text-xs ${actionBtn}`}>
+            Print
+          </button>
+          <button
+            onClick={() => void setArchived([g], !isArchived(g))}
+            className="text-xs text-amber-500 hover:underline"
+            title={isArchived(g) ? "Move back to the working list" : "Move to the archive"}
+          >
+            {isArchived(g) ? "Restore" : "Archive"}
+          </button>
+          <button
+            onClick={() => void deleteGroups([g])}
+            className="text-xs text-red-500 hover:underline"
+            title="Delete this order permanently"
+          >
+            Delete
+          </button>
+        </>
+      ),
+    };
+  };
+
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -352,14 +534,14 @@ export function OrdersTab({
             </option>
           ))}
         </select>
-        <span className="text-xs text-muted-foreground">
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           {groups.length} orders
           {groups.length !== orders.length ? ` · ${orders.length} items` : ""}
         </span>
         <button
           onClick={() => void setArchived(chosenGroups(), view !== "archive")}
           disabled={selected.size === 0}
-          className="ml-auto rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+          className="rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50 sm:ml-auto"
         >
           {view === "archive" ? "Restore" : "Archive"} selected ({selected.size})
         </button>
@@ -387,7 +569,7 @@ export function OrdersTab({
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div
-          className="inline-flex overflow-hidden rounded-sm border border-border text-xs"
+          className="inline-flex max-w-full overflow-x-auto rounded-sm border border-border text-xs"
           role="tablist"
         >
           {(
@@ -404,7 +586,7 @@ export function OrdersTab({
               role="tab"
               aria-selected={view === key}
               onClick={() => setView(key)}
-              className={`px-3 py-1.5 font-medium ${
+              className={`whitespace-nowrap px-3 py-1.5 font-medium ${
                 view === key
                   ? key === "done"
                     ? "bg-emerald-600 text-white"
@@ -421,7 +603,7 @@ export function OrdersTab({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search name, phone, order #, poster…"
           aria-label="Search orders"
-          className="w-full max-w-xs rounded-sm border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+          className="w-full rounded-sm border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary sm:max-w-xs"
         />
       </div>
       {orders.length === 0 ? (
@@ -431,215 +613,115 @@ export function OrdersTab({
           {view === "archive" ? "The archive is empty." : "No orders match this view."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={groups.length > 0 && selected.size === groups.length}
-                    onChange={toggleSelectAll}
-                  />
-                </th>
-                <th className="px-3 py-2">Done</th>
-                <th className="px-3 py-2">Order</th>
-                <th className="px-3 py-2">Items</th>
-                <th className="px-3 py-2">Customer</th>
-                <th className="px-3 py-2">Total</th>
-                <th className="px-3 py-2">Payment</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Confirmation</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => {
-                const o = g.primary;
-                const done = isDone(g);
-                const proof = g.rows.find((r) => r.payment_screenshot)?.payment_screenshot ?? null;
-                const photosOf = photoOrdersForGroup(g, photoOrders);
-                const photoTotal = photosOf.reduce((n, ph) => n + (Number(ph.total_price) || 0), 0);
-                const shown = g.frames.slice(0, 4);
-                const frameCount = g.frames.reduce((n, r) => n + (Number(r.quantity) || 0), 0);
-                const extraTitles = g.frames.length > 1 ? ` +${g.frames.length - 1} more` : "";
-                return (
-                  <tr
-                    key={g.key}
-                    className={`border-b border-border last:border-0 ${
-                      done ? "bg-emerald-500/10 shadow-[inset_4px_0_0_0_#10b981]" : ""
-                    }`}
-                  >
-                    <td className="px-3 py-2">
+        <>
+          {wide ? (
+            <div className="overflow-x-auto rounded-sm border border-border">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-2">
                       <input
                         type="checkbox"
-                        checked={selected.has(g.key)}
-                        onChange={() => toggleSelected(g.key)}
+                        checked={groups.length > 0 && selected.size === groups.length}
+                        onChange={toggleSelectAll}
                       />
-                    </td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => void toggleDone(g)}
-                        aria-pressed={done}
-                        aria-label={`${done ? "Unmark" : "Mark"} order ${checkoutNumberLabel(g.rows)} as done`}
-                        title={done ? "Done - click to undo" : "Mark as done"}
-                        className={`inline-flex min-h-[32px] items-center gap-1 rounded-sm border px-2.5 text-[11px] font-bold uppercase tracking-widest transition-colors ${
-                          done
-                            ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-                            : "border-border bg-background text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
+                    </th>
+                    <th className="px-2 py-2">Done</th>
+                    <th className="px-2 py-2">Order</th>
+                    <th className="px-2 py-2">Items</th>
+                    <th className="px-2 py-2">Customer</th>
+                    <th className="px-2 py-2">Total</th>
+                    <th className="px-2 py-2">Payment</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2">Confirmation</th>
+                    <th className="px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g) => {
+                    const p = rowParts(g);
+                    return (
+                      <tr
+                        key={g.key}
+                        className={`border-b border-border align-top last:border-0 ${
+                          p.done ? "bg-emerald-500/10 shadow-[inset_4px_0_0_0_#10b981]" : ""
                         }`}
                       >
-                        {done ? "✓ Done" : "Done"}
-                      </button>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {checkoutNumberLabel(g.rows)}
-                      <div className="font-sans text-[10px] text-muted-foreground">
-                        {formatOrderDateTime(o.created_at)}
-                      </div>
-                      {g.rows.length > 1 && (
-                        <div className="font-sans text-[10px] text-muted-foreground">
-                          {g.rows.length} items
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="flex shrink-0 -space-x-2">
-                          {shown.map((r) =>
-                            r.poster_image ? (
-                              <a key={r.id} href={r.poster_image} target="_blank" rel="noreferrer">
-                                <img
-                                  src={r.poster_image}
-                                  alt=""
-                                  className="h-10 w-10 rounded-sm border border-border object-cover"
-                                />
-                              </a>
-                            ) : (
-                              <div
-                                key={r.id}
-                                className="h-10 w-10 rounded-sm border border-dashed border-border bg-background"
-                              />
-                            ),
-                          )}
-                        </div>
-                        <div>
-                          <div>
-                            {g.frames[0]?.poster_title ?? ""}
-                            {extraTitles}
+                        <td className="px-2 py-2">{p.checkbox}</td>
+                        <td className="px-2 py-2">{p.doneButton}</td>
+                        <td className="px-2 py-2 font-mono text-xs">{p.numberBlock}</td>
+                        <td className="max-w-[320px] px-2 py-2 text-xs">
+                          <div className="flex items-start gap-2">
+                            {p.thumbs}
+                            {p.itemsText}
                           </div>
-                          <div className="text-muted-foreground">
-                            {frameCount} {frameCount === 1 ? "frame" : "frames"}
-                            {g.frames[0]
-                              ? ` · ${[...new Set(g.frames.map((r) => r.size))].join(" / ")} · ${g.frames[0].frame_type}`
-                              : ""}
-                            {g.tapeQty > 0 ? ` · + ${g.tapeQty} double-face tape` : ""}
+                        </td>
+                        <td className="px-2 py-2">{p.customer}</td>
+                        <td className="whitespace-nowrap px-2 py-2 font-medium">{p.total}</td>
+                        <td className="px-2 py-2 text-xs">{p.payment}</td>
+                        <td className="px-2 py-2">{p.statusSelect}</td>
+                        <td className="px-2 py-2 text-[10px]">{p.confirmation}</td>
+                        <td className="px-2 py-2">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            {p.actions}
                           </div>
-                          {photosOf.map((ph) => (
-                            <div key={ph.id} className="text-primary">
-                              📷 Photo print: {photoOrderLabel(ph)} · {ph.total_price} EGP
-                              {ph.order_number ? ` (${ph.order_number})` : ""}
-                            </div>
-                          ))}
-                        </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={groups.length > 0 && selected.size === groups.length}
+                  onChange={toggleSelectAll}
+                />
+                Select all ({groups.length})
+              </label>
+              {groups.map((g) => {
+                const p = rowParts(g);
+                return (
+                  <article
+                    key={g.key}
+                    className={`rounded-sm border bg-card p-3 ${
+                      p.done
+                        ? "border-emerald-500/40 bg-emerald-500/10 shadow-[inset_4px_0_0_0_#10b981]"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-2">
+                        {p.checkbox}
+                        <div className="min-w-0 font-mono text-xs">{p.numberBlock}</div>
                       </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div>{o.customer_name}</div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span>
-                          {o.phone} · {o.governorate}
-                        </span>
-                        <a
-                          href={customerWhatsappLink(o.phone)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-cyan-500 hover:underline"
-                          title="Message on WhatsApp"
-                        >
-                          WA
-                        </a>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 font-medium">
-                      {g.total + photoTotal} EGP
-                      {photoTotal > 0 && (
-                        <div className="text-[10px] font-normal text-muted-foreground">
-                          incl. {photoTotal} photo print
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      <div>
-                        {o.payment_method} / {o.payment_status}
-                      </div>
-                      {proof?.startsWith("https://") && (
-                        <a
-                          href={proof}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-cyan-500 hover:underline"
-                        >
-                          View payment proof
-                        </a>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={o.status}
-                        onChange={(e) => changeStatus(g, e.target.value)}
-                        className="rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                      >
-                        {ORDER_STATUSES.map((st) => (
-                          <option key={st} value={st}>
-                            {st}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2 text-[10px] whitespace-nowrap">
-                      {CONFIRMATION_STATUS_LABEL[o.confirmation_status] ??
-                        CONFIRMATION_STATUS_LABEL.not_sent}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setDetailsOrderId(o.id)}
-                          className="text-xs text-cyan-500 hover:underline"
-                        >
-                          Details
-                        </button>
-                        <button
-                          onClick={() => setPrintTarget([g])}
-                          className="text-xs text-cyan-500 hover:underline"
-                        >
-                          Print
-                        </button>
-                        <button
-                          onClick={() => void setArchived([g], !isArchived(g))}
-                          className="text-xs text-amber-500 hover:underline"
-                          title={
-                            isArchived(g) ? "Move back to the working list" : "Move to the archive"
-                          }
-                        >
-                          {isArchived(g) ? "Restore" : "Archive"}
-                        </button>
-                        <button
-                          onClick={() => void deleteGroups([g])}
-                          className="text-xs text-red-500 hover:underline"
-                          title="Delete this order permanently"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      {p.doneButton}
+                    </div>
+                    <div className="mt-3 flex items-start gap-3 text-xs">
+                      {p.thumbs}
+                      {p.itemsText}
+                    </div>
+                    <div className="mt-3 flex items-start justify-between gap-3 border-t border-border pt-3">
+                      <div className="min-w-0 text-sm">{p.customer}</div>
+                      <div className="shrink-0 text-right text-sm font-semibold">{p.total}</div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
+                      <div>{p.payment}</div>
+                      {p.statusSelect}
+                    </div>
+                    <div className="mt-2 text-[11px] text-muted-foreground">{p.confirmation}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-3 text-sm">
+                      {p.actions}
+                    </div>
+                  </article>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {printTarget && <OrderPackingSlips groups={printTarget} photoOrders={photoOrders} />}
