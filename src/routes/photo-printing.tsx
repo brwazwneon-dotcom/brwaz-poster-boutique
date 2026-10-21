@@ -88,7 +88,7 @@ export const Route = createFileRoute("/photo-printing")({
     // router hands that cache to the browser.
     context.queryClient.setQueryData(
       ["photo-printing-media"],
-      parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY]),
+      parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY], { forStorefront: true }),
     );
     return { content: normalizePhotoPrintingContent(settings[PHOTO_PRINTING_CONTENT_KEY]) };
   },

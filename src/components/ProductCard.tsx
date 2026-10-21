@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IMAGE_FALLBACK } from "@/lib/storage-url";
+import { CARD_IMAGE_SIZES } from "@/lib/card-image-sizes";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { PosterBadge } from "@/components/PosterBadge";
 import { formatCount } from "@/lib/poster-badges";
@@ -54,7 +55,7 @@ export const ProductCard = memo(function ProductCard({
         posterFallbackUrl={fallbackUrl}
         avifSrcSet={product.avifSrcSet ?? undefined}
         webpSrcSet={product.webpSrcSet ?? undefined}
-        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw"
+        sizes={CARD_IMAGE_SIZES}
         title={product.title}
         color={gridMode}
         loading={gridIndex < 4 ? "eager" : "lazy"}

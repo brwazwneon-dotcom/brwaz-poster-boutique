@@ -1,10 +1,11 @@
 import { createFileRoute, Link, Navigate, notFound, useNavigate } from "@tanstack/react-router";
+import { CARD_IMAGE_SIZES } from "@/lib/card-image-sizes";
 import { cartFeedbackActive } from "@/lib/cart-feedback";
 import { Ltr } from "@/components/Ltr";
 import { LiveVisitors, RecentOrdersBadge } from "@/components/SocialProof";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPostersByIdsPublic } from "@/lib/db-public.functions";
+import { getPostersByCategoryPublic, getPostersByIdsPublic } from "@/lib/db-public.functions";
 import { toast } from "sonner";
 import {
   useCategories,
@@ -54,7 +55,8 @@ import { Minus, Plus, Truck, Clock } from "lucide-react";
 import { usePerformanceFlags } from "@/lib/performance-flags";
 import { useTranslation } from "react-i18next";
 import { StickyProductBar, type BarAction } from "@/components/StickyProductBar";
-import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
+import { useInfiniteProducts, type InitialProducts } from "@/hooks/useInfiniteProducts";
+import type { CategorySortKey } from "@/lib/db-catalog.server";
 import { InfiniteProductGrid } from "@/components/InfiniteProductGrid";
 import type { NormalizedProduct } from "@/hooks/useInfiniteProducts";
 
@@ -73,6 +75,8 @@ export type Poster = {
   is_best_seller?: boolean | null;
 };
 
+const SSR_FIRST_PAGE = 12;
+
 type SortKey =
   "newest" | "popular" | "bestselling" | "az" | "manual" | "trending" | "random" | "ai";
 type SortDef = { id: SortKey; label: string; col: string; asc: boolean };
@@ -90,7 +94,7 @@ export const Route = createFileRoute("/category/$slug")({
     const p = typeof search.poster === "string" ? search.poster.trim() : "";
     return /^[A-Za-z0-9-]{8,64}$/.test(p) ? { poster: p } : {};
   },
-  loader: async ({ context }) => {
+  loader: async ({ context, params }) => {
     // Prefetches the categories list server-side so the category this slug
     // resolves to (and its subcategories, for the product filter below) are
     // available in the initial render instead of only after a client round
@@ -113,9 +117,37 @@ export const Route = createFileRoute("/category/$slug")({
       queryFn: fetchCategories,
       staleTime: 60_000,
     });
-    return { categories };
+    // The first page of the grid is fetched here, on the server only, so the posters are in the HTML (and
+    // their pictures can be preloaded) instead of appearing after the scripts have run and a second round
+    // trip to the database. A client-side navigation does not wait: the grid loads itself as before.
+    let initialGrid: InitialProducts | null = null;
+    if (typeof window === "undefined" && params.slug !== "custom") {
+      const category = categories.find((c) => c.slug === params.slug);
+      const ids = category ? descendantIds(categories, category.id) : [];
+      if (category && ids.length > 0) {
+        const sort = category.sort_mode || "newest";
+        try {
+          const rows = await getPostersByCategoryPublic({
+            data: {
+              categoryIds: ids,
+              offset: 0,
+              limit: SSR_FIRST_PAGE,
+              sort: sort as CategorySortKey,
+            },
+          });
+          initialGrid = {
+            key: `category-${category.id}-${sort}-all`,
+            limit: SSR_FIRST_PAGE,
+            rows,
+          };
+        } catch {
+          // The grid then loads on the client like it always did.
+        }
+      }
+    }
+    return { categories, initialGrid };
   },
-  head: ({ params }) => {
+  head: ({ params, loaderData }) => {
     const pretty = params.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const title = `${pretty} Posters — BRWAZWNEON`;
     const description = `Browse our premium framed ${pretty} posters. High-quality prints in PVC and Wooden Portrait frames, delivered across Egypt with cash on delivery.`;
@@ -132,7 +164,23 @@ export const Route = createFileRoute("/category/$slug")({
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
       ],
-      links: [{ rel: "canonical", href: url }],
+      links: [
+        { rel: "canonical", href: url },
+        // The pictures of the first posters start downloading with the page, not after the scripts ran.
+        // Only when the card will pick the WebP candidates (no AVIF source in front of them).
+        ...(loaderData?.initialGrid?.rows ?? [])
+          .filter((r) => r.webp_srcset && !r.avif_srcset && r.image_url)
+          .slice(0, 4)
+          .map((r) => ({
+            rel: "preload",
+            as: "image",
+            type: "image/webp",
+            href: r.image_url as string,
+            imageSrcSet: r.webp_srcset as string,
+            imageSizes: CARD_IMAGE_SIZES,
+            fetchPriority: "high" as const,
+          })),
+      ],
       scripts: [
         {
           type: "application/ld+json",
@@ -181,7 +229,7 @@ function useIsDesktop() {
 function CategoryPage() {
   const { slug } = Route.useParams();
   const isCustomSlug = slug === "custom";
-  const { categories: loaderCategories } = Route.useLoaderData();
+  const { categories: loaderCategories, initialGrid } = Route.useLoaderData();
   // Falls back to the loader's data (identical on server and client — see
   // the loader's own comment) until this client-only query resolves, so
   // the very first client render matches what the server sent instead of
@@ -291,6 +339,7 @@ function CategoryPage() {
     includedCategoryIds,
     { sort },
     `category-${category?.id ?? slug}-${sort}-${activeSubId || "all"}`,
+    initialGrid,
   );
 
   // The active poster always comes from the grid's loaded products, so the

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isDeadImageUrl } from "@/lib/dead-image-hosts";
 import { getSiteSettingsPublic, getPhotoAlbumsPublic } from "@/lib/db-public.functions";
 
 // Frame mockups are served from /public so they work on every host
@@ -501,16 +502,24 @@ const asNumber = (value: unknown, fallback = 0): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export function parsePhotoPrintingMediaConfig(raw: unknown): PhotoPrintingMediaConfig {
+/**
+ * `forStorefront` drops pictures hosted on the disabled Cloudinary account, so customers never see a broken image.
+ * The admin keeps them (default) so they can be replaced.
+ */
+export function parsePhotoPrintingMediaConfig(
+  raw: unknown,
+  opts: { forStorefront?: boolean } = {},
+): PhotoPrintingMediaConfig {
   if (!raw || typeof raw !== "object") return PHOTO_PRINTING_MEDIA_DEFAULTS;
+  const live = (url: string): string => (opts.forStorefront && isDeadImageUrl(url) ? "" : url);
   const value = raw as Partial<PhotoPrintingMediaConfig>;
   const banners = Array.isArray(value.banners)
     ? value.banners
         .map((item, index) => {
           if (!item || typeof item !== "object") return null;
           const b = item as Partial<PhotoPrintingBanner>;
-          const desktopImageUrl = asString(b.desktopImageUrl);
-          const mobileImageUrl = asString(b.mobileImageUrl);
+          const desktopImageUrl = live(asString(b.desktopImageUrl));
+          const mobileImageUrl = live(asString(b.mobileImageUrl));
           if (!desktopImageUrl && !mobileImageUrl) return null;
           return {
             id: asString(b.id) || `banner-${index}`,
@@ -533,7 +542,7 @@ export function parsePhotoPrintingMediaConfig(raw: unknown): PhotoPrintingMediaC
         .map((item, index) => {
           if (!item || typeof item !== "object") return null;
           const image = item as Partial<PhotoPrintingPageImage>;
-          const imageUrl = asString(image.imageUrl);
+          const imageUrl = live(asString(image.imageUrl));
           if (!imageUrl) return null;
           return {
             id: asString(image.id) || `image-${index}`,
@@ -554,7 +563,7 @@ export function parsePhotoPrintingMediaConfig(raw: unknown): PhotoPrintingMediaC
   const rawMaterials = value.materialsImage as
     Partial<PhotoPrintingMaterialsImage> | null | undefined;
   const materialsUrl =
-    rawMaterials && typeof rawMaterials === "object" ? asString(rawMaterials.imageUrl) : "";
+    rawMaterials && typeof rawMaterials === "object" ? live(asString(rawMaterials.imageUrl)) : "";
   const materialsImage = materialsUrl
     ? { imageUrl: materialsUrl, altText: asString(rawMaterials?.altText) }
     : null;
@@ -567,7 +576,9 @@ export function usePhotoPrintingMediaConfig(): PhotoPrintingMediaConfig {
     staleTime: 30_000,
     queryFn: async (): Promise<PhotoPrintingMediaConfig> => {
       const settings = await getSiteSettingsPublic({ data: { keys: [PHOTO_PRINTING_MEDIA_KEY] } });
-      return parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY]);
+      return parsePhotoPrintingMediaConfig(settings[PHOTO_PRINTING_MEDIA_KEY], {
+        forStorefront: true,
+      });
     },
   });
   return q.data ?? PHOTO_PRINTING_MEDIA_DEFAULTS;

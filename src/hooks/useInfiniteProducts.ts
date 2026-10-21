@@ -17,6 +17,28 @@ export type NormalizedProduct = {
   avifSrcSet?: string | null;
 };
 
+export type PosterRow = Awaited<ReturnType<typeof getPostersByCategoryPublic>>[number];
+
+/** The first page of a list, fetched on the server so it is already in the HTML (see the category route loader). */
+export type InitialProducts = { key: string; limit: number; rows: PosterRow[] };
+
+function normalizeRows(rows: PosterRow[]): NormalizedProduct[] {
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    cardArtworkUrl: r.image_url ?? "",
+    fallbackArtworkUrl: r.image_url ?? "",
+    categoryId: r.category_id,
+    badge: r.badge,
+    salesCount: r.sales_count,
+    viewsCount: r.views_count,
+    isBestSeller: r.is_best_seller,
+    image_url: r.image_url,
+    webpSrcSet: r.webp_srcset,
+    avifSrcSet: r.avif_srcset,
+  }));
+}
+
 export type SortConfig = {
   sort: CategorySortKey;
 };
@@ -33,14 +55,22 @@ export function useInfiniteProducts(
   categoryIds: string[],
   sortConfig: SortConfig,
   queryKey: string,
+  initial?: InitialProducts | null,
 ) {
-  const [products, setProducts] = useState<NormalizedProduct[]>([]);
-  const [state, setState] = useState<RequestState>("idle");
+  // A first page that came with the page (server-rendered) for exactly this list: shown at once, and the
+  // first request is skipped.
+  const seed = initial && initial.key === queryKey && initial.rows.length > 0 ? initial : null;
+  const seedState: RequestState = seed && seed.rows.length < seed.limit ? "end" : "idle";
+  const [products, setProducts] = useState<NormalizedProduct[]>(() =>
+    seed ? normalizeRows(seed.rows) : [],
+  );
+  const [state, setState] = useState<RequestState>(seedState);
   const [error, setError] = useState<Error | null>(null);
 
-  const rawOffsetRef = useRef(0);
+  const rawOffsetRef = useRef(seed ? seed.rows.length : 0);
   const loadingRef = useRef(false);
-  const stateRef = useRef<RequestState>("idle");
+  const stateRef = useRef<RequestState>(seedState);
+  const seededKeyRef = useRef<string | null>(seed ? seed.key : null);
   const categoryIdsRef = useRef(categoryIds);
   const sortConfigRef = useRef(sortConfig);
 
@@ -73,20 +103,7 @@ export function useInfiniteProducts(
 
       rawOffsetRef.current = offset + rows.length;
 
-      const normalized: NormalizedProduct[] = rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        cardArtworkUrl: r.image_url ?? "",
-        fallbackArtworkUrl: r.image_url ?? "",
-        categoryId: r.category_id,
-        badge: r.badge,
-        salesCount: r.sales_count,
-        viewsCount: r.views_count,
-        isBestSeller: r.is_best_seller,
-        image_url: r.image_url,
-        webpSrcSet: r.webp_srcset,
-        avifSrcSet: r.avif_srcset,
-      }));
+      const normalized = normalizeRows(rows);
 
       setProducts((prev) => {
         const seen = new Set(prev.map((p) => p.id));
@@ -130,6 +147,11 @@ export function useInfiniteProducts(
   }, [loadOneBatch]);
 
   useEffect(() => {
+    if (seededKeyRef.current === queryKey) {
+      // The list is already on screen from the server: nothing to reset or fetch for this key.
+      seededKeyRef.current = null;
+      return;
+    }
     rawOffsetRef.current = 0;
     setProducts([]);
     setError(null);
