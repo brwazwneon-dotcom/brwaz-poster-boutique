@@ -12,12 +12,18 @@ const fns = vi.hoisted(() => ({
   load: vi.fn(),
   blob: vi.fn(),
   confirm: vi.fn(),
+  archive: vi.fn(),
+  remove: vi.fn(),
+  ask: vi.fn(),
 }));
 vi.mock("@/lib/db-admin.functions", () => ({
   listPhotoOrdersAdmin: fns.list,
   updatePhotoOrderStatus: vi.fn(),
   setPhotoOrderConfirmationAdmin: fns.confirm,
+  setPhotoOrdersArchivedAdmin: fns.archive,
+  deletePhotoOrdersAdmin: fns.remove,
 }));
+vi.mock("@/components/admin/layout/ConfirmDialogProvider", () => ({ useConfirm: () => fns.ask }));
 vi.mock("@/lib/order-invoice-render", () => ({
   loadPhotoSheetImages: fns.load,
   renderPhotoSheetBlob: fns.render,
@@ -60,6 +66,9 @@ beforeEach(async () => {
   fns.render.mockReset().mockResolvedValue(new Blob(["x"], { type: "image/png" }));
   fns.blob.mockReset();
   fns.confirm.mockReset().mockResolvedValue({ ok: true });
+  fns.archive.mockReset().mockResolvedValue({ ok: true });
+  fns.remove.mockReset().mockResolvedValue({ ok: true });
+  fns.ask.mockReset().mockResolvedValue(true);
   (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => "blob:p";
   (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => {};
   container = document.createElement("div");
@@ -157,5 +166,48 @@ describe("Photo order confirmation state", () => {
     await flush();
     expect(fns.list).toHaveBeenCalledTimes(2);
     expect(badge()).toContain("NOT SENT");
+  });
+});
+
+describe("Photo orders archive and delete", () => {
+  const button = (label: RegExp) =>
+    [...container.querySelectorAll("button")].find((b) =>
+      label.test(b.textContent ?? ""),
+    ) as HTMLButtonElement;
+  const tab = (label: RegExp) =>
+    [...container.querySelectorAll("[role='tab']")].find((t) =>
+      label.test(t.textContent ?? ""),
+    ) as HTMLElement;
+  const rowCount = () => container.querySelectorAll("tbody tr").length;
+
+  it("Archive moves the order to the Archive tab and Restore brings it back", async () => {
+    expect(rowCount()).toBe(1);
+    await act(async () => button(/^Archive$/).click());
+    expect(fns.archive.mock.calls[0][0]).toEqual({
+      data: { items: [{ id: order.id, kind: "photo_4x6" }], archived: true },
+    });
+    expect(rowCount()).toBe(0);
+    expect(tab(/Archive/).textContent).toContain("(1)");
+    await act(async () => tab(/Archive/).click());
+    expect(rowCount()).toBe(1);
+    await act(async () => button(/^Restore$/).click());
+    expect(fns.archive.mock.calls[1][0]).toEqual({
+      data: { items: [{ id: order.id, kind: "photo_4x6" }], archived: false },
+    });
+    expect(tab(/Archive/).textContent).toContain("(0)");
+  });
+
+  it("Delete asks first, then deletes and reloads; cancelling does nothing", async () => {
+    fns.ask.mockResolvedValueOnce(false);
+    await act(async () => button(/^Delete$/).click());
+    await flush();
+    expect(fns.remove).not.toHaveBeenCalled();
+    await act(async () => button(/^Delete$/).click());
+    await flush();
+    expect(String(fns.ask.mock.calls[1][0].description)).toContain("BRW-1150");
+    expect(fns.remove.mock.calls[0][0]).toEqual({
+      data: { items: [{ id: order.id, kind: "photo_4x6" }] },
+    });
+    expect(fns.list).toHaveBeenCalledTimes(2);
   });
 });

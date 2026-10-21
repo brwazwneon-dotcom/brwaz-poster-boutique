@@ -1846,9 +1846,104 @@ export const listPhotoOrdersAdmin = createServerFn({ method: "GET" })
       };
     });
 
-    return [...p4x6Rows, ...photoRows].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
+    const archived = await readPhotoOrderArchive().catch(() => new Set<string>());
+    return [...p4x6Rows, ...photoRows]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .map((r) => ({ ...r, admin_archived: archived.has(`${r.kind}:${r.id}`) }));
+  });
+
+// Archive for photo orders. These two tables have no timeline to hang a mark on, so the archived orders are kept as a
+// list of "<kind>:<id>" entries in one site_settings row (no schema change). The order rows themselves are untouched.
+const PHOTO_ARCHIVE_KEY = "photo_orders_archive";
+async function readPhotoOrderArchive(): Promise<Set<string>> {
+  const rows = await sql()`select value from site_settings where key = ${PHOTO_ARCHIVE_KEY}`;
+  const items = (rows[0]?.value as { items?: unknown } | undefined)?.items;
+  return new Set(
+    Array.isArray(items) ? items.filter((x): x is string => typeof x === "string") : [],
+  );
+}
+async function writePhotoOrderArchive(set: Set<string>): Promise<void> {
+  const value = JSON.stringify({ items: [...set] });
+  await sql()`
+    insert into site_settings (key, value) values (${PHOTO_ARCHIVE_KEY}, ${value}::jsonb)
+    on conflict (key) do update set value = excluded.value, updated_at = now()
+  `;
+}
+const PHOTO_KINDS = new Set(["photo_4x6", "photo_printing"]);
+function parsePhotoItems(
+  data: unknown,
+): Array<{ id: string; kind: "photo_4x6" | "photo_printing" }> {
+  const raw = (data as { items?: unknown })?.items;
+  const items = Array.isArray(raw) ? raw : [];
+  if (items.length === 0 || items.length > 100) throw new Error("items must be 1-100 photo orders");
+  return items.map((it) => {
+    const { id, kind } = it as { id?: unknown; kind?: unknown };
+    if (
+      typeof id !== "string" ||
+      !DONE_UUID_RE.test(id) ||
+      typeof kind !== "string" ||
+      !PHOTO_KINDS.has(kind)
+    ) {
+      throw new Error("invalid photo order");
+    }
+    return { id, kind: kind as "photo_4x6" | "photo_printing" };
+  });
+}
+
+export const setPhotoOrdersArchivedAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => ({
+    items: parsePhotoItems(data),
+    archived: (data as { archived?: unknown }).archived === true,
+  }))
+  .handler(async ({ data }) => {
+    const set = await readPhotoOrderArchive();
+    for (const it of data.items) {
+      const key = `${it.kind}:${it.id}`;
+      if (data.archived) set.add(key);
+      else set.delete(key);
+    }
+    await writePhotoOrderArchive(set);
+    return { ok: true as const };
+  });
+
+// Permanently deletes photo orders. A full copy of every row goes to the system log first, and the delete is refused
+// if that copy cannot be saved. (The customer's uploaded photo files in storage are left alone.)
+export const deletePhotoOrdersAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminSessionNeon])
+  .validator((data: unknown) => ({ items: parsePhotoItems(data) }))
+  .handler(async ({ data }) => {
+    const client = sql();
+    const ids4x6 = data.items.filter((i) => i.kind === "photo_4x6").map((i) => i.id);
+    const idsPrint = data.items.filter((i) => i.kind === "photo_printing").map((i) => i.id);
+    const [rows4x6, rowsPrint] = await Promise.all([
+      ids4x6.length
+        ? client`select * from photo_4x6_orders where id = any(${ids4x6}::uuid[])`
+        : Promise.resolve([]),
+      idsPrint.length
+        ? client`select * from photo_orders where id = any(${idsPrint}::uuid[])`
+        : Promise.resolve([]),
+    ]);
+    if (rows4x6.length + rowsPrint.length === 0) throw new Error("Photo order not found");
+    const { logSystemEventToDb } = await import("@/lib/db-content.server");
+    const numbers = [...rows4x6, ...rowsPrint]
+      .map((r) => (r as { order_number?: string }).order_number)
+      .filter(Boolean);
+    await logSystemEventToDb({
+      level: "info",
+      source: "admin",
+      category: "photo_order_deleted",
+      message: `Deleted photo order ${numbers.join(", ")}`,
+      metadata: { photo_4x6_orders: rows4x6, photo_orders: rowsPrint },
+    });
+    if (ids4x6.length) await client`delete from photo_4x6_orders where id = any(${ids4x6}::uuid[])`;
+    if (idsPrint.length) await client`delete from photo_orders where id = any(${idsPrint}::uuid[])`;
+    // forget them in the archive list too
+    const set = await readPhotoOrderArchive().catch(() => new Set<string>());
+    let changed = false;
+    for (const it of data.items) changed = set.delete(`${it.kind}:${it.id}`) || changed;
+    if (changed) await writePhotoOrderArchive(set).catch(() => undefined);
+    return { ok: true as const, deleted: rows4x6.length + rowsPrint.length };
   });
 
 export const updatePhotoOrderStatus = createServerFn({ method: "POST" })

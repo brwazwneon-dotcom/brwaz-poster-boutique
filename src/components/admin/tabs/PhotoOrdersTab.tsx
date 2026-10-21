@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  deletePhotoOrdersAdmin,
   listPhotoOrdersAdmin,
   setPhotoOrderConfirmationAdmin,
+  setPhotoOrdersArchivedAdmin,
   updatePhotoOrderStatus,
 } from "@/lib/db-admin.functions";
+import { useConfirm } from "@/components/admin/layout/ConfirmDialogProvider";
 import { customerWhatsappLink } from "./shared";
 import { ORDER_STATUSES } from "./OrdersTab";
 import { LoadingRows } from "@/components/admin/layout/LoadingState";
@@ -39,7 +42,11 @@ type AdminPhotoOrder = {
   shipping?: number | null;
   confirmation_status?: ConfirmationStatus;
   confirmed_at?: string | null;
+  /** Moved to the archive by the admin. */
+  admin_archived?: boolean;
 };
+
+const rowKey = (o: { kind: string; id: string }) => `${o.kind}:${o.id}`;
 
 const CONFIRMATION_TONE: Record<ConfirmationStatus, string> = {
   not_sent: "border-border bg-muted/40 text-muted-foreground",
@@ -67,6 +74,9 @@ export function PhotoOrdersTab() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [sheetFor, setSheetFor] = useState<AdminPhotoOrder | null>(null);
+  const [view, setView] = useState<"all" | "archive">("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const confirm = useConfirm();
 
   const load = async () => setOrders((await listPhotoOrdersAdmin()) as AdminPhotoOrder[]);
   useEffect(() => {
@@ -100,6 +110,56 @@ export function PhotoOrdersTab() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save");
       load();
+    }
+  };
+
+  // Moves photo orders into the archive (or back). They leave this list at once; reloaded if the save fails.
+  const setArchived = async (chosen: AdminPhotoOrder[], archived: boolean) => {
+    if (chosen.length === 0) return;
+    if (chosen.length > 100) {
+      toast.error("Select fewer orders (up to 100 at a time)");
+      return;
+    }
+    const keys = new Set(chosen.map(rowKey));
+    setOrders((prev) =>
+      prev ? prev.map((r) => (keys.has(rowKey(r)) ? { ...r, admin_archived: archived } : r)) : prev,
+    );
+    setSelected(new Set());
+    try {
+      await setPhotoOrdersArchivedAdmin({
+        data: { items: chosen.map((o) => ({ id: o.id, kind: o.kind })), archived },
+      });
+      toast.success(archived ? "Moved to the archive" : "Restored from the archive");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save");
+      load();
+    }
+  };
+
+  // Permanent delete after an explicit confirmation; the server keeps a backup copy of each deleted row in the system log.
+  const deleteOrders = async (chosen: AdminPhotoOrder[]) => {
+    if (chosen.length === 0) return;
+    if (chosen.length > 100) {
+      toast.error("Select fewer orders (up to 100 at a time)");
+      return;
+    }
+    const label = chosen.map((o) => o.order_number ?? o.id.slice(0, 8)).join(", ");
+    const ok = await confirm({
+      title:
+        chosen.length === 1 ? "Delete this photo order?" : `Delete ${chosen.length} photo orders?`,
+      description: `${label} will be deleted permanently. A backup copy of the data is kept in the system log. To keep the order but hide it, use Archive instead.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await deletePhotoOrdersAdmin({
+        data: { items: chosen.map((o) => ({ id: o.id, kind: o.kind })) },
+      });
+      toast.success(chosen.length === 1 ? "Order deleted" : `${chosen.length} orders deleted`);
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
     }
   };
 
@@ -142,19 +202,92 @@ export function PhotoOrdersTab() {
 
   if (orders === null) return <LoadingRows />;
 
+  const archivedCount = orders.filter((o) => o.admin_archived).length;
+  const shown = orders.filter((o) => (view === "archive" ? o.admin_archived : !o.admin_archived));
+  const chosen = () => shown.filter((o) => selected.has(rowKey(o)));
+  const toggleSelected = (o: AdminPhotoOrder) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const k = rowKey(o);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold">Photo orders</h2>
-        <span className="text-xs text-muted-foreground">{orders.length} orders</span>
+        <span className="text-xs text-muted-foreground">{shown.length} orders</span>
+        <button
+          type="button"
+          onClick={() => void setArchived(chosen(), view !== "archive")}
+          disabled={selected.size === 0}
+          className="ml-auto rounded-sm border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {view === "archive" ? "Restore" : "Archive"} selected ({selected.size})
+        </button>
+        <button
+          type="button"
+          onClick={() => void deleteOrders(chosen())}
+          disabled={selected.size === 0}
+          className="rounded-sm border border-red-500/60 px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+        >
+          Delete selected ({selected.size})
+        </button>
+      </div>
+      <div
+        className="mb-4 inline-flex overflow-hidden rounded-sm border border-border text-xs"
+        role="tablist"
+      >
+        {(
+          [
+            ["all", `All (${orders.length - archivedCount})`],
+            ["archive", `Archive (${archivedCount})`],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => {
+              setView(key);
+              setSelected(new Set());
+            }}
+            className={`px-3 py-1.5 font-medium ${
+              view === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">No photo orders yet.</p>
+      ) : shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {view === "archive" ? "The archive is empty." : "No photo orders in this view."}
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-card text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    checked={shown.length > 0 && selected.size === shown.length}
+                    onChange={() =>
+                      setSelected((prev) =>
+                        prev.size === shown.length ? new Set() : new Set(shown.map(rowKey)),
+                      )
+                    }
+                  />
+                </th>
                 <th className="px-3 py-2">Order</th>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2">Customer</th>
@@ -163,11 +296,20 @@ export function PhotoOrdersTab() {
                 <th className="px-3 py-2">Payment</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
+              {shown.map((o) => (
                 <tr key={`${o.kind}-${o.id}`} className="border-b border-border last:border-0">
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${o.order_number ?? o.id.slice(0, 8)}`}
+                      checked={selected.has(rowKey(o))}
+                      onChange={() => toggleSelected(o)}
+                    />
+                  </td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {o.order_number}
                     <div className="mt-0.5 font-sans text-[10px] text-muted-foreground">
@@ -324,6 +466,28 @@ export function PhotoOrdersTab() {
                         className="inline-flex min-h-[30px] items-center rounded-sm border border-primary/50 bg-primary/15 px-2 text-[11px] font-semibold hover:bg-primary/25"
                       >
                         🧾 Photos + details image
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void setArchived([o], !o.admin_archived)}
+                        className="text-xs text-amber-500 hover:underline"
+                        title={
+                          o.admin_archived ? "Move back to the working list" : "Move to the archive"
+                        }
+                      >
+                        {o.admin_archived ? "Restore" : "Archive"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteOrders([o])}
+                        className="text-xs text-red-500 hover:underline"
+                        title="Delete this order permanently"
+                      >
+                        Delete
                       </button>
                     </div>
                   </td>
