@@ -174,6 +174,7 @@ export function SafeImage({
     <img
       key={attempt}
       {...rest}
+      data-img-retry="own"
       style={pending ? { ...style, opacity: 0 } : style}
       src={errored || !displaySrc ? IMAGE_FALLBACK : displaySrc}
       sizes={sizes}
