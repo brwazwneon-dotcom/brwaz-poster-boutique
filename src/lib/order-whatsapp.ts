@@ -7,6 +7,8 @@
 // ProductsTab.tsx's identical reasoning for not importing src/lib/ai-review.ts
 // directly). Safe to import from both client components and server functions.
 
+import { parseBundleMeta } from "@/lib/bundle-meta";
+
 export const TIMELINE_STAGES: { key: string; label: string }[] = [
   { key: "order_created", label: "Order Created" },
   { key: "customer_details_added", label: "Customer Details Added" },
@@ -81,6 +83,8 @@ export const WHATSAPP_TEMPLATES: { key: WhatsAppTemplateKey; title: string; icon
 
 type TemplateItem = {
   poster_title?: string | null;
+  /** The row's notes: holds the poster list of a bundle (see bundle-meta.ts). */
+  notes?: string | null;
   frame_type?: string | null;
   frame_color?: string | null;
   size?: string | null;
@@ -151,10 +155,34 @@ export type BundleTitleParts = {
 // names, a colon instead of a dash, doubled/mixed separator runs, extra or
 // trailing commas, and irregular spacing — all without inventing a poster
 // name that isn't in the stored string.
-export function parseBundleTitle(title: string | null | undefined): BundleTitleParts {
+//
+// A bundle is named by whoever created the offer, so its title is not always the English
+// "N Frames Bundle" (an Arabic offer is saved as "مجموعة 6 براويز · 20 × 30 cm — ...").
+// The poster list the checkout stores with the order (`notes`, see bundle-meta.ts) is the
+// reliable signal: when it is there, the row is a bundle and its poster names come from it.
+export function parseBundleTitle(
+  title: string | null | undefined,
+  notes?: string | null,
+): BundleTitleParts {
   const raw = (title ?? "").trim();
   const head = raw.match(BUNDLE_HEAD_RE);
-  if (!head) return { isBundle: false, label: raw, size: null, posterNames: [] };
+  if (!head) {
+    const meta = parseBundleMeta(notes);
+    if (!meta) return { isBundle: false, label: raw, size: null, posterNames: [] };
+    const sep = raw.search(/[·]/);
+    const label =
+      (sep > 0 ? raw.slice(0, sep) : raw).trim() || `${meta.bundle_posters.length} Frames Bundle`;
+    const rest = sep > 0 ? raw.slice(sep + 1) : "";
+    const lastSep = rest.search(LAST_SEP_RE);
+    const size =
+      (lastSep !== -1 ? rest.slice(0, lastSep) : "").replace(/[\s·:\-—]+$/, "").trim() || null;
+    return {
+      isBundle: true,
+      label,
+      size,
+      posterNames: meta.bundle_posters.map((p) => p.title).filter(Boolean),
+    };
+  }
   const count = head[1];
   const rest = raw
     .slice(head[0].length)
@@ -187,7 +215,7 @@ function itemLine(i: TemplateItem, idx: number): string {
     `• الكمية: ${i.quantity ?? 1}`,
     i.price != null ? `• السعر: ${Math.round(Number(i.price))} جنيه` : null,
   ].filter(Boolean);
-  const bundle = parseBundleTitle(i.poster_title);
+  const bundle = parseBundleTitle(i.poster_title, i.notes);
   const title = bundle.isBundle ? bundle.label : i.poster_title || "منتج";
   const bundleList = bundle.isBundle
     ? bundle.posterNames.map((n, ni) => `   ${ni + 1}. ${n}`).join("\n") + "\n"

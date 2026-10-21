@@ -145,7 +145,7 @@ export function buildInvoiceModel(
     totalCents += rowTotal ?? 0;
 
     const qty = Math.max(1, Number(r.quantity) || 1);
-    const bundle = parseBundleTitle(r.poster_title);
+    const bundle = parseBundleTitle(r.poster_title, r.notes);
     const own = usableUrl(images.own[r.id]) ?? usableUrl(r.poster_image);
     const isTape = (r.poster_title ?? "").trim() === TAPE_TITLE;
     const meta = bundle.isBundle ? parseBundleMeta(r.notes) : null;

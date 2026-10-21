@@ -134,7 +134,7 @@ function catalogLookupNames(items: AdminOrder[]): string[] {
   const names = new Set<string>();
   for (const item of items) {
     const hasStored = looksLikeUrl(item.poster_image);
-    const bundle = parseBundleTitle(item.poster_title);
+    const bundle = parseBundleTitle(item.poster_title, item.notes);
     if (bundle.isBundle) {
       const meta = parseBundleMeta(item.notes);
       bundle.posterNames.forEach((name, idx) => {
@@ -631,7 +631,7 @@ function OrderItemCard({
   priority?: boolean;
   catalog: CatalogMap;
 }) {
-  const bundle = parseBundleTitle(item.poster_title);
+  const bundle = parseBundleTitle(item.poster_title, item.notes);
   if (bundle.isBundle) {
     return <BundleItemCard item={item} bundle={bundle} priority={priority} catalog={catalog} />;
   }
@@ -753,6 +753,7 @@ export function OrderDetailsDrawer({
     discount: null,
     items: items.map((i) => ({
       poster_title: i.poster_title,
+      notes: i.notes,
       frame_type: i.frame_type,
       frame_color: i.frame_color,
       size: i.size,

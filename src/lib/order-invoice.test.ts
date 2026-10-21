@@ -208,4 +208,48 @@ describe("bundle posters stored with the order", () => {
       "https://img/b-exact.jpg",
     ]);
   });
+
+  it("recognises a bundle whose offer is named in Arabic and lists every poster", () => {
+    const ID1 = "123e4567-e89b-12d3-a456-426614174000";
+    const ID2 = "223e4567-e89b-12d3-a456-426614174000";
+    const ID3 = "323e4567-e89b-12d3-a456-426614174000";
+    const notes = JSON.stringify({
+      bundle_posters: [
+        { id: ID1, title: "MONEY (17)", image: "https://img/m17.jpg" },
+        { id: ID2, title: "QUOTES (32)", image: "https://img/q32.jpg" },
+        { id: ID3, title: "QUOTES (28)", image: "https://img/q28.jpg" },
+      ],
+    });
+    const m = buildInvoiceModel(
+      [
+        {
+          ...base,
+          notes,
+          poster_image: "https://img/m17.jpg",
+          poster_title: "مجموعة 3 براويز · 20 × 30 cm — MONEY (17), QUOTES (32), QUOTES (28)",
+        },
+      ],
+      { orderLabel: "#12", images: { own: {}, catalog: {} } },
+    );
+    const it = m.items[0];
+    expect(it.isBundle).toBe(true);
+    expect(it.title).toBe("مجموعة 3 براويز");
+    expect(it.posters.map((p) => p.name)).toEqual(["MONEY (17)", "QUOTES (32)", "QUOTES (28)"]);
+    expect(it.posters.map((p) => p.imageUrl)).toEqual([
+      "https://img/m17.jpg",
+      "https://img/q32.jpg",
+      "https://img/q28.jpg",
+    ]);
+  });
+
+  it("a row with a custom title and no poster list stays a single item", () => {
+    const m = buildInvoiceModel(
+      [{ ...base, poster_title: "مجموعة 3 براويز · 20 × 30 cm — A, B, C" }],
+      {
+        orderLabel: "#13",
+        images: { own: {}, catalog: {} },
+      },
+    );
+    expect(m.items[0].isBundle).toBe(false);
+  });
 });
