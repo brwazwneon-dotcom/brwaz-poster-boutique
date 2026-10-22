@@ -17,6 +17,23 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
   return { authorization: `Bearer ${token}`, "x-api-version": "7", ...extra };
 }
 
+// A read-write token is `vercel_blob_rw_<storeId>_<secret>`. @vercel/blob (0.27.x, requestApi() and client.js) reads
+// the store id as the 4th `_`-separated segment and never looks at the rest, so the secret part is NOT constrained to
+// any character set: it is accepted as any run of non-whitespace characters (including `-`, `_`, `+`, `/`, `=`). The
+// store id itself becomes a DNS label, so only letters and digits are accepted there.
+const READ_WRITE_TOKEN = /^vercel_blob_rw_([A-Za-z0-9]+)_\S+$/;
+
+/**
+ * The exact public host of THIS shop's Blob store (`<storeId, lower-case>.public.blob.vercel-storage.com`), derived
+ * from the store-id segment of the existing BLOB_READ_WRITE_TOKEN with the same rule the Vercel SDK uses. Only the
+ * store id is ever read out of the token: the secret part is matched but never captured, returned or logged.
+ * Null when the token is missing or not a read-write token (callers then refuse every Blob link).
+ */
+export function ownBlobHost(env: Record<string, string | undefined> = process.env): string | null {
+  const m = READ_WRITE_TOKEN.exec(env.BLOB_READ_WRITE_TOKEN?.trim() ?? "");
+  return m ? `${m[1].toLowerCase()}.public.blob.vercel-storage.com` : null;
+}
+
 export function isBlobUrl(url: string): boolean {
   try {
     return BLOB_HOST.test(new URL(url).host);

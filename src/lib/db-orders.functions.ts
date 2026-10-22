@@ -10,6 +10,12 @@ import {
   hasHardFinding,
   parsePriceCheckMode,
 } from "@/lib/order-price-check";
+import {
+  guardCheckoutPayment,
+  guardPhotoOrderPayment,
+  proofForStorage,
+} from "@/lib/order-payment.server";
+import type { PaymentMethod } from "@/lib/payment-proof-url";
 import type { PurchasePayload } from "@/lib/meta-events";
 import {
   buildOrderPurchase,
@@ -50,14 +56,9 @@ export type OrderRowInput = {
   utm_campaign?: string | null;
 };
 
-// The payment screenshot is shown to the admin as a link, so only accept the
-// URL of an image we uploaded ourselves — never an arbitrary string from the
-// browser (e.g. a `javascript:` link).
-function safeProofUrl(url: unknown): string | null {
-  return typeof url === "string" && /^https:\/\/res\.cloudinary\.com\/[^\s"'<>]+$/.test(url)
-    ? url
-    : null;
-}
+// The payment screenshot is shown to the admin as a link, so only a URL of an image we stored ourselves is kept
+// (proofForStorage, order-payment.server.ts) — never an arbitrary string from the browser (e.g. a `javascript:` link).
+// A valid link is NOT evidence that the transfer arrived; the admin still has to check it.
 
 // Public — checkout is anonymous, same as before. Runs entirely
 // server-side now (previously a direct client insert into Supabase),
@@ -83,6 +84,10 @@ export const createOrderRows = createServerFn({ method: "POST" })
     if (rows.length > 20) {
       throw new Error("Too many items in one checkout");
     }
+
+    // Payment rules first, before ANY database access: a non-cash order without a valid proof (or with an unknown /
+    // mixed payment method) is refused here, so nothing is written — not even the customer record below.
+    guardCheckoutPayment(rows);
 
     // Price sanity check against the live price list (see order-price-check.ts).
     // Default mode "log": findings are written to the server log and the order
@@ -172,7 +177,7 @@ export const createOrderRows = createServerFn({ method: "POST" })
             ${r.frame_type}, ${r.frame_color}, ${r.size}, ${r.quantity}, ${r.selected_poster},
             ${r.poster_title}, ${chooseOrderImage(r.poster_image, r.selected_poster ? catalogImages.get(r.selected_poster) : null)}, ${noteFor(r)}, ${r.subtotal}, ${r.packaging_fee},
             ${r.shipping_cost}, ${r.total_price}, ${r.status}, ${r.payment_method},
-            ${r.payment_status}, ${safeProofUrl(r.payment_screenshot)}, ${r.is_test},
+            ${r.payment_status}, ${proofForStorage(r.payment_screenshot)}, ${r.is_test},
             ${r.utm_source ?? null}, ${r.utm_medium ?? null}, ${r.utm_campaign ?? null}
           )
           returning id, order_number, total_price, quantity, is_test
@@ -234,9 +239,6 @@ const LOOSE_SIZE_MIN_QTY = 25;
 // print more (extras are charged per photo), up to this safety limit.
 // Keep in sync with MAX_PHOTOS in routes/photo-printing.tsx.
 const MAX_PHOTOS_PER_ORDER = 200;
-const PAYMENT_METHODS = ["cod", "instapay", "vodafone_cash"] as const;
-type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-
 type SelectedAlbumInput = { id: string; qty: number };
 
 // Albums are priced server-side from the live `photo_albums` table — the
@@ -333,11 +335,9 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
     if (data.original_paths.length > MAX_PHOTOS_PER_ORDER)
       throw new Error("Too many photos in one order");
     if (!/^01\d{9}$/.test(data.phone)) throw new Error("Invalid phone number");
-    const paymentMethod: PaymentMethod = PAYMENT_METHODS.includes(
-      data.payment_method as PaymentMethod,
-    )
-      ? (data.payment_method as PaymentMethod)
-      : "cod";
+    // Payment rules before any other database access (see order-payment.server.ts): photo-only InstaPay / Vodafone
+    // Cash is refused for now, an unknown method is refused instead of becoming COD.
+    const paymentMethod: PaymentMethod = await guardPhotoOrderPayment(data);
 
     const { albumsTotal, snapshot: albumsSnapshot } = await resolveSelectedAlbums(
       data.selected_albums,

@@ -12,6 +12,7 @@ import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { PhotoPrintingPromoBanner } from "@/components/PhotoPrintingPromoBanner";
 import { PhotoPrintCartCard } from "@/components/PhotoPrintCartCard";
 import { uploadPaymentProof } from "@/lib/payment-proof";
+import { paymentErrorKey } from "@/lib/payment-proof-url";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
@@ -49,7 +50,8 @@ import { useTranslation } from "react-i18next";
 
 const INSTAPAY_NUMBER = "01090771294";
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+// Images only: the upload endpoint accepts images only, so a PDF was always refused after the customer had chosen it.
+const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EG_PHONE_RE = /^01\d{9}$/;
 const CHECKOUT_DEBUG = true;
@@ -374,6 +376,12 @@ function CartPage() {
   const submittingRef = useRef(false);
   const initiateCheckoutSentRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "instapay">("cod");
+  // TEMPORARY: a photo-only cart cannot pay by InstaPay / Vodafone Cash — a photo order has nowhere to keep the
+  // payment proof yet (the server refuses it too). Framed posters, alone or with photos, are not affected.
+  const photoOnly = items.length === 0 && !!photoPrint;
+  useEffect(() => {
+    if (photoOnly && paymentMethod !== "cod") setPaymentMethod("cod");
+  }, [photoOnly, paymentMethod]);
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -449,7 +457,7 @@ function CartPage() {
       return;
     }
     if (!ALLOWED_SCREENSHOT_TYPES.includes(file.type)) {
-      toast.error(t("cart.onlyJpgPngWebpPdf"));
+      toast.error(t("cart.onlyJpgPngWebp"));
       return;
     }
     if (file.size > MAX_SCREENSHOT_BYTES) {
@@ -462,6 +470,7 @@ function CartPage() {
 
   const handlePlaceOrderClick = () => {
     if (items.length === 0 && !photoPrint) return toast.error(t("cart.empty"));
+    if (photoOnly && paymentMethod !== "cod") return toast.error(t("cart.photoOnlyCodOnly"));
     if (!name || !phone || !governorate || !address)
       return toast.error(t("cart.fillDeliveryFields"));
     if (!EG_PHONE_RE.test(phone.trim()))
@@ -498,6 +507,7 @@ function CartPage() {
     const useTape = typeof tapeAnswer === "boolean" ? tapeAnswer : tapeChoice;
     const { tapeTotal, shipping, grand } = totalsFor(useTape);
     if (items.length === 0 && !photoPrint) return toast.error(t("cart.empty"));
+    if (photoOnly && paymentMethod !== "cod") return toast.error(t("cart.photoOnlyCodOnly"));
     if (!name || !phone || !governorate || !address)
       return toast.error(t("cart.fillDeliveryFields"));
     if (!EG_PHONE_RE.test(phone.trim()))
@@ -781,6 +791,8 @@ function CartPage() {
         error = e instanceof Error ? e : new Error(String(e));
       }
       if (error) {
+        // A payment refusal (missing proof, unknown method...) is not a technical failure: show its own message.
+        if (paymentErrorKey(error)) throw error;
         throwCheckoutError({
           step: "orders_insert",
           table: "orders",
@@ -838,7 +850,8 @@ function CartPage() {
           photoPurchase = photoResult.purchase ?? null;
           setPhotoPrint(null);
         } catch (e) {
-          const reason = e instanceof Error ? e.message : String(e);
+          const payKey = paymentErrorKey(e);
+          const reason = payKey ? t(payKey) : e instanceof Error ? e.message : String(e);
           if (rows.length > 0) {
             firePurchases();
             // The framed posters were already placed: empty them from the
@@ -846,7 +859,7 @@ function CartPage() {
             clear();
             throw new Error(`تم تسجيل طلب البراويز، لكن طلب طباعة الصور لم يكتمل: ${reason}`);
           }
-          throw e;
+          throw payKey ? new Error(reason) : e;
         }
       }
 
@@ -963,7 +976,8 @@ function CartPage() {
       void navigate({ to: "/thank-you" });
     } catch (err) {
       logCheckoutStep({ step: "checkout_failed", error: err });
-      const message = err instanceof Error ? err.message : String(err);
+      const payKey = paymentErrorKey(err);
+      const message = payKey ? t(payKey) : err instanceof Error ? err.message : String(err);
       setCheckoutError(message);
       toast.error(message);
     } finally {
@@ -1428,20 +1442,23 @@ function CartPage() {
                     </div>
                   </label>
                   <label
-                    className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition ${paymentMethod === "instapay" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+                    className={`flex items-start gap-3 rounded-sm border p-3 text-sm transition ${photoOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${paymentMethod === "instapay" ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
                   >
                     <input
                       type="radio"
                       name="pm"
                       value="instapay"
                       checked={paymentMethod === "instapay"}
+                      disabled={photoOnly}
                       onChange={() => setPaymentMethod("instapay")}
                       className="mt-0.5 accent-primary"
                     />
                     <div>
                       <div className="font-semibold">{t("checkout.instapayVodafoneCash")}</div>
                       <div className="text-xs text-muted-foreground">
-                        Transfer, then upload your payment screenshot.
+                        {photoOnly
+                          ? t("cart.photoOnlyCodOnly")
+                          : "Transfer, then upload your payment screenshot."}
                       </div>
                     </div>
                   </label>
@@ -1518,7 +1535,7 @@ function CartPage() {
                         </span>
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          accept="image/jpeg,image/png,image/webp"
                           className="hidden"
                           onChange={(e) => handleScreenshotChange(e.target.files?.[0] ?? null)}
                         />

@@ -1,4 +1,5 @@
 import { uploadCustomerPhoto } from "@/lib/image-upload.functions";
+import { PAYMENT_PROOF_FOLDER } from "@/lib/payment-proof-url";
 
 const MAX_SIDE = 1600;
 const MAX_RAW_BYTES = 3 * 1024 * 1024;
@@ -39,7 +40,7 @@ async function toUploadableDataUrl(file: File): Promise<string> {
 export async function uploadPaymentProof(file: File): Promise<string> {
   const dataUrl = await toUploadableDataUrl(file);
   const uploaded = await uploadCustomerPhoto({
-    data: { dataUrl, filename: "payment-proof.jpg", folder: "payment-proofs" },
+    data: { dataUrl, filename: "payment-proof.jpg", folder: PAYMENT_PROOF_FOLDER },
   });
   return uploaded.url;
 }

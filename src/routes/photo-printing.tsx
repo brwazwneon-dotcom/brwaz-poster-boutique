@@ -35,6 +35,7 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { createPhoto4x6Order } from "@/lib/db-orders.functions";
+import { paymentErrorKey } from "@/lib/payment-proof-url";
 import { whatsappLink } from "@/lib/whatsapp";
 import { PHOTO_VOLUME_TIERS, photoUnitPrice } from "@/lib/photo-volume-pricing";
 import { useCart } from "@/lib/cart";
@@ -226,11 +227,17 @@ const SIZE_RATIOS: Record<SizeMode, number> = {
 };
 
 type PaymentMethod = "cod" | "instapay" | "vodafone_cash";
-const PAYMENT_OPTIONS: { key: PaymentMethod; labelEn: string; labelAr: string }[] = [
+// TEMPORARY: this page makes photo-only orders, and a photo order has nowhere to keep a payment proof yet (the server
+// refuses InstaPay / Vodafone Cash for it as well). Set to true again once proofs can be saved with photo orders.
+const PHOTO_ONLY_ELECTRONIC_PAYMENT = false;
+const ALL_PAYMENT_OPTIONS: { key: PaymentMethod; labelEn: string; labelAr: string }[] = [
   { key: "cod", labelEn: "Cash on delivery", labelAr: "الدفع عند الاستلام" },
   { key: "instapay", labelEn: "InstaPay", labelAr: "إنستاباي" },
   { key: "vodafone_cash", labelEn: "Vodafone Cash", labelAr: "فودافون كاش" },
 ];
+const PAYMENT_OPTIONS = ALL_PAYMENT_OPTIONS.filter(
+  (o) => o.key === "cod" || PHOTO_ONLY_ELECTRONIC_PAYMENT,
+);
 
 type PicVersion = "original" | "enhanced" | "suit";
 
@@ -760,7 +767,10 @@ function PhotoPrintingPage() {
       setPaymentMethod("cod");
       window.location.href = whatsappLink(msg);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("photo4x6.submissionFailed"));
+      const payKey = paymentErrorKey(err);
+      toast.error(
+        payKey ? t(payKey) : err instanceof Error ? err.message : t("photo4x6.submissionFailed"),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -1486,7 +1496,9 @@ function PhotoPrintingPage() {
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">
                       {lang.startsWith("ar") ? "طريقة الدفع" : "Payment method"}
                     </span>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div
+                      className={`mt-2 grid gap-2 ${PAYMENT_OPTIONS.length > 1 ? "grid-cols-3" : "grid-cols-1"}`}
+                    >
                       {PAYMENT_OPTIONS.map((opt) => (
                         <button
                           key={opt.key}
@@ -1498,6 +1510,11 @@ function PhotoPrintingPage() {
                         </button>
                       ))}
                     </div>
+                    {!PHOTO_ONLY_ELECTRONIC_PAYMENT && (
+                      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                        {t("cart.photoOnlyCodOnly")}
+                      </p>
+                    )}
                     {paymentMethod !== "cod" && (
                       <div className="mt-3 rounded-sm bg-background px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
                         <div className="text-foreground">
