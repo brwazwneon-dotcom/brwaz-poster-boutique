@@ -223,7 +223,10 @@ describe("motion", () => {
   });
 
   it("the entrance uses transform only, so the picture paints at once (no opacity animation)", () => {
-    const css = fs.readFileSync(path.join(SRC, "components/hero-frame-concept.css"), "utf8");
+    // Normalised: a Windows checkout turns the file's line endings into CRLF.
+    const css = fs
+      .readFileSync(path.join(SRC, "components/hero-frame-concept.css"), "utf8")
+      .replace(/\r\n/g, "\n");
     const keyframes = [...css.matchAll(/@keyframes[\s\S]*?\n}\n/g)].map((m) => m[0]).join("\n");
     expect(keyframes).toContain("transform");
     expect(keyframes).not.toContain("opacity");
