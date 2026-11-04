@@ -4,6 +4,8 @@ import { buildGa4Items, gaEvent, setGA4Config, toGa4Params } from "./ga4";
 import type { MarketingConfig } from "./use-marketing";
 
 vi.mock("./preview-mode", () => ({ isPreviewMode: () => false }));
+// Host rules have their own suite (ga4.host.test.ts); here jsdom is "localhost".
+vi.mock("./analytics-env", () => ({ clientTrackingAllowed: () => true }));
 
 // Built with a cast so this compiles whether or not MarketingConfig carries
 // extra flags (ga4.ts only reads the GA4 id and the enabled switch).

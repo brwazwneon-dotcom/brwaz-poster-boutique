@@ -10,6 +10,7 @@
  */
 import type { MarketingConfig } from "./use-marketing";
 import { isPreviewMode } from "./preview-mode";
+import { clientTrackingAllowed } from "./analytics-env";
 
 declare global {
   interface Window {
@@ -24,14 +25,16 @@ let ga4Id = "";
 let ga4Enabled = false;
 
 export function setGA4Config(cfg: MarketingConfig) {
-  ga4Enabled = cfg.ga4Enabled;
+  // Same production-host rule as the Meta Pixel and internal analytics: on a
+  // Preview (*.vercel.app) or local host GA4 is never loaded and never fed.
+  ga4Enabled = cfg.ga4Enabled && clientTrackingAllowed();
   ga4Id = cfg.ga4MeasurementId;
   if (typeof window === "undefined") return;
   if (ga4Enabled && ga4Id) loadGA4(ga4Id);
 }
 
 function loadGA4(id: string) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !clientTrackingAllowed()) return;
   if (window.__brwz_ga4_loaded && window.__brwz_ga4_id === id) return;
   if (!window.__brwz_ga4_loaded) {
     const s = document.createElement("script");
@@ -203,7 +206,7 @@ function claimPurchase(transactionId: string): boolean {
 
 export function gaEvent(name: GAEventName, params: Params = {}) {
   if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
-  if (isPreviewMode()) return;
+  if (isPreviewMode() || !clientTrackingAllowed()) return;
   try {
     const converted = toGa4Params(name, params);
     if (!converted) return;
@@ -216,7 +219,7 @@ export function gaEvent(name: GAEventName, params: Params = {}) {
 
 export function gaPageView(path: string, title?: string) {
   if (!ga4Enabled || !ga4Id || typeof window === "undefined") return;
-  if (isPreviewMode()) return;
+  if (isPreviewMode() || !clientTrackingAllowed()) return;
   try {
     window.gtag?.("event", "page_view", {
       page_location: window.location.href,
