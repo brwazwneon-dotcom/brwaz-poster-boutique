@@ -12,6 +12,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import i18n, { i18nInitPromise } from "@/lib/i18n";
 import { getRouterI18n } from "@/lib/request-i18n";
+import { tiktokPixelAllowed } from "@/lib/tiktok-pixel-guard";
 
 import appCss from "../styles.css?url";
 import { logSystemEvent } from "../lib/error-logger";
@@ -441,8 +442,9 @@ function RootComponent() {
 function TikTokPixelBoot({ currentPage, disabled }: { currentPage: string; disabled: boolean }) {
   const lastTikTokPageRef = useRef<string | null>(null);
   useEffect(() => {
-    // Admin traffic must never reach the ad pixel (same rule as MarketingBoot).
-    if (disabled) return;
+    // Admin traffic must never reach the ad pixel (same rule as MarketingBoot), and neither may localhost, a Vercel
+    // Preview or any host that is not a production hostname (same rule as the Meta Pixel and internal analytics).
+    if (!tiktokPixelAllowed(disabled)) return;
     const load = () => {
       if (!window.__brwz_tiktok_pixel_loaded) {
         try {

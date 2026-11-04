@@ -13,6 +13,7 @@ import { getTikTokIdentifiers } from "./attribution";
 import { visitorId } from "./analytics";
 import { sendTikTokEventFromBrowser } from "./tiktok-events.functions";
 import { isTikTokRelayedEvent, tiktokEventName, toTikTokProperties } from "./tiktok-events";
+import { tiktokPixelAllowed } from "./tiktok-pixel-guard";
 
 type Ttq = {
   track?: (event: string, params?: Record<string, unknown>, opts?: { event_id?: string }) => void;
@@ -76,6 +77,8 @@ export function trackTikTok(
 ): void {
   const event = tiktokEventName(name);
   if (!event || typeof window === "undefined") return;
+  // Not on localhost, a Preview or any non-production host: nothing is queued, sent to the pixel or relayed.
+  if (!tiktokPixelAllowed()) return;
 
   const properties = toTikTokProperties(params);
   const send = () => {

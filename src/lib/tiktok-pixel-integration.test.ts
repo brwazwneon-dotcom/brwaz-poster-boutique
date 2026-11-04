@@ -11,6 +11,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// These suites drive the pixel in jsdom (host "localhost"). The host rule has its own suite
+// (tiktok-pixel-guard.test.ts); here the host counts as production.
+vi.mock("./analytics-env", () => ({ clientTrackingAllowed: () => true }));
 vi.mock("./tiktok-events.functions", () => ({ sendTikTokEventFromBrowser: vi.fn() }));
 vi.mock("./analytics", () => ({ visitorId: () => "visitor-1" }));
 
