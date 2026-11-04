@@ -1,9 +1,24 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { HeroStickers } from "@/components/HeroStickers";
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import hero from "@/assets/hero.jpg";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
+import { HeroFrameConcept } from "@/components/HeroFrameConcept";
+import {
+  HERO_POSTER_LARGE,
+  HERO_POSTER_SIZES,
+  HERO_POSTER_SRCSET,
+  isClassicHeroRequested,
+} from "@/lib/hero-concept";
 import { heroBannersQueryOptions } from "@/lib/hero-banners";
 import { homeSliderQueryOptions } from "@/lib/home-slider";
 import { HomepageSlider } from "@/components/HomeSlider";
@@ -112,28 +127,36 @@ export const Route = createFileRoute("/")({
     // it really is the hero.
     links: [
       { rel: "canonical", href: "https://brwazwneon.com/" },
-      // The first slide's picture starts downloading with the page. Only when the slider will pick the WebP
-      // candidates (no AVIF source in front of them), with the same `sizes` the slider gives its picture.
-      ...(loaderData?.firstSlide?.webp_srcset && !loaderData.firstSlide.avif_srcset
-        ? [
-            {
-              rel: "preload",
-              as: "image",
-              type: "image/webp",
-              href: loaderData.firstSlide.image_url,
-              imageSrcSet: loaderData.firstSlide.webp_srcset,
-              imageSizes: "100vw",
-              fetchPriority: "high" as const,
-            },
-          ]
-        : []),
+      // Hero Concept #4 (preview): the framed poster is the largest image on screen, so it starts downloading with
+      // the page, with the same srcset and sizes the <img> uses. (The slider's first slide is not shown in this
+      // preview, so it is no longer preloaded; `?hero=classic` brings the old hero back for comparison.)
+      {
+        rel: "preload",
+        as: "image",
+        type: "image/webp",
+        href: HERO_POSTER_LARGE,
+        imageSrcSet: HERO_POSTER_SRCSET,
+        imageSizes: HERO_POSTER_SIZES,
+        fetchPriority: "high" as const,
+      },
     ],
   }),
   component: Index,
 });
 
+// Preview only: `?hero=classic` shows the current hero again so the two can be compared. Read after mount, so the
+// server and the first client render agree.
+function useClassicHero() {
+  const [classic, setClassic] = useState(false);
+  useEffect(() => {
+    setClassic(isClassicHeroRequested(window.location.search));
+  }, []);
+  return classic;
+}
+
 function Index() {
   const perf = usePerformanceFlags();
+  const classicHero = useClassicHero();
   const sections = useHomeSections();
   const { i18n } = useTranslation();
   const isArabic = i18n.language.startsWith("ar");
@@ -146,8 +169,14 @@ function Index() {
   // `aboveFold` = rendered eagerly at the top of the page (see the idx < 2
   // rule below) rather than mounted later by LazyOnView.
   const RENDERERS: Record<string, (s: HomeSectionConfig, aboveFold: boolean) => ReactNode> = {
-    homepage_slider: () => <HomepageSlider key="homepage_slider" />,
-    hero_banners: () => <HeroBannerSection key="hero_banners" />,
+    // Hero Concept #4 replaces the slider + hero banners block in this preview.
+    homepage_slider: () => (classicHero ? <HomepageSlider key="homepage_slider" /> : null),
+    hero_banners: () =>
+      classicHero ? (
+        <HeroBannerSection key="hero_banners" />
+      ) : (
+        <HeroFrameConcept key="hero_banners" />
+      ),
     "best-sellers": (s) => (
       <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
     ),

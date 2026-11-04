@@ -1261,5 +1261,13 @@
     "cartNote": "Wooden panel 10 mm · no frame",
     "replay": "Replay the animation",
     "animAlt": "Water is wiped off the wooden panel and it stays dry and protected"
+  },
+  "heroConcept": {
+    "label": "PREMIUM WALL ART",
+    "title": "More Than a Poster. It's Your Identity.",
+    "description": "Choose the art that reflects your personality and make every wall tell your story.",
+    "primaryCta": "Explore Designs",
+    "secondaryCta": "Customize Your Frame",
+    "frameAlt": "A framed Porsche art print hanging on a living-room wall"
   }
 }
