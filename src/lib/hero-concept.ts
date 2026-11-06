@@ -32,6 +32,12 @@ export const HERO_POSTER_SRCSET = `${HERO_POSTER_SMALL} ${HERO_POSTER.smallWidth
  */
 export const HERO_POSTER_SIZES = "(max-width: 1023px) 62vw, 420px";
 
+/**
+ * `sizes` of the lead frame of the four-frame gallery (about 40% of the gallery on phones, ~230-250 px on larger
+ * screens). Shared by the lead <img> and by the route's preload so the browser picks the same file for both.
+ */
+export const HERO_LEAD_SIZES = "(max-width: 639px) 40vw, (max-width: 1023px) 230px, 240px";
+
 /** Where the two buttons go: routes that already exist. */
 export const HERO_CTA = {
   primary: "/trending",
@@ -49,9 +55,9 @@ export function isClassicHeroRequested(search: string): boolean {
 
 /**
  * Tilt of the frame for a pointer at (x, y) inside the stage, as -1..1 fractions of the stage from its centre.
- * Gentle on purpose: a few degrees, never more.
+ * Very light on purpose: two or three degrees, never more.
  */
-export const MAX_TILT_DEG = { y: 5, x: 3 } as const;
+export const MAX_TILT_DEG = { y: 3, x: 2 } as const;
 
 export function tiltFor(fx: number, fy: number) {
   const clamp = (n: number) => Math.max(-1, Math.min(1, n));

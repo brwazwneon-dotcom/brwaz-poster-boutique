@@ -14,12 +14,15 @@ import hero from "@/assets/hero.jpg";
 import { HeroBannerSlider } from "@/components/HeroBannerSlider";
 import { HeroFrameConcept } from "@/components/HeroFrameConcept";
 import {
+  HERO_LEAD_SIZES,
   HERO_POSTER_LARGE,
   HERO_POSTER_SIZES,
   HERO_POSTER_SRCSET,
   isClassicHeroRequested,
 } from "@/lib/hero-concept";
-import { heroBannersQueryOptions } from "@/lib/hero-banners";
+import { heroBannersQueryOptions, useHeroBanners } from "@/lib/hero-banners";
+import { heroShowcaseQueryOptions } from "@/lib/hero-showcase";
+import { showcaseSrcSet } from "@/lib/hero-showcase-core";
 import { homeSliderQueryOptions } from "@/lib/home-slider";
 import { HomepageSlider } from "@/components/HomeSlider";
 import { useHomeSections, type HomeSectionConfig } from "@/lib/homepage-sections";
@@ -100,11 +103,15 @@ export const Route = createFileRoute("/")({
     const slider = context.queryClient
       .ensureQueryData(homeSliderQueryOptions)
       .catch(() => undefined);
+    // And for the hero frames: today's four Best Sellers, so the lead frame is in the first HTML and is preloaded.
+    const showcase = context.queryClient
+      .ensureQueryData(heroShowcaseQueryOptions)
+      .catch(() => undefined);
     if (typeof window === "undefined") {
-      const [, slides] = await Promise.all([banners, slider]);
-      return { firstSlide: slides?.[0] ?? null };
+      const [, slides, shown] = await Promise.all([banners, slider, showcase]);
+      return { firstSlide: slides?.[0] ?? null, heroLead: shown?.items?.[0] ?? null };
     }
-    return { firstSlide: null };
+    return { firstSlide: null, heroLead: null };
   },
   head: ({ loaderData }) => ({
     meta: [
@@ -130,15 +137,27 @@ export const Route = createFileRoute("/")({
       // Hero Concept #4 (preview): the framed poster is the largest image on screen, so it starts downloading with
       // the page, with the same srcset and sizes the <img> uses. (The slider's first slide is not shown in this
       // preview, so it is no longer preloaded; `?hero=classic` brings the old hero back for comparison.)
-      {
-        rel: "preload",
-        as: "image",
-        type: "image/webp",
-        href: HERO_POSTER_LARGE,
-        imageSrcSet: HERO_POSTER_SRCSET,
-        imageSizes: HERO_POSTER_SIZES,
-        fetchPriority: "high" as const,
-      },
+      // Only the lead frame is preloaded (today's first Best Seller, else the approved poster); the other three
+      // frames load on their own and never hold the hero back.
+      loaderData?.heroLead
+        ? {
+            rel: "preload",
+            as: "image",
+            type: "image/webp",
+            href: loaderData.heroLead.image,
+            imageSrcSet: showcaseSrcSet(loaderData.heroLead),
+            imageSizes: HERO_LEAD_SIZES,
+            fetchPriority: "high" as const,
+          }
+        : {
+            rel: "preload",
+            as: "image",
+            type: "image/webp",
+            href: HERO_POSTER_LARGE,
+            imageSrcSet: HERO_POSTER_SRCSET,
+            imageSizes: HERO_POSTER_SIZES,
+            fetchPriority: "high" as const,
+          },
     ],
   }),
   component: Index,
@@ -169,13 +188,15 @@ function Index() {
   // `aboveFold` = rendered eagerly at the top of the page (see the idx < 2
   // rule below) rather than mounted later by LazyOnView.
   const RENDERERS: Record<string, (s: HomeSectionConfig, aboveFold: boolean) => ReactNode> = {
-    // Hero Concept #4 replaces the slider + hero banners block in this preview.
-    homepage_slider: () => (classicHero ? <HomepageSlider key="homepage_slider" /> : null),
+    // Hero Concept #4 is rendered first, above the sections (see the return below). The promo banners keep their own
+    // admin-managed slots under it: the homepage slider as before, and the hero banners together with the
+    // Photo Printing call to action (which used to live inside the old hero).
+    homepage_slider: () => <HomepageSlider key="homepage_slider" />,
     hero_banners: () =>
       classicHero ? (
         <HeroBannerSection key="hero_banners" />
       ) : (
-        <HeroFrameConcept key="hero_banners" />
+        <HeroBannersBand key="hero_banners" />
       ),
     "best-sellers": (s) => (
       <BestSellers key="best-sellers" title={resolveTitle(s)} subtitle={resolveSubtitle(s)} />
@@ -240,30 +261,45 @@ function Index() {
   return (
     <div className="relative bg-background text-foreground">
       <HeroStickers />
-      {sections
-        .filter((s) => s.enabled && s.visible !== false)
-        .slice(0, perf.max_home_sections)
-        .map((s, idx) => {
-          const node = renderSection(s, idx < 2);
-          if (!node) return null;
-          const guarded = (
-            <HomepageSectionBoundary key={`section-${s.id ?? s.key}`} sectionKey={s.key}>
-              <Suspense fallback={<div className="min-h-80 bg-background" />}>{node}</Suspense>
-            </HomepageSectionBoundary>
-          );
-          if (idx < 2 || s.key === "hero_banners") {
-            return (
-              <div key={`home-${s.id ?? s.key}`} id={`home-${s.key}`}>
-                {guarded}
-              </div>
+      {classicHero ? null : <HeroFrameConcept />}
+      {(() => {
+        // Photo Printing sits right under the slider and the hero banners (before the first other section), whether
+        // or not those two are enabled. Not shown with ?hero=classic: the old hero carries its own button.
+        let photoPrintingPlaced = classicHero;
+        const photoPrinting = <PhotoPrintingHomeCta key="photo-printing-home-cta" />;
+        const nodes = sections
+          .filter((s) => s.enabled && s.visible !== false)
+          .slice(0, perf.max_home_sections)
+          .map((s, idx) => {
+            const node = renderSection(s, idx < 2);
+            if (!node) return null;
+            const before: ReactNode[] = [];
+            if (!photoPrintingPlaced && s.key !== "homepage_slider" && s.key !== "hero_banners") {
+              photoPrintingPlaced = true;
+              before.push(photoPrinting);
+            }
+            const guarded = (
+              <HomepageSectionBoundary key={`section-${s.id ?? s.key}`} sectionKey={s.key}>
+                <Suspense fallback={<div className="min-h-80 bg-background" />}>{node}</Suspense>
+              </HomepageSectionBoundary>
             );
-          }
-          return (
-            <div key={`lazy-${s.id ?? s.key}-${idx}`} id={`home-${s.key}`}>
-              <LazyOnView minHeight={520}>{guarded}</LazyOnView>
-            </div>
-          );
-        })}
+            if (idx < 2 || s.key === "hero_banners") {
+              return [
+                ...before,
+                <div key={`home-${s.id ?? s.key}`} id={`home-${s.key}`}>
+                  {guarded}
+                </div>,
+              ];
+            }
+            return [
+              ...before,
+              <div key={`lazy-${s.id ?? s.key}-${idx}`} id={`home-${s.key}`}>
+                <LazyOnView minHeight={520}>{guarded}</LazyOnView>
+              </div>,
+            ];
+          });
+        return photoPrintingPlaced ? nodes : [...nodes, photoPrinting];
+      })()}
     </div>
   );
 }
@@ -285,6 +321,51 @@ class HomepageSectionBoundary extends Component<
   render() {
     return this.state.failed ? null : this.props.children;
   }
+}
+
+/**
+ * What is left of the old hero once Hero Concept #4 takes the top of the page: the admin's hero banners (same data,
+ * same slider, shown as a banner strip). Renders nothing when there are none.
+ */
+function HeroBannersBand() {
+  const { data: banners = [] } = useHeroBanners();
+  if (banners.length === 0) return null;
+  return (
+    <section data-hero-banners-band="true" className="border-b border-border bg-background">
+      <div className="relative isolate h-[34vh] min-h-[220px] w-full overflow-hidden sm:h-[44vh]">
+        <HeroBannerSlider fallback={null} />
+      </div>
+    </section>
+  );
+}
+
+/** The Photo Printing call to action that used to sit inside the old hero. An independent block: it does not depend on the hero banners. */
+function PhotoPrintingHomeCta() {
+  const { t } = useTranslation();
+  return (
+    <section className="border-b border-border bg-background">
+      <div
+        data-photo-printing-home="true"
+        className="container-page flex flex-col items-center gap-4 py-12 text-center sm:py-14"
+      >
+        <p className="max-w-md text-sm text-muted-foreground">{t("photoPrinting.subtitle")}</p>
+        <Link
+          to="/photo-printing"
+          className="hero-print-cta flex w-full select-none flex-col items-center justify-center px-10 py-5 text-center sm:w-auto"
+        >
+          <span className="hero-print-cta__kicker">{t("photoPrinting.ctaKicker")}</span>
+          <span className="hero-print-cta__label text-base font-black uppercase tracking-widest text-neutral-900 rtl:tracking-normal sm:text-lg">
+            <Printer
+              strokeWidth={2.2}
+              aria-hidden="true"
+              className="size-6 shrink-0 text-neutral-900 sm:size-7"
+            />
+            <span>{t("photoPrinting.title")}</span>
+          </span>
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 function HeroBannerSection() {

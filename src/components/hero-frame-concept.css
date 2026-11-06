@@ -3,8 +3,13 @@
  * A framed catalog poster hangs on the wall of a dark, warm room, lit by a picture light. Everything here is plain
  * CSS: no image for the room, no animation library, no 3D library. Only the poster is a picture (HeroFrameConcept.tsx).
  *
- * Motion is limited to one entrance (transform only, so the poster paints at once and LCP is not delayed) and a gentle
- * tilt that follows a mouse. Both are switched off for prefers-reduced-motion (and the tilt never runs on touch).
+ * The frames: one large frame appears in the middle, then three more come out from behind it and take their places.
+ * Motion is transform and opacity only (the lead frame uses transform alone, so it paints at once and LCP is not
+ * delayed), plus a very light tilt/parallax that follows a mouse. All of it is switched off for prefers-reduced-motion
+ * (the four frames are then simply there) and the tilt never runs on touch.
+ *
+ * Geometry: every frame is placed in "cqw" units, i.e. as a share of the gallery's own width, so the whole picture
+ * scales as one piece and the gallery's box (width x aspect-ratio) is reserved before any picture arrives.
  */
 
 .hfc {
@@ -79,7 +84,6 @@
 .hfc-enter {
   width: 100%;
   perspective: 1500px;
-  animation: hfc-in 0.95s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .hfc-tilt {
   width: 100%;
@@ -91,9 +95,136 @@
 }
 .hfc-hang {
   position: relative;
-  width: min(100%, calc(var(--hfc-frame-h) * 0.6667));
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- the gallery: four frames in one box ---------- */
+.hfc-gallery {
+  --ar: 0.94; /* height / width of the box */
+  container-type: inline-size;
+  position: relative;
+  /* phones: a little wider than the text column (12px each side, still inside the screen) so four frames get room */
+  width: min(calc(100% + 1.5rem), 460px);
+  aspect-ratio: 1 / var(--ar);
+  margin-inline: -0.75rem;
+}
+.hfc-card {
+  /* --x --y --w are shares of the gallery width; the fallback lines are for browsers without cqw units */
+  --k: 0.6; /* how much of the lead frame's shadow and depth a small frame gets */
+  --par: 8; /* parallax travel, px at full mouse offset */
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1% / var(--ar));
+  width: calc(var(--w) * 1%);
+  left: calc(var(--x) * 1cqw);
+  top: calc(var(--y) * 1cqw);
+  width: calc(var(--w) * 1cqw);
   aspect-ratio: 2 / 3;
+  z-index: var(--z, 2);
+  --hfc-b: clamp(3px, calc(var(--w) * 0.0325cqw), 12px);
+  transform: rotate(var(--r, 0deg));
+  translate: calc(var(--hfc-gx, 0) * var(--par) * 1px) 0;
+  transition: translate 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.hfc-card--0 {
+  --k: 1;
+  --par: 3;
+  --z: 4;
+}
+
+/* final places, phones: three columns. Two frames stacked on the left, the lead in the middle, one on the right.
+ * Every small frame is about 29% of the gallery width (~108 px on a 390 px phone) and none covers another. */
+.hfc-card--0 {
+  --x: 30;
+  --y: 17;
+  --w: 40;
+  --r: -1deg;
+  --cx: 0; /* the lead starts in the middle of the gallery, which is where it ends up on phones */
+  --cy: 0;
+}
+.hfc-card--1 {
+  --x: 0.5;
+  --y: 2;
+  --w: 29;
+  --r: -2.5deg;
+  --fx: 35; /* where it starts: behind the lead */
+  --fy: 23.25;
+  --par: 11;
+}
+.hfc-card--2 {
+  --x: 70.5;
+  --y: 30;
+  --w: 29;
+  --r: 2.5deg;
+  --fx: -35;
+  --fy: -4.75;
+  --par: 14;
+}
+.hfc-card--3 {
+  --x: 0.5;
+  --y: 49;
+  --w: 29;
+  --r: 2deg;
+  --z: 3;
+  --fx: 34;
+  --fy: -23.75;
+  --par: 7;
+}
+
+@media (min-width: 640px) {
+  .hfc-gallery {
+    --ar: 1.08;
+    width: min(100%, 520px);
+    margin-inline: auto;
+  }
+  .hfc-card--0 {
+    --x: 2;
+    --y: 20;
+    --w: 44;
+    --r: -1deg;
+    --cx: 26;
+    --cy: 1;
+  }
+  .hfc-card--1 {
+    --x: 49;
+    --y: 4;
+    --w: 24;
+    --r: 2.5deg;
+    --fx: -37;
+    --fy: 31;
+  }
+  .hfc-card--2 {
+    --x: 75;
+    --y: 16;
+    --w: 24;
+    --r: -2deg;
+    --fx: -63;
+    --fy: 19;
+  }
+  .hfc-card--3 {
+    --x: 58;
+    --y: 58;
+    --w: 24;
+    --r: 1.5deg;
+    --fx: -46;
+    --fy: -23;
+  }
+}
+
+/* only one frame to show (the Best Sellers list has a single usable entry, or none and the approved poster is used) */
+.hfc-gallery[data-count="1"] {
+  --ar: 1.5;
+  width: min(100%, calc(var(--hfc-frame-h) * 0.6667));
   margin-inline: auto;
+}
+.hfc-gallery[data-count="1"] .hfc-card--0 {
+  --x: 0;
+  --y: 0;
+  --w: 100;
+  --r: 0deg;
+  --par: 0;
+  animation: hfc-in 0.95s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 /* wall shadow: soft, offset away from the light (top-left), pushed back behind the frame */
@@ -101,8 +232,12 @@
   position: absolute;
   inset: 4% 1% -3% 3%;
   background: rgb(0 0 0 / 0.72);
-  filter: blur(20px);
-  transform: translate3d(calc(var(--hfc-d) * -1 * (22px + var(--hfc-sx, 0px))), 26px, -60px);
+  filter: blur(calc(20px * var(--k, 1)));
+  transform: translate3d(
+    calc(var(--hfc-d) * -1 * (22px + var(--hfc-sx, 0px)) * var(--k, 1)),
+    calc(26px * var(--k, 1)),
+    -60px
+  );
   border-radius: 6px;
 }
 
@@ -136,12 +271,37 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0b0b0c;
+  /* while the picture is on its way: the room's own warm dark tones, not an empty black hole */
+  background: linear-gradient(145deg, #3b3128 0%, #2b241d 52%, #362d25 100%);
   box-shadow:
     0 0 0 2px #050506,
     0 0 0 3px rgb(255 255 255 / 0.07);
 }
+/* a soft light band that passes over the frame until its picture has arrived (transform only) */
+.hfc-card[data-state="loading"] .hfc-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgb(255 232 200 / 0.16) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: hfc-sheen 1.7s ease-in-out infinite;
+}
+@keyframes hfc-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
+/* a picture that failed for good: the frame leaves the picture instead of showing a broken image */
+.hfc-card[data-state="failed"] {
+  visibility: hidden;
+}
 .hfc-art img {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
@@ -226,6 +386,7 @@
 }
 
 /* ---------- entrance ---------- */
+/* the single-frame fallback */
 @keyframes hfc-in {
   from {
     transform: translateY(26px) scale(0.965);
@@ -233,6 +394,47 @@
   to {
     transform: none;
   }
+}
+/* 1. the lead frame is there at once, large and in the middle, and settles into its place (transform only) */
+@keyframes hfc-lead {
+  0%,
+  38% {
+    transform: translate(calc(var(--cx) * 1cqw), calc(var(--cy) * 1cqw)) scale(1.16) rotate(0deg);
+  }
+  100% {
+    transform: rotate(var(--r));
+  }
+}
+/* 2. the other three come out from behind it, each a little later, growing as they travel to their places */
+@keyframes hfc-emerge {
+  0% {
+    transform: translate(calc(var(--fx) * 1cqw), calc(var(--fy) * 1cqw)) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--r));
+    opacity: 1;
+  }
+}
+.hfc-gallery:not([data-count="1"]) .hfc-card--0 {
+  animation: hfc-lead 1.9s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+}
+.hfc-gallery:not([data-count="1"]) .hfc-card--1,
+.hfc-gallery:not([data-count="1"]) .hfc-card--2,
+.hfc-gallery:not([data-count="1"]) .hfc-card--3 {
+  animation: hfc-emerge 1s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+.hfc-gallery:not([data-count="1"]) .hfc-card--1 {
+  animation-delay: 0.7s;
+}
+.hfc-gallery:not([data-count="1"]) .hfc-card--2 {
+  animation-delay: 0.95s;
+}
+.hfc-gallery:not([data-count="1"]) .hfc-card--3 {
+  animation-delay: 1.2s;
 }
 @keyframes hfc-copy-in {
   from {
@@ -254,13 +456,34 @@
   .hfc {
     --hfc-frame-h: clamp(400px, 62vh, 640px);
   }
+  .hfc-gallery {
+    width: min(100%, var(--hfc-frame-h));
+  }
+  .hfc-gallery[data-count="1"] {
+    width: min(100%, calc(var(--hfc-frame-h) * 0.6667));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hfc-enter,
+  /* the four frames are simply there, in their final places */
   .hfc-copy,
-  .hfc-cta {
+  .hfc-cta,
+  .hfc-card,
+  .hfc-gallery:not([data-count="1"]) .hfc-card--0,
+  .hfc-gallery:not([data-count="1"]) .hfc-card--1,
+  .hfc-gallery:not([data-count="1"]) .hfc-card--2,
+  .hfc-gallery:not([data-count="1"]) .hfc-card--3,
+  .hfc-gallery[data-count="1"] .hfc-card--0 {
     animation: none;
+  }
+  .hfc-card {
+    translate: none;
+    transition: none;
+  }
+  .hfc-card[data-state="loading"] .hfc-art::before {
+    animation: none;
+    transform: none;
+    opacity: 0;
   }
   .hfc-tilt {
     transition: none;

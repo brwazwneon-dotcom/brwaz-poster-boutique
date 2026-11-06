@@ -1,23 +1,58 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   HERO_CTA,
+  HERO_LEAD_SIZES,
   HERO_POSTER,
   HERO_POSTER_LARGE,
   HERO_POSTER_SIZES,
   HERO_POSTER_SRCSET,
   tiltFor,
 } from "@/lib/hero-concept";
+import { heroShowcaseQueryOptions } from "@/lib/hero-showcase";
+import { showcaseSrcSet, type ShowcaseItem } from "@/lib/hero-showcase-core";
 import "./hero-frame-concept.css";
 
+type Card = {
+  key: string;
+  src: string;
+  srcSet?: string;
+  sizes: string;
+  alt: string;
+  width: number;
+  height: number;
+};
+
+// What the browser has to choose from for each frame: the lead is about 45% of the gallery, the others about a
+// quarter of it (see hero-frame-concept.css).
+const SMALL_SIZES = "(max-width: 639px) 29vw, (max-width: 1023px) 130px, 150px";
+
+function cardFor(item: ShowcaseItem, index: number): Card {
+  return {
+    key: item.id,
+    src: item.image,
+    srcSet: showcaseSrcSet(item),
+    sizes: index === 0 ? HERO_LEAD_SIZES : SMALL_SIZES,
+    alt: item.title,
+    width: 1000,
+    height: 1500,
+  };
+}
+
 /**
- * Hero Concept #4, "The Frame Takes Center Stage": a real catalog poster in a large frame on the wall of a
- * dark, warm room. Text and buttons are ordinary HTML (translated through the locale files), not part of a picture.
+ * Hero Concept #4, "The Frame Takes Center Stage": real Best Sellers in black frames on the wall of a dark, warm
+ * room, lit by a picture light. Text and buttons are ordinary HTML (translated through the locale files), not part of
+ * a picture.
  *
- * Performance: the poster is the one image, loaded eagerly with a high fetch priority and explicit dimensions (and
- * preloaded in the route head). The room and the frame are CSS. The entrance moves with transform only, so the poster
- * is painted immediately.
+ * The motion tells one story: a single large frame appears in the middle, then three more come out from behind it and
+ * take their places, and the four stay put (with a very light parallax under a mouse). The four are the day's Best
+ * Sellers, picked on the server (see hero-showcase-core.ts), so everybody sees the same four all day.
+ *
+ * Performance: transform and opacity only, no library. The gallery's box is reserved by its aspect ratio before any
+ * picture arrives, only the lead frame loads at high priority (and is preloaded in the route head), and the other
+ * three never hold anything up: each paints when its own picture does.
  */
 export function HeroFrameConcept() {
   const { t, i18n } = useTranslation();
@@ -25,8 +60,37 @@ export function HeroFrameConcept() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
 
-  // A gentle tilt that follows a mouse, nothing else: not on touch screens, and not at all when the visitor asked
-  // for reduced motion. Written straight to CSS variables (no React re-render per mouse move).
+  // How each picture is doing: "loading" (a soft placeholder is shown in its frame), "loaded", or "failed" (its frame is
+  // taken out of the picture: an empty or broken frame would suggest content that is not there). Boxes never change size.
+  const [status, setStatus] = useState<Record<string, "loaded" | "failed">>({});
+  const report = useCallback((key: string, next: "loaded" | "failed") => {
+    setStatus((prev) => (prev[key] === next ? prev : { ...prev, [key]: next }));
+  }, []);
+
+  const { data, isPending } = useQuery(heroShowcaseQueryOptions);
+  const items = data?.items ?? [];
+  const cards: Card[] =
+    items.length > 0
+      ? items.map(cardFor)
+      : isPending
+        ? []
+        : [
+            // Nothing in the Best Sellers list: the single catalog poster this concept was approved with.
+            {
+              key: HERO_POSTER.id,
+              src: HERO_POSTER_LARGE,
+              srcSet: HERO_POSTER_SRCSET,
+              sizes: HERO_POSTER_SIZES,
+              alt: t("heroConcept.frameAlt"),
+              width: HERO_POSTER.width,
+              height: HERO_POSTER.height,
+            },
+          ];
+  // The box is reserved for four frames while the list is still on its way, so nothing moves when it arrives.
+  const layoutCount = cards.length === 0 ? 4 : cards.length;
+
+  // A very light tilt and parallax that follow a mouse, nothing else: not on touch screens, and not at all when the
+  // visitor asked for reduced motion. Written straight to CSS variables (no React re-render per mouse move).
   useEffect(() => {
     const stage = stageRef.current;
     const root = rootRef.current;
@@ -90,7 +154,7 @@ export function HeroFrameConcept() {
       <div className="container-page">
         <div
           dir="ltr"
-          className="grid grid-cols-1 content-start gap-y-9 pb-[calc(var(--hfc-floor)+1.25rem)] pt-14 sm:pt-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:content-center lg:gap-x-10 lg:gap-y-0 lg:pb-[calc(var(--hfc-floor)+5.2rem)] lg:pt-14"
+          className="grid grid-cols-1 content-start gap-y-6 pb-[calc(var(--hfc-floor)+1.25rem)] pt-10 sm:gap-y-9 sm:pt-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:content-center lg:gap-x-10 lg:gap-y-0 lg:pb-[calc(var(--hfc-floor)+5.2rem)] lg:pt-14"
         >
           <div
             dir={dir}
@@ -106,7 +170,7 @@ export function HeroFrameConcept() {
             >
               {t("heroConcept.title")}
             </h1>
-            <p className="mt-3 max-w-md text-sm leading-7 text-white/75 sm:mt-5 sm:text-base sm:leading-8">
+            <p className="mt-3 min-h-14 max-w-md text-sm leading-7 text-white/75 sm:mt-5 sm:min-h-16 sm:text-base sm:leading-8">
               {t("heroConcept.description")}
             </p>
           </div>
@@ -114,25 +178,43 @@ export function HeroFrameConcept() {
           <div ref={stageRef} className="hfc-stage lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <div className="hfc-enter">
               <div className="hfc-tilt">
-                <div className="hfc-hang">
-                  <div className="hfc-shadow" aria-hidden="true" />
-                  <div className="hfc-light" aria-hidden="true" />
-                  <figure className="hfc-frame">
-                    <div className="hfc-art">
-                      <img
-                        src={HERO_POSTER_LARGE}
-                        srcSet={HERO_POSTER_SRCSET}
-                        sizes={HERO_POSTER_SIZES}
-                        width={HERO_POSTER.width}
-                        height={HERO_POSTER.height}
-                        alt={t("heroConcept.frameAlt")}
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
-                      />
+                <div className="hfc-gallery" data-count={layoutCount}>
+                  {cards.map((card, i) => (
+                    <div
+                      key={card.key}
+                      className={`hfc-card hfc-card--${i}`}
+                      data-slot={i}
+                      data-state={status[card.key] ?? "loading"}
+                    >
+                      <div className="hfc-hang">
+                        <div className="hfc-shadow" aria-hidden="true" />
+                        {i === 0 ? <div className="hfc-light" aria-hidden="true" /> : null}
+                        <figure className="hfc-frame">
+                          <div className="hfc-art">
+                            <img
+                              src={card.src}
+                              srcSet={card.srcSet}
+                              sizes={card.srcSet ? card.sizes : undefined}
+                              width={card.width}
+                              height={card.height}
+                              alt={card.alt}
+                              loading="eager"
+                              decoding="async"
+                              fetchPriority={i === 0 ? "high" : "low"}
+                              onLoad={() => report(card.key, "loaded")}
+                              onError={() => report(card.key, "failed")}
+                              // a picture that finished before React hydrated fires no load event any more
+                              ref={(el) => {
+                                if (el?.complete)
+                                  report(card.key, el.naturalWidth > 0 ? "loaded" : "failed");
+                              }}
+                            />
+                          </div>
+                          <span className="hfc-glass" aria-hidden="true" />
+                        </figure>
+                      </div>
                     </div>
-                    <span className="hfc-glass" aria-hidden="true" />
-                  </figure>
+                  ))}
                 </div>
               </div>
             </div>
@@ -140,7 +222,7 @@ export function HeroFrameConcept() {
 
           <div
             dir={dir}
-            className="hfc-cta flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:col-start-1 lg:row-start-2 lg:self-start"
+            className="hfc-cta flex flex-col gap-3 pe-[3.75rem] sm:flex-row sm:flex-wrap sm:pe-0 lg:col-start-1 lg:row-start-2 lg:self-start"
           >
             <Link
               to={HERO_CTA.primary}

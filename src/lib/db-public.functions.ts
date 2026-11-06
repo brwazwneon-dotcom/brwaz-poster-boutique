@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { edgeCache } from "@/lib/edge-cache";
 import { createKeyBatcher } from "@/lib/rpc-batch";
+import { buildShowcase } from "@/lib/hero-showcase-core";
 import {
   fetchApprovedReviewsFromDb,
   fetchCategoriesFromDb,
@@ -182,6 +183,13 @@ export const getLandingBundlePublic = createServerFn({ method: "GET" })
 export const getBestSellersPublic = createServerFn({ method: "GET" }).handler(async () => {
   edgeCache(60, 600);
   return fetchBestSellersFromDb();
+});
+
+// Hero Concept #4: four frames from the Best Sellers list above (same query, same order), a different four each
+// shop day. Only id / title / picture leave the server: no sales counts, no orders, nothing about customers.
+export const getHeroShowcasePublic = createServerFn({ method: "GET" }).handler(async () => {
+  edgeCache(60, 600);
+  return buildShowcase(await fetchBestSellersFromDb(), new Date());
 });
 
 export const getApprovedReviewsPublic = createServerFn({ method: "GET" })
