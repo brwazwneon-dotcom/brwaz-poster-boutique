@@ -520,6 +520,17 @@ describe("the offer badge (4 frames 30×40)", () => {
     expect(badge()?.className).toMatch(/\bmin-h-10\b/);
   });
 
+  it("the price and the icon are readable on the dark wall: a brass colour set in the stylesheet, not the dark primary colour", async () => {
+    await renderIn("en", ITEMS, 890);
+    expect(badge()?.className).toContain("hfc-offer");
+    expect(badge()?.className).not.toMatch(/primary/);
+    expect(badge()?.querySelector(".hfc-offer__price")?.textContent).toBe("890 EGP");
+    expect(badge()?.querySelector(".hfc-offer__price")?.className).not.toMatch(/primary/);
+    expect(badge()?.querySelector(".hfc-offer__icon")).toBeTruthy();
+    expect(css()).toMatch(/\.hfc-offer__icon,\s*\.hfc-offer__price\s*\{[^}]*color:\s*#f0c987/);
+    expect(css()).toMatch(/\.hfc-offer\s*\{[^}]*border-color:\s*rgb\(233 184 114/);
+  });
+
   it("the buttons and the heading are still there with the badge", async () => {
     await renderIn("en", ITEMS, 890);
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();

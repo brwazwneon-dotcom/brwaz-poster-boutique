@@ -373,6 +373,16 @@
   mix-blend-mode: screen;
 }
 
+/* The offer badge under the description. The brass colour is set here on purpose: the site's "primary" colour is dark,
+ * so on this dark wall it would make the price and the icon almost invisible. */
+.hfc-offer {
+  border-color: rgb(233 184 114 / 0.75);
+}
+.hfc-offer__icon,
+.hfc-offer__price {
+  color: #f0c987;
+}
+
 /* Lighting: one brass rail above the four frames with two lamps on it. Each lamp throws a wide, soft cone of warm light
  * down the wall over its column of frames, and the lamps "switch on" (opacity only) just as the main frame opens.
  * The rail belongs to the wall, not to a frame, so it never swings with them. */

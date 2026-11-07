@@ -236,13 +236,13 @@ export function HeroFrameConcept() {
                 <Link
                   to={OFFER_LINK}
                   data-hero-offer="4x30x40"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary/70 bg-black/40 px-4 text-xs font-semibold text-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.8)] backdrop-blur-sm transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+                  className="hfc-offer inline-flex min-h-10 items-center gap-2 rounded-full border bg-black/40 px-4 text-xs font-semibold text-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.8)] backdrop-blur-sm transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
                 >
-                  <Tag aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                  <Tag aria-hidden="true" className="hfc-offer__icon size-4 shrink-0" />
                   <Trans
                     i18nKey="heroConcept.offerBadge"
                     values={{ price: new Intl.NumberFormat("en-US").format(bundlePrice) }}
-                    components={{ price: <span className="font-black text-primary" /> }}
+                    components={{ price: <span className="hfc-offer__price font-black" /> }}
                   />
                 </Link>
               ) : null}
