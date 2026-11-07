@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18next from "i18next";
@@ -21,11 +21,13 @@ vi.mock("@tanstack/react-router", () => ({
 // The component only needs the query's key and options; the server function behind it is never called here.
 vi.mock("@/lib/db-public.functions", () => ({
   getHeroShowcasePublic: vi.fn(() => new Promise(() => {})),
+  getSiteSettingsPublic: vi.fn(() => new Promise(() => {})), // the offer badge reads the pricing; never answered here
 }));
 
 import { HeroFrameConcept } from "./HeroFrameConcept";
 import { HERO_LEAD_SIZES, HERO_POSTER } from "@/lib/hero-concept";
 import { heroShowcaseQueryOptions } from "@/lib/hero-showcase";
+import { PRICING_DEFAULTS } from "@/lib/use-settings";
 import type { ShowcaseItem } from "@/lib/hero-showcase-core";
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,7 +44,11 @@ const ITEMS: ShowcaseItem[] = [1, 2, 3, 4].map((n) => ({
   small: `https://img.example/p/${uuid(n)}-480.webp`,
 }));
 
-async function renderIn(lang: "en" | "ar", items: ShowcaseItem[] | null = ITEMS) {
+async function renderIn(
+  lang: "en" | "ar",
+  items: ShowcaseItem[] | null = ITEMS,
+  bundlePrice: number | null = null, // null = the pricing has not arrived yet
+) {
   const i18n = i18next.createInstance();
   await i18n.use(initReactI18next).init({
     lng: lang,
@@ -53,6 +59,11 @@ async function renderIn(lang: "en" | "ar", items: ShowcaseItem[] | null = ITEMS)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // null = the list has not arrived yet (the query stays pending)
   if (items) client.setQueryData(heroShowcaseQueryOptions.queryKey, { day: "2026-11-05", items });
+  if (bundlePrice !== null)
+    client.setQueryData(["pricing"], {
+      ...PRICING_DEFAULTS,
+      offers: { ...PRICING_DEFAULTS.offers, bundle4_30x40: bundlePrice },
+    });
   return render(
     <QueryClientProvider client={client}>
       <I18nextProvider i18n={i18n}>
@@ -120,7 +131,9 @@ describe("copy and buttons (unchanged by the gallery)", () => {
   it("text and buttons are real HTML elements, not part of the pictures", async () => {
     await renderIn("en");
     expect(screen.getByRole("heading", { level: 1 }).tagName).toBe("H1");
-    expect(document.querySelectorAll("img")).toHaveLength(4);
+    // four product pictures, plus the main frame's copy of the first one
+    expect(document.querySelectorAll(".hfc-card:not(.hfc-card--m) img")).toHaveLength(4);
+    expect(document.querySelectorAll("img")).toHaveLength(5);
   });
 
   it("the section is labelled by its heading", async () => {
@@ -172,7 +185,7 @@ describe("layout does not depend on the language", () => {
 describe("the four frames", () => {
   it("shows four frames, the lead first, each with its own product picture", async () => {
     await renderIn("en");
-    const cards = [...document.querySelectorAll(".hfc-gallery .hfc-card")];
+    const cards = [...document.querySelectorAll(".hfc-gallery .hfc-card:not(.hfc-card--m)")];
     expect(cards).toHaveLength(4);
     expect(cards.map((c) => c.getAttribute("data-slot"))).toEqual(["0", "1", "2", "3"]);
     const imgs = cards.map((c) => c.querySelector("img") as HTMLImageElement);
@@ -181,16 +194,37 @@ describe("the four frames", () => {
     expect(document.querySelector(".hfc-gallery")?.getAttribute("data-count")).toBe("4");
   });
 
-  it("the lead loads first and at high priority; the others are low priority and never lazy", async () => {
+  it("the main frame loads first and at high priority; the four are low priority and never lazy", async () => {
     await renderIn("en");
-    const imgs = [...document.querySelectorAll(".hfc-card img")] as HTMLImageElement[];
-    expect(imgs[0].getAttribute("fetchpriority")).toBe("high");
-    for (const img of imgs.slice(1)) expect(img.getAttribute("fetchpriority")).toBe("low");
-    for (const img of imgs) {
+    const main = document.querySelector(".hfc-card--m img") as HTMLImageElement;
+    expect(main.getAttribute("fetchpriority")).toBe("high");
+    const imgs = [
+      ...document.querySelectorAll(".hfc-card:not(.hfc-card--m) img"),
+    ] as HTMLImageElement[];
+    for (const img of imgs) expect(img.getAttribute("fetchpriority")).toBe("low");
+    for (const img of [main, ...imgs]) {
       expect(img.getAttribute("loading")).toBe("eager");
       expect(img.getAttribute("width")).toBe("1000");
       expect(img.getAttribute("height")).toBe("1500");
     }
+  });
+
+  it("the single-frame fallback keeps its picture at high priority (there is no main frame then)", async () => {
+    await renderIn("en", []);
+    expect(document.querySelector(".hfc-card--m")).toBeNull();
+    expect(document.querySelector(".hfc-card--0 img")?.getAttribute("fetchpriority")).toBe("high");
+  });
+
+  it("the main frame shows the first Best Seller again: decorative, same file, no second download", async () => {
+    await renderIn("en");
+    const main = document.querySelector(".hfc-card--m") as HTMLElement;
+    expect(main.getAttribute("aria-hidden")).toBe("true");
+    const mainImg = main.querySelector("img") as HTMLImageElement;
+    const first = document.querySelector(".hfc-card--0 img") as HTMLImageElement;
+    expect(mainImg.alt).toBe("");
+    expect(mainImg.getAttribute("src")).toBe(first.getAttribute("src"));
+    expect(mainImg.getAttribute("srcset")).toBe(first.getAttribute("srcset"));
+    expect(mainImg.getAttribute("sizes")).toBe(first.getAttribute("sizes")); // same candidate, so one fetch
   });
 
   it("every picture offers the 480 and the 1000 file, with sizes that match the frame", async () => {
@@ -204,10 +238,19 @@ describe("the four frames", () => {
     }
   });
 
-  it("only the lead frame has the picture light", async () => {
+  it("two brass lamps hang on a rail on the wall, not on a frame (so they never swing)", async () => {
     await renderIn("en");
-    expect(document.querySelectorAll(".hfc-light")).toHaveLength(1);
-    expect(document.querySelector(".hfc-card--0 .hfc-light")).toBeTruthy();
+    expect(document.querySelectorAll(".hfc-lamps")).toHaveLength(1);
+    expect(document.querySelectorAll(".hfc-lamps .hfc-lamp")).toHaveLength(2);
+    expect(document.querySelector(".hfc-card .hfc-lamps")).toBeNull();
+    expect(document.querySelector(".hfc-hang .hfc-lamps")).toBeNull();
+    expect(document.querySelectorAll(".hfc-light")).toHaveLength(0);
+  });
+
+  it("no lamps and no main frame when there is only the single fallback frame", async () => {
+    await renderIn("en", []);
+    expect(document.querySelector(".hfc-lamps")).toBeNull();
+    expect(document.querySelector(".hfc-card--m")).toBeNull();
   });
 
   it("holds the gallery's box before the list arrives (no layout change when it does)", async () => {
@@ -267,8 +310,30 @@ describe("the gallery's geometry (CSS)", () => {
       // every small frame is big enough to tell what is in it: about 29% of the gallery on phones (~108 px)
       for (const b of boxes.slice(1))
         expect(b.w).toBeGreaterThanOrEqual(name === "phones" ? 29 : 24);
-      // the lead is the largest
-      expect(boxes[0].w).toBeGreaterThan(Math.max(boxes[1].w, boxes[2].w, boxes[3].w));
+      // the four frames are the SAME size
+      expect(new Set(boxes.map((b) => b.w)).size).toBe(1);
+      // the main frame they come out of is bigger than each of them, sits inside the box, and in the middle of it
+      const main = Object.assign({}, ...blocks(source, "m").map(numbers));
+      expect(main.w).toBeGreaterThan(boxes[0].w);
+      expect(main.x).toBeGreaterThanOrEqual(0);
+      expect(main.x + main.w).toBeLessThanOrEqual(100);
+      expect(main.y).toBeGreaterThanOrEqual(0);
+      expect(main.y + main.w * 1.5).toBeLessThanOrEqual(100 * ar);
+      expect(Math.abs(main.x + main.w / 2 - 50)).toBeLessThanOrEqual(1);
+      expect(Math.abs(main.y + (main.w * 1.5) / 2 - (100 * ar) / 2)).toBeLessThanOrEqual(1);
+      // each frame starts back in the middle of the box: --ox/--oy are the distance from its final centre to it
+      for (const b of boxes) {
+        const block = Object.assign(
+          {},
+          ...blocks(source, String(b.n)).map((s) =>
+            Object.fromEntries(
+              [...s.matchAll(/--(ox|oy):\s*(-?[\d.]+);/g)].map((m) => [m[1], +m[2]]),
+            ),
+          ),
+        );
+        expect(b.x + b.w / 2 + block.ox).toBeCloseTo(50, 1);
+        expect(b.y + b.h / 2 + block.oy).toBeCloseTo((100 * ar) / 2, 1);
+      }
       // overlap between any two frames stays small (a few percent of the smaller one at most)
       for (let i = 0; i < boxes.length; i++) {
         for (let j = i + 1; j < boxes.length; j++) {
@@ -307,47 +372,73 @@ describe("the motion (CSS)", () => {
     return m ? m[0] : "";
   };
 
-  it("one large frame first, in the middle, then it settles", () => {
-    const k = keyframes("hfc-lead");
-    expect(k).toContain("scale(1.16)");
-    expect(k).toMatch(/0%,\s*38%/); // it holds in the middle for a moment before it moves
-    expect(k).toContain("transform: rotate(var(--r))"); // the end: its own place
+  it("the main frame is painted at once (no fade-in: it is the first picture the page shows), holds, then closes", () => {
+    const k = keyframes("hfc-main");
+    expect(k).toMatch(/0%,\s*33%\s*\{[^}]*opacity:\s*1/); // visible from the very first frame, and it holds there
+    expect(k).toMatch(/100%\s*\{[^}]*opacity:\s*0/); // then it closes behind the four
   });
 
-  it("three more come out from behind it, growing as they travel, each later than the last", () => {
-    const k = keyframes("hfc-emerge");
-    expect(k).toContain("scale(0.5)");
-    expect(k).toContain("opacity: 0");
-    expect(k).toContain("var(--fx)");
+  it("four frames come out of it, growing as they travel to their places, each later than the last", () => {
+    const k = keyframes("hfc-pop");
+    expect(k).toContain("scale(0.3)");
+    expect(k).toContain("var(--ox)");
+    expect(k).toContain("var(--oy)");
+    expect(k).toMatch(/0%\s*\{[^}]*opacity:\s*0/);
+    // they end where they stay: full opacity, their own rotation
+    expect(k).toMatch(/100%\s*\{[^}]*transform:\s*rotate\(var\(--r\)\)[^}]*opacity:\s*1/);
     const c = css();
-    const delay = (n: number) =>
-      parseFloat(
-        c.match(
-          new RegExp(
-            `\\[data-count="1"\\]\\)\\s*\\.hfc-card--${n}\\s*\\{\\s*animation-delay:\\s*([\\d.]+)s`,
-          ),
-        )?.[1] ?? "NaN",
-      );
-    expect(delay(1)).toBeGreaterThan(0);
-    expect(delay(2)).toBeGreaterThan(delay(1));
-    expect(delay(3)).toBeGreaterThan(delay(2));
-    // the whole sequence is over in about two seconds
-    expect(delay(3) + 1).toBeLessThanOrEqual(2.5);
+    const rule = c.match(
+      /\.hfc\[data-play\] \.hfc-gallery:not\(\[data-count="1"\]\) \.hfc-card:not\(\.hfc-card--m\) \{([^}]*)\}/,
+    )?.[1];
+    expect(rule).toMatch(/hfc-pop 0\.95s[^;]*both/);
+    const delay = rule?.match(/animation-delay:\s*calc\(([\d.]+)s \+ var\(--i\) \* ([\d.]+)s\)/);
+    const start = parseFloat(delay?.[1] ?? "NaN");
+    const step = parseFloat(delay?.[2] ?? "NaN");
+    expect(start).toBeGreaterThan(0.5); // the main frame is seen for a moment first
+    expect(step).toBeGreaterThan(0);
+    // frame n has --i: n, so each one starts later than the one before
+    for (const n of [0, 1, 2, 3])
+      expect(c.match(new RegExp(`\\.hfc-card--${n}\\s*\\{[^}]*--i:\\s*${n};`))).toBeTruthy();
+    // all four are in their places within about two seconds
+    expect(start + 3 * step + 0.95).toBeLessThanOrEqual(2.6);
   });
 
-  it("animates transform and opacity only (nothing that makes the page reflow), the lead with transform alone", () => {
-    const lead = keyframes("hfc-lead");
-    const emerge = keyframes("hfc-emerge");
-    const single = keyframes("hfc-in");
-    expect(lead).not.toContain("opacity"); // the lead paints at once
-    expect(single).not.toContain("opacity");
-    for (const k of [lead, emerge, single]) {
-      expect(k).toContain("transform");
-      expect(k).not.toMatch(/\b(left|top|right|bottom|width|height|margin|padding|inset)\s*:/);
+  it("each frame then hangs from its nail and swings, a little less every time, until it hangs still", () => {
+    const k = keyframes("hfc-swing");
+    const angles = [...k.matchAll(/rotate\((-?[\d.]+)deg\)/g)].map((m) => Math.abs(+m[1]));
+    expect(angles.length).toBeGreaterThanOrEqual(5);
+    for (let i = 1; i < angles.length; i++) expect(angles[i]).toBeLessThan(angles[i - 1]);
+    expect(angles[angles.length - 1]).toBe(0);
+    // it swings from the top edge, like a frame on a nail, and now and then gives a small nudge
+    expect(css()).toMatch(/\.hfc-hang\s*\{[^}]*transform-origin:\s*50% 0/);
+    expect(css()).toMatch(/hfc-nudge 11s[^;]*infinite/);
+    const nudge = [...keyframes("hfc-nudge").matchAll(/rotate\((-?[\d.]+)deg\)/g)].map(
+      (m) => +m[1],
+    );
+    expect(Math.max(...nudge.map(Math.abs))).toBeLessThanOrEqual(2); // small
+  });
+
+  it("animates transform and opacity only (nothing that makes the page reflow)", () => {
+    for (const name of ["hfc-main", "hfc-pop", "hfc-swing", "hfc-nudge", "hfc-lamp-on", "hfc-in"]) {
+      const k = keyframes(name);
+      expect(k, name).toMatch(/transform|opacity/);
+      expect(k, name).not.toMatch(
+        /\b(left|top|right|bottom|width|height|margin|padding|inset)\s*:/,
+      );
     }
-    // the frames end where they stay: full opacity, their own rotation
-    expect(emerge).toMatch(/100%\s*\{[^}]*opacity:\s*1/);
-    expect(css()).toMatch(/hfc-emerge 1s[^;]*both/);
+    expect(keyframes("hfc-in")).not.toContain("opacity");
+  });
+
+  it("the entrance waits for the visitor (data-play) and has a CSS-only clock if JavaScript never runs", () => {
+    const c = css();
+    // before data-play: the real animations are paused, the last animation in each list (the clock) runs
+    expect(c).toMatch(/hfc-card--m \{[^}]*animation-play-state:\s*paused,\s*running/);
+    expect(c).toMatch(/\.hfc-hang \{[^}]*animation-play-state:\s*paused,\s*paused,\s*running/);
+    // after data-play: the same animations without the clock
+    expect(c).toContain(".hfc[data-play] .hfc-gallery");
+    expect(c).toMatch(/hfc-final-card 1ms linear 12s forwards/);
+    for (const name of ["hfc-final-main", "hfc-final-card", "hfc-final-hang", "hfc-final-lamp"])
+      expect(c).toContain(`@keyframes ${name}`);
   });
 
   it("uses no animation or 3D library", () => {
@@ -355,24 +446,157 @@ describe("the motion (CSS)", () => {
     expect(source).not.toMatch(/from "(framer-motion|gsap|three|@react-three|motion)/);
   });
 
-  it("reduced motion: the four frames are simply there, no animation, no parallax transition", () => {
+  it("reduced motion: the four frames hang still in their places, the main frame is not shown, no animation, no parallax transition", () => {
     const reduced = css().slice(css().indexOf("@media (prefers-reduced-motion: reduce)"));
-    for (const card of [
+    for (const selector of [
       ".hfc-copy",
       ".hfc-cta",
       ".hfc-card",
-      '.hfc-gallery:not([data-count="1"]) .hfc-card--0',
-      '.hfc-gallery:not([data-count="1"]) .hfc-card--1',
-      '.hfc-gallery:not([data-count="1"]) .hfc-card--2',
-      '.hfc-gallery:not([data-count="1"]) .hfc-card--3',
+      ".hfc-hang",
+      ".hfc-lamp::after",
+      '.hfc-gallery:not([data-count="1"]) .hfc-card--m',
+      '.hfc-gallery:not([data-count="1"]) .hfc-card:not(.hfc-card--m)',
     ]) {
-      expect(reduced).toContain(card);
+      expect(reduced).toContain(selector);
     }
-    expect(reduced).toMatch(/animation:\s*none/);
+    // !important, because the animation rules above are more specific
+    expect(reduced).toMatch(/animation:\s*none\s*!important/);
+    expect(reduced).toMatch(/\.hfc-card--m\s*\{[^}]*display:\s*none/);
     expect(reduced).toMatch(/\.hfc-card\s*\{[^}]*translate:\s*none/);
     // and in that case the frames' base style is the final place: visible, in their own rotation
     expect(css()).toMatch(/\.hfc-card\s*{[^}]*transform:\s*rotate\(var\(--r, 0deg\)\)/);
     expect(css()).not.toMatch(/\.hfc-card\s*{[^}]*opacity:\s*0/);
+  });
+});
+
+describe("the offer badge (4 frames 30×40)", () => {
+  const badge = () => document.querySelector("[data-hero-offer]") as HTMLAnchorElement | null;
+
+  it("English: shows the bundle price from the settings and leads to the offers page", async () => {
+    await renderIn("en", ITEMS, 890);
+    expect(badge()?.getAttribute("href")).toBe("/offers");
+    expect(badge()?.textContent).toBe("4 frames 30×40 for 890 EGP only");
+  });
+
+  it("Arabic: the same offer in Egyptian Arabic", async () => {
+    await renderIn("ar", ITEMS, 890);
+    expect(badge()?.textContent).toBe("4 براويز 30×40 بـ 890 جنيه فقط");
+  });
+
+  it("the price is the admin's setting, not a number typed in the code", async () => {
+    await renderIn("en", ITEMS, 950);
+    expect(badge()?.textContent).toContain("950 EGP");
+    expect(badge()?.textContent).not.toContain("890");
+    const source = fs.readFileSync(path.join(SRC, "components/HeroFrameConcept.tsx"), "utf8");
+    expect(source).not.toMatch(/\b890\b/);
+    expect(source).toContain("pricing.offers.bundle4_30x40");
+  });
+
+  it("a thousand separator for bigger prices", async () => {
+    await renderIn("en", ITEMS, 1290);
+    expect(badge()?.textContent).toContain("1,290 EGP");
+  });
+
+  it("does not show a built-in default as if it were the price: no badge until the pricing has arrived", async () => {
+    await renderIn("en"); // pricing still pending
+    expect(badge()).toBeNull();
+  });
+
+  it("no badge for a price that is missing or zero", async () => {
+    await renderIn("en", ITEMS, 0);
+    expect(badge()).toBeNull();
+  });
+
+  it("its place is reserved from the start, so nothing moves when it appears", async () => {
+    await renderIn("en"); // no badge yet, the slot is there
+    const slot = document.querySelector(".hfc-offer-slot") as HTMLElement;
+    expect(slot).toBeTruthy();
+    expect(slot.className).toMatch(/\bmin-h-10\b/);
+    expect(slot.closest(".hfc-copy")).toBeTruthy();
+    cleanup();
+    await renderIn("en", ITEMS, 890);
+    expect(document.querySelector(".hfc-offer-slot [data-hero-offer]")).toBeTruthy();
+    // the badge itself is as tall as the slot it fills
+    expect(badge()?.className).toMatch(/\bmin-h-10\b/);
+  });
+
+  it("the buttons and the heading are still there with the badge", async () => {
+    await renderIn("en", ITEMS, 890);
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Explore Designs" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Customize Your Frame" })).toBeTruthy();
+  });
+});
+
+describe("the entrance plays every time the page is shown (data-play)", () => {
+  const section = () => document.querySelector("section[data-hero-concept]") as HTMLElement;
+  const setVisibility = (state: "visible" | "hidden") =>
+    Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+  afterEach(() => {
+    document.querySelectorAll(".brwz-preloader").forEach((n) => n.remove());
+    setVisibility("visible");
+  });
+
+  it("server HTML has no data-play (the animations are paused), and it is set as soon as the page is shown", async () => {
+    await renderIn("en");
+    // jsdom has no preloader overlay, so the entrance starts at once
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+  });
+
+  it("waits behind the preloader overlay (which covers the page on every full load) and starts when it is gone", async () => {
+    const overlay = document.createElement("div");
+    overlay.className = "brwz-preloader";
+    document.body.appendChild(overlay);
+    await renderIn("en");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(section().hasAttribute("data-play")).toBe(false);
+    overlay.remove();
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+  });
+
+  it("never waits forever for the overlay: it plays anyway after a short limit", async () => {
+    const overlay = document.createElement("div");
+    overlay.className = "brwz-preloader";
+    document.body.appendChild(overlay);
+    await renderIn("en");
+    expect(section().hasAttribute("data-play")).toBe(false);
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"), { timeout: 4000 });
+  }, 10_000);
+
+  it("does not play in a background tab; it plays when the tab becomes visible", async () => {
+    setVisibility("hidden");
+    await renderIn("en");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(section().hasAttribute("data-play")).toBe(false);
+    setVisibility("visible");
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+  });
+
+  it("plays the whole entrance again when the browser brings the page back from its back/forward cache", async () => {
+    await renderIn("en");
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+    const before = document.querySelector(".hfc-gallery");
+    act(() => {
+      window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted: true }));
+    });
+    // a new gallery element (so every CSS animation starts from the beginning) and the entrance is on again
+    await waitFor(() => expect(document.querySelector(".hfc-gallery")).not.toBe(before));
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+  });
+
+  it("an ordinary page show (not from the cache) does not restart it", async () => {
+    await renderIn("en");
+    await waitFor(() => expect(section().getAttribute("data-play")).toBe("1"));
+    const before = document.querySelector(".hfc-gallery");
+    act(() => {
+      window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted: false }));
+    });
+    expect(document.querySelector(".hfc-gallery")).toBe(before);
+  });
+
+  it("a visitor who has been here before gets it too: nothing is stored or remembered", () => {
+    const source = fs.readFileSync(path.join(SRC, "components/HeroFrameConcept.tsx"), "utf8");
+    expect(source).not.toMatch(/localStorage|sessionStorage|document\.cookie|indexedDB/);
   });
 });
 

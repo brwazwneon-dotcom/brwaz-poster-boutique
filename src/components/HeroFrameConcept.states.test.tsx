@@ -21,6 +21,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/lib/db-public.functions", () => ({
   getHeroShowcasePublic: vi.fn(() => new Promise(() => {})),
+  getSiteSettingsPublic: vi.fn(() => new Promise(() => {})), // the offer badge reads the pricing; never answered here
 }));
 
 import { HeroFrameConcept } from "./HeroFrameConcept";
@@ -93,24 +94,27 @@ describe("pictures that are late or fail", () => {
       "loaded",
     ]);
     // the four boxes are all still there: nothing moves, the failed one is only taken out of sight by CSS
-    expect(document.querySelectorAll(".hfc-card")).toHaveLength(4);
+    expect(document.querySelectorAll(".hfc-card:not(.hfc-card--m)")).toHaveLength(4);
   });
 
-  it("even the lead frame can fail without taking the others or the text and buttons with it", async () => {
+  it("even the first frame can fail without taking the others or the text and buttons with it; the main frame goes with it", async () => {
     await renderHero();
     fireEvent.error(img(0));
     expect(card(0).getAttribute("data-state")).toBe("failed");
+    // the main frame shows the same picture, so it leaves the scene too instead of showing a broken one
+    expect(document.querySelector(".hfc-card--m")?.getAttribute("data-state")).toBe("failed");
     expect(screen.getByRole("link", { name: "Explore Designs" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(document.querySelectorAll(".hfc-card img")).toHaveLength(4);
+    expect(document.querySelectorAll(".hfc-card:not(.hfc-card--m) img")).toHaveLength(4);
   });
 
-  it("only the lead frame asks for high priority", async () => {
+  it("only the main frame asks for high priority (it is the picture painted first)", async () => {
     await renderHero();
     const high = [...document.querySelectorAll(".hfc-card img")].filter(
       (i) => i.getAttribute("fetchpriority") === "high",
     );
     expect(high).toHaveLength(1);
+    expect(high[0].closest(".hfc-card--m")).toBeTruthy();
   });
 });
 
