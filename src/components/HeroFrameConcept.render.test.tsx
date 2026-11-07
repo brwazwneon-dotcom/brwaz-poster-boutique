@@ -469,6 +469,22 @@ describe("the motion (CSS)", () => {
   });
 });
 
+describe("the small label above the heading is readable on the dark wall", () => {
+  it("is brass, set in the stylesheet, not the dark primary colour (English and Arabic)", async () => {
+    for (const lang of ["en", "ar"] as const) {
+      await renderIn(lang);
+      const label = screen.getByText("PREMIUM WALL ART");
+      expect(label.className).toContain("hfc-label");
+      expect(label.className).not.toMatch(/primary/);
+      const rule = label.querySelector(".hfc-label__rule") as HTMLElement;
+      expect(rule.className).not.toMatch(/primary/);
+      cleanup();
+    }
+    expect(css()).toMatch(/\.hfc-label\s*\{[^}]*color:\s*#f0c987/);
+    expect(css()).toMatch(/\.hfc-label__rule\s*\{[^}]*background:\s*rgb\(233 184 114/);
+  });
+});
+
 describe("the offer badge (4 frames 30×40)", () => {
   const badge = () => document.querySelector("[data-hero-offer]") as HTMLAnchorElement | null;
 

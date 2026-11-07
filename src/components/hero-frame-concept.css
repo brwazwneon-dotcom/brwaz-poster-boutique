@@ -373,8 +373,14 @@
   mix-blend-mode: screen;
 }
 
-/* The offer badge under the description. The brass colour is set here on purpose: the site's "primary" colour is dark,
- * so on this dark wall it would make the price and the icon almost invisible. */
+/* The small label above the heading ("PREMIUM WALL ART") and the offer badge under the description. The brass colour is
+ * set here on purpose: the site's "primary" colour is dark, so on this dark wall text and icons in it are almost invisible. */
+.hfc-label {
+  color: #f0c987;
+}
+.hfc-label__rule {
+  background: rgb(233 184 114 / 0.7);
+}
 .hfc-offer {
   border-color: rgb(233 184 114 / 0.75);
 }

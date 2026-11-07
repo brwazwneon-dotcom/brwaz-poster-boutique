@@ -218,8 +218,8 @@ export function HeroFrameConcept() {
             dir={dir}
             className="hfc-copy max-w-xl lg:col-start-1 lg:row-start-1 lg:self-end lg:pb-5"
           >
-            <p className="mb-3 inline-flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.38em] text-primary sm:text-xs">
-              <span aria-hidden="true" className="h-px w-8 bg-primary/70" />
+            <p className="hfc-label mb-3 inline-flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.38em] sm:text-xs">
+              <span aria-hidden="true" className="hfc-label__rule h-px w-8" />
               {t("heroConcept.label")}
             </p>
             <h1
