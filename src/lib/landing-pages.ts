@@ -5,7 +5,12 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { getLandingBundlePublic } from "@/lib/db-public.functions";
+import {
+  getBestSellersPublic,
+  getLandingBundlePublic,
+  getTrendingPostersPublic,
+} from "@/lib/db-public.functions";
+import { resolveLandingBundle } from "@/lib/landing-defaults";
 
 export const AUDIENCE_KEYS = ["movies", "anime", "music", "cars", "decor"] as const;
 export type AudienceKey = (typeof AUDIENCE_KEYS)[number];
@@ -90,13 +95,27 @@ export function getAudienceAttribution(): Record<string, string> | null {
   }
 }
 
+/**
+ * The page for /landing/<audience>: the admin's saved page when there is one, otherwise (for the two campaign audiences)
+ * the built-in page with trending posters. See landing-defaults.ts.
+ */
+export function fetchLandingBundle(audience: string): Promise<LandingBundle> {
+  return resolveLandingBundle(audience, {
+    fetchBundle: async (a) =>
+      (await getLandingBundlePublic({ data: { audience: a } })) as unknown as LandingBundle,
+    fetchPosters: async () => {
+      const trending = (await getTrendingPostersPublic()) as unknown as LandingPoster[];
+      if (trending.length > 0) return trending;
+      return (await getBestSellersPublic()) as unknown as LandingPoster[];
+    },
+  });
+}
+
 /** Client fetch of a landing page bundle (page + posters). */
 export function useLandingBundle(audience: string) {
   return useQuery({
     queryKey: ["landing-bundle", audience],
-    queryFn: async (): Promise<LandingBundle> => {
-      return (await getLandingBundlePublic({ data: { audience } })) as unknown as LandingBundle;
-    },
+    queryFn: () => fetchLandingBundle(audience),
     staleTime: 60_000,
   });
 }

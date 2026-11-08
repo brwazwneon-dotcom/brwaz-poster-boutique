@@ -9,6 +9,7 @@ import type { MarketingConfig } from "./use-marketing";
 import { gaEvent, type GAEventName } from "./ga4";
 import { isPreviewMode } from "./preview-mode";
 import { getAudienceAttribution } from "./landing-pages";
+import { recordAudience } from "./audience";
 import { emitAnalyticsEvent, dispatchInternalOnly } from "./analytics-events";
 import { getMetaIdentifiers } from "./attribution";
 import { trackTikTok } from "./tiktok-browser";
@@ -29,12 +30,16 @@ function capiIdentity() {
 }
 
 function withAudience(params: Record<string, unknown>): Record<string, unknown> {
+  // The campaign audience (youth / album) the visitor came in through most recently. recordAudience() also reads the
+  // current page, so the very first event of an ad click (before anything else ran) already carries it.
+  const { last } = recordAudience();
   const a = getAudienceAttribution();
-  if (!a) return params;
+  if (!a && !last) return params;
+  // The landing page / campaign of the older first-visit store only describe the SAME audience.
+  const sameAudience = !!a && (!last || a.audience_type === last);
   return {
-    audience_type: a.audience_type,
-    landing_page: a.landing_page,
-    utm_campaign: a.utm_campaign,
+    audience_type: last ?? a?.audience_type,
+    ...(sameAudience ? { landing_page: a?.landing_page, utm_campaign: a?.utm_campaign } : {}),
     ...params, // caller-provided values win
   };
 }

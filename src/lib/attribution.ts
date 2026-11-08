@@ -12,6 +12,8 @@
  * host is "referral", and an internal navigation is not a touch at all.
  */
 
+import { getAudiences, type AudienceSnapshot } from "./audience";
+
 export const SOURCES = [
   "instagram",
   "facebook",
@@ -375,15 +377,19 @@ export function getOrderAttributionSnapshot(now = Date.now()): {
   last: Touch | null;
   fbclid?: string;
   ttclid?: string;
+  audience?: AudienceSnapshot;
 } {
   if (typeof window === "undefined") return { v: 1, first: null, last: null };
   const stored = readStored(now);
+  // The campaign audience (youth / album), only when the visitor came in through one of the two campaigns.
+  const audience = getAudiences(now);
   return {
     v: 1,
     first: toTouch(stored.first),
     last: toTouch(stored.last),
     ...(stored.clickIds?.fbclid ? { fbclid: stored.clickIds.fbclid } : {}),
     ...(stored.ttclid?.id ? { ttclid: stored.ttclid.id } : {}),
+    ...(audience.first || audience.last ? { audience } : {}),
   };
 }
 

@@ -6,6 +6,7 @@ import {
 import { isPreviewMode } from "./preview-mode";
 import { clientTrackingAllowed } from "./analytics-env";
 import { captureAttribution, getAttribution, toAttributionFields } from "./attribution";
+import { recordAudience } from "./audience";
 
 /**
  * Preview mode (admin previewing the storefront) and any non-production host
@@ -157,6 +158,8 @@ export function trackVisit(path: string): void {
   // campaign params). This only touches this browser's storage — no network —
   // so it runs on every host; only the recording below is production-gated.
   const attribution = captureAttribution();
+  // Same for the campaign audience (youth / album): browser storage only, so it also runs on every host.
+  recordAudience();
   if (!trackingAllowed()) return;
   if (visitFiredFor === path) return;
   visitFiredFor = path;

@@ -17,6 +17,7 @@
 // `ids_source: "utm"`. The ad set id is not in the link and is left out; it is
 // resolved later from the synced Meta ad record.
 import { normalizeSource } from "@/lib/attribution";
+import { parseAudience, type AudienceSnapshot } from "@/lib/audience";
 import { cleanTtclid } from "@/lib/tiktok-events";
 
 export const ORDER_ATTRIBUTION_VERSION = 1;
@@ -36,6 +37,8 @@ export type OrderAttributionInput = {
   last: TouchSnapshot | null;
   fbclid?: string;
   ttclid?: string;
+  /** The campaign audience (youth / album) the visitor came in through, when they came through one. */
+  audience?: AudienceSnapshot;
 };
 
 export type StoredTouch = TouchSnapshot & {
@@ -51,8 +54,18 @@ export type StoredOrderAttribution = {
   last: StoredTouch | null;
   fbclid?: string;
   ttclid?: string;
+  audience?: AudienceSnapshot;
   ids_source: "utm";
 };
+
+/** Allow-list for the audience: only the two known values survive, and nothing is stored when neither is present. */
+function cleanAudience(raw: unknown): AudienceSnapshot | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const first = parseAudience(r.first);
+  const last = parseAudience(r.last);
+  return first || last ? { first, last } : undefined;
+}
 
 const MAX_FIELD = 120;
 const META_SOURCES = new Set(["facebook", "instagram"]);
@@ -107,6 +120,7 @@ export function sanitizeOrderAttribution(
   if (!first && !last) return undefined;
   const fbclid = typeof r.fbclid === "string" && FBCLID.test(r.fbclid) ? r.fbclid : undefined;
   const ttclid = cleanTtclid(r.ttclid);
+  const audience = cleanAudience(r.audience);
   return {
     v: ORDER_ATTRIBUTION_VERSION,
     recorded_at: now.toISOString(),
@@ -114,6 +128,7 @@ export function sanitizeOrderAttribution(
     last,
     ...(fbclid ? { fbclid } : {}),
     ...(ttclid ? { ttclid } : {}),
+    ...(audience ? { audience } : {}),
     ids_source: "utm",
   };
 }
@@ -140,6 +155,7 @@ export function readStoredAttribution(raw: unknown): StoredOrderAttribution | nu
     last,
     ...(typeof r.fbclid === "string" && FBCLID.test(r.fbclid) ? { fbclid: r.fbclid } : {}),
     ...(cleanTtclid(r.ttclid) ? { ttclid: cleanTtclid(r.ttclid) } : {}),
+    ...(cleanAudience(r.audience) ? { audience: cleanAudience(r.audience) } : {}),
     ids_source: "utm",
   };
 }
