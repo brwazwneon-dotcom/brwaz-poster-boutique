@@ -3,27 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { FramedArtwork } from "@/components/FramedArtwork";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { PosterBadge } from "@/components/PosterBadge";
-import {
-  fetchLandingBundle,
-  useLandingBundle,
-  persistAudienceAttribution,
-} from "@/lib/landing-pages";
-import { getDefaultLanding, isDefaultLanding } from "@/lib/landing-defaults";
-import { recordAudience } from "@/lib/audience";
+import { useLandingBundle, persistAudienceAttribution } from "@/lib/landing-pages";
+import { getLandingBundlePublic } from "@/lib/db-public.functions";
 import { whatsappLink } from "@/lib/whatsapp";
 import { trackEvent, trackCustom } from "@/lib/meta-pixel";
 import { usePricing } from "@/lib/use-settings";
 import { cn } from "@/lib/utils";
-import {
-  Camera,
-  Images,
-  MessageCircle,
-  ShieldCheck,
-  Smartphone,
-  Truck,
-  Star,
-  Sparkles,
-} from "lucide-react";
+import { MessageCircle, ShieldCheck, Truck, Star, Sparkles } from "lucide-react";
 import { resolveProductArtwork, usePosterResponsiveImages } from "@/lib/public-images";
 
 const BASE_URL = "https://brwazwneon.com";
@@ -41,11 +27,10 @@ export const Route = createFileRoute("/landing/$audience")({
   // and is marked visible. An unvisible/nonexistent one still renders a
   // friendly in-page message rather than a hard 404, since ad traffic
   // can hit these before the campaign is flipped live.
-  loader: async ({ params, context }) => {
-    // The admin's page when there is one, otherwise the built-in page of the two campaign audiences (youth, album).
-    const bundle = await fetchLandingBundle(params.audience).catch(() => null);
-    // Seeded for the first render, so a visitor from an ad sees the page at once instead of a "Loading..." box.
-    context.queryClient.setQueryData(["landing-bundle", params.audience], bundle);
+  loader: async ({ params }) => {
+    const bundle = await getLandingBundlePublic({ data: { audience: params.audience } }).catch(
+      () => null,
+    );
     return { bundle };
   },
   head: ({ loaderData, params }) => {
@@ -78,8 +63,6 @@ function LandingPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    // Tag the visitor with this campaign's audience FIRST, so the events below already carry it.
-    recordAudience();
     persistAudienceAttribution(audience, params);
     try {
       const utm_campaign = params.get("utm_campaign") || `${audience}_ads`;
@@ -156,22 +139,6 @@ function LandingPage() {
       /* noop */
     }
   };
-
-  // The built-in "photo" page (audience album): it sends people to photo printing instead of showing a poster grid.
-  if (isDefaultLanding(page) && getDefaultLanding(audience)?.kind === "photo") {
-    return (
-      <PhotoAlbumLanding
-        audience={audience}
-        titleAr={titleAr}
-        titleEn={titleEn}
-        subtitleAr={subtitleAr}
-        subtitleEn={subtitleEn}
-        cta={cta}
-        wa={wa}
-        onWaClick={onWaClick}
-      />
-    );
-  }
 
   return (
     <div className="pb-20 sm:pb-0">
@@ -359,142 +326,6 @@ function LandingPage() {
         >
           <MessageCircle className="h-5 w-5" /> {cta}
         </a>
-      </div>
-    </div>
-  );
-}
-
-const ALBUM_BENEFITS = [
-  {
-    icon: Smartphone,
-    title: "ارفع صورك من الموبايل",
-    body: "اختار صورك مرة واحدة من موبايلك، من غير تعقيد.",
-  },
-  {
-    icon: Camera,
-    title: "جودة طباعة عالية",
-    body: "ألوان واضحة وتفاصيل حادة في كل صورة.",
-  },
-  {
-    icon: Images,
-    title: "ألبوم تقعد تقلب فيه",
-    body: "ذكرياتك مترتبة في ألبوم، مش مدفونة في معرض الموبايل.",
-  },
-  {
-    icon: Truck,
-    title: "توصيل لكل مصر",
-    body: "بنوصّلهالك لحد باب البيت.",
-  },
-] as const;
-
-/**
- * The built-in landing page of the "album" campaign (people who want to print many photos and keep them in an album).
- * Its job is one thing: get the visitor to the photo-printing page. No prices are quoted here on purpose (they depend on the
- * number and size of the photos and are shown, from the admin's settings, on the photo-printing page itself).
- */
-function PhotoAlbumLanding({
-  audience,
-  titleAr,
-  titleEn,
-  subtitleAr,
-  subtitleEn,
-  cta,
-  wa,
-  onWaClick,
-}: {
-  audience: string;
-  titleAr: string;
-  titleEn: string;
-  subtitleAr: string;
-  subtitleEn: string;
-  cta: string;
-  wa: string;
-  onWaClick: () => void;
-}) {
-  const onStart = () => {
-    try {
-      trackEvent("ViewContent", {
-        content_name: "Landing: start printing",
-        audience_type: audience,
-        landing_page: `/landing/${audience}`,
-      });
-    } catch {
-      /* noop */
-    }
-  };
-  const start = (
-    <Link
-      to="/photo-printing"
-      search={{ from: "landing-album" }}
-      onClick={onStart}
-      className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition hover:opacity-90"
-    >
-      <Camera className="h-5 w-5" /> {cta}
-    </Link>
-  );
-
-  return (
-    <div className="pb-20 sm:pb-0" data-landing-kind="photo">
-      <section className="relative overflow-hidden border-b border-border">
-        <div className="container-page relative py-16 text-center md:py-24">
-          <div className="text-xs uppercase tracking-[0.4em] text-primary">{titleEn}</div>
-          <h1 className="mt-3 text-display text-5xl leading-[1.1] md:text-7xl" dir="rtl">
-            {titleAr}
-          </h1>
-          {subtitleAr && (
-            <p
-              className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground"
-              dir="rtl"
-            >
-              {subtitleAr}
-            </p>
-          )}
-          {subtitleEn && (
-            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-              {subtitleEn}
-            </p>
-          )}
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            {start}
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onWaClick}
-              className="inline-flex items-center justify-center gap-2 rounded-sm border border-border px-6 py-4 text-sm font-semibold transition hover:bg-accent"
-            >
-              <MessageCircle className="h-5 w-5" /> كلّمنا على واتساب
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="container-page py-12">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {ALBUM_BENEFITS.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="rounded-sm border border-border bg-card p-5 text-center">
-              <Icon className="mx-auto h-7 w-7 text-primary" aria-hidden="true" />
-              <div className="mt-3 text-base font-semibold" dir="rtl">
-                {title}
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground" dir="rtl">
-                {body}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-10 flex justify-center">{start}</div>
-      </section>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
-        <Link
-          to="/photo-printing"
-          search={{ from: "landing-album" }}
-          onClick={onStart}
-          className="flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground"
-        >
-          <Camera className="h-5 w-5" /> {cta}
-        </Link>
       </div>
     </div>
   );

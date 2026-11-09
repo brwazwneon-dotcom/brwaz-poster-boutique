@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AUDIENCES,
-  campaignLandingUrl,
+  campaignDestinationUrl,
   campaignUrlParameters,
   classifyAudience,
   getAudiences,
@@ -37,25 +37,19 @@ describe("classifyAudience: only where a campaign sends the visitor tags them", 
     expect(classifyAudience(at("/photo-printing", "?aud=album&utm_source=facebook"))).toBe("album");
     expect(classifyAudience(at("/category/joker", "?x=1&aud=youth"))).toBe("youth");
   });
-  it("the campaigns' own landing pages tag by path (trailing slash and case do not matter)", () => {
-    expect(classifyAudience(at("/landing/youth"))).toBe("youth");
-    expect(classifyAudience(at("/landing/album/"))).toBe("album");
-    expect(classifyAudience(at("/Landing/Album"))).toBe("album");
+  it("the page alone never tags a visitor, whatever its path", () => {
+    expect(classifyAudience(at("/photo-printing"))).toBeNull();
+    expect(classifyAudience(at("/landing/youth"))).toBeNull();
   });
-  it("the parameter wins over the path", () => {
-    expect(classifyAudience(at("/landing/youth", "?aud=album"))).toBe("album");
-  });
-  it("an invalid parameter is ignored and the path decides", () => {
-    expect(classifyAudience(at("/landing/youth", "?aud=banana"))).toBe("youth");
+  it("an invalid parameter is ignored", () => {
     expect(classifyAudience(at("/", "?aud=banana"))).toBeNull();
   });
-  it("ordinary pages, and other landing pages, belong to no audience", () => {
+  it("ordinary pages belong to no audience", () => {
     for (const [p, s] of [
       ["/", ""],
       ["/photo-printing", ""],
       ["/category/anime", ""],
       ["/landing/movies", "?utm_source=meta"],
-      ["/landing/youth-extra", ""],
       ["/cart", "?aud="],
     ] as const) {
       expect(classifyAudience(at(p, s)), `${p}${s}`).toBeNull();
@@ -70,13 +64,13 @@ describe("recordAudience: first touch and last touch", () => {
   });
   it("a visit from the other campaign moves only the last one", () => {
     recordAudience(T0, at("/", "?aud=youth"));
-    expect(recordAudience(T0 + DAY, at("/landing/album"))).toEqual({
+    expect(recordAudience(T0 + DAY, at("/", "?aud=album"))).toEqual({
       first: "youth",
       last: "album",
     });
   });
   it("an ordinary page changes nothing: a returning visitor keeps the audience they came in with", () => {
-    recordAudience(T0, at("/landing/album"));
+    recordAudience(T0, at("/", "?aud=album"));
     expect(recordAudience(T0 + 2 * DAY, at("/cart"))).toEqual({ first: "album", last: "album" });
     expect(recordAudience(T0 + 3 * DAY, at("/", ""))).toEqual({ first: "album", last: "album" });
   });
@@ -85,14 +79,14 @@ describe("recordAudience: first touch and last touch", () => {
     expect(window.localStorage.getItem("brw-audience-v2")).toBeNull();
   });
   it("the last touch lasts 30 days and the first 90", () => {
-    recordAudience(T0, at("/landing/youth"));
+    recordAudience(T0, at("/", "?aud=youth"));
     expect(getAudiences(T0 + 29 * DAY)).toEqual({ first: "youth", last: "youth" });
     expect(getAudiences(T0 + 31 * DAY)).toEqual({ first: "youth", last: null });
     expect(getAudiences(T0 + 91 * DAY)).toEqual({ first: null, last: null });
   });
   it("after the first touch expired, the next campaign visit starts over", () => {
-    recordAudience(T0, at("/landing/youth"));
-    expect(recordAudience(T0 + 100 * DAY, at("/landing/album"))).toEqual({
+    recordAudience(T0, at("/", "?aud=youth"));
+    expect(recordAudience(T0 + 100 * DAY, at("/", "?aud=album"))).toEqual({
       first: "album",
       last: "album",
     });
@@ -105,13 +99,13 @@ describe("recordAudience: first touch and last touch", () => {
       JSON.stringify({ first: { a: "movies", ts: T0 }, last: { a: "youth", ts: "x" } }),
     );
     expect(getAudiences(T0)).toEqual({ first: null, last: null });
-    expect(recordAudience(T0, at("/landing/album"))).toEqual({ first: "album", last: "album" });
+    expect(recordAudience(T0, at("/", "?aud=album"))).toEqual({ first: "album", last: "album" });
   });
   it("blocked storage never throws; the audience of the current page is still reported", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    expect(recordAudience(T0, at("/landing/youth"))).toEqual({ first: "youth", last: "youth" });
+    expect(recordAudience(T0, at("/", "?aud=youth"))).toEqual({ first: "youth", last: "youth" });
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
@@ -119,7 +113,7 @@ describe("recordAudience: first touch and last touch", () => {
     expect(recordAudience(T0, at("/"))).toEqual({ first: null, last: null });
   });
   it("reads the real page address when none is given", () => {
-    window.history.pushState({}, "", "/landing/album?utm_source=facebook");
+    window.history.pushState({}, "", "/?aud=album&utm_source=facebook");
     expect(recordAudience()).toEqual({ first: "album", last: "album" });
     window.history.pushState({}, "", "/");
   });
@@ -132,14 +126,17 @@ describe("campaign links", () => {
     );
     expect(campaignUrlParameters("album")).toContain("&aud=album");
   });
-  it("the destination links point at each campaign's own page and are classified back to it", () => {
+  it("the destination links point at existing pages and are classified back to their audience", () => {
     for (const a of AUDIENCES) {
-      const url = new URL(campaignLandingUrl("https://brwazwneon.com/", a));
+      const url = new URL(campaignDestinationUrl("https://brwazwneon.com/", a));
       expect(url.origin).toBe("https://brwazwneon.com");
       expect(classifyAudience({ pathname: url.pathname, search: url.search })).toBe(a);
     }
-    expect(campaignLandingUrl("https://brwazwneon.com", "youth")).toBe(
-      "https://brwazwneon.com/landing/youth?aud=youth",
+    expect(campaignDestinationUrl("https://brwazwneon.com", "youth")).toBe(
+      "https://brwazwneon.com/?aud=youth",
+    );
+    expect(campaignDestinationUrl("https://brwazwneon.com", "album")).toBe(
+      "https://brwazwneon.com/photo-printing?aud=album",
     );
   });
 });

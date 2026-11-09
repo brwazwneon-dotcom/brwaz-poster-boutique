@@ -4,9 +4,8 @@
  *   youth - young people who like loud, quirky, unusual posters
  *   album - people who want to print many photos and keep them in an album instead of on the phone
  *
- * A visitor is tagged ONLY by where a campaign sends them, never guessed from behaviour:
- *   - the ad link carries `?aud=youth` or `?aud=album` (works on any page), or
- *   - they open the campaign's own landing page (/landing/youth, /landing/album).
+ * A visitor is tagged ONLY by the ad link that brought them, never guessed from behaviour: the link carries
+ * `?aud=youth` or `?aud=album` and may point at any existing page. No page of its own is needed.
  *
  * Like the traffic source (attribution.ts), the audience has a first touch (what brought them first, kept 90 days) and
  * a last touch (the campaign that brought them back most recently, kept 30 days). Ad events use the LAST one, so a
@@ -25,10 +24,10 @@ const STORAGE_KEY = "brw-audience-v2";
 const FIRST_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const LAST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Where each audience's own landing page lives. */
-export const AUDIENCE_LANDING_PATH: Record<Audience, string> = {
-  youth: "/landing/youth",
-  album: "/landing/album",
+/** The existing page each campaign's ads point at (there are no campaign-only pages). */
+export const AUDIENCE_DESTINATION_PATH: Record<Audience, string> = {
+  youth: "/",
+  album: "/photo-printing",
 };
 
 export const AUDIENCE_LABEL: Record<Audience, { ar: string; en: string }> = {
@@ -47,16 +46,10 @@ export type AudienceLocation = { pathname: string; search: string };
 
 /**
  * Which campaign audience does this page load belong to? null = none (an ordinary visit).
- * The explicit `?aud=` wins over the path, so one ad can point at any page and still be tagged.
+ * Only the explicit `?aud=` of the ad link counts: the page itself says nothing about the visitor.
  */
-export function classifyAudience({ pathname, search }: AudienceLocation): Audience | null {
-  const fromParam = parseAudience(new URLSearchParams(search || "").get(AUDIENCE_PARAM));
-  if (fromParam) return fromParam;
-  const path = (pathname || "").toLowerCase().replace(/\/+$/, "");
-  for (const audience of AUDIENCES) {
-    if (path === AUDIENCE_LANDING_PATH[audience]) return audience;
-  }
-  return null;
+export function classifyAudience({ search }: AudienceLocation): Audience | null {
+  return parseAudience(new URLSearchParams(search || "").get(AUDIENCE_PARAM));
 }
 
 type Touch = { a: Audience; ts: number };
@@ -127,7 +120,7 @@ export function campaignUrlParameters(audience: Audience): string {
 }
 
 /** The full destination link for a campaign (no Meta placeholders: a plain, testable URL). */
-export function campaignLandingUrl(origin: string, audience: Audience): string {
+export function campaignDestinationUrl(origin: string, audience: Audience): string {
   const base = origin.replace(/\/+$/, "");
-  return `${base}${AUDIENCE_LANDING_PATH[audience]}?${AUDIENCE_PARAM}=${audience}`;
+  return `${base}${AUDIENCE_DESTINATION_PATH[audience]}?${AUDIENCE_PARAM}=${audience}`;
 }

@@ -130,7 +130,7 @@ describe("Meta events carry the audience", () => {
   });
 
   it("a later page of the same visit keeps it", async () => {
-    await fire("/landing/youth", "");
+    await fire("/", "?aud=youth");
     const call = await fire("/cart", "");
     expect(call?.[2]).toMatchObject({ audience_type: "youth" });
   });
