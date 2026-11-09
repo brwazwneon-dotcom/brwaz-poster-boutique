@@ -373,7 +373,7 @@ const ALBUM_BENEFITS = [
   {
     icon: Camera,
     title: "جودة طباعة عالية",
-    body: "ألوان واضحة وورق فاخر يعيش سنين.",
+    body: "ألوان واضحة وتفاصيل حادة في كل صورة.",
   },
   {
     icon: Images,
