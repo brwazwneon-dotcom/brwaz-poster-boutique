@@ -15,6 +15,7 @@ import {
   guardPhotoOrderPayment,
   proofForStorage,
 } from "@/lib/order-payment.server";
+import { storePhotoAudience } from "@/lib/photo-order-audience.server";
 import type { PaymentMethod } from "@/lib/payment-proof-url";
 import type { PurchasePayload } from "@/lib/meta-events";
 import {
@@ -328,6 +329,8 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         // have no is_test column); it can never create one.
         test_mode?: boolean;
         tracking?: Record<string, unknown>;
+        // { first, last } audience of the visitor (see audience.ts); allow-listed before it is stored.
+        audience?: unknown;
       },
   )
   .handler(async ({ data }) => {
@@ -405,6 +408,7 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
         returning id, order_number
       `;
       const order = rows[0] as { id: string; order_number: string };
+      await storePhotoAudience(order.id, data.audience);
       return {
         ok: true as const,
         order,
@@ -453,6 +457,7 @@ export const createPhoto4x6Order = createServerFn({ method: "POST" })
       returning id, order_number
     `;
     const order = rows[0] as { id: string; order_number: string };
+    await storePhotoAudience(order.id, data.audience);
     return {
       ok: true as const,
       order,

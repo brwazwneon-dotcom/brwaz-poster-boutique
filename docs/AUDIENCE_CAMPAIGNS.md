@@ -29,6 +29,8 @@ tagged. This is optional and never needed.
 
 ## Known gaps
 
-- Photo-printing orders (`photo_orders`, `photo_4x6_orders`) do not store any audience. Their purchases are attributed in
-  Meta (Pixel and Conversions API), not in the dashboard.
+- Photo-printing orders (`photo_4x6_orders`) store `{first, last}` in a new `audience` column, but only after
+  `neon/migrations/030_photo_order_audience.sql` is applied. Until then the orders are saved normally and the audience is
+  skipped (it is written after the order, best-effort). The old `photo_orders` table is not used by any page and is left
+  alone. Nothing in the dashboard shows this column yet.
 - The dashboard's "Audience Campaign Performance" report still calls the retired Supabase backend.

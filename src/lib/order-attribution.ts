@@ -59,7 +59,7 @@ export type StoredOrderAttribution = {
 };
 
 /** Allow-list for the audience: only the two known values survive, and nothing is stored when neither is present. */
-function cleanAudience(raw: unknown): AudienceSnapshot | undefined {
+export function cleanAudience(raw: unknown): AudienceSnapshot | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const first = parseAudience(r.first);

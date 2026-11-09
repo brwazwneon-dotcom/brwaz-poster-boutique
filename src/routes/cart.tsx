@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { saveLastOrder } from "@/lib/last-order";
+import { getAudiences } from "@/lib/audience";
 import { distributeOfferDiscounts } from "@/lib/offer-discount";
 import { Ltr, ltrIsolate } from "@/components/Ltr";
 import { WoodPanelCartChip } from "@/components/WoodPanelInfo";
@@ -844,6 +845,7 @@ function CartPage() {
               payment_method: paymentMethod,
               shipping_with_frames: rows.length > 0,
               test_mode: testFlag,
+              audience: getAudiences(),
               tracking: orderTracking,
             },
           });

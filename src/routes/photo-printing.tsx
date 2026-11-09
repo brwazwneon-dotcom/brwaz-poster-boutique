@@ -35,6 +35,7 @@ import {
   type EditSettings,
 } from "@/lib/poster-edit";
 import { createPhoto4x6Order } from "@/lib/db-orders.functions";
+import { getAudiences } from "@/lib/audience";
 import { paymentErrorKey } from "@/lib/payment-proof-url";
 import { whatsappLink } from "@/lib/whatsapp";
 import { PHOTO_VOLUME_TIERS, photoUnitPrice } from "@/lib/photo-volume-pricing";
@@ -710,6 +711,7 @@ function PhotoPrintingPage() {
           selected_albums: selectedAlbums,
           payment_method: paymentMethod,
           test_mode: isTestMode(),
+          audience: getAudiences(),
           tracking: {
             ...getMetaIdentifiers(),
             ...getTikTokIdentifiers(),
