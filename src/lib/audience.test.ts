@@ -37,30 +37,41 @@ describe("classifyAudience", () => {
     expect(classifyAudience(at("/photo-printing", "?aud=album&utm_source=facebook"))).toBe("album");
     expect(classifyAudience(at("/category/joker", "?x=1&aud=youth"))).toBe("youth");
   });
-  it("opening the photo-printing page makes a visitor the album audience, with or without the parameter", () => {
-    expect(classifyAudience(at("/photo-printing"))).toBe("album");
-    expect(classifyAudience(at("/photo-printing/"))).toBe("album");
-    expect(classifyAudience(at("/Photo-Printing", "?utm_source=google"))).toBe("album");
-    expect(classifyAudience(at("/photo-printing/step-2"))).toBe("album");
+  it("photo printing pages make a visitor the album audience, with no link tag needed", () => {
+    for (const p of ["/photo-printing", "/photo-printing/", "/Photo-Printing", "/photo-4x6"]) {
+      expect(classifyAudience(at(p, "?utm_source=google")), p).toBe("album");
+    }
+  });
+  it("framed-poster browsing pages make a visitor the poster (youth) audience, with no link tag needed", () => {
+    for (const p of [
+      "/category/joker",
+      "/category/joker/",
+      "/poster/some-poster",
+      "/best-sellers",
+      "/trending",
+      "/sets",
+      "/offers",
+    ]) {
+      expect(classifyAudience(at(p)), p).toBe("youth");
+    }
   });
   it("the parameter still wins over the page", () => {
     expect(classifyAudience(at("/photo-printing", "?aud=youth"))).toBe("youth");
+    expect(classifyAudience(at("/category/joker", "?aud=album"))).toBe("album");
   });
-  it("the youth audience comes only from the parameter, never from a page", () => {
-    expect(classifyAudience(at("/landing/youth"))).toBeNull();
-    expect(classifyAudience(at("/category/anime"))).toBeNull();
-  });
-  it("an invalid parameter is ignored", () => {
+  it("an invalid parameter is ignored and the page decides", () => {
     expect(classifyAudience(at("/", "?aud=banana"))).toBeNull();
     expect(classifyAudience(at("/photo-printing", "?aud=banana"))).toBe("album");
   });
-  it("other pages belong to no audience", () => {
+  it("shared pages (home, cart, checkout, search, ...) belong to no audience", () => {
     for (const [p, s] of [
       ["/", ""],
-      ["/photo-printing-guide", ""],
-      ["/category/anime", ""],
-      ["/landing/movies", "?utm_source=meta"],
       ["/cart", "?aud="],
+      ["/thank-you", ""],
+      ["/search", "?q=anime"],
+      ["/photo-printing-guide", ""],
+      ["/categories", ""],
+      ["/landing/movies", "?utm_source=meta"],
     ] as const) {
       expect(classifyAudience(at(p, s)), `${p}${s}`).toBeNull();
     }
@@ -83,6 +94,14 @@ describe("recordAudience: first touch and last touch", () => {
     recordAudience(T0, at("/", "?aud=album"));
     expect(recordAudience(T0 + 2 * DAY, at("/cart"))).toEqual({ first: "album", last: "album" });
     expect(recordAudience(T0 + 3 * DAY, at("/", ""))).toEqual({ first: "album", last: "album" });
+  });
+  it("browsing posters and then photo printing, with no tag anywhere: first is youth, last is album", () => {
+    expect(recordAudience(T0, at("/category/joker"))).toEqual({ first: "youth", last: "youth" });
+    expect(recordAudience(T0 + DAY, at("/cart"))).toEqual({ first: "youth", last: "youth" });
+    expect(recordAudience(T0 + 2 * DAY, at("/photo-printing"))).toEqual({
+      first: "youth",
+      last: "album",
+    });
   });
   it("a visitor nobody tagged stays untagged and nothing is written", () => {
     expect(recordAudience(T0, at("/"))).toEqual({ first: null, last: null });

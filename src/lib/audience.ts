@@ -44,20 +44,26 @@ export function parseAudience(value: unknown): Audience | null {
 
 export type AudienceLocation = { pathname: string; search: string };
 
-/** Anyone who opens the photo-printing page is the album audience, however they got there. */
-const ALBUM_PATH = "/photo-printing";
+/** Photo printing pages: whoever opens one is the album audience. */
+const ALBUM_PATHS = ["/photo-printing", "/photo-4x6"];
+/** Framed-poster browsing pages: whoever opens one is the poster ("youth") audience. */
+const POSTER_PATHS = ["/category", "/poster", "/best-sellers", "/trending", "/sets", "/offers"];
+
+const underPath = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
 /**
- * Which campaign audience does this page load belong to? null = none (an ordinary visit).
- *  1. an explicit `?aud=` in the link wins (so an ad may point at any page);
- *  2. otherwise the photo-printing page itself makes the visitor "album";
- *  3. every other page says nothing about the visitor (the youth audience only comes from `?aud=youth`).
+ * Which audience does this page load belong to? null = none (the home page, cart, checkout and so on are shared).
+ * The audience comes from the page itself, so no ad link has to carry anything:
+ *   - photo printing pages        -> album
+ *   - framed-poster browsing pages -> youth
+ * An explicit `?aud=` in a link still wins, for anyone who wants to tag a link on purpose.
  */
 export function classifyAudience({ pathname, search }: AudienceLocation): Audience | null {
   const fromParam = parseAudience(new URLSearchParams(search || "").get(AUDIENCE_PARAM));
   if (fromParam) return fromParam;
   const path = (pathname || "").toLowerCase().replace(/\/+$/, "");
-  if (path === ALBUM_PATH || path.startsWith(`${ALBUM_PATH}/`)) return "album";
+  if (ALBUM_PATHS.some((p) => underPath(path, p))) return "album";
+  if (POSTER_PATHS.some((p) => underPath(path, p))) return "youth";
   return null;
 }
 

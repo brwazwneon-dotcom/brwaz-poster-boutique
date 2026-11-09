@@ -1,38 +1,34 @@
-# Two campaign audiences: youth and album
+# Two audiences: poster buyers (`youth`) and photo-album printers (`album`)
 
-The store runs two ad campaigns, one per audience. The site tells their visitors apart so that each campaign can be
-measured and retargeted on its own. There are no campaign-only pages: ads point at existing pages.
+The site tells the two audiences apart **by the pages a visitor opens**. Nothing has to be added to any ad link.
 
-| Audience | Who                                                            | Ads point at      | `?aud=`                             |
-| -------- | -------------------------------------------------------------- | ----------------- | ----------------------------------- |
-| `youth`  | young people who like bold, quirky posters                     | `/` (or any page) | `youth`                             |
-| `album`  | people who want to print many photos and keep them in an album | `/photo-printing` | `album` (also automatic, see below) |
+| Audience | Who opens these pages                                   | Pages                                                                        |
+| -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `youth`  | people browsing the framed posters                      | `/category/*`, `/poster/*`, `/best-sellers`, `/trending`, `/sets`, `/offers` |
+| `album`  | people who want to print their photos and keep an album | `/photo-printing`, `/photo-4x6`                                              |
 
-## How a visitor is told apart
+Shared pages tag nobody: the home page, cart, checkout, search, thank-you, track-order and so on. A visitor who only
+opened shared pages has no audience.
 
-Never guessed from browsing, with one rule: **anyone who opens `/photo-printing` is the `album` audience**, with or without a tag. Otherwise by the ad link that brought them, which carries `?aud=youth` or `?aud=album`. The tag works
-on any page, so a youth ad may also point at a category or a single poster.
+`youth` is just the stored name of the poster audience (it appears in Meta events and in orders).
 
-`src/lib/audience.ts` remembers a **first** audience (90 days) and a **last** one (30 days) in the browser, like the traffic
-source in `attribution.ts`. A page without `?aud=` changes nothing, so a returning visitor keeps the audience they came in
-with. Meta events use the **last** one as `audience_type` (so a Meta custom audience follows what the person came for most
-recently). The framed-poster order stores both inside `orders.ad_tracking -> attribution -> audience`.
+## What is remembered
 
-## What to paste in Meta Ads Manager
+`src/lib/audience.ts` keeps, in the visitor's browser, a **first** audience (90 days) and a **last** one (30 days),
+like the traffic source in `attribution.ts`. It is updated on every page change.
 
-For each campaign, set the ad's **Website URL** and the **URL parameters** field. Meta fills `{{campaign.id}}` and
-`{{ad.id}}` itself; the site already reads them as the campaign and ad ids.
+- Meta events carry the **last** one as `audience_type`, so a Meta custom audience follows what the person looked at most
+  recently. Someone who browsed posters and then opened photo printing is `album` from then on, until they browse posters
+  again.
+- The framed-poster order stores both in `orders.ad_tracking -> attribution -> audience` (`first` and `last`).
 
-```
-Website URL (youth):  https://brwazwneon.com/
-URL parameters:       utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_content={{ad.id}}&aud=youth
+## Optional: tagging a link on purpose
 
-Website URL (album):  https://brwazwneon.com/photo-printing
-URL parameters:       utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_content={{ad.id}}&aud=album
-```
+A link may still carry `?aud=youth` or `?aud=album`. It wins over the page, so one ad can point at any page and still be
+tagged. This is optional and never needed.
 
-## Known gaps (not covered by this change)
+## Known gaps
 
-- Photo-printing orders (`photo_orders`, `photo_4x6_orders`) do not store any campaign or audience. Their purchases are
-  attributed in Meta (Pixel and Conversions API), not in the dashboard.
+- Photo-printing orders (`photo_orders`, `photo_4x6_orders`) do not store any audience. Their purchases are attributed in
+  Meta (Pixel and Conversions API), not in the dashboard.
 - The dashboard's "Audience Campaign Performance" report still calls the retired Supabase backend.
