@@ -29,6 +29,8 @@ vi.mock("@/lib/neon.server", () => ({
 vi.mock("@/lib/meta-capi.server", () => capi);
 const tt = vi.hoisted(() => ({ sendTikTokPurchase: vi.fn() }));
 vi.mock("@/lib/tiktok-events.server", () => tt);
+const push = vi.hoisted(() => ({ sendOrderPush: vi.fn() }));
+vi.mock("@/lib/order-push.server", () => push);
 
 import {
   buildOrderPurchase,
@@ -63,6 +65,8 @@ beforeEach(() => {
   capi.sendPurchaseToMeta.mockReset();
   tt.sendTikTokPurchase.mockReset();
   tt.sendTikTokPurchase.mockResolvedValue({ ok: true });
+  push.sendOrderPush.mockReset();
+  push.sendOrderPush.mockResolvedValue({ sent: true });
   capi.captureRequestFacts.mockReset();
   capi.captureRequestFacts.mockResolvedValue(FACTS);
   capi.buildAdTracking.mockReset();
@@ -508,5 +512,75 @@ describe("trackNewOrders — the TikTok CompletePayment travels beside the Meta 
     await trackNewOrders({ ...args, orderIds: [] });
     await registered[0];
     expect(tt.sendTikTokPurchase).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("trackNewOrders — the owner's phone notification", () => {
+  const purchase = {
+    event_id: "purchase_BRW-1018",
+    order_id: "BRW-1018",
+    value: 1219,
+    currency: "EGP" as const,
+    content_type: "product" as const,
+    content_ids: [],
+    contents: [],
+    num_items: 2,
+  };
+  const args = {
+    orderIds: ["order-1"],
+    orderRef: "BRW-1018",
+    purchase,
+    phone: "01012345678",
+    city: "Cairo",
+    kind: "frames" as const,
+  };
+  const onVercel = () => {
+    const registered: Promise<unknown>[] = [];
+    g[CTX] = { get: () => ({ waitUntil: (p: Promise<unknown>) => registered.push(p) }) };
+    process.env.VERCEL = "1";
+    return registered;
+  };
+
+  it("a real order sends one notification with the stored order number and total, and no personal data", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders(args);
+    await registered[0];
+    expect(push.sendOrderPush).toHaveBeenCalledTimes(1);
+    expect(push.sendOrderPush.mock.calls[0][0]).toEqual({
+      orderRef: "BRW-1018",
+      value: 1219,
+      city: "Cairo",
+      kind: "frames",
+      numItems: 2,
+    });
+    expect(JSON.stringify(push.sendOrderPush.mock.calls)).not.toContain("01012345678");
+  });
+
+  it("a photo order notifies too (no order rows)", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    await trackNewOrders({ ...args, orderIds: [], kind: "photos" });
+    await registered[0];
+    expect(push.sendOrderPush.mock.calls[0][0]).toMatchObject({ kind: "photos" });
+  });
+
+  it("a test order (no purchase) never notifies", async () => {
+    const registered = onVercel();
+    await trackNewOrders({ ...args, purchase: null });
+    await registered[0];
+    expect(push.sendOrderPush).not.toHaveBeenCalled();
+  });
+
+  it("a notification that fails or hangs forever never affects the order or the ad sends", async () => {
+    const registered = onVercel();
+    capi.sendPurchaseToMeta.mockResolvedValue({ ok: true });
+    push.sendOrderPush.mockImplementation(() => new Promise(() => {}));
+    const t0 = Date.now();
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    expect(Date.now() - t0).toBeLessThan(200);
+    push.sendOrderPush.mockRejectedValue(new Error("ntfy down"));
+    await expect(trackNewOrders(args)).resolves.toBe("deferred");
+    void registered;
   });
 });

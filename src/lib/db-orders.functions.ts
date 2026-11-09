@@ -215,6 +215,7 @@ export const createOrderRows = createServerFn({ method: "POST" })
       guestSessionId: first.guest_session_id,
       phone: first.phone,
       city: first.governorate,
+      kind: "frames",
     });
 
     // `purchase` goes back so the browser Pixel fires the SAME event (same
@@ -294,6 +295,7 @@ async function photoPurchaseFor(
       tracking: data.tracking,
       phone: data.phone,
       city: data.governorate,
+      kind: "photos",
     });
   return purchase;
 }

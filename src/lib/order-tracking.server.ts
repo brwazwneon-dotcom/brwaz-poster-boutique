@@ -9,6 +9,7 @@
 import { sql } from "@/lib/neon.server";
 import { buildPurchasePayload, isCatalogId, type PurchasePayload } from "@/lib/meta-events";
 import { afterResponse, type AfterResponseMode } from "@/lib/after-response.server";
+import { sendOrderPush, type OrderKind } from "@/lib/order-push.server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -161,6 +162,8 @@ export async function trackNewOrders(args: {
   guestSessionId?: string | null;
   phone?: string;
   city?: string;
+  /** What was ordered; only used for the owner's phone notification. */
+  kind?: OrderKind;
 }): Promise<AfterResponseMode | "skipped"> {
   try {
     if (args.orderIds.length === 0 && !args.purchase) return "skipped";
@@ -168,6 +171,17 @@ export async function trackNewOrders(args: {
     const facts = await captureRequestFacts();
     return await afterResponse(async ({ deferred }) => {
       await Promise.allSettled([
+        // The owner's phone notification: a real order only (a test order has no Purchase), independent of the
+        // advertising sends below, and never able to fail or delay the order (sendOrderPush never throws).
+        args.purchase
+          ? sendOrderPush({
+              orderRef: args.purchase.order_id,
+              value: args.purchase.value,
+              city: args.city,
+              kind: args.kind,
+              numItems: args.purchase.num_items,
+            })
+          : Promise.resolve(),
         (async () => {
           if (args.orderIds.length === 0) return;
           try {
