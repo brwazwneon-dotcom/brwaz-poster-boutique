@@ -44,12 +44,21 @@ export function parseAudience(value: unknown): Audience | null {
 
 export type AudienceLocation = { pathname: string; search: string };
 
+/** Anyone who opens the photo-printing page is the album audience, however they got there. */
+const ALBUM_PATH = "/photo-printing";
+
 /**
  * Which campaign audience does this page load belong to? null = none (an ordinary visit).
- * Only the explicit `?aud=` of the ad link counts: the page itself says nothing about the visitor.
+ *  1. an explicit `?aud=` in the link wins (so an ad may point at any page);
+ *  2. otherwise the photo-printing page itself makes the visitor "album";
+ *  3. every other page says nothing about the visitor (the youth audience only comes from `?aud=youth`).
  */
-export function classifyAudience({ search }: AudienceLocation): Audience | null {
-  return parseAudience(new URLSearchParams(search || "").get(AUDIENCE_PARAM));
+export function classifyAudience({ pathname, search }: AudienceLocation): Audience | null {
+  const fromParam = parseAudience(new URLSearchParams(search || "").get(AUDIENCE_PARAM));
+  if (fromParam) return fromParam;
+  const path = (pathname || "").toLowerCase().replace(/\/+$/, "");
+  if (path === ALBUM_PATH || path.startsWith(`${ALBUM_PATH}/`)) return "album";
+  return null;
 }
 
 type Touch = { a: Audience; ts: number };

@@ -3,14 +3,14 @@
 The store runs two ad campaigns, one per audience. The site tells their visitors apart so that each campaign can be
 measured and retargeted on its own. There are no campaign-only pages: ads point at existing pages.
 
-| Audience | Who                                                            | Ads point at      | `?aud=` |
-| -------- | -------------------------------------------------------------- | ----------------- | ------- |
-| `youth`  | young people who like bold, quirky posters                     | `/` (or any page) | `youth` |
-| `album`  | people who want to print many photos and keep them in an album | `/photo-printing` | `album` |
+| Audience | Who                                                            | Ads point at      | `?aud=`                             |
+| -------- | -------------------------------------------------------------- | ----------------- | ----------------------------------- |
+| `youth`  | young people who like bold, quirky posters                     | `/` (or any page) | `youth`                             |
+| `album`  | people who want to print many photos and keep them in an album | `/photo-printing` | `album` (also automatic, see below) |
 
 ## How a visitor is told apart
 
-Only by the ad link that brought them, never guessed from browsing: the link carries `?aud=youth` or `?aud=album`. It works
+Never guessed from browsing, with one rule: **anyone who opens `/photo-printing` is the `album` audience**, with or without a tag. Otherwise by the ad link that brought them, which carries `?aud=youth` or `?aud=album`. The tag works
 on any page, so a youth ad may also point at a category or a single poster.
 
 `src/lib/audience.ts` remembers a **first** audience (90 days) and a **last** one (30 days) in the browser, like the traffic

@@ -31,23 +31,33 @@ describe("parseAudience", () => {
   );
 });
 
-describe("classifyAudience: only where a campaign sends the visitor tags them", () => {
+describe("classifyAudience", () => {
   it("the ?aud= parameter works on any page", () => {
     expect(classifyAudience(at("/", "?aud=youth"))).toBe("youth");
     expect(classifyAudience(at("/photo-printing", "?aud=album&utm_source=facebook"))).toBe("album");
     expect(classifyAudience(at("/category/joker", "?x=1&aud=youth"))).toBe("youth");
   });
-  it("the page alone never tags a visitor, whatever its path", () => {
-    expect(classifyAudience(at("/photo-printing"))).toBeNull();
+  it("opening the photo-printing page makes a visitor the album audience, with or without the parameter", () => {
+    expect(classifyAudience(at("/photo-printing"))).toBe("album");
+    expect(classifyAudience(at("/photo-printing/"))).toBe("album");
+    expect(classifyAudience(at("/Photo-Printing", "?utm_source=google"))).toBe("album");
+    expect(classifyAudience(at("/photo-printing/step-2"))).toBe("album");
+  });
+  it("the parameter still wins over the page", () => {
+    expect(classifyAudience(at("/photo-printing", "?aud=youth"))).toBe("youth");
+  });
+  it("the youth audience comes only from the parameter, never from a page", () => {
     expect(classifyAudience(at("/landing/youth"))).toBeNull();
+    expect(classifyAudience(at("/category/anime"))).toBeNull();
   });
   it("an invalid parameter is ignored", () => {
     expect(classifyAudience(at("/", "?aud=banana"))).toBeNull();
+    expect(classifyAudience(at("/photo-printing", "?aud=banana"))).toBe("album");
   });
-  it("ordinary pages belong to no audience", () => {
+  it("other pages belong to no audience", () => {
     for (const [p, s] of [
       ["/", ""],
-      ["/photo-printing", ""],
+      ["/photo-printing-guide", ""],
       ["/category/anime", ""],
       ["/landing/movies", "?utm_source=meta"],
       ["/cart", "?aud="],
